@@ -25,5 +25,5 @@ jobs:
 
           AUTH_URL="${MIRROR_REPO_URL/https:\/\//https:\/\/x-access-token:${MIRROR_TOKEN}@}"
           git remote add mirror "$AUTH_URL" 2>/dev/null || git remote set-url mirror "$AUTH_URL"
-          git push --force --prune mirror 'refs/heads/*:refs/heads/*'
-          git push --force --tags mirror
+          git push --prune mirror 'refs/heads/*:refs/heads/*'
+          git push --tags mirror
