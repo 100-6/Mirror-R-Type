@@ -1,0 +1,29 @@
+name: push-to-mirror
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+          persist-credentials: false
+
+      - name: Add mirror remote & Push
+        env:
+          MIRROR_REPO_URL: ${{ secrets.MIRROR_REPO_URL }}
+          MIRROR_TOKEN:    ${{ secrets.MIRROR_TOKEN }}
+        run: |
+          : "${MIRROR_REPO_URL:?MIRROR_REPO_URL manquant}"
+          : "${MIRROR_TOKEN:?MIRROR_TOKEN manquant}"
+
+          AUTH_URL="${MIRROR_REPO_URL/https:\/\//https:\/\/x-access-token:${MIRROR_TOKEN}@}"
+          git remote add mirror "$AUTH_URL" 2>/dev/null || git remote set-url mirror "$AUTH_URL"
+          git push --force --prune mirror 'refs/heads/*:refs/heads/*'
+          git push --force --tags mirror
