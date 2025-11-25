@@ -13,6 +13,9 @@ option(BUILD_SERVER "Build server executable" ON)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
+# Add plugin manager subdirectory
+add_subdirectory(plugin_manager)
+
 add_subdirectory(engine)
 
 if (BUILD_SERVER)
