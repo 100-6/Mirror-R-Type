@@ -2,7 +2,7 @@ name: CI
 
 on:
   pull_request:
-    branches: [ main ]
+    branches: [ main, dev ]
 
 jobs:
   build:
@@ -23,3 +23,35 @@ jobs:
 
       - name: Build
         run: cmake --build build --config Release
+
+  lint:
+    name: Code Linting with clang-tidy
+    runs-on: ubuntu-latest
+    continue-on-error: true  # none blocking
+    if: github.base_ref == 'main'
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Install clang-tidy
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-tidy
+
+      - name: Configure CMake with clang-tidy
+        run: cmake -S . -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+      - name: Run clang-tidy
+        run: |
+          echo "Running clang-tidy analysis..."
+          run-clang-tidy -p build -j $(nproc) 2>&1 | tee clang-tidy-report.txt || true
+          echo "Clang-tidy analysis completed (non-blocking)"
+
+      - name: Upload clang-tidy report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: clang-tidy-report
+          path: clang-tidy-report.txt
+          retention-days: 30
