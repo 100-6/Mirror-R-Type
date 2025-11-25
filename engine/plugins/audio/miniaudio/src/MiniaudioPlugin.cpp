@@ -5,10 +5,18 @@
 ** MiniaudioPlugin - Miniaudio implementation of IAudioPlugin
 */
 
+// Prevent Windows.h from defining min/max macros
+#if defined(_WIN32) || defined(_WIN64)
+    #ifndef NOMINMAX
+        #define NOMINMAX
+    #endif
+#endif
+
 #define MINIAUDIO_IMPLEMENTATION
 #include "MiniaudioPlugin.hpp"
 #include <stdexcept>
 #include <iostream>
+#include <algorithm>
 
 namespace rtype {
 
