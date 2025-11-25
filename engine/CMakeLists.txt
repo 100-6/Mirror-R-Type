@@ -2,6 +2,7 @@
 
 add_library(rtype_engine
     src/Test.cpp
+    src/core/event/EventBus.cpp
 )
 
 target_include_directories(rtype_engine

@@ -7,6 +7,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(BUILD_CLIENT "Build client executable" ON)
 option(BUILD_SERVER "Build server executable" ON)
+option(BUILD_TESTS "Build unit tests" ON)
 
 # list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 # include(CPM)
@@ -21,4 +22,8 @@ endif()
 
 if (BUILD_CLIENT)
     add_subdirectory(client)
+endif()
+
+if (BUILD_TESTS)
+    add_subdirectory(tests)
 endif()
