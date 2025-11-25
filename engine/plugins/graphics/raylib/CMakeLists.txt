@@ -10,11 +10,12 @@ if(NOT raylib_FOUND)
     # Try to use pkg-config to find raylib
     find_package(PkgConfig)
     if(PKG_CONFIG_FOUND)
-        pkg_check_modules(RAYLIB REQUIRED raylib)
+        pkg_check_modules(RAYLIB raylib)
     endif()
-    
+
     if(NOT RAYLIB_FOUND)
-        message(FATAL_ERROR "Raylib not found. Please install raylib or provide a way to find it.")
+        message(WARNING "Raylib not found. Skipping raylib graphics plugin. Install raylib to build this plugin.")
+        return()
     endif()
 endif()
 
