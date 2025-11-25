@@ -18,11 +18,11 @@ class SparseSet {
             std::vector<std::optional<size_t>> sparse;
             std::vector<size_t> dense;
             std::vector<Component> data;
-            size_t count;
         public:
             SparseSet() = default;
             ~SparseSet() = default;
 
+            // Opérateurs
             Component& operator[](size_t index)
             {
                 size_t element = sparse[index].value();
@@ -30,6 +30,7 @@ class SparseSet {
                 return data[element];
             }
 
+            // Méthodes
             void erase(size_t index)
             {
                 size_t delete_id = sparse[index].value();
@@ -52,7 +53,6 @@ class SparseSet {
                 data.push_back(component);
                 sparse[index] = dense.size() - 1;
             }
-        protected:
 };
 
 #endif /* !SPARSESET_HPP_ */

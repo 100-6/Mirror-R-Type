@@ -5,6 +5,6 @@
 ** SparseArray
 */
 
-#include "SparseSet.hpp"
+#include "ecs/SparseSet.hpp"
 
 
