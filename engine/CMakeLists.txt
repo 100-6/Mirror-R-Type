@@ -1,7 +1,12 @@
-# engine/CMakeLists.txt
+# Add plugin manager
+add_subdirectory(plugin_manager)
 
+# Add plugins
+add_subdirectory(plugins/graphics/raylib)
+add_subdirectory(plugins/audio/miniaudio)
+
+# Engine library
 add_library(rtype_engine
-    src/Test.cpp
     src/core/event/EventBus.cpp
 )
 
