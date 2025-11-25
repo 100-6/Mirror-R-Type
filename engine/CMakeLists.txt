@@ -1,10 +1,18 @@
 # engine/CMakeLists.txt
 
-add_library(rtype_engine
-    src/Test.cpp
-)
+# Add plugin manager
+add_subdirectory(plugin_manager)
 
-target_include_directories(rtype_engine
-    PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/include
-)
+# Add plugins
+add_subdirectory(plugins/graphics/raylib)
+
+# Engine library (placeholder for now)
+# add_library(rtype_engine
+#     src/Test.cpp
+# )
+# 
+# target_include_directories(rtype_engine
+#     PUBLIC
+#         ${CMAKE_CURRENT_SOURCE_DIR}/include
+# )
+
