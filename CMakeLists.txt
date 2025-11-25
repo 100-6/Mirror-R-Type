@@ -26,16 +26,12 @@ option(BUILD_TESTS "Build unit tests" ON)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
-add_subdirectory(engine)
+add_subdirectory(src/engine)
 
 if (BUILD_SERVER)
-    add_subdirectory(server)
+    add_subdirectory(src/server)
 endif()
 
 if (BUILD_CLIENT)
-    add_subdirectory(client)
-endif()
-
-if (BUILD_TESTS)
-    add_subdirectory(tests)
+    add_subdirectory(src/client)
 endif()
