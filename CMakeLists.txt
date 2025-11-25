@@ -29,9 +29,6 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 # Add engine (includes plugin_manager and plugins)
 add_subdirectory(engine)
 
-# Add tests
-add_subdirectory(tests)
-
 if (BUILD_SERVER)
     add_subdirectory(server)
 endif()

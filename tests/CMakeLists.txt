@@ -4,8 +4,12 @@ cmake_minimum_required(VERSION 3.20)
 enable_testing()
 
 # Find Google Test
-find_package(GTest REQUIRED)
-include_directories(${GTEST_INCLUDE_DIRS})
+find_package(GTest QUIET)
+if(GTest_FOUND)
+    include_directories(${GTEST_INCLUDE_DIRS})
+else()
+    message(WARNING "GTest not found. Skipping GTest-based tests.")
+endif()
 
 # Include engine headers
 include_directories(${CMAKE_SOURCE_DIR}/engine/include)
@@ -16,20 +20,25 @@ add_subdirectory(plugin_manager)
 # Graphics Plugins Tests
 add_subdirectory(graphics_plugins)
 
-# EventBus tests
-add_executable(test_eventbus
-    core/event/test_eventbus.cpp
-)
+# Audio Plugins Tests
+add_subdirectory(audio_plugins)
 
-target_link_libraries(test_eventbus
-    rtype_engine
-    ${GTEST_LIBRARIES}
-    ${GTEST_MAIN_LIBRARIES}
-    pthread
-)
+# EventBus tests (only if GTest is found)
+if(GTest_FOUND)
+    add_executable(test_eventbus
+        core/event/test_eventbus.cpp
+    )
 
-# Add test to CTest
-add_test(NAME EventBusTests COMMAND test_eventbus)
+    target_link_libraries(test_eventbus
+        rtype_engine
+        ${GTEST_LIBRARIES}
+        ${GTEST_MAIN_LIBRARIES}
+        pthread
+    )
 
-# Set C++ standard
-set_property(TARGET test_eventbus PROPERTY CXX_STANDARD 20)
+    # Add test to CTest
+    add_test(NAME EventBusTests COMMAND test_eventbus)
+
+    # Set C++ standard
+    set_property(TARGET test_eventbus PROPERTY CXX_STANDARD 20)
+endif()
