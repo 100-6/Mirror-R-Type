@@ -10,6 +10,12 @@ include_directories(${GTEST_INCLUDE_DIRS})
 # Include engine headers
 include_directories(${CMAKE_SOURCE_DIR}/engine/include)
 
+# Plugin Manager Tests
+add_subdirectory(plugin_manager)
+
+# Graphics Plugins Tests
+add_subdirectory(graphics_plugins)
+
 # EventBus tests
 add_executable(test_eventbus
     core/event/test_eventbus.cpp

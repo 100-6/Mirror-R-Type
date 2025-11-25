@@ -26,10 +26,11 @@ option(BUILD_TESTS "Build unit tests" ON)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
-# Add plugin manager subdirectory
-add_subdirectory(plugin_manager)
-
+# Add engine (includes plugin_manager and plugins)
 add_subdirectory(engine)
+
+# Add tests
+add_subdirectory(tests)
 
 if (BUILD_SERVER)
     add_subdirectory(server)

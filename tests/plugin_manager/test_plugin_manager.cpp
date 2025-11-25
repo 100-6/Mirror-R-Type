@@ -18,7 +18,7 @@ void test_plugin_loading() {
     
     try {
         auto* plugin = manager.load_plugin<IPlugin>(
-            "./plugin_manager/test_plugin.so",
+            "./tests/plugins/test_plugin.so",
             "create_plugin"
         );
         
@@ -42,12 +42,12 @@ void test_plugin_unloading() {
     
     PluginManager manager;
     
-    manager.load_plugin<IPlugin>("./plugin_manager/test_plugin.so");
-    assert(manager.is_plugin_loaded("./plugin_manager/test_plugin.so"));
+    manager.load_plugin<IPlugin>("./tests/plugins/test_plugin.so");
+    assert(manager.is_plugin_loaded("./tests/plugins/test_plugin.so"));
     std::cout << "✓ Plugin loaded" << std::endl;
     
-    manager.unload_plugin("./plugin_manager/test_plugin.so");
-    assert(!manager.is_plugin_loaded("./plugin_manager/test_plugin.so"));
+    manager.unload_plugin("./tests/plugins/test_plugin.so");
+    assert(!manager.is_plugin_loaded("./tests/plugins/test_plugin.so"));
     std::cout << "✓ Plugin unloaded" << std::endl;
 }
 
@@ -57,7 +57,7 @@ void test_multiple_plugins() {
     PluginManager manager;
     
     // Load the same plugin with different paths (simulating different plugins)
-    manager.load_plugin<IPlugin>("./plugin_manager/test_plugin.so", "create_plugin");
+    manager.load_plugin<IPlugin>("./tests/plugins/test_plugin.so", "create_plugin");
     
     assert(manager.get_plugin_count() == 1);
     std::cout << "✓ Plugin count: " << manager.get_plugin_count() << std::endl;
@@ -91,9 +91,9 @@ void test_error_handling() {
     }
     
     // Test loading plugin twice
-    manager.load_plugin<IPlugin>("./plugin_manager/test_plugin.so");
+    manager.load_plugin<IPlugin>("./tests/plugins/test_plugin.so");
     try {
-        manager.load_plugin<IPlugin>("./plugin_manager/test_plugin.so");
+        manager.load_plugin<IPlugin>("./tests/plugins/test_plugin.so");
         std::cerr << "✗ Should have thrown PluginException" << std::endl;
         assert(false);
     } catch (const PluginException& e) {
@@ -106,9 +106,9 @@ void test_get_plugin() {
     
     PluginManager manager;
     
-    manager.load_plugin<IPlugin>("./plugin_manager/test_plugin.so");
+    manager.load_plugin<IPlugin>("./tests/plugins/test_plugin.so");
     
-    auto* plugin = manager.get_plugin<IPlugin>("./plugin_manager/test_plugin.so");
+    auto* plugin = manager.get_plugin<IPlugin>("./tests/plugins/test_plugin.so");
     assert(plugin != nullptr);
     assert(plugin->is_initialized());
     std::cout << "✓ Retrieved plugin successfully" << std::endl;
@@ -123,7 +123,7 @@ void test_plugin_lifecycle() {
     
     {
         PluginManager manager;
-        manager.load_plugin<IPlugin>("./plugin_manager/test_plugin.so");
+        manager.load_plugin<IPlugin>("./tests/plugins/test_plugin.so");
         assert(manager.get_plugin_count() == 1);
         std::cout << "✓ Plugin loaded in scope" << std::endl;
         
