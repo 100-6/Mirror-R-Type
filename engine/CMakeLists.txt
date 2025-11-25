@@ -4,6 +4,7 @@ add_subdirectory(plugin_manager)
 # Add plugins
 add_subdirectory(plugins/graphics/raylib)
 add_subdirectory(plugins/audio/miniaudio)
+add_subdirectory(plugins/network/asio)
 
 # Engine library
 add_library(rtype_engine

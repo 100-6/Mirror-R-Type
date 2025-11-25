@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <limits>
 
-namespace rtype {
+namespace engine {
 
 /**
  * @brief Lightweight entity identifier used throughout the ECS
@@ -28,4 +28,4 @@ inline bool is_valid(Entity entity) {
     return entity != INVALID_ENTITY;
 }
 
-} // namespace rtype
+}

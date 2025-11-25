@@ -13,7 +13,7 @@
 #include <memory>
 #include <vector>
 
-namespace rtype {
+namespace engine {
 
 /**
  * @brief Raylib implementation of the graphics plugin interface
@@ -94,5 +94,5 @@ private:
     bool using_custom_view_;
 };
 
-} // namespace rtype
+}
 

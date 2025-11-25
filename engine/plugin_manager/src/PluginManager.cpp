@@ -14,7 +14,7 @@
     #include <dlfcn.h>
 #endif
 
-namespace rtype {
+namespace engine {
 
 PluginManager::PluginManager() = default;
 
@@ -146,4 +146,4 @@ size_t PluginManager::get_plugin_count() const {
     return loaded_plugins_.size();
 }
 
-} // namespace rtype
+}

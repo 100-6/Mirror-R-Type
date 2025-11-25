@@ -14,7 +14,7 @@
 #include <functional>
 #include <cstdint>
 
-namespace rtype {
+namespace engine {
 
 /**
  * @brief Network packet structure
@@ -195,7 +195,12 @@ public:
     virtual int get_server_ping() const = 0;
 };
 
-} // namespace rtype
+}
+
+// Forward declaration for C linkage
+namespace engine {
+    class INetworkPlugin;
+}
 
 // Plugin factory function signatures
 extern "C" {
@@ -203,11 +208,11 @@ extern "C" {
      * @brief Factory function to create a network plugin instance
      * @return Pointer to the created plugin
      */
-    rtype::INetworkPlugin* create_network_plugin();
+    engine::INetworkPlugin* create_network_plugin();
 
     /**
      * @brief Destroy a network plugin instance
      * @param plugin Plugin to destroy
      */
-    void destroy_network_plugin(rtype::INetworkPlugin* plugin);
+    void destroy_network_plugin(engine::INetworkPlugin* plugin);
 }

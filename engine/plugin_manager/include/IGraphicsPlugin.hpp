@@ -11,7 +11,7 @@
 #include "CommonTypes.hpp"
 #include <string>
 
-namespace rtype {
+namespace engine {
 
 /**
  * @brief Sprite information structure
@@ -192,7 +192,12 @@ public:
     virtual void reset_view() = 0;
 };
 
-} // namespace rtype
+}
+
+// Forward declaration for C linkage
+namespace engine {
+    class IGraphicsPlugin;
+}
 
 // Plugin factory function signatures
 extern "C" {
@@ -200,11 +205,11 @@ extern "C" {
      * @brief Factory function to create a graphics plugin instance
      * @return Pointer to the created plugin
      */
-    rtype::IGraphicsPlugin* create_graphics_plugin();
+    engine::IGraphicsPlugin* create_graphics_plugin();
 
     /**
      * @brief Destroy a graphics plugin instance
      * @param plugin Plugin to destroy
      */
-    void destroy_graphics_plugin(rtype::IGraphicsPlugin* plugin);
+    void destroy_graphics_plugin(engine::IGraphicsPlugin* plugin);
 }
