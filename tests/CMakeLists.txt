@@ -3,8 +3,14 @@ cmake_minimum_required(VERSION 3.20)
 # Enable testing
 enable_testing()
 
-# Find Google Test
-find_package(GTest REQUIRED)
+# Find Google Test (optional)
+find_package(GTest QUIET)
+
+if(NOT GTest_FOUND)
+    message(STATUS "GTest not found, skipping unit tests")
+    return()
+endif()
+
 include_directories(${GTEST_INCLUDE_DIRS})
 
 # Include engine headers

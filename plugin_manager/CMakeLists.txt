@@ -15,11 +15,14 @@ set(PLUGIN_MANAGER_HEADERS
     include/PluginManager.hpp
 )
 
-# Create static library
+# Create static library (with alias for easier linking)
 add_library(plugin_manager STATIC
     ${PLUGIN_MANAGER_SOURCES}
     ${PLUGIN_MANAGER_HEADERS}
 )
+
+# Create alias for consistent linking
+add_library(rtype_plugin_manager ALIAS plugin_manager)
 
 # Include directories
 target_include_directories(plugin_manager
