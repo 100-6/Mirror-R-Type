@@ -7,6 +7,8 @@ add_subdirectory(plugins/audio/miniaudio)
 
 # Engine library
 add_library(rtype_engine
+    src/Test.cpp
+    src/ecs/SparseSet.cpp
     src/core/event/EventBus.cpp
 )
 
