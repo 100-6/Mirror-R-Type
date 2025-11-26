@@ -107,3 +107,66 @@ target_link_libraries(test_asio_network_plugin
 )
 add_test(NAME AsioNetworkPluginTest COMMAND test_asio_network_plugin)
 set_property(TARGET test_asio_network_plugin PROPERTY CXX_STANDARD 20)
+
+# Raylib Graphics Plugin as shared library
+add_library(raylib_graphics SHARED
+    ${CMAKE_SOURCE_DIR}/src/engine/src/plugins/graphics/raylib/RaylibGraphicsPlugin.cpp
+)
+target_include_directories(raylib_graphics
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/src/engine/include
+)
+target_link_libraries(raylib_graphics
+    PRIVATE
+        raylib
+)
+set_target_properties(raylib_graphics PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/plugins"
+    PREFIX ""
+    CXX_STANDARD 20
+)
+
+# Miniaudio Audio Plugin as shared library
+add_library(miniaudio_audio SHARED
+    ${CMAKE_SOURCE_DIR}/src/engine/src/plugins/audio/miniaudio/MiniaudioPlugin.cpp
+)
+target_include_directories(miniaudio_audio
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/src/engine/include
+)
+set_target_properties(miniaudio_audio PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/plugins"
+    PREFIX ""
+    CXX_STANDARD 20
+)
+
+# Asio Network Plugin as shared library
+find_package(Boost REQUIRED COMPONENTS system)
+add_library(asio_network SHARED
+    ${CMAKE_SOURCE_DIR}/src/engine/src/plugins/network/asio/AsioNetworkPlugin.cpp
+)
+target_include_directories(asio_network
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/src/engine/include
+        ${Boost_INCLUDE_DIRS}
+)
+target_link_libraries(asio_network
+    PRIVATE
+        ${Boost_LIBRARIES}
+)
+set_target_properties(asio_network PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/plugins"
+    PREFIX ""
+    CXX_STANDARD 20
+)
+
+# Test Raylib Plugin
+add_executable(test_raylib_plugin
+    ${CMAKE_SOURCE_DIR}/src/engine/test/plugins/graphics/raylib/test_raylib_plugin.cpp
+)
+target_link_libraries(test_raylib_plugin
+    PRIVATE
+        rtype_engine
+)
+add_test(NAME RaylibPluginTest COMMAND test_raylib_plugin WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_property(TARGET test_raylib_plugin PROPERTY CXX_STANDARD 20)

@@ -15,12 +15,12 @@ int main() {
         std::cout << "=== Raylib Graphics Plugin Test ===" << std::endl;
         
         // Create plugin manager
-        rtype::PluginManager plugin_manager;
+        engine::PluginManager plugin_manager;
         
         std::cout << "Loading Raylib Graphics Plugin..." << std::endl;
         
         // Load the plugin
-        auto* graphics = plugin_manager.load_plugin<rtype::IGraphicsPlugin>(
+        auto* graphics = plugin_manager.load_plugin<engine::IGraphicsPlugin>(
             "./plugins/raylib_graphics.so",
             "create_graphics_plugin"
         );
@@ -43,23 +43,23 @@ int main() {
             
             // Test basic rendering
             std::cout << "\nTesting basic rendering..." << std::endl;
-            graphics->clear(rtype::Color::Black);
+            graphics->clear(engine::Color::Black);
             
             // Draw a simple rectangle
-            rtype::Rectangle rect(100.0f, 100.0f, 200.0f, 150.0f);
-            graphics->draw_rectangle(rect, rtype::Color::Red);
+            engine::Rectangle rect(100.0f, 100.0f, 200.0f, 150.0f);
+            graphics->draw_rectangle(rect, engine::Color::Red);
             
             // Draw text
             graphics->draw_text(
                 "Raylib Plugin Works!",
-                rtype::Vector2f(200.0f, 250.0f),
-                rtype::Color::White,
-                rtype::INVALID_HANDLE,
+                engine::Vector2f(200.0f, 250.0f),
+                engine::Color::White,
+                engine::INVALID_HANDLE,
                 30
             );
             
             // Draw a circle
-            graphics->draw_circle(rtype::Vector2f(400.0f, 400.0f), 50.0f, rtype::Color::Blue);
+            graphics->draw_circle(engine::Vector2f(400.0f, 400.0f), 50.0f, engine::Color::Blue);
             
             graphics->display();
             
