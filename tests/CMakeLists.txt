@@ -87,16 +87,6 @@ target_link_libraries(test_miniaudio_plugin
 add_test(NAME MiniaudioPluginTest COMMAND test_miniaudio_plugin)
 set_property(TARGET test_miniaudio_plugin PROPERTY CXX_STANDARD 20)
 
-# Simple Miniaudio Plugin Test (without pause/resume)
-add_executable(test_miniaudio_simple
-    plugins/audio/miniaudio/test_miniaudio_simple.cpp
-)
-target_link_libraries(test_miniaudio_simple
-    PRIVATE
-        rtype_engine
-)
-set_property(TARGET test_miniaudio_simple PROPERTY CXX_STANDARD 20)
-
 # Example Miniaudio
 add_executable(example_miniaudio
     plugins/audio/miniaudio/example_usage.cpp
