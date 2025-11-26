@@ -24,7 +24,21 @@ PluginManager::~PluginManager() {
 
 void* PluginManager::load_library(const std::string& path) {
 #ifdef _WIN32
-    return reinterpret_cast<void*>(LoadLibraryA(path.c_str()));
+    // On Windows, add the plugin directory to the DLL search path
+    // This allows the plugin to find its dependencies (like raylib.dll)
+    std::string plugin_dir = path.substr(0, path.find_last_of("/\\"));
+    if (!plugin_dir.empty()) {
+        SetDllDirectoryA(plugin_dir.c_str());
+    }
+    
+    void* handle = reinterpret_cast<void*>(LoadLibraryA(path.c_str()));
+    
+    // Restore the default DLL search path
+    if (!plugin_dir.empty()) {
+        SetDllDirectoryA(nullptr);
+    }
+    
+    return handle;
 #else
     return dlopen(path.c_str(), RTLD_LAZY | RTLD_LOCAL);
 #endif

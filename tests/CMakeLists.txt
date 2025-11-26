@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 3.20)
 
 enable_testing()
 
+# Find Threads (cross-platform pthread/native threads)
+find_package(Threads REQUIRED)
+
 # Find GTest via vcpkg
 find_package(GTest QUIET)
 if(GTest_FOUND)
@@ -24,7 +27,7 @@ if(GTest_FOUND)
             rtype_engine
             ${GTEST_LIBRARIES}
             ${GTEST_MAIN_LIBRARIES}
-            pthread
+            Threads::Threads
     )
     add_test(NAME EventBusTest COMMAND test_eventbus)
     set_property(TARGET test_eventbus PROPERTY CXX_STANDARD 20)
@@ -40,7 +43,7 @@ if(GTest_FOUND)
             rtype_engine
             ${GTEST_LIBRARIES}
             ${GTEST_MAIN_LIBRARIES}
-            pthread
+            Threads::Threads
     )
     add_test(NAME SparseSetGTestSuite COMMAND test_sparseset_gtest)
     set_property(TARGET test_sparseset_gtest PROPERTY CXX_STANDARD 20)
@@ -54,7 +57,7 @@ if(GTest_FOUND)
             rtype_engine
             ${GTEST_LIBRARIES}
             ${GTEST_MAIN_LIBRARIES}
-            pthread
+            Threads::Threads
     )
     add_test(NAME RegistryGTestSuite COMMAND test_registry)
     set_property(TARGET test_registry PROPERTY CXX_STANDARD 20)
@@ -106,16 +109,6 @@ target_link_libraries(test_miniaudio_plugin
 add_test(NAME MiniaudioPluginTest COMMAND test_miniaudio_plugin)
 set_property(TARGET test_miniaudio_plugin PROPERTY CXX_STANDARD 20)
 
-# Simple Miniaudio Plugin Test (without pause/resume)
-add_executable(test_miniaudio_simple
-    plugins/audio/miniaudio/test_miniaudio_simple.cpp
-)
-target_link_libraries(test_miniaudio_simple
-    PRIVATE
-        rtype_engine
-)
-set_property(TARGET test_miniaudio_simple PROPERTY CXX_STANDARD 20)
-
 # Example Miniaudio
 add_executable(example_miniaudio
     plugins/audio/miniaudio/example_usage.cpp
@@ -137,62 +130,9 @@ target_link_libraries(test_asio_network_plugin
 add_test(NAME AsioNetworkPluginTest COMMAND test_asio_network_plugin)
 set_property(TARGET test_asio_network_plugin PROPERTY CXX_STANDARD 20)
 
-# Raylib Graphics Plugin as shared library
-find_package(raylib REQUIRED)
-add_library(raylib_graphics SHARED
-    ${CMAKE_SOURCE_DIR}/src/engine/src/plugins/graphics/raylib/RaylibGraphicsPlugin.cpp
-)
-target_include_directories(raylib_graphics
-    PRIVATE
-        ${CMAKE_SOURCE_DIR}/src/engine/include
-)
-target_link_libraries(raylib_graphics
-    PRIVATE
-        raylib
-)
-set_target_properties(raylib_graphics PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/plugins"
-    PREFIX ""
-    CXX_STANDARD 20
-)
-
-# Miniaudio Audio Plugin as shared library
-add_library(miniaudio_audio SHARED
-    ${CMAKE_SOURCE_DIR}/src/engine/src/plugins/audio/miniaudio/MiniaudioPlugin.cpp
-)
-target_include_directories(miniaudio_audio
-    PRIVATE
-        ${CMAKE_SOURCE_DIR}/src/engine/include
-)
-set_target_properties(miniaudio_audio PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/plugins"
-    PREFIX ""
-    CXX_STANDARD 20
-)
-
-# Asio Network Plugin as shared library
-find_package(Boost REQUIRED COMPONENTS system)
-add_library(asio_network SHARED
-    ${CMAKE_SOURCE_DIR}/src/engine/src/plugins/network/asio/AsioNetworkPlugin.cpp
-)
-target_include_directories(asio_network
-    PRIVATE
-        ${CMAKE_SOURCE_DIR}/src/engine/include
-        ${Boost_INCLUDE_DIRS}
-)
-target_link_libraries(asio_network
-    PRIVATE
-        ${Boost_LIBRARIES}
-)
-set_target_properties(asio_network PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/plugins"
-    PREFIX ""
-    CXX_STANDARD 20
-)
-
-# Test Raylib Plugin
+# Test Raylib Graphics Plugin
 add_executable(test_raylib_plugin
-    ${CMAKE_SOURCE_DIR}/src/engine/test/plugins/graphics/raylib/test_raylib_plugin.cpp
+    plugins/graphics/raylib/test_raylib_plugin.cpp
 )
 target_link_libraries(test_raylib_plugin
     PRIVATE

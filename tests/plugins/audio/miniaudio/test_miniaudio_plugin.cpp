@@ -6,6 +6,7 @@
 */
 
 #include "plugin_manager/PluginManager.hpp"
+#include "plugin_manager/PluginPaths.hpp"
 #include "plugin_manager/IAudioPlugin.hpp"
 #include <iostream>
 #include <stdexcept>
@@ -21,9 +22,14 @@ int main() {
 
         std::cout << "Loading Miniaudio Audio Plugin..." << std::endl;
 
+        // Load the plugin using unified path helper
+        auto plugin_path = engine::PluginPaths::get_plugin_path(
+            engine::PluginPaths::MINIAUDIO_AUDIO
+        );
+
         // Load the plugin
         auto* audio = plugin_manager.load_plugin<engine::IAudioPlugin>(
-            "./plugins/miniaudio_audio.so",
+            plugin_path,
             "create_audio_plugin"
         );
 
@@ -166,7 +172,7 @@ int main() {
 
         // Unload plugin
         std::cout << "\nUnloading plugin..." << std::endl;
-        plugin_manager.unload_plugin("./plugins/miniaudio_audio.so");
+        plugin_manager.unload_plugin(plugin_path);
         std::cout << "✓ Plugin unloaded successfully!" << std::endl;
 
         std::cout << "\n=== All tests passed! ===" << std::endl;

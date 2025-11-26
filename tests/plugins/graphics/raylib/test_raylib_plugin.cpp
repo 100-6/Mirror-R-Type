@@ -6,6 +6,7 @@
 */
 
 #include "plugin_manager/PluginManager.hpp"
+#include "plugin_manager/PluginPaths.hpp"
 #include "plugin_manager/IGraphicsPlugin.hpp"
 #include <iostream>
 #include <stdexcept>
@@ -19,14 +20,18 @@ int main() {
         
         std::cout << "Loading Raylib Graphics Plugin..." << std::endl;
         
-        // Load the plugin
+        // Load the plugin using unified path helper
+        auto plugin_path = engine::PluginPaths::get_plugin_path(
+            engine::PluginPaths::RAYLIB_GRAPHICS
+        );
+        
         auto* graphics = plugin_manager.load_plugin<engine::IGraphicsPlugin>(
-            "./plugins/raylib_graphics.so",
+            plugin_path,
             "create_graphics_plugin"
         );
         
         if (!graphics) {
-            std::cerr << "Failed to load graphics plugin" << std::endl;
+            std::cerr << "Failed to load graphics plugin from: " << plugin_path << std::endl;
             return 1;
         }
         
@@ -75,7 +80,7 @@ int main() {
         
         // Unload plugin
         std::cout << "\nUnloading plugin..." << std::endl;
-        plugin_manager.unload_plugin("./plugins/raylib_graphics.so");
+        plugin_manager.unload_plugin(plugin_path);
         std::cout << "✓ Plugin unloaded successfully!" << std::endl;
         
         std::cout << "\n=== All tests passed! ===" << std::endl;

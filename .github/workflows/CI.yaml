@@ -41,10 +41,27 @@ jobs:
 
       - name: Configure CMake
         shell: bash
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake
+        run: cmake -S . -B build 
 
-      - name: Build
-        run: cmake --build build --config Release
+      - name: Build (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        run: |
+          cmake --build build
+          if [ $? -ne 0 ]; then
+            echo "Build failed!"
+            exit 1
+          fi
+
+      - name: Build (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: |
+          cmake --build build
+          if [ $? -ne 0 ]; then
+            echo "Build failed!"
+            exit 1
+          fi
 
   lint:
     name: Code Linting with clang-tidy

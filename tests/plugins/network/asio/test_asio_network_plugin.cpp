@@ -6,6 +6,7 @@
 */
 
 #include "plugin_manager/PluginManager.hpp"
+#include "plugin_manager/PluginPaths.hpp"
 #include "plugin_manager/INetworkPlugin.hpp"
 #include <iostream>
 #include <stdexcept>
@@ -17,8 +18,14 @@ using namespace engine;
 
 INetworkPlugin* test_plugin_loading(engine::PluginManager& plugin_manager) {
     std::cout << "\n=== Test: Plugin Loading ===" << std::endl;
+    
+    // Load the plugin using unified path helper
+    auto plugin_path = engine::PluginPaths::get_plugin_path(
+        engine::PluginPaths::ASIO_NETWORK
+    );
+    
     auto* network = plugin_manager.load_plugin<INetworkPlugin>(
-        "./plugins/asio_network.so",
+        plugin_path,
         "create_network_plugin"
     );
 
@@ -100,8 +107,13 @@ int main() {
         test_server_start_stop(network);
         test_client_server_communication(network);
         test_shutdown(network);
+        
+        auto plugin_path = engine::PluginPaths::get_plugin_path(
+            engine::PluginPaths::ASIO_NETWORK
+        );
+        
         std::cout << "\nUnloading plugin..." << std::endl;
-        plugin_manager.unload_plugin("./plugins/asio_network.so");
+        plugin_manager.unload_plugin(plugin_path);
         std::cout << "✓ Plugin unloaded successfully!" << std::endl;
         std::cout << "\n=== All tests passed! ===" << std::endl;
         return 0;

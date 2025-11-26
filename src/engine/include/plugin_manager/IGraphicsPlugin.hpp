@@ -9,6 +9,7 @@
 
 #include "IPlugin.hpp"
 #include "CommonTypes.hpp"
+#include "PluginExport.hpp"
 #include <string>
 
 namespace engine {
@@ -205,11 +206,11 @@ extern "C" {
      * @brief Factory function to create a graphics plugin instance
      * @return Pointer to the created plugin
      */
-    engine::IGraphicsPlugin* create_graphics_plugin();
+    PLUGIN_API engine::IGraphicsPlugin* create_graphics_plugin();
 
     /**
      * @brief Destroy a graphics plugin instance
      * @param plugin Plugin to destroy
      */
-    void destroy_graphics_plugin(engine::IGraphicsPlugin* plugin);
+    PLUGIN_API void destroy_graphics_plugin(engine::IGraphicsPlugin* plugin);
 }

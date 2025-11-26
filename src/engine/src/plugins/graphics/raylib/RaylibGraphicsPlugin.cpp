@@ -6,6 +6,7 @@
 */
 
 #include "plugins/graphics/raylib/RaylibGraphicsPlugin.hpp"
+#include "plugin_manager/PluginExport.hpp"
 #include <raylib.h>
 #include <stdexcept>
 #include <cstring>
@@ -459,11 +460,11 @@ void RaylibGraphicsPlugin::reset_view() {
 
 // Plugin factory functions
 extern "C" {
-    ::engine::IGraphicsPlugin* create_graphics_plugin() {
+    PLUGIN_API ::engine::IGraphicsPlugin* create_graphics_plugin() {
         return new ::engine::RaylibGraphicsPlugin();
     }
 
-    void destroy_graphics_plugin(::engine::IGraphicsPlugin* plugin) {
+    PLUGIN_API void destroy_graphics_plugin(::engine::IGraphicsPlugin* plugin) {
         delete plugin;
     }
 }
