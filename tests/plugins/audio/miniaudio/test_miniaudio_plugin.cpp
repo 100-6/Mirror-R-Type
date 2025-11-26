@@ -21,9 +21,16 @@ int main() {
 
         std::cout << "Loading Miniaudio Audio Plugin..." << std::endl;
 
+        // Load the plugin (Windows: .dll, Linux/Mac: .so)
+#ifdef _WIN32
+        const char* plugin_path = "miniaudio_audio.dll";
+#else
+        const char* plugin_path = "libminiaudio_audio.so";
+#endif
+
         // Load the plugin
         auto* audio = plugin_manager.load_plugin<engine::IAudioPlugin>(
-            "./plugins/miniaudio_audio.so",
+            plugin_path,
             "create_audio_plugin"
         );
 
@@ -166,7 +173,7 @@ int main() {
 
         // Unload plugin
         std::cout << "\nUnloading plugin..." << std::endl;
-        plugin_manager.unload_plugin("./plugins/miniaudio_audio.so");
+        plugin_manager.unload_plugin(plugin_path);
         std::cout << "✓ Plugin unloaded successfully!" << std::endl;
 
         std::cout << "\n=== All tests passed! ===" << std::endl;

@@ -19,14 +19,20 @@ int main() {
         
         std::cout << "Loading Raylib Graphics Plugin..." << std::endl;
         
-        // Load the plugin
+        // Load the plugin (Windows: .dll, Linux/Mac: .so)
+#ifdef _WIN32
+        const char* plugin_path = "raylib_graphics.dll";
+#else
+        const char* plugin_path = "libraylib_graphics.so";
+#endif
+        
         auto* graphics = plugin_manager.load_plugin<engine::IGraphicsPlugin>(
-            "./plugins/raylib_graphics.so",
+            plugin_path,
             "create_graphics_plugin"
         );
         
         if (!graphics) {
-            std::cerr << "Failed to load graphics plugin" << std::endl;
+            std::cerr << "Failed to load graphics plugin from: " << plugin_path << std::endl;
             return 1;
         }
         
@@ -75,7 +81,7 @@ int main() {
         
         // Unload plugin
         std::cout << "\nUnloading plugin..." << std::endl;
-        plugin_manager.unload_plugin("./plugins/raylib_graphics.so");
+        plugin_manager.unload_plugin(plugin_path);
         std::cout << "✓ Plugin unloaded successfully!" << std::endl;
         
         std::cout << "\n=== All tests passed! ===" << std::endl;

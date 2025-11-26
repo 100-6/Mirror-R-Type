@@ -17,8 +17,16 @@ using namespace engine;
 
 INetworkPlugin* test_plugin_loading(engine::PluginManager& plugin_manager) {
     std::cout << "\n=== Test: Plugin Loading ===" << std::endl;
+    
+    // Load the plugin (Windows: .dll, Linux/Mac: .so)
+#ifdef _WIN32
+    const char* plugin_path = "asio_network.dll";
+#else
+    const char* plugin_path = "libasio_network.so";
+#endif
+    
     auto* network = plugin_manager.load_plugin<INetworkPlugin>(
-        "./plugins/asio_network.so",
+        plugin_path,
         "create_network_plugin"
     );
 
@@ -100,8 +108,15 @@ int main() {
         test_server_start_stop(network);
         test_client_server_communication(network);
         test_shutdown(network);
+        
+#ifdef _WIN32
+        const char* plugin_path = "asio_network.dll";
+#else
+        const char* plugin_path = "libasio_network.so";
+#endif
+        
         std::cout << "\nUnloading plugin..." << std::endl;
-        plugin_manager.unload_plugin("./plugins/asio_network.so");
+        plugin_manager.unload_plugin(plugin_path);
         std::cout << "✓ Plugin unloaded successfully!" << std::endl;
         std::cout << "\n=== All tests passed! ===" << std::endl;
         return 0;

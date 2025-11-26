@@ -144,6 +144,12 @@ cd vcpkg
 cd ..
 ```
 
+#### 3.5 CMAKE Windows
+
+```powershell
+winget install --id Kitware.CMake -e
+```
+
 #### 4. Build the Project
 
 ```powershell

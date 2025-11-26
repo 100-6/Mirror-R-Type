@@ -14,6 +14,7 @@
 
 #define MINIAUDIO_IMPLEMENTATION
 #include "plugins/audio/miniaudio/MiniaudioPlugin.hpp"
+#include "plugin_manager/PluginExport.hpp"
 #include <stdexcept>
 #include <iostream>
 #include <algorithm>
@@ -503,7 +504,7 @@ extern "C" {
      * @brief Safely create an audio plugin instance
      * @return Pointer to the created plugin, or nullptr on failure
      */
-    engine::IAudioPlugin* create_audio_plugin() {
+    PLUGIN_API engine::IAudioPlugin* create_audio_plugin() {
         try {
             engine::MiniaudioPlugin* plugin = new (std::nothrow) engine::MiniaudioPlugin();
             if (!plugin) {
@@ -524,7 +525,7 @@ extern "C" {
      * @brief Safely destroy an audio plugin instance
      * @param plugin Plugin to destroy (can be nullptr)
      */
-    void destroy_audio_plugin(engine::IAudioPlugin* plugin) {
+    PLUGIN_API void destroy_audio_plugin(engine::IAudioPlugin* plugin) {
         if (!plugin) {
             return;
         }

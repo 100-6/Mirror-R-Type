@@ -9,6 +9,7 @@
 
 #include "IPlugin.hpp"
 #include "CommonTypes.hpp"
+#include "PluginExport.hpp"
 #include <string>
 
 namespace engine {
@@ -154,11 +155,11 @@ extern "C" {
      * @brief Factory function to create an audio plugin instance
      * @return Pointer to the created plugin
      */
-    engine::IAudioPlugin* create_audio_plugin();
+    PLUGIN_API engine::IAudioPlugin* create_audio_plugin();
 
     /**
      * @brief Destroy an audio plugin instance
      * @param plugin Plugin to destroy
      */
-    void destroy_audio_plugin(engine::IAudioPlugin* plugin);
+    PLUGIN_API void destroy_audio_plugin(engine::IAudioPlugin* plugin);
 }

@@ -6,6 +6,7 @@
 */
 
 #include "plugins/network/asio/AsioNetworkPlugin.hpp"
+#include "plugin_manager/PluginExport.hpp"
 #include <boost/asio.hpp>
 #include <boost/asio/ip/udp.hpp>
 #include <boost/asio/ip/address.hpp>
@@ -531,11 +532,11 @@ void AsioNetworkPlugin::check_client_timeouts()
 }
 
 extern "C" {
-    engine::INetworkPlugin* create_network_plugin() {
+    PLUGIN_API engine::INetworkPlugin* create_network_plugin() {
         return new engine::AsioNetworkPlugin();
     }
 
-    void destroy_network_plugin(engine::INetworkPlugin* plugin) {
+    PLUGIN_API void destroy_network_plugin(engine::INetworkPlugin* plugin) {
         delete plugin;
     }
 }

@@ -9,6 +9,7 @@
 
 #include "IPlugin.hpp"
 #include "CommonTypes.hpp"
+#include "PluginExport.hpp"
 #include <string>
 #include <vector>
 #include <functional>
@@ -208,11 +209,11 @@ extern "C" {
      * @brief Factory function to create a network plugin instance
      * @return Pointer to the created plugin
      */
-    engine::INetworkPlugin* create_network_plugin();
+    PLUGIN_API engine::INetworkPlugin* create_network_plugin();
 
     /**
      * @brief Destroy a network plugin instance
      * @param plugin Plugin to destroy
      */
-    void destroy_network_plugin(engine::INetworkPlugin* plugin);
+    PLUGIN_API void destroy_network_plugin(engine::INetworkPlugin* plugin);
 }
