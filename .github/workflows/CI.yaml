@@ -48,7 +48,7 @@ jobs:
         shell: bash
         run: |
           cmake --build build
-          if [ $? -ne 1 ]; then
+          if [ $? -ne 0 ]; then
             echo "Build failed!"
             exit 1
           fi
