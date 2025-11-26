@@ -108,9 +108,9 @@ target_link_libraries(test_asio_network_plugin
 add_test(NAME AsioNetworkPluginTest COMMAND test_asio_network_plugin)
 set_property(TARGET test_asio_network_plugin PROPERTY CXX_STANDARD 20)
 
-# Test Raylib Plugin
+# Test Raylib Graphics Plugin
 add_executable(test_raylib_plugin
-    ${CMAKE_SOURCE_DIR}/src/engine/test/plugins/graphics/raylib/test_raylib_plugin.cpp
+    plugins/graphics/raylib/test_raylib_plugin.cpp
 )
 target_link_libraries(test_raylib_plugin
     PRIVATE
