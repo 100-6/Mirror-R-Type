@@ -6,7 +6,8 @@
   "dependencies": [
     "boost-asio",
     "boost-system",
-    "raylib"
+    "raylib",
+    "gtest"
   ],
   "builtin-baseline": "bd52fac7114fdaa2208de8dd1227212a6683e562"
 }
