@@ -14,6 +14,7 @@
 #include <typeindex>
 #include <typeinfo>
 #include <functional>
+#include <memory>
 
 using Entity = size_t;
 
