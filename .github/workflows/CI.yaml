@@ -41,10 +41,10 @@ jobs:
 
       - name: Configure CMake
         shell: bash
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake
+        run: cmake -S . -B build 
 
       - name: Build
-        run: cmake --build build --config Release
+        run: cmake --build build
 
   lint:
     name: Code Linting with clang-tidy
