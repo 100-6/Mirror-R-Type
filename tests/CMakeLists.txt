@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 3.20)
 
 enable_testing()
 
+# Find Threads (cross-platform pthread/native threads)
+find_package(Threads REQUIRED)
+
 # Find GTest via vcpkg
 find_package(GTest QUIET)
 if(GTest_FOUND)
@@ -24,7 +27,7 @@ if(GTest_FOUND)
             rtype_engine
             ${GTEST_LIBRARIES}
             ${GTEST_MAIN_LIBRARIES}
-            pthread
+            Threads::Threads
     )
     add_test(NAME EventBusTest COMMAND test_eventbus)
     set_property(TARGET test_eventbus PROPERTY CXX_STANDARD 20)
@@ -40,7 +43,7 @@ if(GTest_FOUND)
             rtype_engine
             ${GTEST_LIBRARIES}
             ${GTEST_MAIN_LIBRARIES}
-            pthread
+            Threads::Threads
     )
     add_test(NAME SparseSetGTestSuite COMMAND test_sparseset_gtest)
     set_property(TARGET test_sparseset_gtest PROPERTY CXX_STANDARD 20)
@@ -54,7 +57,7 @@ if(GTest_FOUND)
             rtype_engine
             ${GTEST_LIBRARIES}
             ${GTEST_MAIN_LIBRARIES}
-            pthread
+            Threads::Threads
     )
     add_test(NAME RegistryGTestSuite COMMAND test_registry)
     set_property(TARGET test_registry PROPERTY CXX_STANDARD 20)
