@@ -5,10 +5,10 @@
 ** Simple test plugin for testing the PluginManager
 */
 
-#include "IPlugin.hpp"
+#include "plugin_manager/IPlugin.hpp"
 #include <iostream>
 
-namespace rtype {
+namespace engine {
 
 /**
  * @brief A simple test plugin implementation
@@ -47,15 +47,15 @@ public:
     }
 };
 
-} // namespace rtype
+} // namespace engine
 
 // Export the plugin creation functions
 extern "C" {
-    rtype::IPlugin* create_plugin() {
-        return new rtype::TestPlugin();
+    engine::IPlugin* create_plugin() {
+        return new engine::TestPlugin();
     }
 
-    void destroy_plugin(rtype::IPlugin* plugin) {
+    void destroy_plugin(engine::IPlugin* plugin) {
         delete plugin;
     }
 }
