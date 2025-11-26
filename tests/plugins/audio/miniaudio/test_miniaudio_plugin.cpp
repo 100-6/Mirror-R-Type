@@ -6,6 +6,7 @@
 */
 
 #include "plugin_manager/PluginManager.hpp"
+#include "plugin_manager/PluginPaths.hpp"
 #include "plugin_manager/IAudioPlugin.hpp"
 #include <iostream>
 #include <stdexcept>
@@ -21,12 +22,10 @@ int main() {
 
         std::cout << "Loading Miniaudio Audio Plugin..." << std::endl;
 
-        // Load the plugin (Windows: .dll, Linux/Mac: .so)
-#ifdef _WIN32
-        const char* plugin_path = "miniaudio_audio.dll";
-#else
-        const char* plugin_path = "./libminiaudio_audio.so";
-#endif
+        // Load the plugin using unified path helper
+        auto plugin_path = engine::PluginPaths::get_plugin_path(
+            engine::PluginPaths::MINIAUDIO_AUDIO
+        );
 
         // Load the plugin
         auto* audio = plugin_manager.load_plugin<engine::IAudioPlugin>(

@@ -6,6 +6,7 @@
 */
 
 #include "plugin_manager/PluginManager.hpp"
+#include "plugin_manager/PluginPaths.hpp"
 #include "plugin_manager/IGraphicsPlugin.hpp"
 #include <iostream>
 #include <stdexcept>
@@ -19,12 +20,10 @@ int main() {
         
         std::cout << "Loading Raylib Graphics Plugin..." << std::endl;
         
-        // Load the plugin (Windows: .dll, Linux/Mac: .so)
-#ifdef _WIN32
-        const char* plugin_path = "raylib_graphics.dll";
-#else
-        const char* plugin_path = "./libraylib_graphics.so";
-#endif
+        // Load the plugin using unified path helper
+        auto plugin_path = engine::PluginPaths::get_plugin_path(
+            engine::PluginPaths::RAYLIB_GRAPHICS
+        );
         
         auto* graphics = plugin_manager.load_plugin<engine::IGraphicsPlugin>(
             plugin_path,

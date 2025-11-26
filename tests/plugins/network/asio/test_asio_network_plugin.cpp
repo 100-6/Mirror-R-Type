@@ -6,6 +6,7 @@
 */
 
 #include "plugin_manager/PluginManager.hpp"
+#include "plugin_manager/PluginPaths.hpp"
 #include "plugin_manager/INetworkPlugin.hpp"
 #include <iostream>
 #include <stdexcept>
@@ -18,12 +19,10 @@ using namespace engine;
 INetworkPlugin* test_plugin_loading(engine::PluginManager& plugin_manager) {
     std::cout << "\n=== Test: Plugin Loading ===" << std::endl;
     
-    // Load the plugin (Windows: .dll, Linux/Mac: .so)
-#ifdef _WIN32
-    const char* plugin_path = "asio_network.dll";
-#else
-    const char* plugin_path = "./libasio_network.so";
-#endif
+    // Load the plugin using unified path helper
+    auto plugin_path = engine::PluginPaths::get_plugin_path(
+        engine::PluginPaths::ASIO_NETWORK
+    );
     
     auto* network = plugin_manager.load_plugin<INetworkPlugin>(
         plugin_path,
@@ -109,11 +108,9 @@ int main() {
         test_client_server_communication(network);
         test_shutdown(network);
         
-#ifdef _WIN32
-        const char* plugin_path = "asio_network.dll";
-#else
-        const char* plugin_path = "libasio_network.so";
-#endif
+        auto plugin_path = engine::PluginPaths::get_plugin_path(
+            engine::PluginPaths::ASIO_NETWORK
+        );
         
         std::cout << "\nUnloading plugin..." << std::endl;
         plugin_manager.unload_plugin(plugin_path);

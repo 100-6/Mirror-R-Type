@@ -50,19 +50,18 @@ target_link_libraries(raylib_graphics
 
 target_compile_definitions(raylib_graphics PRIVATE PLUGIN_EXPORTS)
 
-# Set output name based on platform
+# Set output to plugins directory with unified naming
+set_target_properties(raylib_graphics PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/plugins"
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/plugins"
+    OUTPUT_NAME "raylib_graphics"
+    PREFIX ""
+)
+
 if(WIN32)
-    set_target_properties(raylib_graphics PROPERTIES
-        OUTPUT_NAME "raylib_graphics"
-        PREFIX ""
-        SUFFIX ".dll"
-    )
+    set_target_properties(raylib_graphics PROPERTIES SUFFIX ".dll")
 else()
-    set_target_properties(raylib_graphics PROPERTIES
-        OUTPUT_NAME "raylib_graphics"
-        PREFIX "lib"
-        SUFFIX ".so"
-    )
+    set_target_properties(raylib_graphics PROPERTIES SUFFIX ".so")
 endif()
 
 # ============================================
@@ -79,18 +78,18 @@ target_include_directories(miniaudio_audio
 
 target_compile_definitions(miniaudio_audio PRIVATE PLUGIN_EXPORTS)
 
+# Set output to plugins directory with unified naming
+set_target_properties(miniaudio_audio PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/plugins"
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/plugins"
+    OUTPUT_NAME "miniaudio_audio"
+    PREFIX ""
+)
+
 if(WIN32)
-    set_target_properties(miniaudio_audio PROPERTIES
-        OUTPUT_NAME "miniaudio_audio"
-        PREFIX ""
-        SUFFIX ".dll"
-    )
+    set_target_properties(miniaudio_audio PROPERTIES SUFFIX ".dll")
 else()
-    set_target_properties(miniaudio_audio PROPERTIES
-        OUTPUT_NAME "miniaudio_audio"
-        PREFIX "lib"
-        SUFFIX ".so"
-    )
+    set_target_properties(miniaudio_audio PROPERTIES SUFFIX ".so")
 endif()
 
 # ============================================
@@ -114,16 +113,16 @@ target_link_libraries(asio_network
 
 target_compile_definitions(asio_network PRIVATE PLUGIN_EXPORTS)
 
+# Set output to plugins directory with unified naming
+set_target_properties(asio_network PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/plugins"
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/plugins"
+    OUTPUT_NAME "asio_network"
+    PREFIX ""
+)
+
 if(WIN32)
-    set_target_properties(asio_network PROPERTIES
-        OUTPUT_NAME "asio_network"
-        PREFIX ""
-        SUFFIX ".dll"
-    )
+    set_target_properties(asio_network PROPERTIES SUFFIX ".dll")
 else()
-    set_target_properties(asio_network PROPERTIES
-        OUTPUT_NAME "asio_network"
-        PREFIX "lib"
-        SUFFIX ".so"
-    )
+    set_target_properties(asio_network PROPERTIES SUFFIX ".so")
 endif()
