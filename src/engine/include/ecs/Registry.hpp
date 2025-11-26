@@ -8,6 +8,7 @@
 #ifndef REGISTRY_HPP_
 #define REGISTRY_HPP_
 #include "SparseSet.hpp"
+#include "ISystem.hpp"
 #include <unordered_map>
 #include <any>
 #include <typeindex>
@@ -21,6 +22,7 @@ class Registry {
         size_t next_entity_id = 0;
         std::unordered_map<std::type_index, std::any> components;
         std::vector<std::function<void (Registry&, Entity)>> to_kill;
+        std::vector<ISystem> systems;
     public:
         Registry() = default;
         ~Registry() = default;
@@ -73,10 +75,14 @@ class Registry {
 
         void kill_entity(Entity entity)
         {
-            for (auto& cleaner: to_kill)
-            {
+            for (auto& cleaner : to_kill)
                 cleaner(*this, entity);
-            }
+        }
+
+        void run_systems()
+        {
+            for (auto& system : systems)
+                system.update();
         }
 
 };
