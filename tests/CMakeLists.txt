@@ -109,6 +109,7 @@ add_test(NAME AsioNetworkPluginTest COMMAND test_asio_network_plugin)
 set_property(TARGET test_asio_network_plugin PROPERTY CXX_STANDARD 20)
 
 # Raylib Graphics Plugin as shared library
+find_package(raylib REQUIRED)
 add_library(raylib_graphics SHARED
     ${CMAKE_SOURCE_DIR}/src/engine/src/plugins/graphics/raylib/RaylibGraphicsPlugin.cpp
 )
