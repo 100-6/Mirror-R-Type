@@ -10,10 +10,11 @@
 
 class ISystem {
     public:
-        ISystem();
-        ~ISystem();
+        virtual ~ISystem() = default;
 
-        void update();
+        virtual void update() = 0;
+        virtual void init() = 0;
+        virtual void shutdown() = 0;
 
     protected:
     private:

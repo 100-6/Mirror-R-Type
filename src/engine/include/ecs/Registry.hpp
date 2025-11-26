@@ -22,7 +22,7 @@ class Registry {
         size_t next_entity_id = 0;
         std::unordered_map<std::type_index, std::any> components;
         std::vector<std::function<void (Registry&, Entity)>> to_kill;
-        std::vector<ISystem> systems;
+        std::vector<std::unique_ptr<ISystem>> systems;
     public:
         Registry() = default;
         ~Registry() = default;
@@ -82,7 +82,7 @@ class Registry {
         void run_systems()
         {
             for (auto& system : systems)
-                system.update();
+                system->update();
         }
 
 };
