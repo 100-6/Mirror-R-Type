@@ -43,8 +43,25 @@ jobs:
         shell: bash
         run: cmake -S . -B build 
 
-      - name: Build
-        run: cmake --build build
+      - name: Build (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        run: |
+          cmake --build build
+          if [ $? -ne 1 ]; then
+            echo "Build failed!"
+            exit 1
+          fi
+
+      - name: Build (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: |
+          cmake --build build
+          if [ $? -ne 0 ]; then
+            echo "Build failed!"
+            exit 1
+          fi
 
   lint:
     name: Code Linting with clang-tidy
