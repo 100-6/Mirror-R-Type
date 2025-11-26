@@ -54,12 +54,34 @@ target_compile_definitions(raylib_graphics PRIVATE PLUGIN_EXPORTS)
 set_target_properties(raylib_graphics PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/plugins"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/plugins"
+    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/plugins"
     OUTPUT_NAME "raylib_graphics"
     PREFIX ""
 )
 
+# For multi-config generators (Visual Studio, Xcode)
+foreach(CONFIG_TYPE ${CMAKE_CONFIGURATION_TYPES})
+    string(TOUPPER ${CONFIG_TYPE} CONFIG_TYPE_UPPER)
+    set_target_properties(raylib_graphics PROPERTIES
+        LIBRARY_OUTPUT_DIRECTORY_${CONFIG_TYPE_UPPER} "${CMAKE_BINARY_DIR}/plugins"
+        RUNTIME_OUTPUT_DIRECTORY_${CONFIG_TYPE_UPPER} "${CMAKE_BINARY_DIR}/plugins"
+        ARCHIVE_OUTPUT_DIRECTORY_${CONFIG_TYPE_UPPER} "${CMAKE_BINARY_DIR}/plugins"
+    )
+endforeach()
+
 if(WIN32)
     set_target_properties(raylib_graphics PROPERTIES SUFFIX ".dll")
+    
+    # Copy raylib.dll and glfw3.dll to build directory for runtime loading
+    add_custom_command(TARGET raylib_graphics POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:raylib>
+            ${CMAKE_BINARY_DIR}
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:glfw>
+            ${CMAKE_BINARY_DIR}
+        COMMENT "Copying raylib and glfw DLLs to build directory"
+    )
 else()
     set_target_properties(raylib_graphics PROPERTIES SUFFIX ".so")
 endif()
@@ -82,9 +104,20 @@ target_compile_definitions(miniaudio_audio PRIVATE PLUGIN_EXPORTS)
 set_target_properties(miniaudio_audio PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/plugins"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/plugins"
+    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/plugins"
     OUTPUT_NAME "miniaudio_audio"
     PREFIX ""
 )
+
+# For multi-config generators (Visual Studio, Xcode)
+foreach(CONFIG_TYPE ${CMAKE_CONFIGURATION_TYPES})
+    string(TOUPPER ${CONFIG_TYPE} CONFIG_TYPE_UPPER)
+    set_target_properties(miniaudio_audio PROPERTIES
+        LIBRARY_OUTPUT_DIRECTORY_${CONFIG_TYPE_UPPER} "${CMAKE_BINARY_DIR}/plugins"
+        RUNTIME_OUTPUT_DIRECTORY_${CONFIG_TYPE_UPPER} "${CMAKE_BINARY_DIR}/plugins"
+        ARCHIVE_OUTPUT_DIRECTORY_${CONFIG_TYPE_UPPER} "${CMAKE_BINARY_DIR}/plugins"
+    )
+endforeach()
 
 if(WIN32)
     set_target_properties(miniaudio_audio PROPERTIES SUFFIX ".dll")
@@ -117,9 +150,20 @@ target_compile_definitions(asio_network PRIVATE PLUGIN_EXPORTS)
 set_target_properties(asio_network PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/plugins"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/plugins"
+    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/plugins"
     OUTPUT_NAME "asio_network"
     PREFIX ""
 )
+
+# For multi-config generators (Visual Studio, Xcode)
+foreach(CONFIG_TYPE ${CMAKE_CONFIGURATION_TYPES})
+    string(TOUPPER ${CONFIG_TYPE} CONFIG_TYPE_UPPER)
+    set_target_properties(asio_network PROPERTIES
+        LIBRARY_OUTPUT_DIRECTORY_${CONFIG_TYPE_UPPER} "${CMAKE_BINARY_DIR}/plugins"
+        RUNTIME_OUTPUT_DIRECTORY_${CONFIG_TYPE_UPPER} "${CMAKE_BINARY_DIR}/plugins"
+        ARCHIVE_OUTPUT_DIRECTORY_${CONFIG_TYPE_UPPER} "${CMAKE_BINARY_DIR}/plugins"
+    )
+endforeach()
 
 if(WIN32)
     set_target_properties(asio_network PROPERTIES SUFFIX ".dll")
