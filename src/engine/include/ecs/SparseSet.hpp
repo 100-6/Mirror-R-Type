@@ -33,12 +33,14 @@ class SparseSet {
             // Méthodes
             void erase(size_t index)
             {
+                if (index >= sparse.size() || !sparse[index].has_value()) {return;}
+
                 size_t delete_id = sparse[index].value();
                 size_t last_entity_id = dense[dense.size() - 1];
 
                 dense[delete_id] = last_entity_id;
                 dense.pop_back();
-                
+
                 data[delete_id] = data[data.size() - 1];
                 data.pop_back();
 
