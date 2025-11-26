@@ -62,12 +62,12 @@ public:
 
 private:
     struct SoundData {
-        ma_sound sound;
+        std::unique_ptr<ma_sound> sound;
         bool is_playing = false;
     };
 
     struct MusicData {
-        ma_sound sound;
+        std::unique_ptr<ma_sound> sound;
         bool is_playing = false;
         bool is_looping = false;
         float volume = 1.0f;

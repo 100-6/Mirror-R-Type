@@ -72,13 +72,17 @@ void MiniaudioPlugin::shutdown() {
 
     // Stop and unload all sounds
     for (auto& [handle, sound_data] : sounds_) {
-        ma_sound_uninit(&sound_data.sound);
+        if (sound_data.sound) {
+            ma_sound_uninit(sound_data.sound.get());
+        }
     }
     sounds_.clear();
 
     // Stop and unload all music
     for (auto& [handle, music_data] : musics_) {
-        ma_sound_uninit(&music_data.sound);
+        if (music_data.sound) {
+            ma_sound_uninit(music_data.sound.get());
+        }
     }
     musics_.clear();
 
@@ -113,6 +117,7 @@ SoundHandle MiniaudioPlugin::load_sound(const std::string& path) {
 
     // Create sound data
     SoundData sound_data;
+    sound_data.sound = std::make_unique<ma_sound>();
 
     // Load sound using miniaudio
     ma_result result = ma_sound_init_from_file(
@@ -121,7 +126,7 @@ SoundHandle MiniaudioPlugin::load_sound(const std::string& path) {
         0, // flags (0 = default)
         NULL, // group (NULL = no group)
         NULL, // fence (NULL = no fence)
-        &sound_data.sound
+        sound_data.sound.get()
     );
 
     if (result != MA_SUCCESS) {
@@ -132,7 +137,7 @@ SoundHandle MiniaudioPlugin::load_sound(const std::string& path) {
     SoundHandle handle = next_sound_handle_++;
 
     // Store in cache
-    sounds_[handle] = sound_data;
+    sounds_[handle] = std::move(sound_data);
 
     return handle;
 }
@@ -142,7 +147,9 @@ void MiniaudioPlugin::unload_sound(SoundHandle handle) {
 
     auto it = sounds_.find(handle);
     if (it != sounds_.end()) {
-        ma_sound_uninit(&it->second.sound);
+        if (it->second.sound) {
+            ma_sound_uninit(it->second.sound.get());
+        }
         sounds_.erase(it);
     }
 }
@@ -155,7 +162,7 @@ bool MiniaudioPlugin::play_sound(SoundHandle handle, float volume, float pitch) 
     }
 
     auto it = sounds_.find(handle);
-    if (it == sounds_.end()) {
+    if (it == sounds_.end() || !it->second.sound) {
         return false;
     }
 
@@ -167,21 +174,21 @@ bool MiniaudioPlugin::play_sound(SoundHandle handle, float volume, float pitch) 
 
     // Set volume (apply master volume and mute)
     float final_volume = muted_ ? 0.0f : volume * master_volume_;
-    ma_sound_set_volume(&it->second.sound, final_volume);
+    ma_sound_set_volume(it->second.sound.get(), final_volume);
 
     // Set pitch
-    ma_sound_set_pitch(&it->second.sound, pitch);
+    ma_sound_set_pitch(it->second.sound.get(), pitch);
 
     // Stop if already playing to restart
-    if (ma_sound_is_playing(&it->second.sound)) {
-        ma_sound_stop(&it->second.sound);
+    if (ma_sound_is_playing(it->second.sound.get())) {
+        ma_sound_stop(it->second.sound.get());
     }
 
     // Seek to start
-    ma_sound_seek_to_pcm_frame(&it->second.sound, 0);
+    ma_sound_seek_to_pcm_frame(it->second.sound.get(), 0);
 
     // Start playing
-    ma_result result = ma_sound_start(&it->second.sound);
+    ma_result result = ma_sound_start(it->second.sound.get());
     if (result != MA_SUCCESS) {
         return false;
     }
@@ -198,8 +205,8 @@ void MiniaudioPlugin::stop_sound(SoundHandle handle) {
     }
 
     auto it = sounds_.find(handle);
-    if (it != sounds_.end()) {
-        ma_sound_stop(&it->second.sound);
+    if (it != sounds_.end() && it->second.sound) {
+        ma_sound_stop(it->second.sound.get());
         it->second.is_playing = false;
     }
 }
@@ -212,11 +219,11 @@ bool MiniaudioPlugin::is_sound_playing(SoundHandle handle) const {
     }
 
     auto it = sounds_.find(handle);
-    if (it == sounds_.end()) {
+    if (it == sounds_.end() || !it->second.sound) {
         return false;
     }
 
-    return ma_sound_is_playing(&it->second.sound);
+    return ma_sound_is_playing(it->second.sound.get());
 }
 
 // Music
@@ -239,6 +246,7 @@ MusicHandle MiniaudioPlugin::load_music(const std::string& path) {
 
     // Create music data
     MusicData music_data;
+    music_data.sound = std::make_unique<ma_sound>();
 
     // Load music using miniaudio with streaming flag
     ma_result result = ma_sound_init_from_file(
@@ -247,7 +255,7 @@ MusicHandle MiniaudioPlugin::load_music(const std::string& path) {
         MA_SOUND_FLAG_STREAM | MA_SOUND_FLAG_NO_SPATIALIZATION, // Stream for music
         NULL, // group
         NULL, // fence
-        &music_data.sound
+        music_data.sound.get()
     );
 
     if (result != MA_SUCCESS) {
@@ -258,7 +266,7 @@ MusicHandle MiniaudioPlugin::load_music(const std::string& path) {
     MusicHandle handle = next_music_handle_++;
 
     // Store in cache
-    musics_[handle] = music_data;
+    musics_[handle] = std::move(music_data);
 
     return handle;
 }
@@ -268,7 +276,9 @@ void MiniaudioPlugin::unload_music(MusicHandle handle) {
 
     auto it = musics_.find(handle);
     if (it != musics_.end()) {
-        ma_sound_uninit(&it->second.sound);
+        if (it->second.sound) {
+            ma_sound_uninit(it->second.sound.get());
+        }
         musics_.erase(it);
 
         // Clear current music if it was this one
@@ -286,7 +296,7 @@ bool MiniaudioPlugin::play_music(MusicHandle handle, bool loop, float volume) {
     }
 
     auto it = musics_.find(handle);
-    if (it == musics_.end()) {
+    if (it == musics_.end() || !it->second.sound) {
         return false;
     }
 
@@ -296,32 +306,32 @@ bool MiniaudioPlugin::play_music(MusicHandle handle, bool loop, float volume) {
     // Stop current music if any
     if (current_music_handle_ != INVALID_HANDLE && current_music_handle_ != handle) {
         auto current_it = musics_.find(current_music_handle_);
-        if (current_it != musics_.end()) {
-            ma_sound_stop(&current_it->second.sound);
+        if (current_it != musics_.end() && current_it->second.sound) {
+            ma_sound_stop(current_it->second.sound.get());
             current_it->second.is_playing = false;
         }
     }
 
     // Set looping
-    ma_sound_set_looping(&it->second.sound, loop ? MA_TRUE : MA_FALSE);
+    ma_sound_set_looping(it->second.sound.get(), loop ? MA_TRUE : MA_FALSE);
     it->second.is_looping = loop;
 
     // Set volume (apply master volume and mute)
     float final_volume = muted_ ? 0.0f : volume * master_volume_;
-    ma_sound_set_volume(&it->second.sound, final_volume);
+    ma_sound_set_volume(it->second.sound.get(), final_volume);
     it->second.volume = volume;
     music_volume_ = volume;
 
     // Stop if already playing to restart
-    if (ma_sound_is_playing(&it->second.sound)) {
-        ma_sound_stop(&it->second.sound);
+    if (ma_sound_is_playing(it->second.sound.get())) {
+        ma_sound_stop(it->second.sound.get());
     }
 
     // Seek to start
-    ma_sound_seek_to_pcm_frame(&it->second.sound, 0);
+    ma_sound_seek_to_pcm_frame(it->second.sound.get(), 0);
 
     // Start playing
-    ma_result result = ma_sound_start(&it->second.sound);
+    ma_result result = ma_sound_start(it->second.sound.get());
     if (result != MA_SUCCESS) {
         return false;
     }
@@ -340,8 +350,8 @@ void MiniaudioPlugin::stop_music() {
     }
 
     auto it = musics_.find(current_music_handle_);
-    if (it != musics_.end()) {
-        ma_sound_stop(&it->second.sound);
+    if (it != musics_.end() && it->second.sound) {
+        ma_sound_stop(it->second.sound.get());
         it->second.is_playing = false;
     }
 
@@ -356,8 +366,8 @@ void MiniaudioPlugin::pause_music() {
     }
 
     auto it = musics_.find(current_music_handle_);
-    if (it != musics_.end() && it->second.is_playing) {
-        ma_sound_stop(&it->second.sound);
+    if (it != musics_.end() && it->second.is_playing && it->second.sound) {
+        ma_sound_stop(it->second.sound.get());
         // Note: miniaudio doesn't have a direct pause, so we stop
         // Resume will need to remember position
     }
@@ -371,8 +381,8 @@ void MiniaudioPlugin::resume_music() {
     }
 
     auto it = musics_.find(current_music_handle_);
-    if (it != musics_.end() && !ma_sound_is_playing(&it->second.sound)) {
-        ma_sound_start(&it->second.sound);
+    if (it != musics_.end() && it->second.sound && !ma_sound_is_playing(it->second.sound.get())) {
+        ma_sound_start(it->second.sound.get());
         it->second.is_playing = true;
     }
 }
@@ -385,11 +395,11 @@ bool MiniaudioPlugin::is_music_playing() const {
     }
 
     auto it = musics_.find(current_music_handle_);
-    if (it == musics_.end()) {
+    if (it == musics_.end() || !it->second.sound) {
         return false;
     }
 
-    return ma_sound_is_playing(&it->second.sound);
+    return ma_sound_is_playing(it->second.sound.get());
 }
 
 void MiniaudioPlugin::set_music_volume(float volume) {
@@ -405,9 +415,9 @@ void MiniaudioPlugin::set_music_volume(float volume) {
     }
 
     auto it = musics_.find(current_music_handle_);
-    if (it != musics_.end()) {
+    if (it != musics_.end() && it->second.sound) {
         float final_volume = muted_ ? 0.0f : volume * master_volume_;
-        ma_sound_set_volume(&it->second.sound, final_volume);
+        ma_sound_set_volume(it->second.sound.get(), final_volume);
         it->second.volume = volume;
     }
 }
@@ -432,18 +442,18 @@ void MiniaudioPlugin::set_master_volume(float volume) {
 
     // Update all sounds
     for (auto& [handle, sound_data] : sounds_) {
-        if (ma_sound_is_playing(&sound_data.sound)) {
+        if (sound_data.sound && ma_sound_is_playing(sound_data.sound.get())) {
             float final_volume = muted_ ? 0.0f : volume;
-            ma_sound_set_volume(&sound_data.sound, final_volume);
+            ma_sound_set_volume(sound_data.sound.get(), final_volume);
         }
     }
 
     // Update music
     if (current_music_handle_ != INVALID_HANDLE) {
         auto it = musics_.find(current_music_handle_);
-        if (it != musics_.end()) {
+        if (it != musics_.end() && it->second.sound) {
             float final_volume = muted_ ? 0.0f : music_volume_ * volume;
-            ma_sound_set_volume(&it->second.sound, final_volume);
+            ma_sound_set_volume(it->second.sound.get(), final_volume);
         }
     }
 }
@@ -464,18 +474,18 @@ void MiniaudioPlugin::set_muted(bool muted) {
 
     // Update all sounds
     for (auto& [handle, sound_data] : sounds_) {
-        if (ma_sound_is_playing(&sound_data.sound)) {
+        if (sound_data.sound && ma_sound_is_playing(sound_data.sound.get())) {
             float volume = muted ? 0.0f : master_volume_;
-            ma_sound_set_volume(&sound_data.sound, volume);
+            ma_sound_set_volume(sound_data.sound.get(), volume);
         }
     }
 
     // Update music
     if (current_music_handle_ != INVALID_HANDLE) {
         auto it = musics_.find(current_music_handle_);
-        if (it != musics_.end()) {
+        if (it != musics_.end() && it->second.sound) {
             float volume = muted ? 0.0f : music_volume_ * master_volume_;
-            ma_sound_set_volume(&it->second.sound, volume);
+            ma_sound_set_volume(it->second.sound.get(), volume);
         }
     }
 }
