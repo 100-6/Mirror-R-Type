@@ -30,16 +30,35 @@ if(GTest_FOUND)
     set_property(TARGET test_eventbus PROPERTY CXX_STANDARD 20)
 endif()
 
-# Test SparseSet (no GTest dependency)
-add_executable(test_sparseset
-    ecs/test_sparseset.cpp
-)
-target_link_libraries(test_sparseset
-    PRIVATE
-        rtype_engine
-)
-add_test(NAME SparseSetTest COMMAND test_sparseset)
-set_property(TARGET test_sparseset PROPERTY CXX_STANDARD 20)
+if(GTest_FOUND)
+    # Test SparseSet with GTest
+    add_executable(test_sparseset_gtest
+        ecs/test_sparseset_gtest.cpp
+    )
+    target_link_libraries(test_sparseset_gtest
+        PRIVATE
+            rtype_engine
+            ${GTEST_LIBRARIES}
+            ${GTEST_MAIN_LIBRARIES}
+            pthread
+    )
+    add_test(NAME SparseSetGTestSuite COMMAND test_sparseset_gtest)
+    set_property(TARGET test_sparseset_gtest PROPERTY CXX_STANDARD 20)
+
+    # Test Registry with GTest
+    add_executable(test_registry
+        ecs/test_registry.cpp
+    )
+    target_link_libraries(test_registry
+        PRIVATE
+            rtype_engine
+            ${GTEST_LIBRARIES}
+            ${GTEST_MAIN_LIBRARIES}
+            pthread
+    )
+    add_test(NAME RegistryGTestSuite COMMAND test_registry)
+    set_property(TARGET test_registry PROPERTY CXX_STANDARD 20)
+endif()
 
 # Test Plugin Manager
 add_executable(test_plugin_manager

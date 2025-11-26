@@ -1,6 +1,7 @@
 # Engine library
 add_library(rtype_engine
     src/ecs/SparseSet.cpp
+    src/ecs/Registry.cpp
     src/core/event/EventBus.cpp
     src/plugin_manager/PluginManager.cpp
     src/plugins/graphics/raylib/RaylibGraphicsPlugin.cpp
