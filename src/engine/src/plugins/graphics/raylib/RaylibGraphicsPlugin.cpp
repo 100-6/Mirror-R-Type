@@ -10,7 +10,7 @@
 #include <stdexcept>
 #include <cstring>
 
-namespace rtype {
+namespace engine {
 
 // Helper functions to convert between rtype and Raylib types
 static ::Color to_raylib_color(const Color& color) {
@@ -455,15 +455,15 @@ void RaylibGraphicsPlugin::reset_view() {
     using_custom_view_ = false;
 }
 
-} // namespace rtype
+}
 
 // Plugin factory functions
 extern "C" {
-    rtype::IGraphicsPlugin* create_graphics_plugin() {
-        return new rtype::RaylibGraphicsPlugin();
+    ::engine::IGraphicsPlugin* create_graphics_plugin() {
+        return new ::engine::RaylibGraphicsPlugin();
     }
-    
-    void destroy_graphics_plugin(rtype::IGraphicsPlugin* plugin) {
+
+    void destroy_graphics_plugin(::engine::IGraphicsPlugin* plugin) {
         delete plugin;
     }
 }

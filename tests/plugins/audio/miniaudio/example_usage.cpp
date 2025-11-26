@@ -14,12 +14,12 @@
 int main() {
     try {
         // Create plugin manager
-        rtype::PluginManager manager;
+        engine::PluginManager manager;
 
         std::cout << "Loading Miniaudio Audio Plugin..." << std::endl;
 
         // Load the audio plugin
-        auto* audio = manager.load_plugin<rtype::IAudioPlugin>(
+        auto* audio = manager.load_plugin<engine::IAudioPlugin>(
             "./plugins/miniaudio_audio.so",
             "create_audio_plugin"
         );

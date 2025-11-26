@@ -15,7 +15,7 @@
 #include <vector>
 #include <mutex>
 
-namespace rtype {
+namespace engine {
 
 /**
  * @brief Miniaudio implementation of the audio plugin interface
@@ -98,4 +98,4 @@ private:
     mutable std::mutex mutex_;
 };
 
-} // namespace rtype
+} // namespace engine

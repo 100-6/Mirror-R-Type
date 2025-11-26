@@ -11,7 +11,7 @@
 #include "CommonTypes.hpp"
 #include <string>
 
-namespace rtype {
+namespace engine {
 
 /**
  * @brief Keyboard key codes
@@ -142,7 +142,12 @@ public:
     virtual void update() = 0;
 };
 
-} // namespace rtype
+}
+
+// Forward declaration for C linkage
+namespace engine {
+    class IInputPlugin;
+}
 
 // Plugin factory function signatures
 extern "C" {
@@ -150,11 +155,11 @@ extern "C" {
      * @brief Factory function to create an input plugin instance
      * @return Pointer to the created plugin
      */
-    rtype::IInputPlugin* create_input_plugin();
+    engine::IInputPlugin* create_input_plugin();
 
     /**
      * @brief Destroy an input plugin instance
      * @param plugin Plugin to destroy
      */
-    void destroy_input_plugin(rtype::IInputPlugin* plugin);
+    void destroy_input_plugin(engine::IInputPlugin* plugin);
 }

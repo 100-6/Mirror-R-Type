@@ -9,7 +9,7 @@
 #include <iostream>
 #include <cassert>
 
-using namespace rtype;
+using namespace engine;
 
 void test_plugin_loading() {
     std::cout << "\n=== Test: Plugin Loading ===" << std::endl;

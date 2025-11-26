@@ -31,7 +31,7 @@ Selon le type de plugin que vous créez :
 #include <SFML/Graphics.hpp>
 #include <unordered_map>
 
-namespace rtype {
+namespace engine {
 
 class SFMLGraphicsPlugin : public IGraphicsPlugin {
 private:
@@ -229,7 +229,7 @@ public:
     }
 };
 
-} // namespace rtype
+}
 ```
 
 ## Étape 3 : Exporter les Fonctions Factory
@@ -237,11 +237,11 @@ public:
 ```cpp
 // À la fin du fichier .cpp
 extern "C" {
-    rtype::IGraphicsPlugin* create_graphics_plugin() {
-        return new rtype::SFMLGraphicsPlugin();
+    engine::IGraphicsPlugin* create_graphics_plugin() {
+        return new engine::SFMLGraphicsPlugin();
     }
-    
-    void destroy_graphics_plugin(rtype::IGraphicsPlugin* plugin) {
+
+    void destroy_graphics_plugin(engine::IGraphicsPlugin* plugin) {
         delete plugin;
     }
 }
@@ -301,21 +301,21 @@ Résultat : `plugins/graphics/sfml/sfml_graphics.so`
 #include "IGraphicsPlugin.hpp"
 
 int main() {
-    rtype::PluginManager manager;
-    
-    auto* graphics = manager.load_plugin<rtype::IGraphicsPlugin>(
+    engine::PluginManager manager;
+
+    auto* graphics = manager.load_plugin<engine::IGraphicsPlugin>(
         "./plugins/graphics/sfml/sfml_graphics.so",
         "create_graphics_plugin"
     );
-    
+
     graphics->create_window(800, 600, "R-Type");
-    
+
     while (graphics->is_window_open()) {
-        graphics->clear(rtype::Color::Black);
+        graphics->clear(engine::Color::Black);
         // ... votre logique de jeu ...
         graphics->display();
     }
-    
+
     return 0;
 }
 ```

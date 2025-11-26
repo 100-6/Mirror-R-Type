@@ -11,7 +11,7 @@
 #include "CommonTypes.hpp"
 #include <string>
 
-namespace rtype {
+namespace engine {
 
 /**
  * @brief Audio plugin interface
@@ -141,7 +141,12 @@ public:
     virtual bool is_muted() const = 0;
 };
 
-} // namespace rtype
+}
+
+// Forward declaration for C linkage
+namespace engine {
+    class IAudioPlugin;
+}
 
 // Plugin factory function signatures
 extern "C" {
@@ -149,11 +154,11 @@ extern "C" {
      * @brief Factory function to create an audio plugin instance
      * @return Pointer to the created plugin
      */
-    rtype::IAudioPlugin* create_audio_plugin();
+    engine::IAudioPlugin* create_audio_plugin();
 
     /**
      * @brief Destroy an audio plugin instance
      * @param plugin Plugin to destroy
      */
-    void destroy_audio_plugin(rtype::IAudioPlugin* plugin);
+    void destroy_audio_plugin(engine::IAudioPlugin* plugin);
 }
