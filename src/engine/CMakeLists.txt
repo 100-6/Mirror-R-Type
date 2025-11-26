@@ -74,6 +74,45 @@ if(BUILD_TESTS)
     )
     add_test(NAME PluginManagerTest COMMAND test_plugin_manager WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 
+    add_executable(test_raylib_plugin
+        test/plugins/graphics/raylib/test_raylib_plugin.cpp
+    )
+    target_link_libraries(test_raylib_plugin
+        PRIVATE
+            rtype_engine
+    )
+    add_test(NAME RaylibPluginTest COMMAND test_raylib_plugin WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+
+    # Raylib Graphics Plugin as shared library
+    add_library(raylib_graphics SHARED
+        src/plugins/graphics/raylib/RaylibGraphicsPlugin.cpp
+    )
+    target_include_directories(raylib_graphics
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+    target_link_libraries(raylib_graphics
+        PRIVATE
+            raylib
+    )
+    set_target_properties(raylib_graphics PROPERTIES
+        LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/plugins"
+        PREFIX ""
+    )
+
+    # Miniaudio Audio Plugin as shared library
+    add_library(miniaudio_audio SHARED
+        src/plugins/audio/miniaudio/MiniaudioPlugin.cpp
+    )
+    target_include_directories(miniaudio_audio
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+    set_target_properties(miniaudio_audio PROPERTIES
+        LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/plugins"
+        PREFIX ""
+    )
+
     # Test plugin as shared library
     add_library(test_plugin SHARED
         test/plugin_manager/test_plugin.cpp
