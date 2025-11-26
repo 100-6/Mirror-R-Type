@@ -22,7 +22,7 @@ INetworkPlugin* test_plugin_loading(engine::PluginManager& plugin_manager) {
 #ifdef _WIN32
     const char* plugin_path = "asio_network.dll";
 #else
-    const char* plugin_path = "libasio_network.so";
+    const char* plugin_path = "./libasio_network.so";
 #endif
     
     auto* network = plugin_manager.load_plugin<INetworkPlugin>(

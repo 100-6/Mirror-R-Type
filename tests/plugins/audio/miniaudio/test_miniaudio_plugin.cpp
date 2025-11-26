@@ -25,7 +25,7 @@ int main() {
 #ifdef _WIN32
         const char* plugin_path = "miniaudio_audio.dll";
 #else
-        const char* plugin_path = "libminiaudio_audio.so";
+        const char* plugin_path = "./libminiaudio_audio.so";
 #endif
 
         // Load the plugin

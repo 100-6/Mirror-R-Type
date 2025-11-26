@@ -31,6 +31,8 @@ if(NOT raylib_FOUND)
     FetchContent_MakeAvailable(raylib)
 endif()
 
+find_package(glfw3 REQUIRED)
+
 add_library(raylib_graphics SHARED
     src/plugins/graphics/raylib/RaylibGraphicsPlugin.cpp
 )
@@ -43,6 +45,7 @@ target_include_directories(raylib_graphics
 target_link_libraries(raylib_graphics
     PRIVATE
         raylib
+        glfw
 )
 
 target_compile_definitions(raylib_graphics PRIVATE PLUGIN_EXPORTS)

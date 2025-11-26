@@ -23,7 +23,7 @@ int main() {
 #ifdef _WIN32
         const char* plugin_path = "raylib_graphics.dll";
 #else
-        const char* plugin_path = "libraylib_graphics.so";
+        const char* plugin_path = "./libraylib_graphics.so";
 #endif
         
         auto* graphics = plugin_manager.load_plugin<engine::IGraphicsPlugin>(
