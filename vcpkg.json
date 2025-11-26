@@ -1,0 +1,13 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "rtype",
+  "version": "1.0.0",
+  "description": "R-Type game engine and multiplayer implementation",
+  "dependencies": [
+    "boost-asio",
+    "boost-system",
+    "raylib",
+    "gtest"
+  ],
+  "builtin-baseline": "bd52fac7114fdaa2208de8dd1227212a6683e562"
+}

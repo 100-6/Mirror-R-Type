@@ -1,3 +1,7 @@
 build/
-doc/    
 .vscode
+docs/
+
+vcpkg/
+vcpkg_installed/
+.clangd

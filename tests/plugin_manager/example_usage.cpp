@@ -12,7 +12,7 @@
 #include "plugin_manager/IInputPlugin.hpp"
 #include <iostream>
 
-using namespace rtype;
+using namespace engine;
 
 /**
  * This example demonstrates how to use the PluginManager to load

@@ -9,7 +9,7 @@
 
 #include <cstdint>
 
-namespace rtype {
+namespace engine {
 
 /**
  * @brief 2D Vector with float components
@@ -88,4 +88,4 @@ using ClientId = uint32_t;
  */
 constexpr uint32_t INVALID_HANDLE = 0;
 
-} // namespace rtype
+}

@@ -17,12 +17,12 @@ int main() {
         std::cout << "=== Miniaudio Audio Plugin Test ===" << std::endl;
 
         // Create plugin manager
-        rtype::PluginManager plugin_manager;
+        engine::PluginManager plugin_manager;
 
         std::cout << "Loading Miniaudio Audio Plugin..." << std::endl;
 
         // Load the plugin
-        auto* audio = plugin_manager.load_plugin<rtype::IAudioPlugin>(
+        auto* audio = plugin_manager.load_plugin<engine::IAudioPlugin>(
             "./plugins/miniaudio_audio.so",
             "create_audio_plugin"
         );
@@ -62,7 +62,7 @@ int main() {
         std::cout << "\nTesting sound loading..." << std::endl;
         try {
             // Try to load a test sound file
-            rtype::SoundHandle sound = audio->load_sound("assets/test_sound.wav");
+            engine::SoundHandle sound = audio->load_sound("assets/test_sound.wav");
             std::cout << "✓ Sound loaded successfully! Handle: " << sound << std::endl;
 
             // Test playing the sound
@@ -94,7 +94,7 @@ int main() {
         std::cout << "\nTesting music loading..." << std::endl;
         try {
             // Try to load a test music file
-            rtype::MusicHandle music = audio->load_music("assets/music.mp3");
+            engine::MusicHandle music = audio->load_music("assets/music.mp3");
             std::cout << "✓ Music loaded successfully! Handle: " << music << std::endl;
 
             // Test playing the music

@@ -9,7 +9,7 @@
 
 #include <string>
 
-namespace rtype {
+namespace engine {
 
 /**
  * @brief Base interface that all plugins must implement
@@ -51,4 +51,4 @@ public:
     virtual bool is_initialized() const = 0;
 };
 
-} // namespace rtype
+}

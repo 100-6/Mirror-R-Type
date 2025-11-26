@@ -18,7 +18,7 @@
 #include <iostream>
 #include <algorithm>
 
-namespace rtype {
+namespace engine {
 
 // Constructor
 MiniaudioPlugin::MiniaudioPlugin()
@@ -485,7 +485,7 @@ bool MiniaudioPlugin::is_muted() const {
     return muted_;
 }
 
-} // namespace rtype
+} // namespace engine
 
 // Plugin factory functions with C safety wrappers
 extern "C" {
@@ -493,9 +493,9 @@ extern "C" {
      * @brief Safely create an audio plugin instance
      * @return Pointer to the created plugin, or nullptr on failure
      */
-    rtype::IAudioPlugin* create_audio_plugin() {
+    engine::IAudioPlugin* create_audio_plugin() {
         try {
-            rtype::MiniaudioPlugin* plugin = new (std::nothrow) rtype::MiniaudioPlugin();
+            engine::MiniaudioPlugin* plugin = new (std::nothrow) engine::MiniaudioPlugin();
             if (!plugin) {
                 std::cerr << "Failed to allocate MiniaudioPlugin" << std::endl;
                 return nullptr;
@@ -514,7 +514,7 @@ extern "C" {
      * @brief Safely destroy an audio plugin instance
      * @param plugin Plugin to destroy (can be nullptr)
      */
-    void destroy_audio_plugin(rtype::IAudioPlugin* plugin) {
+    void destroy_audio_plugin(engine::IAudioPlugin* plugin) {
         if (!plugin) {
             return;
         }

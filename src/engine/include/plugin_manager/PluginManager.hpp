@@ -14,7 +14,7 @@
 #include <stdexcept>
 #include <functional>
 
-namespace rtype {
+namespace engine {
 
 /**
  * @brief Exception thrown when plugin operations fail
@@ -254,4 +254,4 @@ PluginType* PluginManager::get_plugin(const std::string& plugin_path) {
     return static_cast<PluginType*>(it->second.plugin_instance);
 }
 
-} // namespace rtype
+}
