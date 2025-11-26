@@ -13,9 +13,9 @@ target_include_directories(rtype_engine
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-# Find Boost for Asio network plugin
+# Find Boost for Asio network plugin (using vcpkg)
 find_package(Boost REQUIRED COMPONENTS system)
-target_link_libraries(rtype_engine PUBLIC ${Boost_LIBRARIES} ${CMAKE_DL_LIBS})
+target_link_libraries(rtype_engine PUBLIC Boost::system ${CMAKE_DL_LIBS})
 
 # # Find and link raylib
 # find_package(raylib QUIET)
