@@ -8,12 +8,15 @@
 #ifndef ISYSTEM_HPP_
 #define ISYSTEM_HPP_
 
+// Forward declaration pour éviter la dépendance circulaire
+class Registry;
+
 class ISystem {
     public:
         virtual ~ISystem() = default;
 
-        virtual void update() = 0;
-        virtual void init() = 0;
+        virtual void update(Registry& registry) = 0;
+        virtual void init(Registry& registry) = 0;
         virtual void shutdown() = 0;
 
     protected:

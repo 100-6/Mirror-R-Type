@@ -11,23 +11,63 @@
 #include <iostream>
 #include <optional>
 
-template <typename Component>
+using Entity = size_t;
 
+template <typename Component>
 class SparseSet {
         private:
             std::vector<std::optional<size_t>> sparse;
-            std::vector<size_t> dense;
+            std::vector<Entity> dense;
             std::vector<Component> data;
         public:
             SparseSet() = default;
             ~SparseSet() = default;
 
-            // Opérateurs
-            Component& operator[](size_t index)
+            
+            Component& operator[](Entity entity_id)
             {
-                size_t element = sparse[index].value();
-
+                if (entity_id >= sparse.size() || !sparse[entity_id].has_value()) {
+                    throw std::out_of_range("Component not present for this entity.");
+                }
+                size_t element = sparse[entity_id].value();
                 return data[element];
+            }
+
+
+            // --- Méthodes d'API ECS pour l'itération ---
+
+            // 1. Retourne la taille de l'itération (nombre de composants actifs)
+            size_t size() const {
+                return data.size();
+            }
+
+            // 2. Vérifie si l'entité possède ce composant
+            bool has_entity(Entity entity_id) const {
+                if (entity_id >= sparse.size()) {
+                    return false;
+                }
+                return sparse[entity_id].has_value();
+            }
+
+            // 3. Obtient l'ID de l'entité à l'index d'itération (pour la boucle for)
+            Entity get_entity_at(size_t index) const {
+                if (index >= dense.size()) {
+                    throw std::out_of_range("Index out of bounds in SparseSet::get_entity_at");
+                }
+                return dense[index];
+            }
+
+            // 4. Obtient la donnée du composant à l'index d'itération (pour la boucle for)
+            Component& get_data_at(size_t index) {
+                if (index >= data.size()) {
+                    throw std::out_of_range("Index out of bounds in SparseSet::get_data_at");
+                }
+                return data[index];
+            }
+            
+            // 5. Equivalent de l'opérateur [] mais en fonction (utilisé par SystemMouvement)
+            Component& get_data_by_entity_id(Entity entity_id) {
+                return (*this)[entity_id];
             }
 
             // Méthodes
