@@ -14,8 +14,9 @@
 #include <typeindex>
 #include <typeinfo>
 #include <functional>
+#include <memory>
 
-using Entity = size_t;
+// using Entity = size_t;
 
 class Registry {
     private:
@@ -38,6 +39,16 @@ class Registry {
             });
 
             return std::any_cast<SparseSet<Component>&>(components[index]);
+        }
+
+        template <typename System, typename... Args>
+        void register_system(Args&&... args)
+        {
+            // Assure que T hérite bien de ISystem
+            static_assert(std::is_base_of<ISystem, System>::value, "System must inherit from ISystem"); 
+            
+            // Ajout du unique_ptr au vecteur
+            systems.push_back(std::make_unique<System>(std::forward<Args>(args)...));
         }
 
         template <typename Component>
@@ -82,7 +93,7 @@ class Registry {
         void run_systems()
         {
             for (auto& system : systems)
-                system->update();
+                system->update(*this);
         }
 
 };
