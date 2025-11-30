@@ -11,24 +11,24 @@
 
 // Physique et Mouvement 
 
-struct PositionComponent {
+struct Position {
     float x = 0.0f;
     float y = 0.0f;
 };
 
-struct VelocityComponent {
+struct Velocity {
     float x = 0.0f;
     float y = 0.0f;
 };
 
 // Collision
 
-struct ColliderComponent {
+struct Collider {
     float width = 0;
     float height = 0;
 };
 
-struct InputComponent {
+struct Input {
     bool up = false;
     bool down = false;
     bool left = false;
@@ -37,19 +37,20 @@ struct InputComponent {
 
 // Tags
 
-struct ControllableComponent {};
-struct EnemyComponent {};
-struct ProjectileComponent {};
+struct Controllable {};
+struct Enemy {};
+struct Projectile {};
+struct Wall {};
 
 // Logique de jeu
 
-struct HealthComponent
+struct Health
 {
     int max = 100;
     int current = 100;
 };
 
-struct DamageComponent
+struct Damage
 {
     int value = 10;
 };
