@@ -61,6 +61,20 @@ if(GTest_FOUND)
     )
     add_test(NAME RegistryGTestSuite COMMAND test_registry)
     set_property(TARGET test_registry PROPERTY CXX_STANDARD 20)
+
+    # Test CollisionSystem with GTest
+    add_executable(test_collision_system
+        ecs/test_collision_system.cpp
+    )
+    target_link_libraries(test_collision_system
+        PRIVATE
+            rtype_engine
+            ${GTEST_LIBRARIES}
+            ${GTEST_MAIN_LIBRARIES}
+            Threads::Threads
+    )
+    add_test(NAME CollisionSystemGTestSuite COMMAND test_collision_system)
+    set_property(TARGET test_collision_system PROPERTY CXX_STANDARD 20)
 endif()
 
 # Test Plugin Manager

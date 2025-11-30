@@ -8,15 +8,13 @@
 #ifndef REGISTRY_HPP_
 #define REGISTRY_HPP_
 #include "SparseSet.hpp"
-#include "ISystem.hpp"
+#include "systems/ISystem.hpp"
 #include <unordered_map>
 #include <any>
 #include <typeindex>
 #include <typeinfo>
 #include <functional>
 #include <memory>
-
-// using Entity = size_t;
 
 class Registry {
     private:

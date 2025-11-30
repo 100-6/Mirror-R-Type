@@ -8,7 +8,6 @@
 #ifndef ISYSTEM_HPP_
 #define ISYSTEM_HPP_
 
-// Forward declaration pour éviter la dépendance circulaire
 class Registry;
 
 class ISystem {
