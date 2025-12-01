@@ -14,3 +14,8 @@ target_link_libraries(r-type_server
         rtype_engine
 )
 
+# Ensure the server can find shared libraries at runtime
+set_target_properties(r-type_server PROPERTIES
+    INSTALL_RPATH "$ORIGIN"
+    BUILD_WITH_INSTALL_RPATH TRUE
+)

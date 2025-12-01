@@ -10,6 +10,7 @@
 #include <raylib.h>
 #include <stdexcept>
 #include <cstring>
+#include <iostream>
 
 namespace engine {
 
@@ -48,6 +49,7 @@ RaylibGraphicsPlugin::RaylibGraphicsPlugin()
     , window_width_(0)
     , window_height_(0)
     , next_texture_handle_(1) // Start at 1, 0 is INVALID_HANDLE
+    , default_texture_(INVALID_HANDLE)
     , next_font_handle_(1)
     , view_center_{0.0f, 0.0f}
     , view_size_{0.0f, 0.0f}
@@ -116,11 +118,14 @@ bool RaylibGraphicsPlugin::create_window(int width, int height, const char* titl
     }
     
     window_open_ = true;
-    
+
     // Set default view
     view_center_ = Vector2f(static_cast<float>(width) / 2.0f, static_cast<float>(height) / 2.0f);
     view_size_ = Vector2f(static_cast<float>(width), static_cast<float>(height));
-    
+
+    // Create default pink/black checkerboard texture
+    create_default_texture();
+
     return true;
 }
 
@@ -454,6 +459,56 @@ void RaylibGraphicsPlugin::reset_view() {
         );
     }
     using_custom_view_ = false;
+}
+
+// Default texture management
+void RaylibGraphicsPlugin::create_default_texture() {
+    std::cout << "Creating default pink/black checkerboard texture..." << std::endl;
+
+    // Create a 32x32 pink and black checkerboard pattern
+    const int size = 32;
+    const int check_size = 8; // Size of each checker square
+
+    // Create image with checkerboard pattern
+    Image checked = GenImageChecked(size, size, check_size, check_size,
+                                    ::Color{255, 0, 255, 255},  // Pink (magenta)
+                                    ::Color{0, 0, 0, 255});      // Black
+
+    std::cout << "  Image created: " << checked.width << "x" << checked.height << std::endl;
+
+    // Load texture from image
+    Texture2D rl_texture = LoadTextureFromImage(checked);
+
+    std::cout << "  Texture loaded with ID: " << rl_texture.id << std::endl;
+
+    // Free image data (texture is now in GPU memory)
+    UnloadImage(checked);
+
+    if (rl_texture.id == 0) {
+        // Failed to create default texture - this shouldn't happen
+        std::cerr << "  ERROR: Failed to create default texture" << std::endl;
+        default_texture_ = INVALID_HANDLE;
+        return;
+    }
+
+    // Create texture data
+    TextureData data;
+    store_in_vector(data.data, rl_texture);
+    data.size = Vector2f(static_cast<float>(size), static_cast<float>(size));
+
+    // Generate handle
+    default_texture_ = next_texture_handle_++;
+
+    std::cout << "  Default texture handle: " << default_texture_ << std::endl;
+
+    // Store in cache
+    textures_[default_texture_] = std::move(data);
+
+    std::cout << "  Default texture created successfully!" << std::endl;
+}
+
+TextureHandle RaylibGraphicsPlugin::get_default_texture() const {
+    return default_texture_;
 }
 
 }

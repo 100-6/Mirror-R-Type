@@ -17,12 +17,11 @@ class CollisionSystem : public ISystem {
             const Collider& col1, const Collider& col2);
         void handle_projectiles_colisions(Registry& registry);
     public:
-        CollisionSystem() = default;
-        ~CollisionSystem();
+        virtual ~CollisionSystem() = default;
 
         void init(Registry& registry) override;
         void shutdown() override;
-        void update(Registry& registry) override;
+        void update(Registry& registry, float dt) override;
         
         template<typename TypeA, typename TypeB, typename Action>
         void scan_collisions(Registry& registry, Action action)

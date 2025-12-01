@@ -90,10 +90,10 @@ class Registry {
                 cleaner(*this, entity);
         }
 
-        void run_systems()
+        void run_systems(float dt)
         {
             for (auto& system : systems)
-                system->update(*this);
+                system->update(*this, dt);
         }
 
 };

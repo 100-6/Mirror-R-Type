@@ -15,6 +15,12 @@ if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
     endif()
 endif()
 
+# Use dynamic linking triplet for Linux to enable shared Raylib
+if(UNIX AND NOT APPLE)
+    set(VCPKG_TARGET_TRIPLET "x64-linux-dynamic" CACHE STRING "Vcpkg target triplet")
+    message(STATUS "Using dynamic triplet: ${VCPKG_TARGET_TRIPLET}")
+endif()
+
 project(rtype LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)

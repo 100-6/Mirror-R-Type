@@ -16,12 +16,11 @@
 
 class MovementSystem : public ISystem {
     public:
-        MovementSystem() = default;
         virtual ~MovementSystem() = default;
 
         void init(Registry& registry) override;
         void shutdown() override;
-        void update(Registry& registry) override;
+        void update(Registry& registry, float dt) override;
 };
 
 #endif /* !MOVEMENTSYSTEM_HPP_ */

@@ -50,7 +50,7 @@ TEST_F(MovementSystemTest, NoMovementWhenNoInput) {
     registry.add_component(entity, Input{false, false, false, false});
     registry.add_component(entity, Controllable{200.0f});
 
-    movementSystem.update(registry);
+    movementSystem.update(registry, 0.016f);
 
     auto& velocity = registry.get_components<Velocity>()[entity];
 
@@ -67,7 +67,7 @@ TEST_F(MovementSystemTest, MoveUpOnly) {
     registry.add_component(entity, Input{true, false, false, false});
     registry.add_component(entity, Controllable{200.0f});
 
-    movementSystem.update(registry);
+    movementSystem.update(registry, 0.016f);
 
     auto& velocity = registry.get_components<Velocity>()[entity];
 
@@ -84,7 +84,7 @@ TEST_F(MovementSystemTest, MoveDownOnly) {
     registry.add_component(entity, Input{false, true, false, false});
     registry.add_component(entity, Controllable{200.0f});
 
-    movementSystem.update(registry);
+    movementSystem.update(registry, 0.016f);
 
     auto& velocity = registry.get_components<Velocity>()[entity];
 
@@ -101,7 +101,7 @@ TEST_F(MovementSystemTest, MoveLeftOnly) {
     registry.add_component(entity, Input{false, false, true, false});
     registry.add_component(entity, Controllable{200.0f});
 
-    movementSystem.update(registry);
+    movementSystem.update(registry, 0.016f);
 
     auto& velocity = registry.get_components<Velocity>()[entity];
 
@@ -118,7 +118,7 @@ TEST_F(MovementSystemTest, MoveRightOnly) {
     registry.add_component(entity, Input{false, false, false, true});
     registry.add_component(entity, Controllable{200.0f});
 
-    movementSystem.update(registry);
+    movementSystem.update(registry, 0.016f);
 
     auto& velocity = registry.get_components<Velocity>()[entity];
 
@@ -139,7 +139,7 @@ TEST_F(MovementSystemTest, DiagonalMovementIsNormalized_UpRight) {
     registry.add_component(entity, Input{true, false, false, true});
     registry.add_component(entity, Controllable{200.0f});
 
-    movementSystem.update(registry);
+    movementSystem.update(registry, 0.016f);
 
     auto& velocity = registry.get_components<Velocity>()[entity];
 
@@ -166,7 +166,7 @@ TEST_F(MovementSystemTest, DiagonalMovementIsNormalized_DownLeft) {
     registry.add_component(entity, Input{false, true, true, false});
     registry.add_component(entity, Controllable{200.0f});
 
-    movementSystem.update(registry);
+    movementSystem.update(registry, 0.016f);
 
     auto& velocity = registry.get_components<Velocity>()[entity];
 
@@ -192,7 +192,7 @@ TEST_F(MovementSystemTest, DiagonalMovementIsNormalized_UpLeft) {
     registry.add_component(entity, Input{true, false, true, false});
     registry.add_component(entity, Controllable{150.0f});
 
-    movementSystem.update(registry);
+    movementSystem.update(registry, 0.016f);
 
     auto& velocity = registry.get_components<Velocity>()[entity];
 
@@ -215,7 +215,7 @@ TEST_F(MovementSystemTest, DiagonalMovementIsNormalized_DownRight) {
     registry.add_component(entity, Input{false, true, false, true});
     registry.add_component(entity, Controllable{300.0f});
 
-    movementSystem.update(registry);
+    movementSystem.update(registry, 0.016f);
 
     auto& velocity = registry.get_components<Velocity>()[entity];
 
@@ -242,7 +242,7 @@ TEST_F(MovementSystemTest, OppositeDirectionsCancel_UpDown) {
     registry.add_component(entity, Input{true, true, false, false});
     registry.add_component(entity, Controllable{200.0f});
 
-    movementSystem.update(registry);
+    movementSystem.update(registry, 0.016f);
 
     auto& velocity = registry.get_components<Velocity>()[entity];
 
@@ -259,7 +259,7 @@ TEST_F(MovementSystemTest, OppositeDirectionsCancel_LeftRight) {
     registry.add_component(entity, Input{false, false, true, true});
     registry.add_component(entity, Controllable{200.0f});
 
-    movementSystem.update(registry);
+    movementSystem.update(registry, 0.016f);
 
     auto& velocity = registry.get_components<Velocity>()[entity];
 
@@ -276,7 +276,7 @@ TEST_F(MovementSystemTest, AllDirectionsCancelOut) {
     registry.add_component(entity, Input{true, true, true, true});
     registry.add_component(entity, Controllable{200.0f});
 
-    movementSystem.update(registry);
+    movementSystem.update(registry, 0.016f);
 
     auto& velocity = registry.get_components<Velocity>()[entity];
 
@@ -304,7 +304,7 @@ TEST_F(MovementSystemTest, DifferentSpeedValues) {
     registry.add_component(entity2, Input{false, false, false, true});
     registry.add_component(entity2, Controllable{500.0f});
 
-    movementSystem.update(registry);
+    movementSystem.update(registry, 0.016f);
 
     auto& velocities = registry.get_components<Velocity>();
 
@@ -329,7 +329,7 @@ TEST_F(MovementSystemTest, EntityWithoutVelocityIsIgnored) {
     registry.add_component(entity, Controllable{200.0f});
 
     // Should not crash
-    EXPECT_NO_THROW(movementSystem.update(registry));
+    EXPECT_NO_THROW(movementSystem.update(registry, 0.016f));
 }
 
 TEST_F(MovementSystemTest, EntityWithoutInputIsIgnored) {
@@ -340,7 +340,7 @@ TEST_F(MovementSystemTest, EntityWithoutInputIsIgnored) {
     registry.add_component(entity, Controllable{200.0f});
 
     // Should not crash
-    EXPECT_NO_THROW(movementSystem.update(registry));
+    EXPECT_NO_THROW(movementSystem.update(registry, 0.016f));
 }
 
 TEST_F(MovementSystemTest, EntityWithoutControllableIsIgnored) {
@@ -356,7 +356,7 @@ TEST_F(MovementSystemTest, EntityWithoutControllableIsIgnored) {
     float initialVelX = velocity.x;
     float initialVelY = velocity.y;
 
-    movementSystem.update(registry);
+    movementSystem.update(registry, 0.016f);
 
     // Velocity should not change (entity is ignored)
     EXPECT_FLOAT_EQ(velocity.x, initialVelX);
@@ -389,7 +389,7 @@ TEST_F(MovementSystemTest, MultipleEntitiesWithDifferentInputs) {
     registry.add_component(entity3, Input{false, true, true, false});
     registry.add_component(entity3, Controllable{100.0f});
 
-    movementSystem.update(registry);
+    movementSystem.update(registry, 0.016f);
 
     auto& velocities = registry.get_components<Velocity>();
 
@@ -425,7 +425,7 @@ TEST_F(MovementSystemTest, UpdateWithEmptyRegistryDoesNotCrash) {
     emptyRegistry.register_component<Input>();
     emptyRegistry.register_component<Controllable>();
 
-    EXPECT_NO_THROW(movementSystem.update(emptyRegistry));
+    EXPECT_NO_THROW(movementSystem.update(emptyRegistry, 0.016f));
 }
 
 // ============================================================================

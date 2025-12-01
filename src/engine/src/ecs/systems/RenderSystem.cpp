@@ -29,8 +29,13 @@ void RenderSystem::shutdown()
     std::cout << "RenderSystem: Arrêt" << std::endl;
 }
 
-void RenderSystem::update(Registry& registry)
+void RenderSystem::update(Registry& registry, float dt)
 {
+    (void)dt;
+
+    // Effacer l'écran (fond gris foncé)
+    graphics_plugin->clear(engine::Color{30, 30, 40, 255});
+
     // Récupérer les composants Position et Sprite
     auto& positions = registry.get_components<Position>();
     auto& sprites = registry.get_components<Sprite>();
@@ -85,4 +90,7 @@ void RenderSystem::update(Registry& registry)
         // Dessiner le sprite à la position de l'entité
         graphics_plugin->draw_sprite(temp_sprite, engine::Vector2f(pos.x, pos.y));
     }
+
+    // Note: On n'appelle PAS display() ici pour permettre au main d'ajouter
+    // des éléments UI/debug par-dessus avant d'afficher le frame
 }

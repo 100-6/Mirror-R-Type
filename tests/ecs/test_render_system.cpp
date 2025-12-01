@@ -153,7 +153,7 @@ TEST_F(RenderSystemTest, SystemRejectsNullPlugin) {
 }
 
 TEST_F(RenderSystemTest, UpdateDoesNotCrashWithEmptyRegistry) {
-    EXPECT_NO_THROW(renderSystem->update(registry))
+    EXPECT_NO_THROW(renderSystem->update(registry, 0.016f))
         << "Update should not crash with empty registry";
 
     EXPECT_EQ(mockPlugin.get_draw_call_count(), 0)
@@ -176,7 +176,7 @@ TEST_F(RenderSystemTest, EntityWithPositionAndSpriteIsRendered) {
         .tint = engine::Color::White
     });
 
-    renderSystem->update(registry);
+    renderSystem->update(registry, 0.016f);
 
     // Verify draw call was made
     EXPECT_EQ(mockPlugin.get_draw_call_count(), 1)
@@ -197,7 +197,7 @@ TEST_F(RenderSystemTest, EntityWithoutSpriteIsNotRendered) {
     Entity entity = registry.spawn_entity();
     registry.add_component<Position>(entity, Position{100.0f, 200.0f});
 
-    renderSystem->update(registry);
+    renderSystem->update(registry, 0.016f);
 
     EXPECT_EQ(mockPlugin.get_draw_call_count(), 0)
         << "Entity without Sprite should not be drawn";
@@ -212,7 +212,7 @@ TEST_F(RenderSystemTest, EntityWithoutPositionIsNotRendered) {
         .height = 32.0f
     });
 
-    renderSystem->update(registry);
+    renderSystem->update(registry, 0.016f);
 
     EXPECT_EQ(mockPlugin.get_draw_call_count(), 0)
         << "Entity without Position should not be drawn";
@@ -228,7 +228,7 @@ TEST_F(RenderSystemTest, EntityWithInvalidTextureIsNotRendered) {
         .height = 32.0f
     });
 
-    renderSystem->update(registry);
+    renderSystem->update(registry, 0.016f);
 
     EXPECT_EQ(mockPlugin.get_draw_call_count(), 0)
         << "Entity with invalid texture should not be drawn";
@@ -252,7 +252,7 @@ TEST_F(RenderSystemTest, MultipleEntitiesAreRendered) {
     registry.add_component<Position>(entity3, Position{300.0f, 400.0f});
     registry.add_component<Sprite>(entity3, Sprite{.texture = 3, .width = 16.0f, .height = 16.0f});
 
-    renderSystem->update(registry);
+    renderSystem->update(registry, 0.016f);
 
     EXPECT_EQ(mockPlugin.get_draw_call_count(), 3)
         << "All 3 entities should be drawn";
@@ -290,7 +290,7 @@ TEST_F(RenderSystemTest, MixedEntitiesSomeWithoutSprite) {
     registry.add_component<Position>(entity3, Position{300.0f, 400.0f});
     registry.add_component<Sprite>(entity3, Sprite{.texture = 3, .width = 16.0f, .height = 16.0f});
 
-    renderSystem->update(registry);
+    renderSystem->update(registry, 0.016f);
 
     EXPECT_EQ(mockPlugin.get_draw_call_count(), 2)
         << "Only 2 entities with both components should be drawn";
@@ -306,13 +306,13 @@ TEST_F(RenderSystemTest, MultipleUpdatesRenderCorrectly) {
     registry.add_component<Sprite>(entity, Sprite{.texture = 42, .width = 32.0f, .height = 32.0f});
 
     // First update
-    renderSystem->update(registry);
+    renderSystem->update(registry, 0.016f);
     EXPECT_EQ(mockPlugin.get_draw_call_count(), 1);
 
     mockPlugin.reset_draw_calls();
 
     // Second update (should render again)
-    renderSystem->update(registry);
+    renderSystem->update(registry, 0.016f);
     EXPECT_EQ(mockPlugin.get_draw_call_count(), 1);
 }
 
@@ -322,7 +322,7 @@ TEST_F(RenderSystemTest, PositionChangeReflectedInRender) {
     registry.add_component<Sprite>(entity, Sprite{.texture = 42, .width = 32.0f, .height = 32.0f});
 
     // First render
-    renderSystem->update(registry);
+    renderSystem->update(registry, 0.016f);
 
     auto positions1 = mockPlugin.get_drawn_positions();
     ASSERT_EQ(positions1.size(), 1);
@@ -337,7 +337,7 @@ TEST_F(RenderSystemTest, PositionChangeReflectedInRender) {
     mockPlugin.reset_draw_calls();
 
     // Second render
-    renderSystem->update(registry);
+    renderSystem->update(registry, 0.016f);
 
     auto positions2 = mockPlugin.get_drawn_positions();
     ASSERT_EQ(positions2.size(), 1);
@@ -390,7 +390,7 @@ TEST_F(RenderSystemTest, EntitiesAreDrawnInLayerOrder) {
         .layer = 5  // Middle
     });
 
-    renderSystem->update(registry);
+    renderSystem->update(registry, 0.016f);
 
     EXPECT_EQ(mockPlugin.get_draw_call_count(), 3);
 
@@ -417,7 +417,7 @@ TEST_F(RenderSystemTest, SameLayerEntitiesMaintainOrder) {
     registry.add_component<Position>(entity3, Position{300.0f, 300.0f});
     registry.add_component<Sprite>(entity3, Sprite{.texture = 3, .width = 32.0f, .height = 32.0f, .layer = 5});
 
-    renderSystem->update(registry);
+    renderSystem->update(registry, 0.016f);
 
     EXPECT_EQ(mockPlugin.get_draw_call_count(), 3);
 

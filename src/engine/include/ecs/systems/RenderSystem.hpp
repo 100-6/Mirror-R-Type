@@ -34,7 +34,7 @@ class RenderSystem : public ISystem {
 
         void init(Registry& registry) override;
         void shutdown() override;
-        void update(Registry& registry) override;
+        void update(Registry& registry, float dt) override;
 };
 
 #endif /* !RENDERSYSTEM_HPP_ */

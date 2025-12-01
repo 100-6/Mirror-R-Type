@@ -89,6 +89,20 @@ if(GTest_FOUND)
     )
     add_test(NAME MovementSystemGTestSuite COMMAND test_movement_system)
     set_property(TARGET test_movement_system PROPERTY CXX_STANDARD 20)
+
+    # Test PhysiqueSystem with GTest
+    add_executable(test_physique_system
+        ecs/test_physique_system.cpp
+    )
+    target_link_libraries(test_physique_system
+        PRIVATE
+            rtype_engine
+            ${GTEST_LIBRARIES}
+            ${GTEST_MAIN_LIBRARIES}
+            Threads::Threads
+    )
+    add_test(NAME PhysiqueSystemGTestSuite COMMAND test_physique_system)
+    set_property(TARGET test_physique_system PROPERTY CXX_STANDARD 20)
 endif()
 
 # Test Plugin Manager

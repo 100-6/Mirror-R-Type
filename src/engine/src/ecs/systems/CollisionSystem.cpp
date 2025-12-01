@@ -33,8 +33,6 @@ bool CollisionSystem::check_collision(const Position& pos1, const Position& pos2
             && (up2 < down1);
     }
 
-CollisionSystem::~CollisionSystem() = default;
-
 void CollisionSystem::init(Registry& registry)
 {
     std::cout << "CollisionSystem: Initialisation." << std::endl;
@@ -45,8 +43,10 @@ void CollisionSystem::shutdown()
     std::cout << "CollisionSystem: Arrêt." << std::endl;
 }
 
-void CollisionSystem::update(Registry& registry)
+void CollisionSystem::update(Registry& registry, float dt)
 {
+    (void)dt;
+
     // Collision Projectile vs Enemy : Détruit les deux
     std::vector<std::pair<Entity, Entity>> projectile_enemy_collisions;
     scan_collisions<Projectile, Enemy>(registry, [&projectile_enemy_collisions](Entity bullet, Entity enemy) {
