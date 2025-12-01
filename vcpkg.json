@@ -8,7 +8,8 @@
     "boost-system",
     "glfw3",
     "raylib",
-    "gtest"
+    "gtest",
+    "miniaudio"
   ],
   "builtin-baseline": "bd52fac7114fdaa2208de8dd1227212a6683e562"
 }

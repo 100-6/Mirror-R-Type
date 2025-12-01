@@ -93,6 +93,8 @@ endif()
 # ============================================
 # PLUGIN: Miniaudio Audio (Dynamic Library)
 # ============================================
+find_path(MINIAUDIO_INCLUDE_DIRS "miniaudio.h")
+
 add_library(miniaudio_audio SHARED
     src/plugins/audio/miniaudio/MiniaudioPlugin.cpp
 )
@@ -100,6 +102,7 @@ add_library(miniaudio_audio SHARED
 target_include_directories(miniaudio_audio
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${MINIAUDIO_INCLUDE_DIRS}
 )
 
 target_compile_definitions(miniaudio_audio PRIVATE PLUGIN_EXPORTS)
@@ -191,6 +194,7 @@ target_include_directories(raylib_input
 target_link_libraries(raylib_input
     PUBLIC
         raylib
+        glfw
 )
 
 set_property(TARGET raylib_input PROPERTY CXX_STANDARD 20)

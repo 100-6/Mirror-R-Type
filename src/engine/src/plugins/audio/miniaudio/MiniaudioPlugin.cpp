@@ -13,6 +13,7 @@
 #endif
 
 #define MINIAUDIO_IMPLEMENTATION
+#include <miniaudio.h>
 #include "plugins/audio/miniaudio/MiniaudioPlugin.hpp"
 #include "plugin_manager/PluginExport.hpp"
 #include <stdexcept>

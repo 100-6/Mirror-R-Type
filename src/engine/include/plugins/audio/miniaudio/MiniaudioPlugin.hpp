@@ -8,7 +8,7 @@
 #pragma once
 
 #include "plugin_manager/IAudioPlugin.hpp"
-#include "plugins/audio/miniaudio/miniaudio.h"
+#include <miniaudio.h>
 #include <unordered_map>
 #include <string>
 #include <memory>
