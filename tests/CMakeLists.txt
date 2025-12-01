@@ -198,4 +198,18 @@ if(GTest_FOUND)
     )
     add_test(NAME ShootingCollisionTest COMMAND test_shooting_collision_gtest)
     set_property(TARGET test_shooting_collision_gtest PROPERTY CXX_STANDARD 20)
+
+    # Test Render System (GTest)
+    add_executable(test_render_system
+        ecs/test_render_system.cpp
+    )
+    target_link_libraries(test_render_system
+        PRIVATE
+            rtype_engine
+            ${GTEST_LIBRARIES}
+            ${GTEST_MAIN_LIBRARIES}
+            Threads::Threads
+    )
+    add_test(NAME RenderSystemTest COMMAND test_render_system)
+    set_property(TARGET test_render_system PROPERTY CXX_STANDARD 20)
 endif()

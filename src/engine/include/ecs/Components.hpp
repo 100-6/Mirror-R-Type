@@ -8,6 +8,7 @@
 #ifndef COMPONENT_HPP_
 #define COMPONENT_HPP_
 #include <iostream>
+#include "plugin_manager/CommonTypes.hpp"
 
 // Physique et Mouvement 
 
@@ -35,6 +36,23 @@ struct Input {
     bool right = false;
     bool fire = false;     // Tirer (Espace ou clic gauche)
     bool special = false;  // Action spéciale (Shift)
+};
+
+// Rendu
+
+struct Sprite {
+    engine::TextureHandle texture = engine::INVALID_HANDLE;
+    float width = 0.0f;
+    float height = 0.0f;
+    float rotation = 0.0f;
+    engine::Color tint = engine::Color::White;
+
+    // Origin/Pivot pour centrer le sprite (par défaut coin supérieur gauche)
+    float origin_x = 0.0f;
+    float origin_y = 0.0f;
+
+    // Layer pour l'ordre de rendu (0=fond, plus élevé=premier plan)
+    int layer = 0;
 };
 
 // Tags
