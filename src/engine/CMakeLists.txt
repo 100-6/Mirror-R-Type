@@ -191,6 +191,7 @@ target_include_directories(raylib_input
 target_link_libraries(raylib_input
     PUBLIC
         raylib
+        glfw
 )
 
 set_property(TARGET raylib_input PROPERTY CXX_STANDARD 20)
