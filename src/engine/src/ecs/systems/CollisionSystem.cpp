@@ -6,10 +6,17 @@
 */
 
 #include "ecs/systems/CollisionSystem.hpp"
+#include <vector>
+#include <utility>
 
 bool CollisionSystem::check_collision(const Position& pos1, const Position& pos2,
     const Collider& col1, const Collider& col2)
     {
+        // Ignore colliders with zero size
+        if (col1.width <= 0 || col1.height <= 0 || col2.width <= 0 || col2.height <= 0) {
+            return false;
+        }
+
         float left1 = pos1.x;
         float right1 = pos1.x + col1.width;
         float up1 = pos1.y;
@@ -40,15 +47,20 @@ void CollisionSystem::shutdown()
 
 void CollisionSystem::update(Registry& registry)
 {
-    scan_collisions<Projectile, Enemy>(registry, [&registry](Entity bullet, Entity enemy) {
+    // Collision Projectile vs Enemy : Détruit les deux
+    std::vector<std::pair<Entity, Entity>> projectile_enemy_collisions;
+    scan_collisions<Projectile, Enemy>(registry, [&projectile_enemy_collisions](Entity bullet, Entity enemy) {
+        projectile_enemy_collisions.push_back({bullet, enemy});
+    });
+    
+    // Détruit toutes les paires collectées
+    for (const auto& [bullet, enemy] : projectile_enemy_collisions) {
         registry.kill_entity(enemy);
         registry.kill_entity(bullet);
-    });
+    }
 
-    // Dans CollisionSystem::update
-
+    // Collision Player vs Wall : Repousse le joueur
     scan_collisions<Controllable, Wall>(registry, [&registry](Entity player, Entity wall) {
-
         auto& positions = registry.get_components<Position>();
         auto& colliders = registry.get_components<Collider>();
 

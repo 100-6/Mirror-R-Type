@@ -33,6 +33,8 @@ struct Input {
     bool down = false;
     bool left = false;
     bool right = false;
+    bool fire = false;     // Tirer (Espace ou clic gauche)
+    bool special = false;  // Action spéciale (Shift)
 };
 
 // Tags

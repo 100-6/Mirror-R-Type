@@ -4,6 +4,7 @@ add_library(rtype_engine
     src/ecs/Registry.cpp
     src/ecs/systems/CollisionSystem.cpp
     src/ecs/systems/MovementSystem.cpp
+    src/ecs/systems/InputSystem.cpp
     src/core/event/EventBus.cpp
     src/plugin_manager/PluginManager.cpp
 )
@@ -173,3 +174,23 @@ if(WIN32)
 else()
     set_target_properties(asio_network PROPERTIES SUFFIX ".so")
 endif()
+
+# ============================================
+# STATIC LIBRARY: Raylib Input (for tests)
+# ============================================
+# This is a static library version of the input plugin for testing
+add_library(raylib_input STATIC
+    src/plugins/input/raylib/RaylibInputPlugin.cpp
+)
+
+target_include_directories(raylib_input
+    PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+target_link_libraries(raylib_input
+    PUBLIC
+        raylib
+)
+
+set_property(TARGET raylib_input PROPERTY CXX_STANDARD 20)

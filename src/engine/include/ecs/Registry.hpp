@@ -45,8 +45,10 @@ class Registry {
             // Assure que T hérite bien de ISystem
             static_assert(std::is_base_of<ISystem, System>::value, "System must inherit from ISystem"); 
             
-            // Ajout du unique_ptr au vecteur
-            systems.push_back(std::make_unique<System>(std::forward<Args>(args)...));
+            auto system = std::make_unique<System>(std::forward<Args>(args)...);
+            
+            system->init(*this);
+            systems.push_back(std::move(system));
         }
 
         template <typename Component>

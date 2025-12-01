@@ -27,7 +27,7 @@ class SparseSet {
             Component& operator[](Entity entity_id)
             {
                 if (entity_id >= sparse.size() || !sparse[entity_id].has_value()) {
-                    throw std::out_of_range("Component not present for this entity.");
+                    throw std::bad_optional_access();
                 }
                 size_t element = sparse[entity_id].value();
                 return data[element];
