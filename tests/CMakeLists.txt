@@ -154,3 +154,48 @@ target_link_libraries(test_raylib_plugin
 )
 add_test(NAME RaylibPluginTest COMMAND test_raylib_plugin WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TARGET test_raylib_plugin PROPERTY CXX_STANDARD 20)
+
+if(GTest_FOUND)
+    # Test Collision Simple (GTest)
+    add_executable(test_collision_simple_gtest
+        ecs/test_collision_simple_gtest.cpp
+    )
+    target_link_libraries(test_collision_simple_gtest
+        PRIVATE
+            rtype_engine
+            ${GTEST_LIBRARIES}
+            ${GTEST_MAIN_LIBRARIES}
+            Threads::Threads
+    )
+    add_test(NAME CollisionSimpleTest COMMAND test_collision_simple_gtest)
+    set_property(TARGET test_collision_simple_gtest PROPERTY CXX_STANDARD 20)
+
+    # Test Input Plugin (GTest)
+    add_executable(test_input_plugin_gtest
+        ecs/test_input_plugin_gtest.cpp
+    )
+    target_link_libraries(test_input_plugin_gtest
+        PRIVATE
+            rtype_engine
+            raylib_input
+            ${GTEST_LIBRARIES}
+            ${GTEST_MAIN_LIBRARIES}
+            Threads::Threads
+    )
+    add_test(NAME InputPluginTest COMMAND test_input_plugin_gtest)
+    set_property(TARGET test_input_plugin_gtest PROPERTY CXX_STANDARD 20)
+
+    # Test Shooting Collision (GTest)
+    add_executable(test_shooting_collision_gtest
+        ecs/test_shooting_collision_gtest.cpp
+    )
+    target_link_libraries(test_shooting_collision_gtest
+        PRIVATE
+            rtype_engine
+            ${GTEST_LIBRARIES}
+            ${GTEST_MAIN_LIBRARIES}
+            Threads::Threads
+    )
+    add_test(NAME ShootingCollisionTest COMMAND test_shooting_collision_gtest)
+    set_property(TARGET test_shooting_collision_gtest PROPERTY CXX_STANDARD 20)
+endif()
