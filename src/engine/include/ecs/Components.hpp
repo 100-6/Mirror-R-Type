@@ -39,7 +39,9 @@ struct Input {
 
 // Tags
 
-struct Controllable {};
+struct Controllable {
+    float speed = 200.0f;
+};
 struct Enemy {};
 struct Projectile {};
 struct Wall {};

@@ -7,6 +7,7 @@
 
 #include "ecs/systems/MovementSystem.hpp"
 #include <iostream>
+#include <cmath>
 
 void MovementSystem::init(Registry& registry)
 {
@@ -21,27 +22,39 @@ void MovementSystem::shutdown()
 void MovementSystem::update(Registry& registry)
 {
     auto& inputs = registry.get_components<Input>();
-    auto& positions = registry.get_components<Position>();
+    auto& velocitys = registry.get_components<Velocity>();
+    auto& controlables = registry.get_components<Controllable>();
 
-    for (size_t i = 0; i < inputs.size(); ++i) {
-        Entity entity = inputs.get_entity_at(i);
+    for (size_t i = 0; i < controlables.size(); ++i) {
+        Entity entity = controlables.get_entity_at(i);
 
-        if (!positions.has_entity(entity))
+        if (!(velocitys.has_entity(entity)) || !(inputs.has_entity(entity)))
             continue;
+        
+        auto& vel = velocitys[entity];
+        const auto& input = inputs[entity];
+        const auto& ctrl = controlables[entity];
 
-        auto& input = inputs.get_data_at(i);
-        auto& position = positions.get_data_by_entity_id(entity);
+        float dirX = 0.0f;
+        float dirY = 0.0f;
 
-        if (input.up)
-            position.y -= 1;
-        else if (input.down)
-            position.y += 1;
+        if (input.up) dirY -= 1.0f;
+        if (input.down) dirY += 1.0f;
+        if (input.right) dirX += 1.0f;
+        if (input.left) dirX -= 1.0f;
+   
+        float hypothenus = std::sqrt(dirX * dirX + dirY * dirY);
 
-        if (input.left)
-            position.x -= 1;
-        else if (input.right)
-            position.x += 1;
-
-        input.up = input.down = input.left = input.right = false;
+        if (hypothenus > 0.0f) {
+            dirX = (dirX / hypothenus) * ctrl.speed;
+            dirY = (dirY / hypothenus) * ctrl.speed;
+            
+            vel.x = dirX;
+            vel.y = dirY;
+        } else {
+            vel.x = 0.0f;
+            vel.y = 0.0f;
+        }
+        
     }
 }

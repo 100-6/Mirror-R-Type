@@ -75,6 +75,20 @@ if(GTest_FOUND)
     )
     add_test(NAME CollisionSystemGTestSuite COMMAND test_collision_system)
     set_property(TARGET test_collision_system PROPERTY CXX_STANDARD 20)
+
+    # Test MovementSystem with GTest
+    add_executable(test_movement_system
+        ecs/test_movement_system.cpp
+    )
+    target_link_libraries(test_movement_system
+        PRIVATE
+            rtype_engine
+            ${GTEST_LIBRARIES}
+            ${GTEST_MAIN_LIBRARIES}
+            Threads::Threads
+    )
+    add_test(NAME MovementSystemGTestSuite COMMAND test_movement_system)
+    set_property(TARGET test_movement_system PROPERTY CXX_STANDARD 20)
 endif()
 
 # Test Plugin Manager
