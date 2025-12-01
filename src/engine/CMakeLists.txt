@@ -5,6 +5,7 @@ add_library(rtype_engine
     src/ecs/systems/CollisionSystem.cpp
     src/ecs/systems/MovementSystem.cpp
     src/ecs/systems/InputSystem.cpp
+    src/ecs/systems/RenderSystem.cpp
     src/core/event/EventBus.cpp
     src/plugin_manager/PluginManager.cpp
 )
