@@ -167,6 +167,12 @@ public:
     virtual Vector2f get_texture_size(TextureHandle handle) const = 0;
 
     /**
+     * @brief Get default texture (pink/black checkerboard for missing textures)
+     * @return Default texture handle, or INVALID_HANDLE if not available
+     */
+    virtual TextureHandle get_default_texture() const = 0;
+
+    /**
      * @brief Load a font from file
      * @param path Path to the font file
      * @return Font handle, or INVALID_HANDLE on failure

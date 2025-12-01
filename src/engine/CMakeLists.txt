@@ -4,6 +4,7 @@ add_library(rtype_engine
     src/ecs/Registry.cpp
     src/ecs/systems/CollisionSystem.cpp
     src/ecs/systems/MovementSystem.cpp
+    src/ecs/systems/PhysiqueSystem.cpp
     src/ecs/systems/InputSystem.cpp
     src/ecs/systems/RenderSystem.cpp
     src/core/event/EventBus.cpp
@@ -54,6 +55,12 @@ target_link_libraries(raylib_graphics
 )
 
 target_compile_definitions(raylib_graphics PRIVATE PLUGIN_EXPORTS)
+
+# Ensure the plugin can find shared libraries at runtime
+set_target_properties(raylib_graphics PROPERTIES
+    INSTALL_RPATH "$ORIGIN"
+    BUILD_WITH_INSTALL_RPATH TRUE
+)
 
 # Set output to plugins directory with unified naming
 set_target_properties(raylib_graphics PROPERTIES

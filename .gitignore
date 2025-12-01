@@ -5,3 +5,4 @@ docs/
 vcpkg/
 vcpkg_installed/
 .clangd
+vswhere.exe

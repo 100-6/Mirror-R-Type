@@ -58,7 +58,7 @@ TEST_F(CollisionSystemTest, NoCollisionWhenEntitiesAreSeparated) {
 
     Position initialPos = registry.get_components<Position>()[player];
 
-    collisionSystem.update(registry);
+    collisionSystem.update(registry, 0.016f);
 
     Position finalPos = registry.get_components<Position>()[player];
 
@@ -81,7 +81,7 @@ TEST_F(CollisionSystemTest, CollisionDetectedWhenEntitiesOverlap) {
 
     Position initialPos = registry.get_components<Position>()[player];
 
-    collisionSystem.update(registry);
+    collisionSystem.update(registry, 0.016f);
 
     Position finalPos = registry.get_components<Position>()[player];
 
@@ -107,7 +107,7 @@ TEST_F(CollisionSystemTest, CollisionFromLeft) {
     registry.add_component(player, Collider{10.0f, 10.0f});
     registry.add_component(player, Controllable{});
 
-    collisionSystem.update(registry);
+    collisionSystem.update(registry, 0.016f);
 
     Position finalPos = registry.get_components<Position>()[player];
 
@@ -130,7 +130,7 @@ TEST_F(CollisionSystemTest, CollisionFromRight) {
     registry.add_component(player, Collider{10.0f, 10.0f});
     registry.add_component(player, Controllable{});
 
-    collisionSystem.update(registry);
+    collisionSystem.update(registry, 0.016f);
 
     Position finalPos = registry.get_components<Position>()[player];
 
@@ -153,7 +153,7 @@ TEST_F(CollisionSystemTest, CollisionFromTop) {
     registry.add_component(player, Collider{10.0f, 10.0f});
     registry.add_component(player, Controllable{});
 
-    collisionSystem.update(registry);
+    collisionSystem.update(registry, 0.016f);
 
     Position finalPos = registry.get_components<Position>()[player];
 
@@ -176,7 +176,7 @@ TEST_F(CollisionSystemTest, CollisionFromBottom) {
     registry.add_component(player, Collider{10.0f, 10.0f});
     registry.add_component(player, Controllable{});
 
-    collisionSystem.update(registry);
+    collisionSystem.update(registry, 0.016f);
 
     Position finalPos = registry.get_components<Position>()[player];
 
@@ -202,7 +202,7 @@ TEST_F(CollisionSystemTest, ProjectileDestroyEnemy) {
     registry.add_component(projectile, Collider{5.0f, 5.0f});
     registry.add_component(projectile, Projectile{});
 
-    collisionSystem.update(registry);
+    collisionSystem.update(registry, 0.016f);
 
     auto& positions = registry.get_components<Position>();
 
@@ -224,7 +224,7 @@ TEST_F(CollisionSystemTest, ProjectileDoesNotDestroyEnemyWhenSeparated) {
     registry.add_component(projectile, Collider{5.0f, 5.0f});
     registry.add_component(projectile, Projectile{});
 
-    collisionSystem.update(registry);
+    collisionSystem.update(registry, 0.016f);
 
     auto& positions = registry.get_components<Position>();
 
@@ -255,7 +255,7 @@ TEST_F(CollisionSystemTest, MultipleWallsDoNotInterfere) {
     registry.add_component(player, Collider{10.0f, 10.0f});
     registry.add_component(player, Controllable{});
 
-    collisionSystem.update(registry);
+    collisionSystem.update(registry, 0.016f);
 
     Position finalPos = registry.get_components<Position>()[player];
 
@@ -287,7 +287,7 @@ TEST_F(CollisionSystemTest, MultipleProjectilesDestroyMultipleEnemies) {
     registry.add_component(projectile2, Collider{5.0f, 5.0f});
     registry.add_component(projectile2, Projectile{});
 
-    collisionSystem.update(registry);
+    collisionSystem.update(registry, 0.016f);
 
     auto& positions = registry.get_components<Position>();
 
@@ -316,7 +316,7 @@ TEST_F(CollisionSystemTest, EntityWithoutColliderIsIgnored) {
 
     Position initialPos = registry.get_components<Position>()[player];
 
-    collisionSystem.update(registry);
+    collisionSystem.update(registry, 0.016f);
 
     Position finalPos = registry.get_components<Position>()[player];
 
@@ -340,7 +340,7 @@ TEST_F(CollisionSystemTest, ZeroSizeColliderDoesNotCollide) {
 
     Position initialPos = registry.get_components<Position>()[player];
 
-    collisionSystem.update(registry);
+    collisionSystem.update(registry, 0.016f);
 
     Position finalPos = registry.get_components<Position>()[player];
 

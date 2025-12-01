@@ -117,7 +117,7 @@ int main() {
         // === UPDATE ===
         
         // 1. Exécuter tous les systèmes (InputSystem met à jour les inputs, CollisionSystem gère les collisions)
-        registry.run_systems();
+        registry.run_systems(GetFrameTime());
         
         // 2. Appliquer le mouvement au joueur (basé sur le composant Input mis à jour par InputSystem)
         auto& playerInput = inputs[player];

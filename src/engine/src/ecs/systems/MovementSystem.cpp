@@ -19,8 +19,10 @@ void MovementSystem::shutdown()
     std::cout << "MovementSystem: Arrêt." << std::endl;
 }
 
-void MovementSystem::update(Registry& registry)
+void MovementSystem::update(Registry& registry, float dt)
 {
+    (void)dt;
+
     auto& inputs = registry.get_components<Input>();
     auto& velocitys = registry.get_components<Velocity>();
     auto& controlables = registry.get_components<Controllable>();

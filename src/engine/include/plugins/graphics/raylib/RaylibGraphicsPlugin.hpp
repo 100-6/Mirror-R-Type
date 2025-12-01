@@ -61,6 +61,9 @@ public:
     FontHandle load_font(const std::string& path) override;
     void unload_font(FontHandle handle) override;
 
+    // Get default texture (pink/black checkerboard for missing textures)
+    TextureHandle get_default_texture() const;
+
     // Camera/View
     void set_view(Vector2f center, Vector2f size) override;
     void reset_view() override;
@@ -87,11 +90,17 @@ private:
     // Handle generators
     TextureHandle next_texture_handle_;
     FontHandle next_font_handle_;
-    
+
+    // Default texture (pink/black checkerboard)
+    TextureHandle default_texture_;
+
     // View state
     Vector2f view_center_;
     Vector2f view_size_;
     bool using_custom_view_;
+
+    // Helper to create default checkerboard texture
+    void create_default_texture();
 };
 
 }

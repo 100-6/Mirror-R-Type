@@ -70,7 +70,7 @@ int main() {
         // === UPDATE ===
         
         // 1. Exécuter tous les systèmes (InputSystem met à jour les composants Input)
-        registry.run_systems();
+        registry.run_systems(GetFrameTime());
         
         // 2. Appliquer le mouvement basé sur l'input
         auto& input = inputs[player];

@@ -47,7 +47,7 @@ TEST_F(ShootingCollisionTest, ProjectileDestroysEnemyOnCollision) {
     EXPECT_TRUE(enemies.has_entity(enemy));
 
     // Exécuter le système de collision
-    registry.run_systems();
+    registry.run_systems(0.016f);
 
     // Après collision, les deux devraient être détruits
     EXPECT_FALSE(projectiles.has_entity(projectile)) << "Le projectile devrait être détruit";
@@ -68,7 +68,7 @@ TEST_F(ShootingCollisionTest, ProjectileDoesNotDestroyEnemyWhenFarApart) {
     registry.add_component<Enemy>(enemy, Enemy{});
 
     // Exécuter le système de collision
-    registry.run_systems();
+    registry.run_systems(0.016f);
 
     // Ils devraient toujours exister
     auto& projectiles = registry.get_components<Projectile>();
@@ -95,7 +95,7 @@ TEST_F(ShootingCollisionTest, PlayerCollidesWithWall) {
     float initialX = positions[player].x;
 
     // Exécuter le système de collision (devrait repousser le joueur)
-    registry.run_systems();
+    registry.run_systems(0.016f);
 
     // Le joueur devrait avoir été repoussé
     float finalX = positions[player].x;
@@ -136,7 +136,7 @@ TEST_F(ShootingCollisionTest, MultipleProjectilesDestroyMultipleEnemies) {
     registry.add_component<Enemy>(enemy3, Enemy{});
 
     // Exécuter le système de collision
-    registry.run_systems();
+    registry.run_systems(0.016f);
 
     // Tous devraient être détruits
     auto& projectiles = registry.get_components<Projectile>();
@@ -164,7 +164,7 @@ TEST_F(ShootingCollisionTest, PlayerDoesNotDestroyEnemy) {
     registry.add_component<Enemy>(enemy, Enemy{});
 
     // Exécuter le système
-    registry.run_systems();
+    registry.run_systems(0.016f);
 
     // L'ennemi devrait toujours exister (pas de collision player vs enemy)
     auto& enemies = registry.get_components<Enemy>();
