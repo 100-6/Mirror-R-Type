@@ -15,10 +15,15 @@ if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
     endif()
 endif()
 
-# Use dynamic linking triplet for Linux to enable shared Raylib
+# Use dynamic linking to enable shared Raylib across plugins
 if(UNIX AND NOT APPLE)
+    # Linux: force dynamic libraries (.so)
     set(VCPKG_TARGET_TRIPLET "x64-linux-dynamic" CACHE STRING "Vcpkg target triplet")
-    message(STATUS "Using dynamic triplet: ${VCPKG_TARGET_TRIPLET}")
+    message(STATUS "Using dynamic triplet for Linux: ${VCPKG_TARGET_TRIPLET}")
+elseif(WIN32)
+    # Windows: use default dynamic libraries (.dll)
+    set(VCPKG_TARGET_TRIPLET "x64-windows" CACHE STRING "Vcpkg target triplet")
+    message(STATUS "Using dynamic triplet for Windows: ${VCPKG_TARGET_TRIPLET}")
 endif()
 
 project(rtype LANGUAGES CXX)

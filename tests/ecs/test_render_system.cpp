@@ -78,6 +78,7 @@ public:
     engine::Vector2f get_texture_size(engine::TextureHandle) const override {
         return {0.0f, 0.0f};
     }
+    engine::TextureHandle get_default_texture() const override { return 999; }
     engine::FontHandle load_font(const std::string&) override { return 1; }
     void unload_font(engine::FontHandle) override {}
 
