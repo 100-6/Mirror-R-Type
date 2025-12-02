@@ -7,6 +7,7 @@ add_library(rtype_engine
     src/ecs/systems/PhysiqueSystem.cpp
     src/ecs/systems/InputSystem.cpp
     src/ecs/systems/RenderSystem.cpp
+    src/ecs/systems/NetworkSystem.cpp
     src/core/event/EventBus.cpp
     src/plugin_manager/PluginManager.cpp
 )
