@@ -87,7 +87,7 @@ int main() {
     // ============================================
     std::cout << "Chargement des textures depuis assets/sprite/..." << std::endl;
 
-    engine::TextureHandle backgroundTex = graphicsPlugin->load_texture("assets/sprite/Background.jpg");
+    engine::TextureHandle backgroundTex = graphicsPlugin->load_texture("assets/sprite/Background.png");
     engine::TextureHandle playerTex = graphicsPlugin->load_texture("assets/sprite/player.png");
     engine::TextureHandle enemyTex = graphicsPlugin->load_texture("assets/sprite/enemy.png");
     engine::TextureHandle bulletTex = graphicsPlugin->load_texture("assets/sprite/bullet.png");
