@@ -14,8 +14,8 @@
 #include "ecs/systems/PhysiqueSystem.hpp"
 #include "ecs/systems/CollisionSystem.hpp"
 #include "ecs/systems/RenderSystem.hpp"
-#include "plugins/input/raylib/RaylibInputPlugin.hpp"
 #include "plugin_manager/PluginManager.hpp"
+#include "plugin_manager/IInputPlugin.hpp"
 
 int main() {
     // Configuration de la fenêtre
@@ -26,20 +26,20 @@ int main() {
     std::cout << std::endl;
 
     // ============================================
-    // CHARGEMENT DU PLUGIN GRAPHIQUE
+    // CHARGEMENT DES PLUGINS
     // ============================================
-    std::cout << "Chargement du plugin graphique..." << std::endl;
-
     engine::PluginManager pluginManager;
     engine::IGraphicsPlugin* graphicsPlugin = nullptr;
+    engine::IInputPlugin* inputPlugin = nullptr;
 
+    std::cout << "Chargement du plugin graphique..." << std::endl;
     try {
         graphicsPlugin = pluginManager.load_plugin<engine::IGraphicsPlugin>(
             "plugins/raylib_graphics.so",
             "create_graphics_plugin"
         );
     } catch (const engine::PluginException& e) {
-        std::cerr << "❌ Erreur lors du chargement du plugin: " << e.what() << std::endl;
+        std::cerr << "❌ Erreur lors du chargement du plugin graphique: " << e.what() << std::endl;
         return 1;
     }
 
@@ -48,8 +48,29 @@ int main() {
         return 1;
     }
 
-    std::cout << "✓ Plugin chargé: " << graphicsPlugin->get_name()
+    std::cout << "✓ Plugin graphique chargé: " << graphicsPlugin->get_name()
               << " v" << graphicsPlugin->get_version() << std::endl;
+
+    std::cout << "Chargement du plugin d'input..." << std::endl;
+    try {
+        inputPlugin = pluginManager.load_plugin<engine::IInputPlugin>(
+            "plugins/raylib_input.so",
+            "create_input_plugin"
+        );
+    } catch (const engine::PluginException& e) {
+        std::cerr << "❌ Erreur lors du chargement du plugin d'input: " << e.what() << std::endl;
+        graphicsPlugin->shutdown();
+        return 1;
+    }
+
+    if (!inputPlugin) {
+        std::cerr << "❌ Plugin d'input non disponible" << std::endl;
+        graphicsPlugin->shutdown();
+        return 1;
+    }
+
+    std::cout << "✓ Plugin d'input chargé: " << inputPlugin->get_name()
+              << " v" << inputPlugin->get_version() << std::endl;
 
     // Créer la fenêtre via le plugin
     if (!graphicsPlugin->create_window(SCREEN_WIDTH, SCREEN_HEIGHT, "R-Type Client - Solo Game")) {
@@ -83,9 +104,9 @@ int main() {
     engine::Vector2f bulletSize = graphicsPlugin->get_texture_size(bulletTex);
 
     // Calculer les échelles pour des tailles de jeu raisonnables
-    const float PLAYER_SCALE = 0.25f;  // 256x128 -> 64x32 pixels
-    const float ENEMY_SCALE = 0.2f;    // 277x88 -> 55x18 pixels
-    const float BULLET_SCALE = 0.8f;   // 93x10 -> 74x8 pixels
+    const float PLAYER_SCALE = 1.00f;  // 256x128 -> 64x32 pixels
+    const float ENEMY_SCALE = 1.00f;    // 277x88 -> 55x18 pixels
+    const float BULLET_SCALE = 1.00f;   // 93x10 -> 74x8 pixels
 
     float playerWidth = playerSize.x * PLAYER_SCALE;
     float playerHeight = playerSize.y * PLAYER_SCALE;
@@ -125,16 +146,8 @@ int main() {
     // CREATION ET ENREGISTREMENT DES SYSTEMES
     // ============================================
 
-    // Plugin d'input Raylib
-    RaylibInputPlugin inputPlugin;
-    if (!inputPlugin.initialize()) {
-        std::cerr << "❌ Erreur lors de l'initialisation du plugin d'input" << std::endl;
-        graphicsPlugin->shutdown();
-        return 1;
-    }
-
     // Enregistrer les systèmes dans l'ordre d'exécution
-    registry.register_system<InputSystem>(&inputPlugin);
+    registry.register_system<InputSystem>(inputPlugin);
     registry.register_system<MovementSystem>();
     registry.register_system<PhysiqueSystem>();
     registry.register_system<CollisionSystem>();
@@ -396,7 +409,7 @@ int main() {
     // ============================================
     // NETTOYAGE
     // ============================================
-    inputPlugin.shutdown();
+    inputPlugin->shutdown();
     graphicsPlugin->shutdown();
 
     std::cout << "=== Fin de la demo ===" << std::endl;

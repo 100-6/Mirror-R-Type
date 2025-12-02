@@ -12,8 +12,6 @@ target_include_directories(r-type_client
 target_link_libraries(r-type_client
     PRIVATE
         rtype_engine
-        raylib_input
-        raylib
 )
 
 # Ensure the client can find shared libraries at runtime

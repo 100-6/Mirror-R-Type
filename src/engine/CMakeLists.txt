@@ -187,22 +187,52 @@ else()
 endif()
 
 # ============================================
-# STATIC LIBRARY: Raylib Input (for tests)
+# PLUGIN: Raylib Input (Dynamic Library)
 # ============================================
-# This is a static library version of the input plugin for testing
-add_library(raylib_input STATIC
+add_library(raylib_input SHARED
     src/plugins/input/raylib/RaylibInputPlugin.cpp
 )
 
 target_include_directories(raylib_input
-    PUBLIC
+    PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
 target_link_libraries(raylib_input
-    PUBLIC
+    PRIVATE
         raylib
         glfw
 )
 
-set_property(TARGET raylib_input PROPERTY CXX_STANDARD 20)
+target_compile_definitions(raylib_input PRIVATE PLUGIN_EXPORTS)
+
+# Ensure the plugin can find shared libraries at runtime
+set_target_properties(raylib_input PROPERTIES
+    INSTALL_RPATH "$ORIGIN"
+    BUILD_WITH_INSTALL_RPATH TRUE
+)
+
+# Set output to plugins directory with unified naming
+set_target_properties(raylib_input PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/plugins"
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/plugins"
+    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/plugins"
+    OUTPUT_NAME "raylib_input"
+    PREFIX ""
+)
+
+# For multi-config generators (Visual Studio, Xcode)
+foreach(CONFIG_TYPE ${CMAKE_CONFIGURATION_TYPES})
+    string(TOUPPER ${CONFIG_TYPE} CONFIG_TYPE_UPPER)
+    set_target_properties(raylib_input PROPERTIES
+        LIBRARY_OUTPUT_DIRECTORY_${CONFIG_TYPE_UPPER} "${CMAKE_BINARY_DIR}/plugins"
+        RUNTIME_OUTPUT_DIRECTORY_${CONFIG_TYPE_UPPER} "${CMAKE_BINARY_DIR}/plugins"
+        ARCHIVE_OUTPUT_DIRECTORY_${CONFIG_TYPE_UPPER} "${CMAKE_BINARY_DIR}/plugins"
+    )
+endforeach()
+
+if(WIN32)
+    set_target_properties(raylib_input PROPERTIES SUFFIX ".dll")
+else()
+    set_target_properties(raylib_input PROPERTIES SUFFIX ".so")
+endif()
