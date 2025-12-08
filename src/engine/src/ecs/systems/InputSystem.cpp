@@ -9,17 +9,15 @@
 #include "ecs/Components.hpp"
 #include <iostream>
 
-InputSystem::InputSystem(engine::IInputPlugin* plugin)
+InputSystem::InputSystem(engine::IInputPlugin& plugin)
     : input_plugin(plugin)
 {
-    if (!input_plugin) {
-        throw std::runtime_error("InputSystem: plugin cannot be null");
-    }
+    // Pas besoin de vérifier null - les références ne peuvent pas être nulles
 }
 
 void InputSystem::init(Registry& registry)
 {
-    std::cout << "InputSystem: Initialisation avec " << input_plugin->get_name() << std::endl;
+    std::cout << "InputSystem: Initialisation avec " << input_plugin.get_name() << std::endl;
 }
 
 void InputSystem::shutdown()
@@ -32,7 +30,7 @@ void InputSystem::update(Registry& registry, float dt)
     (void)dt;
 
     // Mettre à jour le plugin (lit les événements du frame actuel)
-    input_plugin->update();
+    input_plugin.update();
 
     // Récupérer tous les composants Input
     auto& inputs = registry.get_components<Input>();
@@ -48,21 +46,21 @@ void InputSystem::update(Registry& registry, float dt)
         Input& input = inputs.get_data_by_entity_id(entity);
 
         // Lire les touches via le plugin
-        input.up = input_plugin->is_key_pressed(engine::Key::W) ||
-                   input_plugin->is_key_pressed(engine::Key::Up);
+        input.up = input_plugin.is_key_pressed(engine::Key::W) ||
+                   input_plugin.is_key_pressed(engine::Key::Up);
 
-        input.down = input_plugin->is_key_pressed(engine::Key::S) ||
-                     input_plugin->is_key_pressed(engine::Key::Down);
+        input.down = input_plugin.is_key_pressed(engine::Key::S) ||
+                     input_plugin.is_key_pressed(engine::Key::Down);
 
-        input.left = input_plugin->is_key_pressed(engine::Key::A) ||
-                     input_plugin->is_key_pressed(engine::Key::Left);
+        input.left = input_plugin.is_key_pressed(engine::Key::A) ||
+                     input_plugin.is_key_pressed(engine::Key::Left);
 
-        input.right = input_plugin->is_key_pressed(engine::Key::D) ||
-                      input_plugin->is_key_pressed(engine::Key::Right);
+        input.right = input_plugin.is_key_pressed(engine::Key::D) ||
+                      input_plugin.is_key_pressed(engine::Key::Right);
 
-        input.fire = input_plugin->is_key_pressed(engine::Key::Space);
+        input.fire = input_plugin.is_key_pressed(engine::Key::Space);
 
-        input.special = input_plugin->is_key_pressed(engine::Key::LShift) ||
-                        input_plugin->is_key_pressed(engine::Key::RShift);
+        input.special = input_plugin.is_key_pressed(engine::Key::LShift) ||
+                        input_plugin.is_key_pressed(engine::Key::RShift);
     }
 }
