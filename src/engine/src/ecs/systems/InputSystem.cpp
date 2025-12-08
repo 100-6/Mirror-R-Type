@@ -10,16 +10,15 @@
 #include "ecs/events/InputEvents.hpp"
 #include <iostream>
 
-InputSystem::InputSystem(engine::IInputPlugin* plugin)
+InputSystem::InputSystem(engine::IInputPlugin& plugin)
     : input_plugin(plugin)
 {
-    if (!input_plugin)
-        throw std::runtime_error("InputSystem: plugin cannot be null");
+    // Pas besoin de vérifier null - les références ne peuvent pas être nulles
 }
 
 void InputSystem::init(Registry& registry)
 {
-    std::cout << "InputSystem: Initialisation avec " << input_plugin->get_name() << std::endl;
+    std::cout << "InputSystem: Initialisation avec " << input_plugin.get_name() << std::endl;
 }
 
 void InputSystem::shutdown()
@@ -43,14 +42,14 @@ void InputSystem::update(Registry& registry, float dt)
         float dirX = 0.0f;
         float dirY = 0.0f;
 
-        bool up = input_plugin->is_key_pressed(engine::Key::W) ||
-                  input_plugin->is_key_pressed(engine::Key::Up);
-        bool down = input_plugin->is_key_pressed(engine::Key::S) ||
-                    input_plugin->is_key_pressed(engine::Key::Down);
-        bool left = input_plugin->is_key_pressed(engine::Key::A) ||
-                    input_plugin->is_key_pressed(engine::Key::Left);
-        bool right = input_plugin->is_key_pressed(engine::Key::D) ||
-                     input_plugin->is_key_pressed(engine::Key::Right);
+        bool up = input_plugin.is_key_pressed(engine::Key::W) ||
+                  input_plugin.is_key_pressed(engine::Key::Up);
+        bool down = input_plugin.is_key_pressed(engine::Key::S) ||
+                    input_plugin.is_key_pressed(engine::Key::Down);
+        bool left = input_plugin.is_key_pressed(engine::Key::A) ||
+                    input_plugin.is_key_pressed(engine::Key::Left);
+        bool right = input_plugin.is_key_pressed(engine::Key::D) ||
+                     input_plugin.is_key_pressed(engine::Key::Right);
 
         if (up) dirY -= 1.0f;
         if (down) dirY += 1.0f;
@@ -59,13 +58,13 @@ void InputSystem::update(Registry& registry, float dt)
 
         eventBus.publish(ecs::PlayerMoveEvent{entity, dirX, dirY});
 
-        if (input_plugin->is_key_pressed(engine::Key::Space))
+        if (input_plugin.is_key_pressed(engine::Key::Space))
             eventBus.publish(ecs::PlayerFireEvent{entity});
 
-        if (input_plugin->is_key_just_pressed(engine::Key::LShift) || 
-            input_plugin->is_key_just_pressed(engine::Key::RShift))
+        if (input_plugin.is_key_just_pressed(engine::Key::LShift) ||
+            input_plugin.is_key_just_pressed(engine::Key::RShift))
             eventBus.publish(ecs::PlayerSpecialEvent{entity});
     }
 
-    input_plugin->update();
+    input_plugin.update();
 }
