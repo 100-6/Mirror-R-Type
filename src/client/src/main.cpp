@@ -88,7 +88,7 @@ int main() {
     // ============================================
     std::cout << "Chargement des textures depuis assets/sprite/..." << std::endl;
 
-    engine::TextureHandle backgroundTex = graphicsPlugin->load_texture("assets/sprite/Background.png");
+    engine::TextureHandle backgroundTex = graphicsPlugin->load_texture("assets/sprite/symmetry.png");
     engine::TextureHandle playerTex = graphicsPlugin->load_texture("assets/sprite/player.png");
     engine::TextureHandle enemyTex = graphicsPlugin->load_texture("assets/sprite/enemy.png");
     engine::TextureHandle bulletTex = graphicsPlugin->load_texture("assets/sprite/bullet.png");
@@ -159,18 +159,19 @@ int main() {
     std::cout << "✓ Systemes enregistres :" << std::endl;
     std::cout << "  1. InputSystem    - Capture les inputs du joueur" << std::endl;
     std::cout << "  2. MovementSystem - Calcule la velocite en fonction des inputs" << std::endl;
-    std::cout << "  3. PhysiqueSystem - Applique la velocite, friction, limites d'ecran" << std::endl;
+    std::cout << "  3. PhysiqueSystem - Applique la velocite, friction, limites d'ecran + scrolling background" << std::endl;
     std::cout << "  4. CollisionSystem- Gere les collisions et marque les entites a detruire" << std::endl;
-    std::cout << "  5. DestroySystem  - Detruit les entites marquees pour destruction" << std::endl;
-    std::cout << "  6. RenderSystem   - Rendu des sprites via plugin graphique" << std::endl;
+    std::cout << "  5. RenderSystem   - Rendu des sprites via plugin graphique" << std::endl;
+    std::cout << "  6. DestroySystem  - Detruit les entites marquees pour destruction" << std::endl;
     std::cout << std::endl;
 
     // ============================================
-    // CREATION DU BACKGROUND
+    // CREATION DU BACKGROUND (x2 pour défilement infini)
     // ============================================
-    Entity background = registry.spawn_entity();
-    registry.add_component(background, Position{0.0f, 0.0f});
-    registry.add_component(background, Sprite{
+    Entity background1 = registry.spawn_entity();
+    registry.add_component(background1, Position{0.0f, 0.0f});
+    registry.add_component(background1, Velocity{-100.0f, 0.0f}); // Défile vers la gauche
+    registry.add_component(background1, Sprite{
         backgroundTex,
         static_cast<float>(SCREEN_WIDTH),
         static_cast<float>(SCREEN_HEIGHT),
@@ -181,7 +182,22 @@ int main() {
         -100  // Layer très bas pour être en arrière-plan
     });
 
-    std::cout << "✓ Background cree" << std::endl;
+    // Second fond pour défilement infini
+    Entity background2 = registry.spawn_entity();
+    registry.add_component(background2, Position{static_cast<float>(SCREEN_WIDTH), 0.0f});
+    registry.add_component(background2, Velocity{-100.0f, 0.0f});
+    registry.add_component(background2, Sprite{
+        backgroundTex,
+        static_cast<float>(SCREEN_WIDTH),
+        static_cast<float>(SCREEN_HEIGHT),
+        0.0f,
+        engine::Color::White,
+        0.0f,
+        0.0f,
+        -100
+    });
+
+    std::cout << "✓ Background scrolling cree (x2)" << std::endl;
     std::cout << std::endl;
 
     // ============================================

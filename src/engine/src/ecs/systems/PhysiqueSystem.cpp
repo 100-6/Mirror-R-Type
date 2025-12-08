@@ -25,6 +25,7 @@ void PhysiqueSystem::update(Registry& registry, float dt)
     auto& controllables = registry.get_components<Controllable>();
     auto& projectiles = registry.get_components<Projectile>();
     auto& toDestroy = registry.get_components<ToDestroy>();
+    auto& sprites = registry.get_components<Sprite>();
 
     for (size_t i = 0; i < velocitys.size(); i++)
     {
@@ -58,6 +59,17 @@ void PhysiqueSystem::update(Registry& registry, float dt)
             if (pos.x < -100 || pos.x > SCREEN_WIDTH + 100 ||
                 pos.y < -100 || pos.y > SCREEN_HEIGHT + 100) {
                 registry.add_component(entity, ToDestroy{});
+            }
+        }
+
+        // Scrolling background infini (layer < -50 = background)
+        if (sprites.has_entity(entity)) {
+            auto& sprite = sprites[entity];
+            if (sprite.layer < -50) {
+                // Si le fond est complètement sorti à gauche, le repositionner à droite
+                if (pos.x <= -SCREEN_WIDTH) {
+                    pos.x += SCREEN_WIDTH * 2.0f;
+                }
             }
         }
     }
