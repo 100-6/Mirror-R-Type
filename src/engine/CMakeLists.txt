@@ -6,6 +6,7 @@ add_library(rtype_engine
     src/ecs/systems/MovementSystem.cpp
     src/ecs/systems/PhysiqueSystem.cpp
     src/ecs/systems/InputSystem.cpp
+    src/ecs/systems/ShootingSystem.cpp
     src/ecs/systems/RenderSystem.cpp
     src/ecs/systems/NetworkSystem.cpp
     src/ecs/systems/DestroySystem.cpp

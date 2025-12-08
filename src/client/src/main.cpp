@@ -11,6 +11,7 @@
 #include "cmath"
 #include "ecs/systems/InputSystem.hpp"
 #include "ecs/systems/MovementSystem.hpp"
+#include "ecs/systems/ShootingSystem.hpp"
 #include "ecs/systems/PhysiqueSystem.hpp"
 #include "ecs/systems/CollisionSystem.hpp"
 #include "ecs/systems/DestroySystem.hpp"
@@ -142,6 +143,7 @@ int main() {
     registry.register_component<Wall>();
     registry.register_component<Health>();
     registry.register_component<ToDestroy>();
+    registry.register_component<FireRate>();
     registry.register_component<Score>();
 
     std::cout << "✓ Composants enregistres" << std::endl;
@@ -151,21 +153,23 @@ int main() {
     // ============================================
 
     // Enregistrer les systèmes dans l'ordre d'exécution
-    registry.register_system<InputSystem>(*inputPlugin);
+    registry.register_system<InputSystem>(inputPlugin);
     registry.register_system<MovementSystem>();
+    registry.register_system<ShootingSystem>(bulletTex, bulletWidth, bulletHeight);
     registry.register_system<PhysiqueSystem>();
     registry.register_system<CollisionSystem>();
-    registry.register_system<ScoreSystem>(*inputPlugin);
+    registry.register_system<ScoreSystem>(inputPlugin);
     registry.register_system<DestroySystem>();
-    registry.register_system<RenderSystem>(*graphicsPlugin);
+    registry.register_system<RenderSystem>(graphicsPlugin);
 
     std::cout << "✓ Systemes enregistres :" << std::endl;
-    std::cout << "  1. InputSystem    - Capture les inputs du joueur" << std::endl;
-    std::cout << "  2. MovementSystem - Calcule la velocite en fonction des inputs" << std::endl;
-    std::cout << "  3. PhysiqueSystem - Applique la velocite, friction, limites d'ecran" << std::endl;
-    std::cout << "  4. CollisionSystem- Gere les collisions et marque les entites a detruire" << std::endl;
-    std::cout << "  5. DestroySystem  - Detruit les entites marquees pour destruction" << std::endl;
-    std::cout << "  6. RenderSystem   - Rendu des sprites via plugin graphique" << std::endl;
+    std::cout << "  1. InputSystem    - Capture les inputs et publie des evenements" << std::endl;
+    std::cout << "  2. MovementSystem - Ecoute les evenements de mouvement et met a jour la velocite" << std::endl;
+    std::cout << "  3. ShootingSystem - Ecoute les evenements de tir et cree des projectiles" << std::endl;
+    std::cout << "  4. PhysiqueSystem - Applique la velocite, friction, limites d'ecran" << std::endl;
+    std::cout << "  5. CollisionSystem- Gere les collisions et marque les entites a detruire" << std::endl;
+    std::cout << "  6. DestroySystem  - Detruit les entites marquees pour destruction" << std::endl;
+    std::cout << "  7. RenderSystem   - Rendu des sprites via plugin graphique" << std::endl;
     std::cout << std::endl;
 
     // ============================================
@@ -193,8 +197,9 @@ int main() {
     Entity player = registry.spawn_entity();
     registry.add_component(player, Position{200.0f, SCREEN_HEIGHT / 2.0f});
     registry.add_component(player, Velocity{0.0f, 0.0f});
-    registry.add_component(player, Input{});
     registry.add_component(player, Collider{playerWidth, playerHeight});
+    registry.add_component(player, Controllable{300.0f}); // Vitesse de 300 pixels/s
+    registry.add_component(player, FireRate{0.5f, 999.0f}); // Cadence de tir : 0.5s entre chaque tir (2 tirs/sec), commence prêt à tirer
     registry.add_component(player, Sprite{
         playerTex,           // texture
         playerWidth,         // width
@@ -205,7 +210,6 @@ int main() {
         0.0f,               // origin_y
         1                   // layer
     });
-    registry.add_component(player, Controllable{300.0f}); // Vitesse de 300 pixels/s
     registry.add_component(player, Health{100, 100});
     registry.add_component(player, Score{0});
 
@@ -220,12 +224,19 @@ int main() {
     // ============================================
     std::cout << "✓ Creation des murs (Gris)..." << std::endl;
 
-    // Mur vertical gauche
-    Entity wall1 = registry.spawn_entity();
-    registry.add_component(wall1, Position{400.0f, 200.0f});
-    registry.add_component(wall1, Collider{20.0f, 680.0f});
-    registry.add_component(wall1, Sprite{defaultTex, 20.0f, 680.0f, 0.0f, engine::Color::White, 0.0f, 0.0f, -1});
-    registry.add_component(wall1, Wall{});
+    // Mur vertical gauche - PARTIE HAUTE (avec un trou au milieu pour tirer)
+    Entity wall1_top = registry.spawn_entity();
+    registry.add_component(wall1_top, Position{400.0f, 200.0f});
+    registry.add_component(wall1_top, Collider{20.0f, 240.0f});  // Hauteur réduite
+    registry.add_component(wall1_top, Sprite{defaultTex, 20.0f, 240.0f, 0.0f, engine::Color::White, 0.0f, 0.0f, -1});
+    registry.add_component(wall1_top, Wall{});
+
+    // Mur vertical gauche - PARTIE BASSE (trou de 200px au milieu)
+    Entity wall1_bottom = registry.spawn_entity();
+    registry.add_component(wall1_bottom, Position{400.0f, 640.0f});  // Commence après le trou
+    registry.add_component(wall1_bottom, Collider{20.0f, 240.0f});  // Hauteur réduite
+    registry.add_component(wall1_bottom, Sprite{defaultTex, 20.0f, 240.0f, 0.0f, engine::Color::White, 0.0f, 0.0f, -1});
+    registry.add_component(wall1_bottom, Wall{});
 
     // Mur vertical droit
     Entity wall2 = registry.spawn_entity();

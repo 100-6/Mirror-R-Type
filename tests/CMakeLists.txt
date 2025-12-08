@@ -117,6 +117,20 @@ if(GTest_FOUND)
     )
     add_test(NAME DestroySystemGTestSuite COMMAND test_destroy_system)
     set_property(TARGET test_destroy_system PROPERTY CXX_STANDARD 20)
+
+    # Test ShootingSystem with GTest
+    add_executable(test_shooting_system
+        ecs/test_shooting_system.cpp
+    )
+    target_link_libraries(test_shooting_system
+        PRIVATE
+            rtype_engine
+            ${GTEST_LIBRARIES}
+            ${GTEST_MAIN_LIBRARIES}
+            Threads::Threads
+    )
+    add_test(NAME ShootingSystemGTestSuite COMMAND test_shooting_system)
+    set_property(TARGET test_shooting_system PROPERTY CXX_STANDARD 20)
 endif()
 
 # Test Plugin Manager

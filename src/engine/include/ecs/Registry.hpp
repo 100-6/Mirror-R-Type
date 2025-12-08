@@ -9,6 +9,7 @@
 #define REGISTRY_HPP_
 #include "SparseSet.hpp"
 #include "systems/ISystem.hpp"
+#include "core/event/EventBus.hpp"
 #include <unordered_map>
 #include <any>
 #include <typeindex>
@@ -22,9 +23,14 @@ class Registry {
         std::unordered_map<std::type_index, std::any> components;
         std::vector<std::function<void (Registry&, Entity)>> to_kill;
         std::vector<std::unique_ptr<ISystem>> systems;
+        core::EventBus eventBus_;
     public:
         Registry() = default;
         ~Registry() = default;
+
+        core::EventBus& get_event_bus() {
+            return eventBus_;
+        }
 
         template <typename Component>
         SparseSet<Component>& register_component()

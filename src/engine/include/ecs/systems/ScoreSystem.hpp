@@ -13,7 +13,7 @@
 
 class ScoreSystem : public ISystem {
 public:
-    explicit ScoreSystem(engine::IInputPlugin& plugin);
+    explicit ScoreSystem(engine::IInputPlugin* plugin);
     ~ScoreSystem() override = default;
 
     void init(Registry& registry) override;
@@ -21,7 +21,8 @@ public:
     void shutdown() override;
 
 private:
-    engine::IInputPlugin& input_plugin;
+    engine::IInputPlugin* input_plugin;
+    bool k_was_pressed;
 };
 
 #endif /* !SCORESYSTEM_HPP_ */
