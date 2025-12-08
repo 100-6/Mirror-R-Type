@@ -10,6 +10,7 @@ add_library(rtype_engine
     src/ecs/systems/RenderSystem.cpp
     src/ecs/systems/NetworkSystem.cpp
     src/ecs/systems/DestroySystem.cpp
+    src/ecs/systems/ScoreSystem.cpp
     src/core/event/EventBus.cpp
     src/plugin_manager/PluginManager.cpp
 )

@@ -42,15 +42,28 @@ void RaylibInputPlugin::init_key_mapping() {
     key_mapping[engine::Key::Backspace] = KEY_BACKSPACE;
     
     // Lettres
-    key_mapping[engine::Key::Q] = KEY_Q;
+    key_mapping[engine::Key::B] = KEY_B;
+    key_mapping[engine::Key::C] = KEY_C;
     key_mapping[engine::Key::E] = KEY_E;
-    key_mapping[engine::Key::R] = KEY_R;
-    key_mapping[engine::Key::T] = KEY_T;
-    key_mapping[engine::Key::Y] = KEY_Y;
-    key_mapping[engine::Key::U] = KEY_U;
+    key_mapping[engine::Key::F] = KEY_F;
+    key_mapping[engine::Key::G] = KEY_G;
+    key_mapping[engine::Key::H] = KEY_H;
     key_mapping[engine::Key::I] = KEY_I;
+    key_mapping[engine::Key::J] = KEY_J;
+    key_mapping[engine::Key::K] = KEY_K;
+    key_mapping[engine::Key::L] = KEY_L;
+    key_mapping[engine::Key::M] = KEY_M;
+    key_mapping[engine::Key::N] = KEY_N;
     key_mapping[engine::Key::O] = KEY_O;
     key_mapping[engine::Key::P] = KEY_P;
+    key_mapping[engine::Key::Q] = KEY_Q;
+    key_mapping[engine::Key::R] = KEY_R;
+    key_mapping[engine::Key::T] = KEY_T;
+    key_mapping[engine::Key::U] = KEY_U;
+    key_mapping[engine::Key::V] = KEY_V;
+    key_mapping[engine::Key::X] = KEY_X;
+    key_mapping[engine::Key::Y] = KEY_Y;
+    key_mapping[engine::Key::Z] = KEY_Z;
     
     // Chiffres
     key_mapping[engine::Key::Num0] = KEY_ZERO;
