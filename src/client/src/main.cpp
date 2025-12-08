@@ -158,7 +158,7 @@ int main() {
     registry.register_system<ShootingSystem>(bulletTex, bulletWidth, bulletHeight);
     registry.register_system<PhysiqueSystem>();
     registry.register_system<CollisionSystem>();
-    registry.register_system<ScoreSystem>(inputPlugin);
+    registry.register_system<ScoreSystem>();
     registry.register_system<DestroySystem>();
     registry.register_system<RenderSystem>(*graphicsPlugin);
 
@@ -422,12 +422,19 @@ int main() {
                                      engine::Color{0, 255, 0, 255}, engine::INVALID_HANDLE, 20);
             yOffset += lineHeight;
 
-            // Score
+            // Score (dans le debug)
             if (scores.has_entity(player)) {
-                std::string scoreText = "Score: " + std::to_string(scores[player].value) + " (Press K to add 100)";
+                std::string scoreText = "Score: " + std::to_string(scores[player].value);
                 graphicsPlugin->draw_text(scoreText, engine::Vector2f(10.0f, yOffset),
                                          engine::Color{255, 0, 255, 255}, engine::INVALID_HANDLE, 20);
             }
+        }
+
+        // Score affiché en grand en haut à droite (toujours visible)
+        if (scores.has_entity(player)) {
+            std::string scoreText = "SCORE: " + std::to_string(scores[player].value);
+            graphicsPlugin->draw_text(scoreText, engine::Vector2f(SCREEN_WIDTH - 300.0f, 30.0f),
+                                     engine::Color{255, 255, 0, 255}, engine::INVALID_HANDLE, 40);
         }
 
         // Afficher le frame complet (sprites + UI)

@@ -9,11 +9,11 @@
 #define SCORESYSTEM_HPP_
 
 #include "ecs/systems/ISystem.hpp"
-#include "plugin_manager/IInputPlugin.hpp"
+#include "core/event/EventBus.hpp"
 
 class ScoreSystem : public ISystem {
 public:
-    explicit ScoreSystem(engine::IInputPlugin* plugin);
+    ScoreSystem() = default;
     ~ScoreSystem() override = default;
 
     void init(Registry& registry) override;
@@ -21,8 +21,7 @@ public:
     void shutdown() override;
 
 private:
-    engine::IInputPlugin* input_plugin;
-    bool k_was_pressed;
+    core::EventBus::SubscriptionId enemyKilledSubId_;
 };
 
 #endif /* !SCORESYSTEM_HPP_ */
