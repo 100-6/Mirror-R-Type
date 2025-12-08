@@ -233,7 +233,6 @@ if(GTest_FOUND)
     target_link_libraries(test_input_plugin_gtest
         PRIVATE
             rtype_engine
-            raylib_input
             ${GTEST_LIBRARIES}
             ${GTEST_MAIN_LIBRARIES}
             Threads::Threads
