@@ -6,8 +6,6 @@
 */
 
 #include "ecs/systems/CollisionSystem.hpp"
-#include <vector>
-#include <utility>
 
 bool CollisionSystem::check_collision(const Position& pos1, const Position& pos2,
     const Collider& col1, const Collider& col2)
@@ -47,17 +45,17 @@ void CollisionSystem::update(Registry& registry, float dt)
 {
     (void)dt;
 
-    // Collision Projectile vs Enemy : Détruit les deux
-    std::vector<std::pair<Entity, Entity>> projectile_enemy_collisions;
-    scan_collisions<Projectile, Enemy>(registry, [&projectile_enemy_collisions](Entity bullet, Entity enemy) {
-        projectile_enemy_collisions.push_back({bullet, enemy});
+    // Collision Projectile vs Enemy : Marque les deux pour destruction
+    scan_collisions<Projectile, Enemy>(registry, [&registry](Entity bullet, Entity enemy) {
+        registry.add_component(bullet, ToDestroy{});
+        registry.add_component(enemy, ToDestroy{});
     });
-    
-    // Détruit toutes les paires collectées
-    for (const auto& [bullet, enemy] : projectile_enemy_collisions) {
-        registry.kill_entity(enemy);
-        registry.kill_entity(bullet);
-    }
+
+    // Collision Projectile vs Wall : Marque le projectile pour destruction
+    scan_collisions<Projectile, Wall>(registry, [&registry](Entity bullet, Entity wall) {
+        (void)wall;
+        registry.add_component(bullet, ToDestroy{});
+    });
 
     // Collision Player vs Wall : Repousse le joueur
     scan_collisions<Controllable, Wall>(registry, [&registry](Entity player, Entity wall) {
