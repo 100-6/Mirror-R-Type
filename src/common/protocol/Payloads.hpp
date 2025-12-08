@@ -1,0 +1,454 @@
+#pragma once
+
+#include "PacketTypes.hpp"
+#include <cstdint>
+#include <cstring>
+
+namespace rtype::protocol {
+
+/**
+ * @brief CLIENT_CONNECT payload (0x01)
+ * Total size: 33 bytes
+ */
+struct __attribute__((packed)) ClientConnectPayload {
+    uint8_t client_version;
+    char player_name[32];
+
+    ClientConnectPayload() : client_version(0x01) {
+        std::memset(player_name, 0, sizeof(player_name));
+    }
+
+    void set_player_name(const std::string& name) {
+        std::memset(player_name, 0, sizeof(player_name));
+        std::strncpy(player_name, name.c_str(), sizeof(player_name) - 1);
+    }
+};
+
+static_assert(sizeof(ClientConnectPayload) == 33, "ClientConnectPayload must be 33 bytes");
+
+/**
+ * @brief CLIENT_DISCONNECT payload (0x02)
+ * Total size: 5 bytes
+ */
+struct __attribute__((packed)) ClientDisconnectPayload {
+    uint32_t player_id;
+    DisconnectReason reason;
+
+    ClientDisconnectPayload() : player_id(0), reason(DisconnectReason::USER_QUIT) {}
+};
+
+static_assert(sizeof(ClientDisconnectPayload) == 5, "ClientDisconnectPayload must be 5 bytes");
+
+/**
+ * @brief CLIENT_PING payload (0x04)
+ * Total size: 8 bytes
+ */
+struct __attribute__((packed)) ClientPingPayload {
+    uint32_t player_id;
+    uint32_t client_timestamp;
+
+    ClientPingPayload() : player_id(0), client_timestamp(0) {}
+};
+
+static_assert(sizeof(ClientPingPayload) == 8, "ClientPingPayload must be 8 bytes");
+
+/**
+ * @brief SERVER_ACCEPT payload (0x81)
+ * Total size: 8 bytes
+ */
+struct __attribute__((packed)) ServerAcceptPayload {
+    uint32_t assigned_player_id;
+    uint8_t server_tick_rate;
+    uint8_t max_players;
+    uint16_t map_id;
+
+    ServerAcceptPayload()
+        : assigned_player_id(0), server_tick_rate(60), max_players(4), map_id(0) {}
+};
+
+static_assert(sizeof(ServerAcceptPayload) == 8, "ServerAcceptPayload must be 8 bytes");
+
+/**
+ * @brief SERVER_REJECT payload (0x82)
+ * Total size: 65 bytes
+ */
+struct __attribute__((packed)) ServerRejectPayload {
+    RejectReason reason_code;
+    char reason_message[64];
+
+    ServerRejectPayload() : reason_code(RejectReason::SERVER_FULL) {
+        std::memset(reason_message, 0, sizeof(reason_message));
+    }
+
+    void set_message(const std::string& message) {
+        std::memset(reason_message, 0, sizeof(reason_message));
+        std::strncpy(reason_message, message.c_str(), sizeof(reason_message) - 1);
+    }
+};
+
+static_assert(sizeof(ServerRejectPayload) == 65, "ServerRejectPayload must be 65 bytes");
+
+/**
+ * @brief SERVER_PONG payload (0x85)
+ * Total size: 8 bytes
+ */
+struct __attribute__((packed)) ServerPongPayload {
+    uint32_t client_timestamp;
+    uint32_t server_timestamp;
+
+    ServerPongPayload() : client_timestamp(0), server_timestamp(0) {}
+};
+
+static_assert(sizeof(ServerPongPayload) == 8, "ServerPongPayload must be 8 bytes");
+
+/**
+ * @brief CLIENT_JOIN_LOBBY payload (0x05)
+ * Total size: 6 bytes
+ */
+struct __attribute__((packed)) ClientJoinLobbyPayload {
+    uint32_t player_id;
+    GameMode game_mode;
+    Difficulty difficulty;
+
+    ClientJoinLobbyPayload()
+        : player_id(0), game_mode(GameMode::SQUAD), difficulty(Difficulty::NORMAL) {}
+};
+
+static_assert(sizeof(ClientJoinLobbyPayload) == 6, "ClientJoinLobbyPayload must be 6 bytes");
+
+/**
+ * @brief CLIENT_LEAVE_LOBBY payload (0x06)
+ * Total size: 8 bytes
+ */
+struct __attribute__((packed)) ClientLeaveLobbyPayload {
+    uint32_t player_id;
+    uint32_t lobby_id;
+
+    ClientLeaveLobbyPayload() : player_id(0), lobby_id(0) {}
+};
+
+static_assert(sizeof(ClientLeaveLobbyPayload) == 8, "ClientLeaveLobbyPayload must be 8 bytes");
+
+/**
+ * @brief Player entry in SERVER_LOBBY_STATE
+ * Size: 38 bytes
+ */
+struct __attribute__((packed)) PlayerLobbyEntry {
+    uint32_t player_id;
+    char player_name[32];
+    uint16_t player_level;
+
+    PlayerLobbyEntry() : player_id(0), player_level(0) {
+        std::memset(player_name, 0, sizeof(player_name));
+    }
+
+    void set_name(const std::string& name) {
+        std::memset(player_name, 0, sizeof(player_name));
+        std::strncpy(player_name, name.c_str(), sizeof(player_name) - 1);
+    }
+};
+
+static_assert(sizeof(PlayerLobbyEntry) == 38, "PlayerLobbyEntry must be 38 bytes");
+
+/**
+ * @brief SERVER_LOBBY_STATE payload header (0x87)
+ * Base size: 8 bytes + (38 × player_count) bytes
+ */
+struct __attribute__((packed)) ServerLobbyStatePayload {
+    uint32_t lobby_id;
+    GameMode game_mode;
+    Difficulty difficulty;
+    uint8_t current_player_count;
+    uint8_t required_player_count;
+
+    ServerLobbyStatePayload()
+        : lobby_id(0)
+        , game_mode(GameMode::SQUAD)
+        , difficulty(Difficulty::NORMAL)
+        , current_player_count(0)
+        , required_player_count(4) {}
+};
+
+static_assert(sizeof(ServerLobbyStatePayload) == 8, "ServerLobbyStatePayload base must be 8 bytes");
+
+/**
+ * @brief SERVER_GAME_START_COUNTDOWN payload (0x88)
+ * Total size: 9 bytes
+ */
+struct __attribute__((packed)) ServerGameStartCountdownPayload {
+    uint32_t lobby_id;
+    uint8_t countdown_value;
+    GameMode game_mode;
+    Difficulty difficulty;
+    uint16_t map_id;
+
+    ServerGameStartCountdownPayload()
+        : lobby_id(0)
+        , countdown_value(5)
+        , game_mode(GameMode::SQUAD)
+        , difficulty(Difficulty::NORMAL)
+        , map_id(0) {}
+};
+
+static_assert(sizeof(ServerGameStartCountdownPayload) == 9, "ServerGameStartCountdownPayload must be 9 bytes");
+
+/**
+ * @brief SERVER_COUNTDOWN_CANCELLED payload (0x89)
+ * Total size: 7 bytes
+ */
+struct __attribute__((packed)) ServerCountdownCancelledPayload {
+    uint32_t lobby_id;
+    CountdownCancelReason reason;
+    uint8_t new_player_count;
+    uint8_t required_count;
+
+    ServerCountdownCancelledPayload()
+        : lobby_id(0)
+        , reason(CountdownCancelReason::PLAYER_LEFT)
+        , new_player_count(0)
+        , required_count(4) {}
+};
+
+static_assert(sizeof(ServerCountdownCancelledPayload) == 7, "ServerCountdownCancelledPayload must be 7 bytes");
+
+/**
+ * @brief Player spawn data in SERVER_GAME_START
+ * Size: 12 bytes
+ */
+struct __attribute__((packed)) PlayerSpawnData {
+    uint32_t player_id;
+    float spawn_x;
+    float spawn_y;
+
+    PlayerSpawnData() : player_id(0), spawn_x(0.0f), spawn_y(0.0f) {}
+};
+
+static_assert(sizeof(PlayerSpawnData) == 12, "PlayerSpawnData must be 12 bytes");
+
+/**
+ * @brief SERVER_GAME_START payload header (0x8A)
+ * Base size: 14 bytes + (12 × player_count) bytes
+ */
+struct __attribute__((packed)) ServerGameStartPayload {
+    uint32_t game_session_id;
+    GameMode game_mode;
+    Difficulty difficulty;
+    uint32_t server_tick;
+    uint32_t level_seed;
+
+    ServerGameStartPayload()
+        : game_session_id(0)
+        , game_mode(GameMode::SQUAD)
+        , difficulty(Difficulty::NORMAL)
+        , server_tick(0)
+        , level_seed(0) {}
+};
+
+static_assert(sizeof(ServerGameStartPayload) == 14, "ServerGameStartPayload base must be 14 bytes");
+
+/**
+ * @brief CLIENT_INPUT payload (0x10)
+ * Total size: 10 bytes
+ */
+struct __attribute__((packed)) ClientInputPayload {
+    uint32_t player_id;
+    uint16_t input_flags;
+    uint32_t client_tick;
+
+    ClientInputPayload() : player_id(0), input_flags(0), client_tick(0) {}
+
+    bool is_up_pressed() const { return (input_flags & INPUT_UP) != 0; }
+    bool is_down_pressed() const { return (input_flags & INPUT_DOWN) != 0; }
+    bool is_left_pressed() const { return (input_flags & INPUT_LEFT) != 0; }
+    bool is_right_pressed() const { return (input_flags & INPUT_RIGHT) != 0; }
+    bool is_shoot_pressed() const { return (input_flags & INPUT_SHOOT) != 0; }
+    bool is_charge_pressed() const { return (input_flags & INPUT_CHARGE) != 0; }
+    bool is_special_pressed() const { return (input_flags & INPUT_SPECIAL) != 0; }
+};
+
+static_assert(sizeof(ClientInputPayload) == 10, "ClientInputPayload must be 10 bytes");
+
+/**
+ * @brief Entity state in SERVER_SNAPSHOT
+ * Size: 21 bytes
+ */
+struct __attribute__((packed)) EntityState {
+    uint32_t entity_id;
+    EntityType entity_type;
+    float position_x;
+    float position_y;
+    int16_t velocity_x;
+    int16_t velocity_y;
+    uint16_t health;
+    uint16_t flags;
+
+    EntityState()
+        : entity_id(0)
+        , entity_type(EntityType::PLAYER)
+        , position_x(0.0f)
+        , position_y(0.0f)
+        , velocity_x(0)
+        , velocity_y(0)
+        , health(100)
+        , flags(0) {}
+
+    bool is_invulnerable() const { return (flags & ENTITY_INVULNERABLE) != 0; }
+    bool is_charging() const { return (flags & ENTITY_CHARGING) != 0; }
+    bool is_damaged() const { return (flags & ENTITY_DAMAGED) != 0; }
+};
+
+static_assert(sizeof(EntityState) == 21, "EntityState must be 21 bytes");
+
+/**
+ * @brief SERVER_SNAPSHOT payload header (0xA0)
+ * Base size: 6 bytes + (21 × entity_count) bytes
+ */
+struct __attribute__((packed)) ServerSnapshotPayload {
+    uint32_t server_tick;
+    uint16_t entity_count;
+
+    ServerSnapshotPayload() : server_tick(0), entity_count(0) {}
+};
+
+static_assert(sizeof(ServerSnapshotPayload) == 6, "ServerSnapshotPayload base must be 6 bytes");
+
+/**
+ * @brief SERVER_ENTITY_SPAWN payload (0xB0)
+ * Base size: 13 bytes + variable spawn parameters
+ */
+struct __attribute__((packed)) ServerEntitySpawnPayload {
+    uint32_t entity_id;
+    EntityType entity_type;
+    float spawn_x;
+    float spawn_y;
+
+    ServerEntitySpawnPayload()
+        : entity_id(0), entity_type(EntityType::ENEMY_BASIC), spawn_x(0.0f), spawn_y(0.0f) {}
+};
+
+static_assert(sizeof(ServerEntitySpawnPayload) == 13, "ServerEntitySpawnPayload base must be 13 bytes");
+
+/**
+ * @brief SERVER_ENTITY_DESTROY payload (0xB1)
+ * Total size: 13 bytes
+ */
+struct __attribute__((packed)) ServerEntityDestroyPayload {
+    uint32_t entity_id;
+    DestroyReason reason;
+    float position_x;
+    float position_y;
+
+    ServerEntityDestroyPayload()
+        : entity_id(0), reason(DestroyReason::KILLED), position_x(0.0f), position_y(0.0f) {}
+};
+
+static_assert(sizeof(ServerEntityDestroyPayload) == 13, "ServerEntityDestroyPayload must be 13 bytes");
+
+/**
+ * @brief SERVER_PROJECTILE_SPAWN payload (0xB3)
+ * Total size: 21 bytes
+ */
+struct __attribute__((packed)) ServerProjectileSpawnPayload {
+    uint32_t projectile_id;
+    uint32_t owner_id;
+    ProjectileType projectile_type;
+    float spawn_x;
+    float spawn_y;
+    int16_t velocity_x;
+    int16_t velocity_y;
+
+    ServerProjectileSpawnPayload()
+        : projectile_id(0)
+        , owner_id(0)
+        , projectile_type(ProjectileType::BULLET)
+        , spawn_x(0.0f)
+        , spawn_y(0.0f)
+        , velocity_x(0)
+        , velocity_y(0) {}
+};
+
+static_assert(sizeof(ServerProjectileSpawnPayload) == 21, "ServerProjectileSpawnPayload must be 21 bytes");
+
+/**
+ * @brief SERVER_POWERUP_COLLECTED payload (0xC0)
+ * Total size: 6 bytes
+ */
+struct __attribute__((packed)) ServerPowerupCollectedPayload {
+    uint32_t player_id;
+    PowerupType powerup_type;
+    uint8_t new_weapon_level;
+
+    ServerPowerupCollectedPayload()
+        : player_id(0), powerup_type(PowerupType::WEAPON_UPGRADE), new_weapon_level(1) {}
+};
+
+static_assert(sizeof(ServerPowerupCollectedPayload) == 6, "ServerPowerupCollectedPayload must be 6 bytes");
+
+/**
+ * @brief SERVER_SCORE_UPDATE payload (0xC1)
+ * Total size: 13 bytes
+ */
+struct __attribute__((packed)) ServerScoreUpdatePayload {
+    uint32_t player_id;
+    int32_t score_delta;
+    uint32_t new_total_score;
+    uint8_t combo_multiplier;
+
+    ServerScoreUpdatePayload()
+        : player_id(0), score_delta(0), new_total_score(0), combo_multiplier(1) {}
+};
+
+static_assert(sizeof(ServerScoreUpdatePayload) == 13, "ServerScoreUpdatePayload must be 13 bytes");
+
+/**
+ * @brief SERVER_PLAYER_RESPAWN payload (0xC5)
+ * Total size: 15 bytes
+ */
+struct __attribute__((packed)) ServerPlayerRespawnPayload {
+    uint32_t player_id;
+    float respawn_x;
+    float respawn_y;
+    uint16_t invulnerability_duration;
+    uint8_t lives_remaining;
+
+    ServerPlayerRespawnPayload()
+        : player_id(0)
+        , respawn_x(0.0f)
+        , respawn_y(0.0f)
+        , invulnerability_duration(3000)
+        , lives_remaining(3) {}
+};
+
+static_assert(sizeof(ServerPlayerRespawnPayload) == 15, "ServerPlayerRespawnPayload must be 15 bytes");
+
+/**
+ * @brief Score entry in SERVER_GAME_OVER
+ * Size: 12 bytes
+ */
+struct __attribute__((packed)) FinalScoreEntry {
+    uint32_t player_id;
+    uint32_t final_score;
+    uint16_t deaths;
+    uint16_t kills;
+
+    FinalScoreEntry() : player_id(0), final_score(0), deaths(0), kills(0) {}
+};
+
+static_assert(sizeof(FinalScoreEntry) == 12, "FinalScoreEntry must be 12 bytes");
+
+/**
+ * @brief SERVER_GAME_OVER payload header (0xC6)
+ * Base size: 9 bytes + (12 × player_count) bytes
+ */
+struct __attribute__((packed)) ServerGameOverPayload {
+    GameResult result;
+    uint32_t total_time;
+    uint32_t enemies_killed;
+
+    ServerGameOverPayload()
+        : result(GameResult::VICTORY), total_time(0), enemies_killed(0) {}
+};
+
+static_assert(sizeof(ServerGameOverPayload) == 9, "ServerGameOverPayload base must be 9 bytes");
+
+}

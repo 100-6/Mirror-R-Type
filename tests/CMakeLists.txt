@@ -5,10 +5,10 @@ enable_testing()
 # Find Threads (cross-platform pthread/native threads)
 find_package(Threads REQUIRED)
 
-# Find GTest via vcpkg
-find_package(GTest QUIET)
+# Find GTest via vcpkg (modern CMake target style)
+find_package(GTest CONFIG QUIET)
 if(GTest_FOUND)
-    include_directories(${GTEST_INCLUDE_DIRS})
+    message(STATUS "GTest found, enabling tests")
 else()
     message(WARNING "GTest not found. Skipping GTest-based tests.")
     message(WARNING "Install via vcpkg: vcpkg install gtest")
@@ -240,4 +240,21 @@ if(GTest_FOUND)
     )
     add_test(NAME RenderSystemTest COMMAND test_render_system)
     set_property(TARGET test_render_system PROPERTY CXX_STANDARD 20)
+
+    # Test Protocol (GTest)
+    add_executable(test_protocol
+        protocol/protocol_test.cpp
+    )
+    target_include_directories(test_protocol
+        PRIVATE
+            ${CMAKE_SOURCE_DIR}/src
+    )
+    target_link_libraries(test_protocol
+        PRIVATE
+            GTest::gtest
+            GTest::gtest_main
+            Threads::Threads
+    )
+    add_test(NAME ProtocolTest COMMAND test_protocol)
+    set_property(TARGET test_protocol PROPERTY CXX_STANDARD 20)
 endif()
