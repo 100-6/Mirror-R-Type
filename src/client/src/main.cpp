@@ -16,6 +16,7 @@
 #include "ecs/systems/CollisionSystem.hpp"
 #include "ecs/systems/DestroySystem.hpp"
 #include "ecs/systems/RenderSystem.hpp"
+#include "ecs/systems/ScoreSystem.hpp"
 #include "plugin_manager/PluginManager.hpp"
 #include "plugin_manager/IInputPlugin.hpp"
 
@@ -143,6 +144,7 @@ int main() {
     registry.register_component<Health>();
     registry.register_component<ToDestroy>();
     registry.register_component<FireRate>();
+    registry.register_component<Score>();
     registry.register_component<Background>();
 
     std::cout << "✓ Composants enregistres" << std::endl;
@@ -157,6 +159,7 @@ int main() {
     registry.register_system<ShootingSystem>(bulletTex, bulletWidth, bulletHeight);
     registry.register_system<PhysiqueSystem>();
     registry.register_system<CollisionSystem>();
+    registry.register_system<ScoreSystem>();
     registry.register_system<DestroySystem>();
     registry.register_system<RenderSystem>(*graphicsPlugin);
 
@@ -228,6 +231,7 @@ int main() {
         1                   // layer
     });
     registry.add_component(player, Health{100, 100});
+    registry.add_component(player, Score{0});
 
     std::cout << "✓ Joueur cree avec sprite" << std::endl;
     std::cout << "  Position: (200, " << SCREEN_HEIGHT / 2.0f << ")" << std::endl;
@@ -346,6 +350,7 @@ int main() {
     auto& velocities = registry.get_components<Velocity>();
     auto& colliders = registry.get_components<Collider>();
     auto& inputs = registry.get_components<Input>();
+    auto& scores = registry.get_components<Score>();
 
     int frameCount = 0;
     float debugTimer = 0.0f;
@@ -435,6 +440,21 @@ int main() {
             std::string fpsText = "Frame: " + std::to_string(frameCount) + " (60 FPS)";
             graphicsPlugin->draw_text(fpsText, engine::Vector2f(10.0f, yOffset),
                                      engine::Color{0, 255, 0, 255}, engine::INVALID_HANDLE, 20);
+            yOffset += lineHeight;
+
+            // Score (dans le debug)
+            if (scores.has_entity(player)) {
+                std::string scoreText = "Score: " + std::to_string(scores[player].value);
+                graphicsPlugin->draw_text(scoreText, engine::Vector2f(10.0f, yOffset),
+                                         engine::Color{255, 0, 255, 255}, engine::INVALID_HANDLE, 20);
+            }
+        }
+
+        // Score affiché en grand en haut à droite (toujours visible)
+        if (scores.has_entity(player)) {
+            std::string scoreText = "SCORE: " + std::to_string(scores[player].value);
+            graphicsPlugin->draw_text(scoreText, engine::Vector2f(SCREEN_WIDTH - 300.0f, 30.0f),
+                                     engine::Color{255, 255, 0, 255}, engine::INVALID_HANDLE, 40);
         }
 
         // Afficher le frame complet (sprites + UI)

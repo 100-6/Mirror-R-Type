@@ -6,6 +6,7 @@
 */
 
 #include "ecs/systems/CollisionSystem.hpp"
+#include "ecs/events/InputEvents.hpp"
 
 bool CollisionSystem::check_collision(const Position& pos1, const Position& pos2,
     const Collider& col1, const Collider& col2)
@@ -45,10 +46,13 @@ void CollisionSystem::update(Registry& registry, float dt)
 {
     (void)dt;
 
-    // Collision Projectile vs Enemy : Marque les deux pour destruction
+    // Collision Projectile vs Enemy : Marque les deux pour destruction et publie l'événement
     scan_collisions<Projectile, Enemy>(registry, [&registry](Entity bullet, Entity enemy) {
         registry.add_component(bullet, ToDestroy{});
         registry.add_component(enemy, ToDestroy{});
+
+        // Publier l'événement pour le score
+        registry.get_event_bus().publish(ecs::EnemyKilledEvent{enemy, 100});
     });
 
     // Collision Projectile vs Wall : Marque le projectile pour destruction

@@ -42,4 +42,14 @@ struct PlayerSpecialEvent : public core::Event {
     PlayerSpecialEvent(Entity p) : player(p) {}
 };
 
+/**
+ * @brief Event fired when an enemy is killed by a projectile
+ */
+struct EnemyKilledEvent : public core::Event {
+    Entity enemy;
+    int scoreValue;
+
+    EnemyKilledEvent(Entity e, int score = 100) : enemy(e), scoreValue(score) {}
+};
+
 }
