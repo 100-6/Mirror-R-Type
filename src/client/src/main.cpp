@@ -153,14 +153,14 @@ int main() {
     // ============================================
 
     // Enregistrer les systèmes dans l'ordre d'exécution
-    registry.register_system<InputSystem>(inputPlugin);
+    registry.register_system<InputSystem>(*inputPlugin);
     registry.register_system<MovementSystem>();
     registry.register_system<ShootingSystem>(bulletTex, bulletWidth, bulletHeight);
     registry.register_system<PhysiqueSystem>();
     registry.register_system<CollisionSystem>();
     registry.register_system<ScoreSystem>(inputPlugin);
     registry.register_system<DestroySystem>();
-    registry.register_system<RenderSystem>(graphicsPlugin);
+    registry.register_system<RenderSystem>(*graphicsPlugin);
 
     std::cout << "✓ Systemes enregistres :" << std::endl;
     std::cout << "  1. InputSystem    - Capture les inputs et publie des evenements" << std::endl;
