@@ -21,14 +21,14 @@
  */
 class InputSystem : public ISystem {
     private:
-        engine::IInputPlugin* input_plugin;  // Référence vers le plugin (non possédé)
+        engine::IInputPlugin& input_plugin;  // Référence vers le plugin (non possédé)
 
     public:
         /**
          * @brief Constructeur avec un plugin d'input
-         * @param plugin Pointeur vers le plugin d'input à utiliser
+         * @param plugin Référence vers le plugin d'input à utiliser
          */
-        explicit InputSystem(engine::IInputPlugin* plugin);
+        explicit InputSystem(engine::IInputPlugin& plugin);
         virtual ~InputSystem() = default;
 
         void init(Registry& registry) override;

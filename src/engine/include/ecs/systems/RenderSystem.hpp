@@ -21,15 +21,15 @@
  */
 class RenderSystem : public ISystem {
     private:
-        engine::IGraphicsPlugin* graphics_plugin;  // Référence vers le plugin (non possédé)
+        engine::IGraphicsPlugin& graphics_plugin;  // Référence vers le plugin (non possédé)
         mutable engine::Sprite temp_sprite;        // Sprite temporaire réutilisé pour éviter allocations
 
     public:
         /**
          * @brief Constructeur avec un plugin graphique
-         * @param plugin Pointeur vers le plugin graphique à utiliser
+         * @param plugin Référence vers le plugin graphique à utiliser
          */
-        explicit RenderSystem(engine::IGraphicsPlugin* plugin);
+        explicit RenderSystem(engine::IGraphicsPlugin& plugin);
         virtual ~RenderSystem() = default;
 
         void init(Registry& registry) override;
