@@ -65,6 +65,13 @@ struct Projectile {};
 struct Wall {};
 struct ToDestroy {};
 
+// Combat
+
+struct FireRate {
+    float cooldown = 0.5f;
+    float time_since_last_fire = 999.0f;
+};
+
 // Logique de jeu
 
 struct Health
