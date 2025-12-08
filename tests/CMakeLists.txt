@@ -103,6 +103,20 @@ if(GTest_FOUND)
     )
     add_test(NAME PhysiqueSystemGTestSuite COMMAND test_physique_system)
     set_property(TARGET test_physique_system PROPERTY CXX_STANDARD 20)
+
+    # Test DestroySystem with GTest
+    add_executable(test_destroy_system
+        ecs/test_destroy_system.cpp
+    )
+    target_link_libraries(test_destroy_system
+        PRIVATE
+            rtype_engine
+            ${GTEST_LIBRARIES}
+            ${GTEST_MAIN_LIBRARIES}
+            Threads::Threads
+    )
+    add_test(NAME DestroySystemGTestSuite COMMAND test_destroy_system)
+    set_property(TARGET test_destroy_system PROPERTY CXX_STANDARD 20)
 endif()
 
 # Test Plugin Manager
