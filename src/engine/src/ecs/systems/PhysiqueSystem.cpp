@@ -24,6 +24,7 @@ void PhysiqueSystem::update(Registry& registry, float dt)
     auto& velocitys = registry.get_components<Velocity>();
     auto& controllables = registry.get_components<Controllable>();
     auto& projectiles = registry.get_components<Projectile>();
+    auto& backgrounds = registry.get_components<Background>();
 
     for (size_t i = 0; i < velocitys.size(); i++)
     {
@@ -38,9 +39,11 @@ void PhysiqueSystem::update(Registry& registry, float dt)
         pos.x += vel.x * dt;
         pos.y += vel.y * dt;
 
-        //FRICTION (je suis pas sur sah)
-        vel.x *= 0.98f;
-        vel.y *= 0.98f;
+        //FRICTION : Appliquer uniquement aux entités qui ne sont PAS des projectiles NI des backgrounds
+        if (!projectiles.has_entity(entity) && !backgrounds.has_entity(entity)){
+            vel.x *= 0.98f;
+            vel.y *= 0.98f;
+        }
 
         if (controllables.has_entity(entity)) {
             // Limite Gauche/Droite
@@ -51,6 +54,11 @@ void PhysiqueSystem::update(Registry& registry, float dt)
             if (pos.y < 0) pos.y = 0;
             if (pos.y > SCREEN_HEIGHT) pos.y = SCREEN_HEIGHT;
         }
-    }
 
+        // Défilement infini du background (boucle avec 2 images)
+        if (backgrounds.has_entity(entity)) {
+            if (pos.x <= -SCREEN_WIDTH)
+                pos.x += SCREEN_WIDTH * 2;
+        }
+    }
 }

@@ -13,6 +13,7 @@
 InputSystem::InputSystem(engine::IInputPlugin& plugin)
     : input_plugin(plugin)
 {
+    // Pas besoin de vérifier null - les références ne peuvent pas être nulles
 }
 
 void InputSystem::init(Registry& registry)

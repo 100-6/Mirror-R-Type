@@ -90,7 +90,7 @@ int main() {
     // ============================================
     std::cout << "Chargement des textures depuis assets/sprite/..." << std::endl;
 
-    engine::TextureHandle backgroundTex = graphicsPlugin->load_texture("assets/sprite/Background.png");
+    engine::TextureHandle backgroundTex = graphicsPlugin->load_texture("assets/sprite/symmetry.png");
     engine::TextureHandle playerTex = graphicsPlugin->load_texture("assets/sprite/player.png");
     engine::TextureHandle enemyTex = graphicsPlugin->load_texture("assets/sprite/enemy.png");
     engine::TextureHandle bulletTex = graphicsPlugin->load_texture("assets/sprite/bullet.png");
@@ -145,6 +145,7 @@ int main() {
     registry.register_component<ToDestroy>();
     registry.register_component<FireRate>();
     registry.register_component<Score>();
+    registry.register_component<Background>();
 
     std::cout << "✓ Composants enregistres" << std::endl;
 
@@ -173,11 +174,14 @@ int main() {
     std::cout << std::endl;
 
     // ============================================
-    // CREATION DU BACKGROUND
+    // CREATION DU BACKGROUND (Défilement infini avec 2 images)
     // ============================================
-    Entity background = registry.spawn_entity();
-    registry.add_component(background, Position{0.0f, 0.0f});
-    registry.add_component(background, Sprite{
+    // Premier background
+    Entity background1 = registry.spawn_entity();
+    registry.add_component(background1, Position{0.0f, 0.0f});
+    registry.add_component(background1, Velocity{-50.0f, 0.0f});  // Défile vers la gauche
+    registry.add_component(background1, Background{});  // Tag pour identifier le background
+    registry.add_component(background1, Sprite{
         backgroundTex,
         static_cast<float>(SCREEN_WIDTH),
         static_cast<float>(SCREEN_HEIGHT),
@@ -188,7 +192,23 @@ int main() {
         -100  // Layer très bas pour être en arrière-plan
     });
 
-    std::cout << "✓ Background cree" << std::endl;
+    // Deuxième background (juste à droite du premier)
+    Entity background2 = registry.spawn_entity();
+    registry.add_component(background2, Position{static_cast<float>(SCREEN_WIDTH), 0.0f});
+    registry.add_component(background2, Velocity{-50.0f, 0.0f});  // Même vitesse
+    registry.add_component(background2, Background{});  // Tag pour identifier le background
+    registry.add_component(background2, Sprite{
+        backgroundTex,
+        static_cast<float>(SCREEN_WIDTH),
+        static_cast<float>(SCREEN_HEIGHT),
+        0.0f,
+        engine::Color::White,
+        0.0f,
+        0.0f,
+        -100
+    });
+
+    std::cout << "✓ Background defilant cree (2 images en boucle infinie)" << std::endl;
     std::cout << std::endl;
 
     // ============================================
