@@ -7,17 +7,19 @@
 
 #include "ecs/systems/InputSystem.hpp"
 #include "ecs/Components.hpp"
+#include "ecs/events/InputEvents.hpp"
 #include <iostream>
 
-InputSystem::InputSystem(engine::IInputPlugin& plugin)
+InputSystem::InputSystem(engine::IInputPlugin* plugin)
     : input_plugin(plugin)
 {
-    // Pas besoin de vérifier null - les références ne peuvent pas être nulles
+    if (!input_plugin)
+        throw std::runtime_error("InputSystem: plugin cannot be null");
 }
 
 void InputSystem::init(Registry& registry)
 {
-    std::cout << "InputSystem: Initialisation avec " << input_plugin.get_name() << std::endl;
+    std::cout << "InputSystem: Initialisation avec " << input_plugin->get_name() << std::endl;
 }
 
 void InputSystem::shutdown()
@@ -29,38 +31,41 @@ void InputSystem::update(Registry& registry, float dt)
 {
     (void)dt;
 
-    // Mettre à jour le plugin (lit les événements du frame actuel)
-    input_plugin.update();
+    auto& eventBus = registry.get_event_bus();
+    auto& controllables = registry.get_components<Controllable>();
 
-    // Récupérer tous les composants Input
-    auto& inputs = registry.get_components<Input>();
+    for (size_t i = 0; i < controllables.size(); i++) {
+        Entity entity = controllables.get_entity_at(i);
 
-    // Parcourir toutes les entités avec un composant Input
-    for (size_t i = 0; i < inputs.size(); i++) {
-        Entity entity = inputs.get_entity_at(i);
-
-        if (!inputs.has_entity(entity)) {
+        if (!controllables.has_entity(entity))
             continue;
-        }
 
-        Input& input = inputs.get_data_by_entity_id(entity);
+        float dirX = 0.0f;
+        float dirY = 0.0f;
 
-        // Lire les touches via le plugin
-        input.up = input_plugin.is_key_pressed(engine::Key::W) ||
-                   input_plugin.is_key_pressed(engine::Key::Up);
+        bool up = input_plugin->is_key_pressed(engine::Key::W) ||
+                  input_plugin->is_key_pressed(engine::Key::Up);
+        bool down = input_plugin->is_key_pressed(engine::Key::S) ||
+                    input_plugin->is_key_pressed(engine::Key::Down);
+        bool left = input_plugin->is_key_pressed(engine::Key::A) ||
+                    input_plugin->is_key_pressed(engine::Key::Left);
+        bool right = input_plugin->is_key_pressed(engine::Key::D) ||
+                     input_plugin->is_key_pressed(engine::Key::Right);
 
-        input.down = input_plugin.is_key_pressed(engine::Key::S) ||
-                     input_plugin.is_key_pressed(engine::Key::Down);
+        if (up) dirY -= 1.0f;
+        if (down) dirY += 1.0f;
+        if (left) dirX -= 1.0f;
+        if (right) dirX += 1.0f;
 
-        input.left = input_plugin.is_key_pressed(engine::Key::A) ||
-                     input_plugin.is_key_pressed(engine::Key::Left);
+        eventBus.publish(ecs::PlayerMoveEvent{entity, dirX, dirY});
 
-        input.right = input_plugin.is_key_pressed(engine::Key::D) ||
-                      input_plugin.is_key_pressed(engine::Key::Right);
+        if (input_plugin->is_key_pressed(engine::Key::Space))
+            eventBus.publish(ecs::PlayerFireEvent{entity});
 
-        input.fire = input_plugin.is_key_pressed(engine::Key::Space);
-
-        input.special = input_plugin.is_key_pressed(engine::Key::LShift) ||
-                        input_plugin.is_key_pressed(engine::Key::RShift);
+        if (input_plugin->is_key_just_pressed(engine::Key::LShift) || 
+            input_plugin->is_key_just_pressed(engine::Key::RShift))
+            eventBus.publish(ecs::PlayerSpecialEvent{entity});
     }
+
+    input_plugin->update();
 }
