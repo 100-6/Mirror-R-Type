@@ -63,6 +63,7 @@ struct Controllable {
 struct Enemy {};
 struct Projectile {};
 struct Wall {};
+struct ToDestroy {};
 
 // Logique de jeu
 

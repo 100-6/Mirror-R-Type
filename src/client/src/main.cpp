@@ -13,6 +13,7 @@
 #include "ecs/systems/MovementSystem.hpp"
 #include "ecs/systems/PhysiqueSystem.hpp"
 #include "ecs/systems/CollisionSystem.hpp"
+#include "ecs/systems/DestroySystem.hpp"
 #include "ecs/systems/RenderSystem.hpp"
 #include "plugin_manager/PluginManager.hpp"
 #include "plugin_manager/IInputPlugin.hpp"
@@ -139,6 +140,7 @@ int main() {
     registry.register_component<Projectile>();
     registry.register_component<Wall>();
     registry.register_component<Health>();
+    registry.register_component<ToDestroy>();
 
     std::cout << "✓ Composants enregistres" << std::endl;
 
@@ -151,14 +153,16 @@ int main() {
     registry.register_system<MovementSystem>();
     registry.register_system<PhysiqueSystem>();
     registry.register_system<CollisionSystem>();
+    registry.register_system<DestroySystem>();
     registry.register_system<RenderSystem>(graphicsPlugin);
 
     std::cout << "✓ Systemes enregistres :" << std::endl;
     std::cout << "  1. InputSystem    - Capture les inputs du joueur" << std::endl;
     std::cout << "  2. MovementSystem - Calcule la velocite en fonction des inputs" << std::endl;
     std::cout << "  3. PhysiqueSystem - Applique la velocite, friction, limites d'ecran" << std::endl;
-    std::cout << "  4. CollisionSystem- Gere les collisions avec les murs" << std::endl;
-    std::cout << "  5. RenderSystem   - Rendu des sprites via plugin graphique" << std::endl;
+    std::cout << "  4. CollisionSystem- Gere les collisions et marque les entites a detruire" << std::endl;
+    std::cout << "  5. DestroySystem  - Detruit les entites marquees pour destruction" << std::endl;
+    std::cout << "  6. RenderSystem   - Rendu des sprites via plugin graphique" << std::endl;
     std::cout << std::endl;
 
     // ============================================
