@@ -78,5 +78,9 @@ struct Damage
     int value = 10;
 };
 
+struct Score
+{
+    int value = 0;
+};
 
 #endif /* !COMPONENT_HPP_ */
