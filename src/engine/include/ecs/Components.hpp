@@ -64,6 +64,7 @@ struct Enemy {};
 struct Projectile {};
 struct Wall {};
 struct ToDestroy {};
+struct Background {};
 
 // Combat
 
