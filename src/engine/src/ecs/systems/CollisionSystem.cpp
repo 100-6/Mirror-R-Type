@@ -57,11 +57,43 @@ void CollisionSystem::update(Registry& registry, float dt)
 
     // Collision Projectile vs Enemy : Marque les deux pour destruction et publie l'événement
     scan_collisions<Projectile, Enemy>(registry, [&registry](Entity bullet, Entity enemy) {
+        // Ignore friendly fire (Enemy bullet vs Enemy)
+        auto& enemyProjectiles = registry.get_components<IsEnemyProjectile>();
+        if (enemyProjectiles.has_entity(bullet)) {
+            return;
+        }
+
         registry.add_component(bullet, ToDestroy{});
         registry.add_component(enemy, ToDestroy{});
 
         // Publier l'événement pour le score
         registry.get_event_bus().publish(ecs::EnemyKilledEvent{enemy, 100});
+    });
+
+    // Collision Projectile vs Player :
+    scan_collisions<Projectile, Controllable>(registry, [&registry](Entity bullet, Entity player) {
+        // Ignore friendly fire (Player bullet vs Player)
+        auto& enemyProjectiles = registry.get_components<IsEnemyProjectile>();
+        if (!enemyProjectiles.has_entity(bullet)) {
+            return;
+        }
+
+        registry.add_component(bullet, ToDestroy{});
+        // Decrease health or destroy player? For now, just print or maybe destroy
+        // Let's destroy player for now to make it "Game Over"
+        // registry.add_component(player, ToDestroy{}); 
+        // Actually, let's just log it and maybe reduce health if we had a HealthSystem
+        std::cout << "Player hit by enemy bullet!" << std::endl;
+        
+        // Simple health logic
+        auto& healths = registry.get_components<Health>();
+        if (healths.has_entity(player)) {
+            healths[player].current -= 10;
+            if (healths[player].current <= 0) {
+                 registry.add_component(player, ToDestroy{});
+                 std::cout << "GAME OVER" << std::endl;
+            }
+        }
     });
 
     // Collision Projectile vs Wall : Marque le projectile pour destruction
