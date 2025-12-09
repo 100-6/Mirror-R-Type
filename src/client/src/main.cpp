@@ -17,8 +17,10 @@
 #include "ecs/systems/DestroySystem.hpp"
 #include "ecs/systems/RenderSystem.hpp"
 #include "ecs/systems/ScoreSystem.hpp"
+#include "ecs/systems/AudioSystem.hpp"
 #include "plugin_manager/PluginManager.hpp"
 #include "plugin_manager/IInputPlugin.hpp"
+#include "plugin_manager/IAudioPlugin.hpp"
 
 int main() {
     // Configuration de la fenêtre
@@ -34,6 +36,7 @@ int main() {
     engine::PluginManager pluginManager;
     engine::IGraphicsPlugin* graphicsPlugin = nullptr;
     engine::IInputPlugin* inputPlugin = nullptr;
+    engine::IAudioPlugin* audioPlugin = nullptr;
 
     std::cout << "Chargement du plugin graphique..." << std::endl;
     try {
@@ -75,6 +78,23 @@ int main() {
     std::cout << "✓ Plugin d'input chargé: " << inputPlugin->get_name()
               << " v" << inputPlugin->get_version() << std::endl;
 
+    std::cout << "Chargement du plugin audio..." << std::endl;
+    try {
+        audioPlugin = pluginManager.load_plugin<engine::IAudioPlugin>(
+            "plugins/miniaudio_audio.so",
+            "create_audio_plugin"
+        );
+    } catch (const engine::PluginException& e) {
+        std::cerr << "⚠️ Erreur lors du chargement du plugin audio (le jeu continuera sans son): " << e.what() << std::endl;
+    }
+
+    if (audioPlugin) {
+        std::cout << "✓ Plugin audio chargé: " << audioPlugin->get_name()
+                  << " v" << audioPlugin->get_version() << std::endl;
+    } else {
+        std::cout << "⚠️ Plugin audio non chargé" << std::endl;
+    }
+
     // Créer la fenêtre via le plugin
     if (!graphicsPlugin->create_window(SCREEN_WIDTH, SCREEN_HEIGHT, "R-Type Client - Solo Game")) {
         std::cerr << "❌ Erreur lors de la création de la fenêtre" << std::endl;
@@ -98,6 +118,7 @@ int main() {
     if (backgroundTex == 0 || playerTex == 0 || enemyTex == 0 || bulletTex == 0) {
         std::cerr << "❌ Erreur lors du chargement des textures" << std::endl;
         graphicsPlugin->shutdown();
+        if (audioPlugin) audioPlugin->shutdown();
         return 1;
     }
 
@@ -146,6 +167,7 @@ int main() {
     registry.register_component<Weapon>();
     registry.register_component<Score>();
     registry.register_component<Background>();
+    registry.register_component<Invulnerability>();
 
     std::cout << "✓ Composants enregistres" << std::endl;
 
@@ -160,6 +182,9 @@ int main() {
     registry.register_system<PhysiqueSystem>();
     registry.register_system<CollisionSystem>();
     registry.register_system<ScoreSystem>();
+    if (audioPlugin) {
+        registry.register_system<AudioSystem>(*audioPlugin);
+    }
     registry.register_system<DestroySystem>();
     registry.register_system<RenderSystem>(*graphicsPlugin);
 
@@ -169,8 +194,12 @@ int main() {
     std::cout << "  3. ShootingSystem - Ecoute les evenements de tir et cree des projectiles" << std::endl;
     std::cout << "  4. PhysiqueSystem - Applique la velocite, friction, limites d'ecran" << std::endl;
     std::cout << "  5. CollisionSystem- Gere les collisions et marque les entites a detruire" << std::endl;
-    std::cout << "  6. DestroySystem  - Detruit les entites marquees pour destruction" << std::endl;
-    std::cout << "  7. RenderSystem   - Rendu des sprites via plugin graphique" << std::endl;
+    std::cout << "  6. ScoreSystem    - Met a jour le score" << std::endl;
+    if (audioPlugin) {
+        std::cout << "  7. AudioSystem    - Joue des sons sur evenements" << std::endl;
+    }
+    std::cout << "  8. DestroySystem  - Detruit les entites marquees pour destruction" << std::endl;
+    std::cout << "  9. RenderSystem   - Rendu des sprites via plugin graphique" << std::endl;
     std::cout << std::endl;
 
     // ============================================
@@ -253,6 +282,7 @@ int main() {
 
     registry.add_component(player, Health{100, 100});
     registry.add_component(player, Score{0});
+    registry.add_component(player, Invulnerability{0.0f});
 
     std::cout << "✓ Joueur cree avec sprite et arme SPREAD" << std::endl;
     std::cout << "  Position: (200, " << SCREEN_HEIGHT / 2.0f << ")" << std::endl;
@@ -371,12 +401,13 @@ int main() {
     auto& positions = registry.get_components<Position>();
     auto& velocities = registry.get_components<Velocity>();
     auto& colliders = registry.get_components<Collider>();
-    auto& inputs = registry.get_components<Input>();
+    // auto& inputs = registry.get_components<Input>(); // No longer used after refactor
     auto& scores = registry.get_components<Score>();
     auto& weapons = registry.get_components<Weapon>();
 
     int frameCount = 0;
     float debugTimer = 0.0f;
+    // float shootCooldown = 0.0f; // No longer used after refactor
 
     // ============================================
     // BOUCLE DE JEU PRINCIPALE
@@ -397,14 +428,17 @@ int main() {
         // 6. RenderSystem effectue le rendu
         registry.run_systems(dt);
 
+        // === Old SHOOTING MECHANIC (removed as now handled by ShootingSystem) ===
+        // This block is removed as ShootingSystem now handles bullet spawning via events.
+
         // Note: RenderSystem a déjà appelé clear() et draw_sprite()
         // On peut maintenant ajouter les textes de debug par-dessus
 
         // === AFFICHAGE DES STATS À L'ÉCRAN ===
-        if (inputs.has_entity(player) && positions.has_entity(player) && velocities.has_entity(player)) {
+        if (positions.has_entity(player) && velocities.has_entity(player)) { // Removed inputs.has_entity(player)
             const Position& playerPos = positions[player];
             const Velocity& playerVel = velocities[player];
-            const Input& playerInput = inputs[player];
+            // const Input& playerInput = inputs[player]; // No longer used
 
             int yOffset = 10;
             int lineHeight = 25;
@@ -423,18 +457,19 @@ int main() {
                                      engine::Color{255, 255, 0, 255}, engine::INVALID_HANDLE, 20);
             yOffset += lineHeight;
 
-            // Touches pressées
-            std::string keysText = "Keys: ";
-            if (playerInput.up) keysText += "UP ";
-            if (playerInput.down) keysText += "DOWN ";
-            if (playerInput.left) keysText += "LEFT ";
-            if (playerInput.right) keysText += "RIGHT ";
-            if (playerInput.fire) keysText += "FIRE ";
-            if (keysText == "Keys: ") keysText += "NONE";
+            // Touches pressées - Display from InputSystem events instead of Input component
+            // For now, removing. If needed, a debug system could show last input events.
+            // std::string keysText = "Keys: ";
+            // if (playerInput.up) keysText += "UP ";
+            // if (playerInput.down) keysText += "DOWN ";
+            // if (playerInput.left) keysText += "LEFT ";
+            // if (playerInput.right) keysText += "RIGHT ";
+            // if (playerInput.fire) keysText += "FIRE ";
+            // if (keysText == "Keys: ") keysText += "NONE";
 
-            graphicsPlugin->draw_text(keysText, engine::Vector2f(10.0f, yOffset),
-                                     engine::Color{0, 255, 255, 255}, engine::INVALID_HANDLE, 20);
-            yOffset += lineHeight;
+            // graphicsPlugin->draw_text(keysText, engine::Vector2f(10.0f, yOffset),
+            //                          engine::Color{0, 255, 255, 255}, engine::INVALID_HANDLE, 20);
+            // yOffset += lineHeight;
 
             // FPS / Frame count
             std::string fpsText = "Frame: " + std::to_string(frameCount) + " (60 FPS)";
@@ -466,6 +501,7 @@ int main() {
     // ============================================
     inputPlugin->shutdown();
     graphicsPlugin->shutdown();
+    if (audioPlugin) audioPlugin->shutdown();
 
     std::cout << "=== Fin de la demo ===" << std::endl;
     std::cout << "Total frames: " << frameCount << std::endl;

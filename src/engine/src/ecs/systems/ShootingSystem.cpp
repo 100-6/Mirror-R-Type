@@ -7,6 +7,7 @@
 
 #include "ecs/systems/ShootingSystem.hpp"
 #include "ecs/events/InputEvents.hpp"
+#include "ecs/events/GameEvents.hpp" // Include for ShotFiredEvent
 #include <iostream>
 #include <cmath>
 
@@ -56,6 +57,8 @@ void ShootingSystem::init(Registry& registry)
                 // TODO: Implémenter plus tard
                 break;
         }
+        
+        registry.get_event_bus().publish(ecs::ShotFiredEvent{event.player, projectile});
     });
 }
 
