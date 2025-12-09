@@ -88,6 +88,14 @@ struct AI {
     float moveSpeed = 100.0f;
 };
 
+// Scrolling
+
+struct Scrollable {
+    float speedMultiplier = 1.0f;  // Multiplier for scroll speed (1.0 = normal, 2.0 = twice as fast)
+    bool wrap = false;              // If true, entity wraps around for infinite scrolling
+    bool destroyOffscreen = false;  // If true, entity is destroyed when scrolling offscreen
+};
+
 // Combat
 
 enum class WeaponType {
@@ -105,6 +113,11 @@ struct Weapon {
     float fire_rate = 0.5f;                // Cooldown entre chaque tir (secondes)
     float time_since_last_fire = 999.0f;   // Temps écoulé depuis le dernier tir
     Sprite projectile_sprite;              // Apparence du projectile à créer
+};
+
+struct FireRate {
+    float cooldown = 0.1f;
+    float time_since_last_fire = 999.0f;
 };
 
 // Logique de jeu

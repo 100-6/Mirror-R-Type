@@ -13,6 +13,7 @@ add_library(rtype_engine
     src/ecs/systems/ScoreSystem.cpp
     src/ecs/systems/AudioSystem.cpp
     src/ecs/systems/AISystem.cpp
+    src/ecs/systems/ScrollingSystem.cpp
     src/core/event/EventBus.cpp
     src/plugin_manager/PluginManager.cpp
 )
