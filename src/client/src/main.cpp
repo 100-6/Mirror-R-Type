@@ -19,9 +19,8 @@
 #include "ecs/systems/ScoreSystem.hpp"
 
 #include "ecs/systems/AudioSystem.hpp"
-
 #include "ecs/systems/HealthSystem.hpp"
-
+#include "ecs/systems/AISystem.hpp"
 #include "plugin_manager/PluginManager.hpp"
 #include "plugin_manager/IInputPlugin.hpp"
 #include "plugin_manager/IAudioPlugin.hpp"
@@ -81,7 +80,7 @@ int main() {
 
     std::cout << "✓ Plugin d'input chargé: " << inputPlugin->get_name()
               << " v" << inputPlugin->get_version() << std::endl;
-
+              
     std::cout << "Chargement du plugin audio..." << std::endl;
     try {
         audioPlugin = pluginManager.load_plugin<engine::IAudioPlugin>(
@@ -89,14 +88,15 @@ int main() {
             "create_audio_plugin"
         );
     } catch (const engine::PluginException& e) {
-        std::cerr << "⚠️ Erreur lors du chargement du plugin audio (le jeu continuera sans son): " << e.what() << std::endl;
+        std::cerr << "⚠️ Erreur lors du chargement du plugin audio (sons désactivés): " << e.what() << std::endl;
+        // On continue sans audio
     }
 
     if (audioPlugin) {
         std::cout << "✓ Plugin audio chargé: " << audioPlugin->get_name()
                   << " v" << audioPlugin->get_version() << std::endl;
     } else {
-        std::cout << "⚠️ Plugin audio non chargé" << std::endl;
+        std::cout << "⚠️ Plugin audio non disponible." << std::endl;
     }
 
     // Créer la fenêtre via le plugin
@@ -174,6 +174,8 @@ int main() {
     registry.register_component<Score>();
     registry.register_component<Background>();
     registry.register_component<Invulnerability>();
+    registry.register_component<AI>();
+    registry.register_component<IsEnemyProjectile>();
 
     std::cout << "✓ Composants enregistres" << std::endl;
 
@@ -189,6 +191,7 @@ int main() {
     registry.register_system<CollisionSystem>();
     registry.register_system<HealthSystem>();
     registry.register_system<ScoreSystem>();
+    registry.register_system<AISystem>(*graphicsPlugin);
     if (audioPlugin) {
         registry.register_system<AudioSystem>(*audioPlugin);
     }

@@ -67,9 +67,27 @@ struct Projectile {
     float time_alive = 0.0f;
 };
 struct EnemyProjectile {};  // Projectile tiré par un ennemi
+struct IsEnemyProjectile {};  // Alias pour AISystem
 struct Wall {};
 struct ToDestroy {};
 struct Background {};
+
+// AI
+
+enum class EnemyType {
+    Basic,
+    Fast,
+    Tank,
+    Boss
+};
+
+struct AI {
+    EnemyType type = EnemyType::Basic;
+    float detectionRange = 800.0f;
+    float shootCooldown = 2.0f;
+    float timeSinceLastShot = 0.0f;
+    float moveSpeed = 100.0f;
+};
 
 // Combat
 

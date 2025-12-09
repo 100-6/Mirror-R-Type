@@ -55,10 +55,16 @@ void CollisionSystem::update(Registry& registry, float dt)
         }
     }
 
-    auto& damages = registry.get_components<Damage>();
+auto& damages = registry.get_components<Damage>();
 
     // Collision Projectile (joueur) vs Enemy : Applique les dégâts à l'ennemi
     scan_collisions<Projectile, Enemy>(registry, [&registry, &damages](Entity bullet, Entity enemy) {
+        // Ignore friendly fire (Enemy bullet vs Enemy)
+        auto& enemyProjectiles = registry.get_components<IsEnemyProjectile>();
+        if (enemyProjectiles.has_entity(bullet)) {
+            return;
+        }
+
         registry.add_component(bullet, ToDestroy{});
 
         int dmg = damages.has_entity(bullet) ? damages[bullet].value : 10;
@@ -67,6 +73,14 @@ void CollisionSystem::update(Registry& registry, float dt)
 
     // Collision EnemyProjectile vs Player : Applique les dégâts au joueur
     scan_collisions<EnemyProjectile, Controllable>(registry, [&registry, &damages](Entity bullet, Entity player) {
+        registry.add_component(bullet, ToDestroy{});
+
+        int dmg = damages.has_entity(bullet) ? damages[bullet].value : 10;
+        registry.get_event_bus().publish(ecs::DamageEvent{player, bullet, dmg});
+    });
+
+    // Collision IsEnemyProjectile vs Player : Applique les dégâts au joueur (AISystem)
+    scan_collisions<IsEnemyProjectile, Controllable>(registry, [&registry, &damages](Entity bullet, Entity player) {
         registry.add_component(bullet, ToDestroy{});
 
         int dmg = damages.has_entity(bullet) ? damages[bullet].value : 10;
