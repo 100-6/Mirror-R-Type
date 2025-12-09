@@ -7,6 +7,7 @@
 
 #include "ecs/systems/ShootingSystem.hpp"
 #include "ecs/events/InputEvents.hpp"
+#include "ecs/events/GameEvents.hpp" // Include for ShotFiredEvent
 #include <iostream>
 
 ShootingSystem::ShootingSystem(engine::TextureHandle bulletTexture, float bulletWidth, float bulletHeight)
@@ -71,6 +72,9 @@ void ShootingSystem::init(Registry& registry)
         });
 
         registry.add_component(projectile, Projectile{});
+
+        // Publish ShotFiredEvent
+        registry.get_event_bus().publish(ecs::ShotFiredEvent{event.player, projectile});
     });
 }
 

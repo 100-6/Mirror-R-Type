@@ -81,6 +81,10 @@ struct Health
     int current = 100;
 };
 
+struct Invulnerability {
+    float time_remaining = 0.0f;
+};
+
 struct Damage
 {
     int value = 10;
