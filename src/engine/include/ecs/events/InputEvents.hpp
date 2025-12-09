@@ -52,4 +52,25 @@ struct EnemyKilledEvent : public core::Event {
     EnemyKilledEvent(Entity e, int score = 100) : enemy(e), scoreValue(score) {}
 };
 
+/**
+ * @brief Event fired when an entity takes damage
+ */
+struct DamageEvent : public core::Event {
+    Entity target;      // Entité qui reçoit les dégâts
+    Entity source;      // Entité qui cause les dégâts (projectile)
+    int damageAmount;
+
+    DamageEvent(Entity t, Entity s, int dmg) : target(t), source(s), damageAmount(dmg) {}
+};
+
+/**
+ * @brief Event fired when an entity dies (HP <= 0)
+ */
+struct EntityDeathEvent : public core::Event {
+    Entity entity;
+    bool isPlayer;
+
+    EntityDeathEvent(Entity e, bool player = false) : entity(e), isPlayer(player) {}
+};
+
 }

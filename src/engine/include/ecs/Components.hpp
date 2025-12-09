@@ -66,6 +66,7 @@ struct Projectile {
     float lifetime = 5.0f;
     float time_alive = 0.0f;
 };
+struct EnemyProjectile {};  // Projectile tiré par un ennemi
 struct Wall {};
 struct ToDestroy {};
 struct Background {};

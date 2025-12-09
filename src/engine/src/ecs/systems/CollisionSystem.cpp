@@ -55,17 +55,32 @@ void CollisionSystem::update(Registry& registry, float dt)
         }
     }
 
-    // Collision Projectile vs Enemy : Marque les deux pour destruction et publie l'événement
-    scan_collisions<Projectile, Enemy>(registry, [&registry](Entity bullet, Entity enemy) {
-        registry.add_component(bullet, ToDestroy{});
-        registry.add_component(enemy, ToDestroy{});
+    auto& damages = registry.get_components<Damage>();
 
-        // Publier l'événement pour le score
-        registry.get_event_bus().publish(ecs::EnemyKilledEvent{enemy, 100});
+    // Collision Projectile (joueur) vs Enemy : Applique les dégâts à l'ennemi
+    scan_collisions<Projectile, Enemy>(registry, [&registry, &damages](Entity bullet, Entity enemy) {
+        registry.add_component(bullet, ToDestroy{});
+
+        int dmg = damages.has_entity(bullet) ? damages[bullet].value : 10;
+        registry.get_event_bus().publish(ecs::DamageEvent{enemy, bullet, dmg});
+    });
+
+    // Collision EnemyProjectile vs Player : Applique les dégâts au joueur
+    scan_collisions<EnemyProjectile, Controllable>(registry, [&registry, &damages](Entity bullet, Entity player) {
+        registry.add_component(bullet, ToDestroy{});
+
+        int dmg = damages.has_entity(bullet) ? damages[bullet].value : 10;
+        registry.get_event_bus().publish(ecs::DamageEvent{player, bullet, dmg});
     });
 
     // Collision Projectile vs Wall : Marque le projectile pour destruction
     scan_collisions<Projectile, Wall>(registry, [&registry](Entity bullet, Entity wall) {
+        (void)wall;
+        registry.add_component(bullet, ToDestroy{});
+    });
+
+    // Collision EnemyProjectile vs Wall : Marque le projectile pour destruction
+    scan_collisions<EnemyProjectile, Wall>(registry, [&registry](Entity bullet, Entity wall) {
         (void)wall;
         registry.add_component(bullet, ToDestroy{});
     });

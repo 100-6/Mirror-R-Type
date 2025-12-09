@@ -17,7 +17,11 @@
 #include "ecs/systems/DestroySystem.hpp"
 #include "ecs/systems/RenderSystem.hpp"
 #include "ecs/systems/ScoreSystem.hpp"
+
 #include "ecs/systems/AudioSystem.hpp"
+
+#include "ecs/systems/HealthSystem.hpp"
+
 #include "plugin_manager/PluginManager.hpp"
 #include "plugin_manager/IInputPlugin.hpp"
 #include "plugin_manager/IAudioPlugin.hpp"
@@ -30,9 +34,9 @@ int main() {
     std::cout << "=== R-Type Client - Solo Game ===" << std::endl;
     std::cout << std::endl;
 
-    // ============================================
+    // ==
     // CHARGEMENT DES PLUGINS
-    // ============================================
+    // ==
     engine::PluginManager pluginManager;
     engine::IGraphicsPlugin* graphicsPlugin = nullptr;
     engine::IInputPlugin* inputPlugin = nullptr;
@@ -105,9 +109,9 @@ int main() {
     std::cout << "✓ Fenêtre créée: " << SCREEN_WIDTH << "x" << SCREEN_HEIGHT << std::endl;
     std::cout << std::endl;
 
-    // ============================================
+    // ==
     // CHARGEMENT DES TEXTURES VIA LE PLUGIN
-    // ============================================
+    // ==
     std::cout << "Chargement des textures depuis assets/sprite/..." << std::endl;
 
     engine::TextureHandle backgroundTex = graphicsPlugin->load_texture("assets/sprite/symmetry.png");
@@ -149,9 +153,9 @@ int main() {
     std::cout << "  Default (Pink/Black): 32x32" << std::endl;
     std::cout << std::endl;
 
-    // ============================================
+    // ==
     // CREATION DU REGISTRY ET DES COMPOSANTS
-    // ============================================
+    // ==
     Registry registry;
     registry.register_component<Position>();
     registry.register_component<Velocity>();
@@ -161,8 +165,10 @@ int main() {
     registry.register_component<Controllable>();
     registry.register_component<Enemy>();
     registry.register_component<Projectile>();
+    registry.register_component<EnemyProjectile>();
     registry.register_component<Wall>();
     registry.register_component<Health>();
+    registry.register_component<Damage>();
     registry.register_component<ToDestroy>();
     registry.register_component<Weapon>();
     registry.register_component<Score>();
@@ -171,9 +177,9 @@ int main() {
 
     std::cout << "✓ Composants enregistres" << std::endl;
 
-    // ============================================
+    // ==
     // CREATION ET ENREGISTREMENT DES SYSTEMES
-    // ============================================
+    // ==
 
     // Enregistrer les systèmes dans l'ordre d'exécution
     registry.register_system<InputSystem>(*inputPlugin);
@@ -181,6 +187,7 @@ int main() {
     registry.register_system<ShootingSystem>();
     registry.register_system<PhysiqueSystem>();
     registry.register_system<CollisionSystem>();
+    registry.register_system<HealthSystem>();
     registry.register_system<ScoreSystem>();
     if (audioPlugin) {
         registry.register_system<AudioSystem>(*audioPlugin);
@@ -189,22 +196,23 @@ int main() {
     registry.register_system<RenderSystem>(*graphicsPlugin);
 
     std::cout << "✓ Systemes enregistres :" << std::endl;
-    std::cout << "  1. InputSystem    - Capture les inputs et publie des evenements" << std::endl;
-    std::cout << "  2. MovementSystem - Ecoute les evenements de mouvement et met a jour la velocite" << std::endl;
-    std::cout << "  3. ShootingSystem - Ecoute les evenements de tir et cree des projectiles" << std::endl;
-    std::cout << "  4. PhysiqueSystem - Applique la velocite, friction, limites d'ecran" << std::endl;
-    std::cout << "  5. CollisionSystem- Gere les collisions et marque les entites a detruire" << std::endl;
-    std::cout << "  6. ScoreSystem    - Met a jour le score" << std::endl;
+    std::cout << "  1. InputSystem     - Capture les inputs et publie des evenements" << std::endl;
+    std::cout << "  2. MovementSystem  - Ecoute les evenements de mouvement" << std::endl;
+    std::cout << "  3. ShootingSystem  - Gere le tir (joueur + ennemis)" << std::endl;
+    std::cout << "  4. PhysiqueSystem  - Applique la velocite" << std::endl;
+    std::cout << "  5. CollisionSystem - Gere les collisions et publie DamageEvent" << std::endl;
+    std::cout << "  6. HealthSystem    - Gere les degats et la mort" << std::endl;
+    std::cout << "  7. ScoreSystem     - Met a jour le score" << std::endl;
     if (audioPlugin) {
-        std::cout << "  7. AudioSystem    - Joue des sons sur evenements" << std::endl;
+        std::cout << "  8. AudioSystem     - Joue des sons sur evenements" << std::endl;
     }
-    std::cout << "  8. DestroySystem  - Detruit les entites marquees pour destruction" << std::endl;
-    std::cout << "  9. RenderSystem   - Rendu des sprites via plugin graphique" << std::endl;
+    std::cout << "  9. DestroySystem   - Detruit les entites marquees" << std::endl;
+    std::cout << " 10. RenderSystem    - Rendu des sprites" << std::endl;
     std::cout << std::endl;
 
-    // ============================================
+    // ==
     // CREATION DU BACKGROUND (Défilement infini avec 2 images)
-    // ============================================
+    // ==
     // Premier background
     Entity background1 = registry.spawn_entity();
     registry.add_component(background1, Position{0.0f, 0.0f});
@@ -240,9 +248,9 @@ int main() {
     std::cout << "✓ Background defilant cree (2 images en boucle infinie)" << std::endl;
     std::cout << std::endl;
 
-    // ============================================
+    // ==
     // CREATION DU JOUEUR
-    // ============================================
+    // ==
     Entity player = registry.spawn_entity();
     registry.add_component(player, Position{200.0f, SCREEN_HEIGHT / 2.0f});
     registry.add_component(player, Velocity{0.0f, 0.0f});
@@ -291,9 +299,9 @@ int main() {
     std::cout << "  Arme: SPREAD (5 projectiles, 40° d'éventail)" << std::endl;
     std::cout << std::endl;
 
-    // ============================================
+    // ==
     // CREATION DES MURS
-    // ============================================
+    // ==
     std::cout << "✓ Creation des murs (Gris)..." << std::endl;
 
     // Mur vertical gauche - PARTIE HAUTE (avec un trou au milieu pour tirer)
@@ -348,9 +356,9 @@ int main() {
     std::cout << "  - 2 obstacles internes" << std::endl;
     std::cout << std::endl;
 
-    // ============================================
+    // ==
     // CREATION D'ENNEMIS (AVEC SPRITES)
-    // ============================================
+    // ==
     std::cout << "✓ Creation d'ennemis avec sprites..." << std::endl;
 
     Entity enemy1 = registry.spawn_entity();
@@ -359,6 +367,10 @@ int main() {
     registry.add_component(enemy1, Sprite{enemyTex, enemyWidth, enemyHeight, 0.0f, engine::Color::White, 0.0f, 0.0f, 0});
     registry.add_component(enemy1, Enemy{});
     registry.add_component(enemy1, Health{50, 50});
+    registry.add_component(enemy1, Weapon{
+        WeaponType::BASIC, 1, 0.0f, 300.0f, 5.0f, 0.0f,
+        Sprite{bulletTex, bulletWidth, bulletHeight, 0.0f, engine::Color{255, 100, 100, 255}, 0.0f, 0.0f, 0}
+    });
 
     Entity enemy2 = registry.spawn_entity();
     registry.add_component(enemy2, Position{1200.0f, 500.0f});
@@ -366,6 +378,10 @@ int main() {
     registry.add_component(enemy2, Sprite{enemyTex, enemyWidth, enemyHeight, 0.0f, engine::Color::White, 0.0f, 0.0f, 0});
     registry.add_component(enemy2, Enemy{});
     registry.add_component(enemy2, Health{50, 50});
+    registry.add_component(enemy2, Weapon{
+        WeaponType::BASIC, 1, 0.0f, 300.0f, 5.0f, 2.0f,
+        Sprite{bulletTex, bulletWidth, bulletHeight, 0.0f, engine::Color{255, 100, 100, 255}, 0.0f, 0.0f, 0}
+    });
 
     Entity enemy3 = registry.spawn_entity();
     registry.add_component(enemy3, Position{800.0f, 700.0f});
@@ -373,13 +389,17 @@ int main() {
     registry.add_component(enemy3, Sprite{enemyTex, enemyWidth, enemyHeight, 0.0f, engine::Color::White, 0.0f, 0.0f, 0});
     registry.add_component(enemy3, Enemy{});
     registry.add_component(enemy3, Health{50, 50});
+    registry.add_component(enemy3, Weapon{
+        WeaponType::BASIC, 1, 0.0f, 300.0f, 5.0f, 4.0f,
+        Sprite{bulletTex, bulletWidth, bulletHeight, 0.0f, engine::Color{255, 100, 100, 255}, 0.0f, 0.0f, 0}
+    });
 
     std::cout << "  - 3 ennemis places dans l'arene" << std::endl;
     std::cout << std::endl;
 
-    // ============================================
+    // ==
     // INSTRUCTIONS
-    // ============================================
+    // ==
     std::cout << "=== CONTROLES ===" << std::endl;
     std::cout << "  WASD ou Fleches  : Deplacer le joueur" << std::endl;
     std::cout << "  ESPACE           : Tirer" << std::endl;
@@ -395,23 +415,27 @@ int main() {
     std::cout << "Demarrage de la boucle de jeu..." << std::endl;
     std::cout << std::endl;
 
-    // ============================================
+    // ==
     // VARIABLES DE JEU
-    // ============================================
+    // ==
     auto& positions = registry.get_components<Position>();
     auto& velocities = registry.get_components<Velocity>();
     auto& colliders = registry.get_components<Collider>();
     // auto& inputs = registry.get_components<Input>(); // No longer used after refactor
     auto& scores = registry.get_components<Score>();
+
     auto& weapons = registry.get_components<Weapon>();
+
+    auto& healths = registry.get_components<Health>();
+
 
     int frameCount = 0;
     float debugTimer = 0.0f;
     // float shootCooldown = 0.0f; // No longer used after refactor
 
-    // ============================================
+    // ==
     // BOUCLE DE JEU PRINCIPALE
-    // ============================================
+    // ==
     while (graphicsPlugin->is_window_open()) {
         float dt = 1.0f / 60.0f;  // Fixed timestep
         frameCount++;
@@ -492,13 +516,33 @@ int main() {
                                      engine::Color{255, 255, 0, 255}, engine::INVALID_HANDLE, 40);
         }
 
+        // Vie du joueur affichée en haut à gauche (toujours visible)
+        if (healths.has_entity(player)) {
+            int hp = healths[player].current;
+            int maxHp = healths[player].max;
+            std::string healthText = "HP: " + std::to_string(hp) + " / " + std::to_string(maxHp);
+
+            // Couleur selon la vie restante
+            engine::Color healthColor;
+            float hpPercent = static_cast<float>(hp) / static_cast<float>(maxHp);
+            if (hpPercent > 0.6f)
+                healthColor = engine::Color{0, 255, 0, 255};     // Vert
+            else if (hpPercent > 0.3f)
+                healthColor = engine::Color{255, 165, 0, 255};   // Orange
+            else
+                healthColor = engine::Color{255, 0, 0, 255};     // Rouge
+
+            graphicsPlugin->draw_text(healthText, engine::Vector2f(30.0f, 30.0f),
+                                     healthColor, engine::INVALID_HANDLE, 40);
+        }
+
         // Afficher le frame complet (sprites + UI)
         graphicsPlugin->display();
     }
 
-    // ============================================
+    // ==
     // NETTOYAGE
-    // ============================================
+    // ==
     inputPlugin->shutdown();
     graphicsPlugin->shutdown();
     if (audioPlugin) audioPlugin->shutdown();

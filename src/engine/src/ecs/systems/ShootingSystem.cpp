@@ -69,6 +69,9 @@ void ShootingSystem::update(Registry& registry, float dt)
 {
     // Mettre à jour le cooldown de toutes les armes
     auto& weapons = registry.get_components<Weapon>();
+    auto& enemies = registry.get_components<Enemy>();
+    auto& positions = registry.get_components<Position>();
+    auto& sprites = registry.get_components<Sprite>();
 
     for (size_t i = 0; i < weapons.size(); i++) {
         Entity entity = weapons.get_entity_at(i);
@@ -78,6 +81,42 @@ void ShootingSystem::update(Registry& registry, float dt)
 
         auto& weapon = weapons[entity];
         weapon.time_since_last_fire += dt;
+
+        // Tir automatique pour les ennemis uniquement
+        if (enemies.has_entity(entity) && positions.has_entity(entity)) {
+            if (weapon.time_since_last_fire >= weapon.fire_rate) {
+                weapon.time_since_last_fire = 0.0f;
+
+                const Position& enemyPos = positions[entity];
+                float enemyHeight = sprites.has_entity(entity) ? sprites[entity].height : 0.0f;
+
+                Entity projectile = registry.spawn_entity();
+
+                float bulletOffsetX = -weapon.projectile_sprite.width - 10.0f;
+                float bulletOffsetY = (enemyHeight / 2.0f) - (weapon.projectile_sprite.height / 2.0f);
+
+                registry.add_component(projectile, Position{
+                    enemyPos.x + bulletOffsetX,
+                    enemyPos.y + bulletOffsetY
+                });
+
+                registry.add_component(projectile, Velocity{-weapon.projectile_speed, 0.0f});
+                registry.add_component(projectile, Collider{weapon.projectile_sprite.width, weapon.projectile_sprite.height});
+                registry.add_component(projectile, Sprite{
+                    weapon.projectile_sprite.texture,
+                    weapon.projectile_sprite.width,
+                    weapon.projectile_sprite.height,
+                    180.0f,
+                    engine::Color{255, 100, 100, 255},
+                    0.0f,
+                    0.0f,
+                    0
+                });
+                registry.add_component(projectile, EnemyProjectile{});
+                registry.add_component(projectile, Damage{10});
+                registry.add_component(projectile, Projectile{180.0f, 5.0f, 0.0f});
+            }
+        }
     }
 
     // Mettre à jour le temps de vie des projectiles
