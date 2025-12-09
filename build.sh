@@ -4,6 +4,9 @@ set -e
 
 BUILD_DIR="build"
 BUILD_TESTS="OFF"
+VCPKG_DIR="vcpkg"
+# Commit ID from CI/vcpkg.json to ensure consistency
+VCPKG_COMMIT="bd52fac7114fdaa2208de8dd1227212a6683e562"
 
 # Usage function
 usage() {
@@ -42,6 +45,24 @@ if [ "$1" == "test" ] || [ "$2" == "test" ]; then
     echo "Tests enabled"
 fi
 
+# Function to setup vcpkg
+setup_vcpkg() {
+    if [ ! -d "$VCPKG_DIR" ]; then
+        echo "vcpkg not found. Cloning..."
+        git clone https://github.com/Microsoft/vcpkg.git "$VCPKG_DIR"
+        
+        echo "Checking out specific commit to match CI..."
+        pushd "$VCPKG_DIR" > /dev/null
+        git checkout "$VCPKG_COMMIT"
+        
+        echo "Bootstrapping vcpkg..."
+        ./bootstrap-vcpkg.sh -disableMetrics
+        popd > /dev/null
+    else
+        echo "vcpkg detected."
+    fi
+}
+
 # Handle commands
 case "$CMD" in
     clean)
@@ -70,9 +91,10 @@ case "$CMD" in
 
     make)
         echo "Incremental build..."
+        setup_vcpkg
         if [ ! -d "$BUILD_DIR" ] || [ ! -f "$BUILD_DIR/CMakeCache.txt" ]; then
             echo "Build directory not found. Running full configuration first..."
-            cmake -S . -B "$BUILD_DIR" -DBUILD_TESTS="$BUILD_TESTS"
+            cmake -S . -B "$BUILD_DIR" -DBUILD_TESTS="$BUILD_TESTS" -DCMAKE_TOOLCHAIN_FILE="$VCPKG_DIR/scripts/buildsystems/vcpkg.cmake"
         fi
         echo "Building (incremental)..."
         cmake --build "$BUILD_DIR"
@@ -90,8 +112,11 @@ case "$CMD" in
 esac
 
 # Full rebuild
+setup_vcpkg
+
 echo "Configuring CMake..."
-cmake -S . -B "$BUILD_DIR" -DBUILD_TESTS="$BUILD_TESTS"
+# Explicitly use the local vcpkg toolchain
+cmake -S . -B "$BUILD_DIR" -DBUILD_TESTS="$BUILD_TESTS" -DCMAKE_TOOLCHAIN_FILE="$VCPKG_DIR/scripts/buildsystems/vcpkg.cmake"
 
 echo "Building..."
 cmake --build "$BUILD_DIR"
