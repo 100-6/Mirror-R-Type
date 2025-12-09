@@ -171,6 +171,7 @@ int main() {
     registry.register_component<Background>();
     registry.register_component<Invulnerability>();
     registry.register_component<AI>();
+    registry.register_component<IsEnemyProjectile>();
 
     std::cout << "✓ Composants enregistres" << std::endl;
 
