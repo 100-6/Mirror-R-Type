@@ -18,9 +18,9 @@ class ShootingSystem : public ISystem {
     private:
         core::EventBus::SubscriptionId fireSubId_;
 
-        void createBasicProjectile(Registry& registry, const Weapon& weapon, const Position& shooterPos, float shooterHeight);
-        void createSpreadProjectiles(Registry& registry, const Weapon& weapon, const Position& shooterPos, float shooterHeight);
-        void createBurstProjectiles(Registry& registry, Weapon& weapon, const Position& shooterPos, float shooterHeight);
+        void createBasicProjectile(Registry& registry, Entity shooter, const Weapon& weapon, const Position& shooterPos, float shooterHeight);
+        void createSpreadProjectiles(Registry& registry, Entity shooter, const Weapon& weapon, const Position& shooterPos, float shooterHeight);
+        void createBurstProjectiles(Registry& registry, Entity shooter, Weapon& weapon, const Position& shooterPos, float shooterHeight);
 
     public:
         ShootingSystem() = default;

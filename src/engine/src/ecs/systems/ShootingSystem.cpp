@@ -42,23 +42,21 @@ void ShootingSystem::init(Registry& registry)
 
         switch (weapon.type) {
             case WeaponType::BASIC:
-                createBasicProjectile(registry, weapon, playerPos, playerHeight);
+                createBasicProjectile(registry, event.player, weapon, playerPos, playerHeight);
                 break;
 
             case WeaponType::SPREAD:
-                createSpreadProjectiles(registry, weapon, playerPos, playerHeight);
+                createSpreadProjectiles(registry, event.player, weapon, playerPos, playerHeight);
                 break;
 
             case WeaponType::BURST:
-                createBurstProjectiles(registry, weapon, playerPos, playerHeight);
+                createBurstProjectiles(registry, event.player, weapon, playerPos, playerHeight);
                 break;
 
             case WeaponType::LASER:
                 // TODO: Implémenter plus tard
                 break;
         }
-        
-        registry.get_event_bus().publish(ecs::ShotFiredEvent{event.player, projectile});
     });
 }
 
@@ -100,7 +98,7 @@ void ShootingSystem::update(Registry& registry, float dt)
     }
 }
 
-void ShootingSystem::createBasicProjectile(Registry& registry, const Weapon& weapon, const Position& shooterPos, float shooterHeight)
+void ShootingSystem::createBasicProjectile(Registry& registry, Entity shooter, const Weapon& weapon, const Position& shooterPos, float shooterHeight)
 {
     Entity projectile = registry.spawn_entity();
 
@@ -129,9 +127,12 @@ void ShootingSystem::createBasicProjectile(Registry& registry, const Weapon& wea
     });
 
     registry.add_component(projectile, Projectile{0.0f, 5.0f, 0.0f});  // Angle 0° = droite
+
+    // Publier l'événement pour AudioSystem
+    registry.get_event_bus().publish(ecs::ShotFiredEvent{shooter, projectile});
 }
 
-void ShootingSystem::createSpreadProjectiles(Registry& registry, const Weapon& weapon, const Position& shooterPos, float shooterHeight)
+void ShootingSystem::createSpreadProjectiles(Registry& registry, Entity shooter, const Weapon& weapon, const Position& shooterPos, float shooterHeight)
 {
     // Calculer l'écart d'angle entre chaque projectile
     float angleStep = 0.0f;
@@ -177,10 +178,13 @@ void ShootingSystem::createSpreadProjectiles(Registry& registry, const Weapon& w
         });
 
         registry.add_component(projectile, Projectile{angle, 5.0f, 0.0f});
+
+        // Publier l'événement pour AudioSystem
+        registry.get_event_bus().publish(ecs::ShotFiredEvent{shooter, projectile});
     }
 }
 
-void ShootingSystem::createBurstProjectiles(Registry& registry, Weapon& weapon, const Position& shooterPos, float shooterHeight)
+void ShootingSystem::createBurstProjectiles(Registry& registry, Entity shooter, Weapon& weapon, const Position& shooterPos, float shooterHeight)
 {
     // BURST: tire rapidement plusieurs projectiles l'un après l'autre
     // On crée juste 1 projectile mais on réduit temporairement le cooldown
@@ -194,10 +198,10 @@ void ShootingSystem::createBurstProjectiles(Registry& registry, Weapon& weapon, 
         shooterPos.x + bulletOffsetX,
         shooterPos.y + bulletOffsetY
     });
-    
+
     registry.add_component(projectile, Velocity{weapon.projectile_speed, 0.0f});
     registry.add_component(projectile, Collider{weapon.projectile_sprite.width, weapon.projectile_sprite.height});
-    
+
     registry.add_component(projectile, Sprite{
         weapon.projectile_sprite.texture,
         weapon.projectile_sprite.width,
@@ -208,14 +212,17 @@ void ShootingSystem::createBurstProjectiles(Registry& registry, Weapon& weapon, 
         weapon.projectile_sprite.origin_y,
         weapon.projectile_sprite.layer
     });
-    
+
     registry.add_component(projectile, Projectile{0.0f, 5.0f, 0.0f});
-    
+
+    // Publier l'événement pour AudioSystem
+    registry.get_event_bus().publish(ecs::ShotFiredEvent{shooter, projectile});
+
     // Réduire le cooldown pour tirer rapidement (rafale de projectile_count tirs)
     // Après projectile_count tirs, revenir au fire_rate normal
     static int burstCount = 0;
     burstCount++;
-    
+
     if (burstCount < weapon.projectile_count)
         weapon.time_since_last_fire = weapon.fire_rate - 0.05f;  // Tire après 0.05s
     else
