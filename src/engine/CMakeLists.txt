@@ -11,6 +11,7 @@ add_library(rtype_engine
     src/ecs/systems/NetworkSystem.cpp
     src/ecs/systems/DestroySystem.cpp
     src/ecs/systems/ScoreSystem.cpp
+    src/ecs/systems/AudioSystem.cpp
     src/core/event/EventBus.cpp
     src/plugin_manager/PluginManager.cpp
 )

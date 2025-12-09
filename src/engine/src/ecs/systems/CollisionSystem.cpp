@@ -7,6 +7,7 @@
 
 #include "ecs/systems/CollisionSystem.hpp"
 #include "ecs/events/InputEvents.hpp"
+#include "ecs/events/GameEvents.hpp"
 
 bool CollisionSystem::check_collision(const Position& pos1, const Position& pos2,
     const Collider& col1, const Collider& col2)
@@ -59,6 +60,13 @@ void CollisionSystem::update(Registry& registry, float dt)
     scan_collisions<Projectile, Wall>(registry, [&registry](Entity bullet, Entity wall) {
         (void)wall;
         registry.add_component(bullet, ToDestroy{});
+    });
+
+    // Collision Player (Controllable) vs Enemy : Publie PlayerHitEvent
+    scan_collisions<Controllable, Enemy>(registry, [&registry](Entity player, Entity enemy) {
+        (void)enemy;
+        // Publier l'événement PlayerHitEvent
+        registry.get_event_bus().publish(ecs::PlayerHitEvent{player, enemy});
     });
 
     // Collision Player vs Wall : Repousse le joueur
