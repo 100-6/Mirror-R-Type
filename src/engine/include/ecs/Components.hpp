@@ -34,8 +34,8 @@ struct Input {
     bool down = false;
     bool left = false;
     bool right = false;
-    bool fire = false;     // Tirer (Espace ou clic gauche)
-    bool special = false;  // Action spéciale (Shift)
+    bool fire = false;        // Tirer (Espace ou clic gauche)
+    bool special = false;     // Action spéciale (Shift)
 };
 
 // Rendu
@@ -61,16 +61,32 @@ struct Controllable {
     float speed = 200.0f;
 };
 struct Enemy {};
-struct Projectile {};
+struct Projectile {
+    float angle = 0.0f;
+    float lifetime = 5.0f;
+    float time_alive = 0.0f;
+};
 struct Wall {};
 struct ToDestroy {};
 struct Background {};
 
 // Combat
 
-struct FireRate {
-    float cooldown = 0.5f;
-    float time_since_last_fire = 999.0f;
+enum class WeaponType {
+    BASIC,      // 1 projectile, tout droit
+    SPREAD,     // Plusieurs projectiles en éventail
+    BURST,      // Rafale rapide
+    LASER       // Ligne continue (futur)
+};
+
+struct Weapon {
+    WeaponType type = WeaponType::BASIC;
+    int projectile_count = 1;              // Nombre de projectiles par tir
+    float spread_angle = 0.0f;             // Angle d'écart total en degrés
+    float projectile_speed = 400.0f;       // Vitesse des projectiles
+    float fire_rate = 0.5f;                // Cooldown entre chaque tir (secondes)
+    float time_since_last_fire = 999.0f;   // Temps écoulé depuis le dernier tir
+    Sprite projectile_sprite;              // Apparence du projectile à créer
 };
 
 // Logique de jeu

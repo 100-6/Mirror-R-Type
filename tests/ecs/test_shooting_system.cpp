@@ -10,9 +10,10 @@
 #include "ecs/Components.hpp"
 #include "ecs/systems/ShootingSystem.hpp"
 #include "ecs/events/InputEvents.hpp"
+#include <cmath>
 
 // ============================================================================
-// SHOOTING SYSTEM TESTS
+// SHOOTING SYSTEM TESTS WITH WEAPON SYSTEM
 // ============================================================================
 
 class ShootingSystemTest : public ::testing::Test {
@@ -30,128 +31,84 @@ protected:
         registry.register_component<Collider>();
         registry.register_component<Sprite>();
         registry.register_component<Projectile>();
-        registry.register_component<FireRate>();
-        registry.register_component<Controllable>();
+        registry.register_component<Weapon>();
+        registry.register_component<ToDestroy>();
 
-        // Create shooting system
-        shootingSystem = new ShootingSystem(bulletTex, bulletWidth, bulletHeight);
+        // Create shooting system with new constructor
+        shootingSystem = new ShootingSystem();
         shootingSystem->init(registry);
     }
 
     void TearDown() override {
         delete shootingSystem;
     }
+
+    // Helper to create a basic weapon
+    Weapon createBasicWeapon() {
+        return Weapon{
+            WeaponType::BASIC,
+            1,
+            0.0f,
+            400.0f,
+            0.5f,
+            999.0f,
+            Sprite{bulletTex, bulletWidth, bulletHeight, 0.0f, engine::Color::White, 0.0f, 0.0f, 1}
+        };
+    }
+
+    Weapon createSpreadWeapon(int count = 5, float angle = 40.0f) {
+        return Weapon{
+            WeaponType::SPREAD,
+            count,
+            angle,
+            450.0f,
+            0.3f,
+            999.0f,
+            Sprite{bulletTex, bulletWidth, bulletHeight, 0.0f, engine::Color{255, 100, 255, 255}, 0.0f, 0.0f, 1}
+        };
+    }
+
+    Weapon createBurstWeapon(int count = 3) {
+        return Weapon{
+            WeaponType::BURST,
+            count,
+            0.0f,
+            600.0f,
+            0.4f,
+            999.0f,
+            Sprite{bulletTex, bulletWidth, bulletHeight, 0.0f, engine::Color{255, 255, 0, 255}, 0.0f, 0.0f, 1}
+        };
+    }
 };
 
 // ============================================================================
-// BASIC SHOOTING TESTS
+// BASIC WEAPON TESTS
 // ============================================================================
 
-TEST_F(ShootingSystemTest, PlayerCanShootWhenCooldownReady) {
-    // Create a player entity
+TEST_F(ShootingSystemTest, BasicWeaponCreatesOneProjectile) {
     Entity player = registry.spawn_entity();
     registry.add_component(player, Position{100.0f, 100.0f});
-    registry.add_component(player, FireRate{0.5f, 999.0f}); // Ready to shoot
+    registry.add_component(player, createBasicWeapon());
     registry.add_component(player, Sprite{bulletTex, 64.0f, 32.0f, 0.0f, engine::Color::White, 0.0f, 0.0f, 0});
 
     auto& projectiles = registry.get_components<Projectile>();
     EXPECT_EQ(projectiles.size(), 0);
 
-    // Publish fire event
     auto& eventBus = registry.get_event_bus();
     eventBus.publish(ecs::PlayerFireEvent{player});
 
-    // Check that a projectile was created
     EXPECT_EQ(projectiles.size(), 1);
 }
 
-TEST_F(ShootingSystemTest, PlayerCannotShootWhenCooldownNotReady) {
-    // Create a player entity
+TEST_F(ShootingSystemTest, BasicWeaponProjectileHasCorrectVelocity) {
     Entity player = registry.spawn_entity();
     registry.add_component(player, Position{100.0f, 100.0f});
-    registry.add_component(player, FireRate{0.5f, 0.0f}); // Just shot, cooldown = 0
+    registry.add_component(player, createBasicWeapon());
     registry.add_component(player, Sprite{bulletTex, 64.0f, 32.0f, 0.0f, engine::Color::White, 0.0f, 0.0f, 0});
 
-    auto& projectiles = registry.get_components<Projectile>();
-    EXPECT_EQ(projectiles.size(), 0);
-
-    // Publish fire event
     auto& eventBus = registry.get_event_bus();
     eventBus.publish(ecs::PlayerFireEvent{player});
 
-    // Check that NO projectile was created
-    EXPECT_EQ(projectiles.size(), 0);
-}
-
-TEST_F(ShootingSystemTest, ProjectileHasCorrectComponents) {
-    // Create a player entity
-    Entity player = registry.spawn_entity();
-    registry.add_component(player, Position{100.0f, 100.0f});
-    registry.add_component(player, FireRate{0.5f, 999.0f});
-    registry.add_component(player, Sprite{bulletTex, 64.0f, 32.0f, 0.0f, engine::Color::White, 0.0f, 0.0f, 0});
-
-    // Publish fire event
-    auto& eventBus = registry.get_event_bus();
-    eventBus.publish(ecs::PlayerFireEvent{player});
-
-    // Get components
-    auto& positions = registry.get_components<Position>();
-    auto& velocities = registry.get_components<Velocity>();
-    auto& colliders = registry.get_components<Collider>();
-    auto& sprites = registry.get_components<Sprite>();
-    auto& projectiles = registry.get_components<Projectile>();
-
-    ASSERT_EQ(projectiles.size(), 1);
-    Entity projectile = projectiles.get_entity_at(0);
-
-    // Check that projectile has all necessary components
-    EXPECT_TRUE(positions.has_entity(projectile));
-    EXPECT_TRUE(velocities.has_entity(projectile));
-    EXPECT_TRUE(colliders.has_entity(projectile));
-    EXPECT_TRUE(sprites.has_entity(projectile));
-    EXPECT_TRUE(projectiles.has_entity(projectile));
-}
-
-TEST_F(ShootingSystemTest, ProjectilePositionIsCentered) {
-    // Create a player entity with known dimensions
-    Entity player = registry.spawn_entity();
-    float playerHeight = 64.0f;
-    registry.add_component(player, Position{100.0f, 200.0f});
-    registry.add_component(player, FireRate{0.5f, 999.0f});
-    registry.add_component(player, Sprite{bulletTex, 128.0f, playerHeight, 0.0f, engine::Color::White, 0.0f, 0.0f, 0});
-
-    // Publish fire event
-    auto& eventBus = registry.get_event_bus();
-    eventBus.publish(ecs::PlayerFireEvent{player});
-
-    // Get projectile position
-    auto& positions = registry.get_components<Position>();
-    auto& projectiles = registry.get_components<Projectile>();
-
-    ASSERT_EQ(projectiles.size(), 1);
-    Entity projectile = projectiles.get_entity_at(0);
-
-    const Position& projPos = positions[projectile];
-
-    // Expected Y position should be centered
-    float expectedY = 200.0f + (playerHeight / 2.0f) - (bulletHeight / 2.0f);
-
-    EXPECT_FLOAT_EQ(projPos.x, 100.0f + 50.0f); // playerX + bulletOffsetX
-    EXPECT_FLOAT_EQ(projPos.y, expectedY);
-}
-
-TEST_F(ShootingSystemTest, ProjectileHasCorrectVelocity) {
-    // Create a player entity
-    Entity player = registry.spawn_entity();
-    registry.add_component(player, Position{100.0f, 100.0f});
-    registry.add_component(player, FireRate{0.5f, 999.0f});
-    registry.add_component(player, Sprite{bulletTex, 64.0f, 32.0f, 0.0f, engine::Color::White, 0.0f, 0.0f, 0});
-
-    // Publish fire event
-    auto& eventBus = registry.get_event_bus();
-    eventBus.publish(ecs::PlayerFireEvent{player});
-
-    // Get projectile velocity
     auto& velocities = registry.get_components<Velocity>();
     auto& projectiles = registry.get_components<Projectile>();
 
@@ -159,64 +116,191 @@ TEST_F(ShootingSystemTest, ProjectileHasCorrectVelocity) {
     Entity projectile = projectiles.get_entity_at(0);
 
     const Velocity& vel = velocities[projectile];
-
-    EXPECT_FLOAT_EQ(vel.x, 400.0f); // bulletSpeed
+    EXPECT_FLOAT_EQ(vel.x, 400.0f);
     EXPECT_FLOAT_EQ(vel.y, 0.0f);
 }
 
-// ============================================================================
-// COOLDOWN SYSTEM TESTS
-// ============================================================================
-
-TEST_F(ShootingSystemTest, CooldownIncrementsOverTime) {
-    // Create a player entity
+TEST_F(ShootingSystemTest, BasicWeaponProjectileHasCorrectAngle) {
     Entity player = registry.spawn_entity();
     registry.add_component(player, Position{100.0f, 100.0f});
-    registry.add_component(player, FireRate{0.5f, 0.0f}); // Just shot
+    registry.add_component(player, createBasicWeapon());
     registry.add_component(player, Sprite{bulletTex, 64.0f, 32.0f, 0.0f, engine::Color::White, 0.0f, 0.0f, 0});
 
-    auto& fireRates = registry.get_components<FireRate>();
-    FireRate& fireRate = fireRates[player];
-
-    EXPECT_FLOAT_EQ(fireRate.time_since_last_fire, 0.0f);
-
-    // Update system (increments cooldowns)
-    float deltaTime = 0.1f;
-    shootingSystem->update(registry, deltaTime);
-
-    EXPECT_FLOAT_EQ(fireRate.time_since_last_fire, 0.1f);
-
-    // Update again
-    shootingSystem->update(registry, deltaTime);
-
-    EXPECT_FLOAT_EQ(fireRate.time_since_last_fire, 0.2f);
-}
-
-TEST_F(ShootingSystemTest, CooldownResetsAfterShooting) {
-    // Create a player entity
-    Entity player = registry.spawn_entity();
-    registry.add_component(player, Position{100.0f, 100.0f});
-    registry.add_component(player, FireRate{0.5f, 999.0f}); // Ready to shoot
-    registry.add_component(player, Sprite{bulletTex, 64.0f, 32.0f, 0.0f, engine::Color::White, 0.0f, 0.0f, 0});
-
-    auto& fireRates = registry.get_components<FireRate>();
-    FireRate& fireRate = fireRates[player];
-
-    EXPECT_FLOAT_EQ(fireRate.time_since_last_fire, 999.0f);
-
-    // Publish fire event
     auto& eventBus = registry.get_event_bus();
     eventBus.publish(ecs::PlayerFireEvent{player});
 
-    // Cooldown should be reset to 0
-    EXPECT_FLOAT_EQ(fireRate.time_since_last_fire, 0.0f);
+    auto& projectiles = registry.get_components<Projectile>();
+    ASSERT_EQ(projectiles.size(), 1);
+    Entity projectile = projectiles.get_entity_at(0);
+
+    const Projectile& proj = projectiles[projectile];
+    EXPECT_FLOAT_EQ(proj.angle, 0.0f); // BASIC shoots straight (0°)
+}
+
+// ============================================================================
+// SPREAD WEAPON TESTS
+// ============================================================================
+
+TEST_F(ShootingSystemTest, SpreadWeaponCreatesMultipleProjectiles) {
+    Entity player = registry.spawn_entity();
+    registry.add_component(player, Position{100.0f, 100.0f});
+    registry.add_component(player, createSpreadWeapon(5, 40.0f));
+    registry.add_component(player, Sprite{bulletTex, 64.0f, 32.0f, 0.0f, engine::Color::White, 0.0f, 0.0f, 0});
+
+    auto& eventBus = registry.get_event_bus();
+    eventBus.publish(ecs::PlayerFireEvent{player});
+
+    auto& projectiles = registry.get_components<Projectile>();
+    EXPECT_EQ(projectiles.size(), 5); // 5 projectiles
+}
+
+TEST_F(ShootingSystemTest, SpreadWeaponProjectilesHaveDifferentAngles) {
+    Entity player = registry.spawn_entity();
+    registry.add_component(player, Position{100.0f, 100.0f});
+    registry.add_component(player, createSpreadWeapon(5, 40.0f));
+    registry.add_component(player, Sprite{bulletTex, 64.0f, 32.0f, 0.0f, engine::Color::White, 0.0f, 0.0f, 0});
+
+    auto& eventBus = registry.get_event_bus();
+    eventBus.publish(ecs::PlayerFireEvent{player});
+
+    auto& projectiles = registry.get_components<Projectile>();
+    ASSERT_EQ(projectiles.size(), 5);
+
+    // Expected angles: -20°, -10°, 0°, 10°, 20° (40° spread with 5 projectiles)
+    float expectedAngles[] = {-20.0f, -10.0f, 0.0f, 10.0f, 20.0f};
+
+    for (size_t i = 0; i < 5; i++) {
+        Entity projEntity = projectiles.get_entity_at(i);
+        const Projectile& proj = projectiles[projEntity];
+        EXPECT_NEAR(proj.angle, expectedAngles[i], 0.01f);
+    }
+}
+
+TEST_F(ShootingSystemTest, SpreadWeaponProjectilesHaveCorrectVelocityComponents) {
+    Entity player = registry.spawn_entity();
+    registry.add_component(player, Position{100.0f, 100.0f});
+    registry.add_component(player, createSpreadWeapon(3, 30.0f)); // 3 projectiles, 30° spread
+    registry.add_component(player, Sprite{bulletTex, 64.0f, 32.0f, 0.0f, engine::Color::White, 0.0f, 0.0f, 0});
+
+    auto& eventBus = registry.get_event_bus();
+    eventBus.publish(ecs::PlayerFireEvent{player});
+
+    auto& velocities = registry.get_components<Velocity>();
+    auto& projectiles = registry.get_components<Projectile>();
+    ASSERT_EQ(projectiles.size(), 3);
+
+    // Middle projectile should go straight (0°)
+    Entity midProjectile = projectiles.get_entity_at(1);
+    const Velocity& midVel = velocities[midProjectile];
+    EXPECT_NEAR(midVel.x, 450.0f, 0.1f);
+    EXPECT_NEAR(midVel.y, 0.0f, 0.1f);
+
+    // First projectile (-15°)
+    Entity firstProjectile = projectiles.get_entity_at(0);
+    const Velocity& firstVel = velocities[firstProjectile];
+    float expectedVx = 450.0f * std::cos(-15.0f * M_PI / 180.0f);
+    float expectedVy = 450.0f * std::sin(-15.0f * M_PI / 180.0f);
+    EXPECT_NEAR(firstVel.x, expectedVx, 0.1f);
+    EXPECT_NEAR(firstVel.y, expectedVy, 0.1f);
+}
+
+TEST_F(ShootingSystemTest, SpreadWeaponWithOneProjectile) {
+    Entity player = registry.spawn_entity();
+    registry.add_component(player, Position{100.0f, 100.0f});
+    registry.add_component(player, createSpreadWeapon(1, 40.0f)); // 1 projectile
+    registry.add_component(player, Sprite{bulletTex, 64.0f, 32.0f, 0.0f, engine::Color::White, 0.0f, 0.0f, 0});
+
+    auto& eventBus = registry.get_event_bus();
+    eventBus.publish(ecs::PlayerFireEvent{player});
+
+    auto& projectiles = registry.get_components<Projectile>();
+    EXPECT_EQ(projectiles.size(), 1);
+
+    // Single projectile should have angle 0 (or close to it due to start angle calculation)
+    Entity projEntity = projectiles.get_entity_at(0);
+    const Projectile& proj = projectiles[projEntity];
+    EXPECT_NEAR(proj.angle, 0.0f, 0.01f);
+}
+
+// ============================================================================
+// BURST WEAPON TESTS
+// ============================================================================
+
+TEST_F(ShootingSystemTest, BurstWeaponCreatesOneProjectilePerShot) {
+    Entity player = registry.spawn_entity();
+    registry.add_component(player, Position{100.0f, 100.0f});
+    registry.add_component(player, createBurstWeapon(3));
+    registry.add_component(player, Sprite{bulletTex, 64.0f, 32.0f, 0.0f, engine::Color::White, 0.0f, 0.0f, 0});
+
+    auto& eventBus = registry.get_event_bus();
+    eventBus.publish(ecs::PlayerFireEvent{player});
+
+    auto& projectiles = registry.get_components<Projectile>();
+    EXPECT_EQ(projectiles.size(), 1); // Burst creates 1 projectile at a time
+}
+
+TEST_F(ShootingSystemTest, BurstWeaponReducesCooldownForRapidFire) {
+    Entity player = registry.spawn_entity();
+    registry.add_component(player, Position{100.0f, 100.0f});
+    registry.add_component(player, createBurstWeapon(3));
+    registry.add_component(player, Sprite{bulletTex, 64.0f, 32.0f, 0.0f, engine::Color::White, 0.0f, 0.0f, 0});
+
+    auto& weapons = registry.get_components<Weapon>();
+    auto& eventBus = registry.get_event_bus();
+
+    // First shot
+    eventBus.publish(ecs::PlayerFireEvent{player});
+
+    Weapon& weapon = weapons[player];
+    // After first shot in burst, cooldown should be reduced for rapid fire
+    EXPECT_LT(weapon.time_since_last_fire, 0.1f); // Should be close to 0.05s or less
+}
+
+// ============================================================================
+// WEAPON COOLDOWN TESTS
+// ============================================================================
+
+TEST_F(ShootingSystemTest, WeaponCooldownIncrementsOverTime) {
+    Entity player = registry.spawn_entity();
+    registry.add_component(player, Position{100.0f, 100.0f});
+
+    Weapon weapon = createBasicWeapon();
+    weapon.time_since_last_fire = 0.0f; // Just shot
+    registry.add_component(player, weapon);
+    registry.add_component(player, Sprite{bulletTex, 64.0f, 32.0f, 0.0f, engine::Color::White, 0.0f, 0.0f, 0});
+
+    auto& weapons = registry.get_components<Weapon>();
+    Weapon& weaponRef = weapons[player];
+
+    EXPECT_FLOAT_EQ(weaponRef.time_since_last_fire, 0.0f);
+
+    shootingSystem->update(registry, 0.1f);
+    EXPECT_FLOAT_EQ(weaponRef.time_since_last_fire, 0.1f);
+
+    shootingSystem->update(registry, 0.1f);
+    EXPECT_FLOAT_EQ(weaponRef.time_since_last_fire, 0.2f);
+}
+
+TEST_F(ShootingSystemTest, CannotShootWhenCooldownNotReady) {
+    Entity player = registry.spawn_entity();
+    registry.add_component(player, Position{100.0f, 100.0f});
+
+    Weapon weapon = createBasicWeapon();
+    weapon.time_since_last_fire = 0.0f; // Just shot, cooldown not ready
+    registry.add_component(player, weapon);
+    registry.add_component(player, Sprite{bulletTex, 64.0f, 32.0f, 0.0f, engine::Color::White, 0.0f, 0.0f, 0});
+
+    auto& eventBus = registry.get_event_bus();
+    eventBus.publish(ecs::PlayerFireEvent{player});
+
+    auto& projectiles = registry.get_components<Projectile>();
+    EXPECT_EQ(projectiles.size(), 0); // No projectile should be created
 }
 
 TEST_F(ShootingSystemTest, CanShootAgainAfterCooldownExpires) {
-    // Create a player entity
     Entity player = registry.spawn_entity();
     registry.add_component(player, Position{100.0f, 100.0f});
-    registry.add_component(player, FireRate{0.5f, 999.0f}); // Ready to shoot
+    registry.add_component(player, createBasicWeapon());
     registry.add_component(player, Sprite{bulletTex, 64.0f, 32.0f, 0.0f, engine::Color::White, 0.0f, 0.0f, 0});
 
     auto& eventBus = registry.get_event_bus();
@@ -228,74 +312,119 @@ TEST_F(ShootingSystemTest, CanShootAgainAfterCooldownExpires) {
 
     // Try to shoot immediately (should fail)
     eventBus.publish(ecs::PlayerFireEvent{player});
-    EXPECT_EQ(projectiles.size(), 1); // Still only 1 projectile
+    EXPECT_EQ(projectiles.size(), 1);
 
-    // Wait for cooldown to expire (6 updates of 0.1s = 0.6s > 0.5s cooldown)
+    // Wait for cooldown (6 * 0.1s = 0.6s > 0.5s fire_rate)
     for (int i = 0; i < 6; i++) {
         shootingSystem->update(registry, 0.1f);
     }
 
     // Should be able to shoot again
     eventBus.publish(ecs::PlayerFireEvent{player});
-    EXPECT_EQ(projectiles.size(), 2); // Now 2 projectiles
+    EXPECT_EQ(projectiles.size(), 2);
 }
 
 // ============================================================================
-// EDGE CASES
+// PROJECTILE LIFETIME TESTS
 // ============================================================================
 
-TEST_F(ShootingSystemTest, NoShootWithoutPosition) {
-    // Create a player without Position component
+TEST_F(ShootingSystemTest, ProjectileLifetimeIncrementsOverTime) {
     Entity player = registry.spawn_entity();
-    registry.add_component(player, FireRate{0.5f, 999.0f});
+    registry.add_component(player, Position{100.0f, 100.0f});
+    registry.add_component(player, createBasicWeapon());
     registry.add_component(player, Sprite{bulletTex, 64.0f, 32.0f, 0.0f, engine::Color::White, 0.0f, 0.0f, 0});
 
-    auto& projectiles = registry.get_components<Projectile>();
-
-    // Publish fire event
     auto& eventBus = registry.get_event_bus();
     eventBus.publish(ecs::PlayerFireEvent{player});
 
-    // No projectile should be created
+    auto& projectiles = registry.get_components<Projectile>();
+    ASSERT_EQ(projectiles.size(), 1);
+    Entity projEntity = projectiles.get_entity_at(0);
+
+    Projectile& proj = projectiles[projEntity];
+    EXPECT_FLOAT_EQ(proj.time_alive, 0.0f);
+
+    shootingSystem->update(registry, 0.5f);
+    EXPECT_FLOAT_EQ(proj.time_alive, 0.5f);
+
+    shootingSystem->update(registry, 1.0f);
+    EXPECT_FLOAT_EQ(proj.time_alive, 1.5f);
+}
+
+TEST_F(ShootingSystemTest, ProjectileMarkedForDestructionAfterLifetime) {
+    Entity player = registry.spawn_entity();
+    registry.add_component(player, Position{100.0f, 100.0f});
+    registry.add_component(player, createBasicWeapon());
+    registry.add_component(player, Sprite{bulletTex, 64.0f, 32.0f, 0.0f, engine::Color::White, 0.0f, 0.0f, 0});
+
+    auto& eventBus = registry.get_event_bus();
+    eventBus.publish(ecs::PlayerFireEvent{player});
+
+    auto& projectiles = registry.get_components<Projectile>();
+    auto& toDestroy = registry.get_components<ToDestroy>();
+    ASSERT_EQ(projectiles.size(), 1);
+    Entity projEntity = projectiles.get_entity_at(0);
+
+    // Projectile lifetime is 5.0s by default
+    // Update for 6 seconds
+    for (int i = 0; i < 60; i++) {
+        shootingSystem->update(registry, 0.1f);
+    }
+
+    // Projectile should be marked for destruction
+    EXPECT_TRUE(toDestroy.has_entity(projEntity));
+}
+
+// ============================================================================
+// EDGE CASES AND ERROR HANDLING
+// ============================================================================
+
+TEST_F(ShootingSystemTest, NoShootWithoutPosition) {
+    Entity player = registry.spawn_entity();
+    registry.add_component(player, createBasicWeapon());
+    registry.add_component(player, Sprite{bulletTex, 64.0f, 32.0f, 0.0f, engine::Color::White, 0.0f, 0.0f, 0});
+
+    auto& eventBus = registry.get_event_bus();
+    eventBus.publish(ecs::PlayerFireEvent{player});
+
+    auto& projectiles = registry.get_components<Projectile>();
     EXPECT_EQ(projectiles.size(), 0);
 }
 
-TEST_F(ShootingSystemTest, NoShootWithoutFireRate) {
-    // Create a player without FireRate component
+TEST_F(ShootingSystemTest, NoShootWithoutWeapon) {
     Entity player = registry.spawn_entity();
     registry.add_component(player, Position{100.0f, 100.0f});
     registry.add_component(player, Sprite{bulletTex, 64.0f, 32.0f, 0.0f, engine::Color::White, 0.0f, 0.0f, 0});
 
-    auto& projectiles = registry.get_components<Projectile>();
-
-    // Publish fire event
     auto& eventBus = registry.get_event_bus();
     eventBus.publish(ecs::PlayerFireEvent{player});
 
-    // No projectile should be created
+    auto& projectiles = registry.get_components<Projectile>();
     EXPECT_EQ(projectiles.size(), 0);
 }
 
-TEST_F(ShootingSystemTest, MultiplePlayersCanShootIndependently) {
-    // Create two players
-    Entity player1 = registry.spawn_entity();
-    registry.add_component(player1, Position{100.0f, 100.0f});
-    registry.add_component(player1, FireRate{0.5f, 999.0f});
-    registry.add_component(player1, Sprite{bulletTex, 64.0f, 32.0f, 0.0f, engine::Color::White, 0.0f, 0.0f, 0});
-
-    Entity player2 = registry.spawn_entity();
-    registry.add_component(player2, Position{200.0f, 200.0f});
-    registry.add_component(player2, FireRate{0.5f, 999.0f});
-    registry.add_component(player2, Sprite{bulletTex, 64.0f, 32.0f, 0.0f, engine::Color::White, 0.0f, 0.0f, 0});
+TEST_F(ShootingSystemTest, ProjectileHasCorrectSprite) {
+    Entity player = registry.spawn_entity();
+    registry.add_component(player, Position{100.0f, 100.0f});
+    registry.add_component(player, createSpreadWeapon(1, 0.0f)); // Purple projectiles
+    registry.add_component(player, Sprite{bulletTex, 64.0f, 32.0f, 0.0f, engine::Color::White, 0.0f, 0.0f, 0});
 
     auto& eventBus = registry.get_event_bus();
+    eventBus.publish(ecs::PlayerFireEvent{player});
+
+    auto& sprites = registry.get_components<Sprite>();
     auto& projectiles = registry.get_components<Projectile>();
+    ASSERT_EQ(projectiles.size(), 1);
+    Entity projEntity = projectiles.get_entity_at(0);
 
-    // Player 1 shoots
-    eventBus.publish(ecs::PlayerFireEvent{player1});
-    EXPECT_EQ(projectiles.size(), 1);
+    EXPECT_TRUE(sprites.has_entity(projEntity));
+    const Sprite& projSprite = sprites[projEntity];
 
-    // Player 2 shoots
-    eventBus.publish(ecs::PlayerFireEvent{player2});
-    EXPECT_EQ(projectiles.size(), 2);
+    // Check that sprite was copied correctly
+    EXPECT_EQ(projSprite.texture, bulletTex);
+    EXPECT_FLOAT_EQ(projSprite.width, bulletWidth);
+    EXPECT_FLOAT_EQ(projSprite.height, bulletHeight);
+    EXPECT_EQ(projSprite.tint.r, 255);
+    EXPECT_EQ(projSprite.tint.g, 100);
+    EXPECT_EQ(projSprite.tint.b, 255);
 }

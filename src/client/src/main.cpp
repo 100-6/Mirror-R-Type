@@ -143,7 +143,7 @@ int main() {
     registry.register_component<Wall>();
     registry.register_component<Health>();
     registry.register_component<ToDestroy>();
-    registry.register_component<FireRate>();
+    registry.register_component<Weapon>();
     registry.register_component<Score>();
     registry.register_component<Background>();
 
@@ -156,7 +156,7 @@ int main() {
     // Enregistrer les systèmes dans l'ordre d'exécution
     registry.register_system<InputSystem>(*inputPlugin);
     registry.register_system<MovementSystem>();
-    registry.register_system<ShootingSystem>(bulletTex, bulletWidth, bulletHeight);
+    registry.register_system<ShootingSystem>();
     registry.register_system<PhysiqueSystem>();
     registry.register_system<CollisionSystem>();
     registry.register_system<ScoreSystem>();
@@ -217,9 +217,9 @@ int main() {
     Entity player = registry.spawn_entity();
     registry.add_component(player, Position{200.0f, SCREEN_HEIGHT / 2.0f});
     registry.add_component(player, Velocity{0.0f, 0.0f});
+    registry.add_component(player, Input{});  // Component pour capturer les inputs
     registry.add_component(player, Collider{playerWidth, playerHeight});
     registry.add_component(player, Controllable{300.0f}); // Vitesse de 300 pixels/s
-    registry.add_component(player, FireRate{0.5f, 999.0f}); // Cadence de tir : 0.5s entre chaque tir (2 tirs/sec), commence prêt à tirer
     registry.add_component(player, Sprite{
         playerTex,           // texture
         playerWidth,         // width
@@ -230,13 +230,35 @@ int main() {
         0.0f,               // origin_y
         1                   // layer
     });
+
+    // ARME SPREAD - Tire 5 projectiles en éventail de 40 degrés
+    registry.add_component(player, Weapon{
+        WeaponType::SPREAD,  // Type d'arme
+        5,                   // 5 projectiles par tir
+        40.0f,               // Éventail de 40 degrés
+        450.0f,              // Vitesse des projectiles
+        0.3f,                // Cadence de tir : 0.3s entre chaque tir
+        999.0f,              // Temps depuis dernier tir (commence prêt à tirer)
+        Sprite{              // Apparence des projectiles
+            bulletTex,
+            bulletWidth,
+            bulletHeight,
+            0.0f,
+            engine::Color{255, 100, 255, 255},  // Couleur violette pour les différencier
+            0.0f,
+            0.0f,
+            1
+        }
+    });
+
     registry.add_component(player, Health{100, 100});
     registry.add_component(player, Score{0});
 
-    std::cout << "✓ Joueur cree avec sprite" << std::endl;
+    std::cout << "✓ Joueur cree avec sprite et arme SPREAD" << std::endl;
     std::cout << "  Position: (200, " << SCREEN_HEIGHT / 2.0f << ")" << std::endl;
     std::cout << "  Taille: " << playerWidth << "x" << playerHeight << std::endl;
     std::cout << "  Vitesse max: 300 pixels/s" << std::endl;
+    std::cout << "  Arme: SPREAD (5 projectiles, 40° d'éventail)" << std::endl;
     std::cout << std::endl;
 
     // ============================================
@@ -330,7 +352,7 @@ int main() {
     // ============================================
     std::cout << "=== CONTROLES ===" << std::endl;
     std::cout << "  WASD ou Fleches  : Deplacer le joueur" << std::endl;
-    std::cout << "  ESPACE           : Tirer (a implementer)" << std::endl;
+    std::cout << "  ESPACE           : Tirer" << std::endl;
     std::cout << "  ESC              : Quitter" << std::endl;
     std::cout << std::endl;
     std::cout << "=== FONCTIONNALITES ACTIVES ===" << std::endl;
@@ -351,10 +373,10 @@ int main() {
     auto& colliders = registry.get_components<Collider>();
     auto& inputs = registry.get_components<Input>();
     auto& scores = registry.get_components<Score>();
+    auto& weapons = registry.get_components<Weapon>();
 
     int frameCount = 0;
     float debugTimer = 0.0f;
-    float shootCooldown = 0.0f;
 
     // ============================================
     // BOUCLE DE JEU PRINCIPALE
@@ -371,31 +393,9 @@ int main() {
         // 2. MovementSystem calcule la vélocité
         // 3. PhysiqueSystem applique vélocité + friction + limites
         // 4. CollisionSystem gère les collisions
-        // 5. RenderSystem effectue le rendu
+        // 5. ShootingSystem gère la création de projectiles selon l'arme
+        // 6. RenderSystem effectue le rendu
         registry.run_systems(dt);
-
-        // === SHOOTING MECHANIC ===
-        shootCooldown -= dt;
-        if (inputs.has_entity(player)) {
-            const Input& playerInput = inputs[player];
-            if (playerInput.fire && shootCooldown <= 0.0f) {
-                // Spawn projectile
-                const Position& playerPos = positions[player];
-                const Collider& playerCol = colliders[player];
-
-                Entity projectile = registry.spawn_entity();
-                registry.add_component(projectile, Position{
-                    playerPos.x + playerCol.width,  // Spawn at right side of player
-                    playerPos.y + playerCol.height / 2.0f - bulletHeight / 2.0f  // Centered vertically
-                });
-                registry.add_component(projectile, Velocity{800.0f, 0.0f});  // Fast horizontal velocity
-                registry.add_component(projectile, Collider{bulletWidth, bulletHeight});
-                registry.add_component(projectile, Sprite{bulletTex, bulletWidth, bulletHeight, 0.0f, engine::Color::White, 0.0f, 0.0f, 0});
-                registry.add_component(projectile, Projectile{});
-
-                shootCooldown = 0.2f;  // 200ms cooldown between shots
-            }
-        }
 
         // Note: RenderSystem a déjà appelé clear() et draw_sprite()
         // On peut maintenant ajouter les textes de debug par-dessus

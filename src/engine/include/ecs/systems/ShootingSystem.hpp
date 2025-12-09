@@ -17,12 +17,13 @@
 class ShootingSystem : public ISystem {
     private:
         core::EventBus::SubscriptionId fireSubId_;
-        engine::TextureHandle bulletTexture_;
-        float bulletWidth_;
-        float bulletHeight_;
+
+        void createBasicProjectile(Registry& registry, const Weapon& weapon, const Position& shooterPos, float shooterHeight);
+        void createSpreadProjectiles(Registry& registry, const Weapon& weapon, const Position& shooterPos, float shooterHeight);
+        void createBurstProjectiles(Registry& registry, Weapon& weapon, const Position& shooterPos, float shooterHeight);
 
     public:
-        ShootingSystem(engine::TextureHandle bulletTexture, float bulletWidth, float bulletHeight);
+        ShootingSystem() = default;
         virtual ~ShootingSystem() = default;
 
         void init(Registry& registry) override;
