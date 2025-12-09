@@ -167,6 +167,7 @@ int main() {
     registry.register_component<FireRate>();
     registry.register_component<Score>();
     registry.register_component<Background>();
+    registry.register_component<Invulnerability>();
 
     std::cout << "✓ Composants enregistres" << std::endl;
 
@@ -260,6 +261,7 @@ int main() {
     });
     registry.add_component(player, Health{100, 100});
     registry.add_component(player, Score{0});
+    registry.add_component(player, Invulnerability{0.0f});
 
     std::cout << "✓ Joueur cree avec sprite" << std::endl;
     std::cout << "  Position: (200, " << SCREEN_HEIGHT / 2.0f << ")" << std::endl;

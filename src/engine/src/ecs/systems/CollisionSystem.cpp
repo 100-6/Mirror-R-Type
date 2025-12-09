@@ -45,7 +45,15 @@ void CollisionSystem::shutdown()
 
 void CollisionSystem::update(Registry& registry, float dt)
 {
-    (void)dt;
+    // Update Invulnerability timers
+    auto& invulnerabilities = registry.get_components<Invulnerability>();
+    for (size_t i = 0; i < invulnerabilities.size(); i++) {
+        Entity entity = invulnerabilities.get_entity_at(i);
+        auto& invul = invulnerabilities[entity];
+        if (invul.time_remaining > 0.0f) {
+            invul.time_remaining -= dt;
+        }
+    }
 
     // Collision Projectile vs Enemy : Marque les deux pour destruction et publie l'événement
     scan_collisions<Projectile, Enemy>(registry, [&registry](Entity bullet, Entity enemy) {
@@ -65,6 +73,17 @@ void CollisionSystem::update(Registry& registry, float dt)
     // Collision Player (Controllable) vs Enemy : Publie PlayerHitEvent
     scan_collisions<Controllable, Enemy>(registry, [&registry](Entity player, Entity enemy) {
         (void)enemy;
+
+        auto& invulnerabilities = registry.get_components<Invulnerability>();
+        if (invulnerabilities.has_entity(player)) {
+            auto& invul = invulnerabilities[player];
+            if (invul.time_remaining > 0.0f) {
+                return; // Player is invulnerable
+            }
+            // Set invulnerability cooldown
+            invul.time_remaining = 3.0f;
+        }
+
         // Publier l'événement PlayerHitEvent
         registry.get_event_bus().publish(ecs::PlayerHitEvent{player, enemy});
     });
