@@ -13,6 +13,7 @@
 #include "ecs/systems/MovementSystem.hpp"
 #include "ecs/systems/ShootingSystem.hpp"
 #include "ecs/systems/PhysiqueSystem.hpp"
+#include "ecs/systems/ScrollingSystem.hpp"
 #include "ecs/systems/CollisionSystem.hpp"
 #include "ecs/systems/DestroySystem.hpp"
 #include "ecs/systems/RenderSystem.hpp"
@@ -176,6 +177,7 @@ int main() {
     registry.register_component<Invulnerability>();
     registry.register_component<AI>();
     registry.register_component<IsEnemyProjectile>();
+    registry.register_component<Scrollable>();
 
     std::cout << "✓ Composants enregistres" << std::endl;
 
@@ -188,6 +190,7 @@ int main() {
     registry.register_system<MovementSystem>();
     registry.register_system<ShootingSystem>();
     registry.register_system<PhysiqueSystem>();
+    registry.register_system<ScrollingSystem>(-100.0f, static_cast<float>(SCREEN_WIDTH));
     registry.register_system<CollisionSystem>();
     registry.register_system<HealthSystem>();
     registry.register_system<ScoreSystem>();
@@ -199,18 +202,17 @@ int main() {
     registry.register_system<RenderSystem>(*graphicsPlugin);
 
     std::cout << "✓ Systemes enregistres :" << std::endl;
-    std::cout << "  1. InputSystem     - Capture les inputs et publie des evenements" << std::endl;
-    std::cout << "  2. MovementSystem  - Ecoute les evenements de mouvement" << std::endl;
-    std::cout << "  3. ShootingSystem  - Gere le tir (joueur + ennemis)" << std::endl;
-    std::cout << "  4. PhysiqueSystem  - Applique la velocite" << std::endl;
-    std::cout << "  5. CollisionSystem - Gere les collisions et publie DamageEvent" << std::endl;
-    std::cout << "  6. HealthSystem    - Gere les degats et la mort" << std::endl;
-    std::cout << "  7. ScoreSystem     - Met a jour le score" << std::endl;
+    std::cout << "  1. InputSystem    - Capture les inputs et publie des evenements" << std::endl;
+    std::cout << "  2. MovementSystem - Ecoute les evenements de mouvement et met a jour la velocite" << std::endl;
+    std::cout << "  3. ShootingSystem - Ecoute les evenements de tir et cree des projectiles" << std::endl;
+    std::cout << "  4. PhysiqueSystem - Applique la velocite, friction, limites d'ecran" << std::endl;
+    std::cout << "  5. CollisionSystem- Gere les collisions et marque les entites a detruire" << std::endl;
+    std::cout << "  6. ScoreSystem    - Met a jour le score" << std::endl;
     if (audioPlugin) {
         std::cout << "  8. AudioSystem     - Joue des sons sur evenements" << std::endl;
     }
-    std::cout << "  9. DestroySystem   - Detruit les entites marquees" << std::endl;
-    std::cout << " 10. RenderSystem    - Rendu des sprites" << std::endl;
+    std::cout << "  8. DestroySystem  - Detruit les entites marquees pour destruction" << std::endl;
+    std::cout << "  9. RenderSystem   - Rendu des sprites via plugin graphique" << std::endl;
     std::cout << std::endl;
 
     // ==
@@ -219,8 +221,12 @@ int main() {
     // Premier background
     Entity background1 = registry.spawn_entity();
     registry.add_component(background1, Position{0.0f, 0.0f});
-    registry.add_component(background1, Velocity{-50.0f, 0.0f});  // Défile vers la gauche
     registry.add_component(background1, Background{});  // Tag pour identifier le background
+    registry.add_component(background1, Scrollable{
+        1.0f,   // speedMultiplier: vitesse normale (100%)
+        true,   // wrap: boucle infinie
+        false   // destroyOffscreen: ne pas détruire
+    });
     registry.add_component(background1, Sprite{
         backgroundTex,
         static_cast<float>(SCREEN_WIDTH),
@@ -232,11 +238,15 @@ int main() {
         -100  // Layer très bas pour être en arrière-plan
     });
 
-    // Deuxième background (juste à droite du premier)
+    // Deuxième background (juste à droite du premier pour seamless scrolling)
     Entity background2 = registry.spawn_entity();
     registry.add_component(background2, Position{static_cast<float>(SCREEN_WIDTH), 0.0f});
-    registry.add_component(background2, Velocity{-50.0f, 0.0f});  // Même vitesse
     registry.add_component(background2, Background{});  // Tag pour identifier le background
+    registry.add_component(background2, Scrollable{
+        1.0f,   // speedMultiplier: vitesse normale (100%)
+        true,   // wrap: boucle infinie
+        false   // destroyOffscreen: ne pas détruire
+    });
     registry.add_component(background2, Sprite{
         backgroundTex,
         static_cast<float>(SCREEN_WIDTH),
@@ -248,7 +258,8 @@ int main() {
         -100
     });
 
-    std::cout << "✓ Background defilant cree (2 images en boucle infinie)" << std::endl;
+    std::cout << "✓ Background defilant cree (2 images en boucle infinie via ScrollingSystem)" << std::endl;
+    std::cout << "  Vitesse: -100 px/s (definie dans ScrollingSystem)" << std::endl;
     std::cout << std::endl;
 
     // ==
@@ -313,6 +324,7 @@ int main() {
     registry.add_component(wall1_top, Collider{20.0f, 240.0f});  // Hauteur réduite
     registry.add_component(wall1_top, Sprite{defaultTex, 20.0f, 240.0f, 0.0f, engine::Color::White, 0.0f, 0.0f, -1});
     registry.add_component(wall1_top, Wall{});
+    registry.add_component(wall1_top, Scrollable{1.0f, false, true}); // Scroll et détruit hors écran
 
     // Mur vertical gauche - PARTIE BASSE (trou de 200px au milieu)
     Entity wall1_bottom = registry.spawn_entity();
@@ -320,6 +332,7 @@ int main() {
     registry.add_component(wall1_bottom, Collider{20.0f, 240.0f});  // Hauteur réduite
     registry.add_component(wall1_bottom, Sprite{defaultTex, 20.0f, 240.0f, 0.0f, engine::Color::White, 0.0f, 0.0f, -1});
     registry.add_component(wall1_bottom, Wall{});
+    registry.add_component(wall1_bottom, Scrollable{1.0f, false, true}); // Scroll et détruit hors écran
 
     // Mur vertical droit
     Entity wall2 = registry.spawn_entity();
@@ -327,6 +340,7 @@ int main() {
     registry.add_component(wall2, Collider{20.0f, 680.0f});
     registry.add_component(wall2, Sprite{defaultTex, 20.0f, 680.0f, 0.0f, engine::Color::White, 0.0f, 0.0f, -1});
     registry.add_component(wall2, Wall{});
+    registry.add_component(wall2, Scrollable{1.0f, false, true}); // Scroll et détruit hors écran
 
     // Mur horizontal haut
     Entity wall3 = registry.spawn_entity();
@@ -334,6 +348,7 @@ int main() {
     registry.add_component(wall3, Collider{1080.0f, 20.0f});
     registry.add_component(wall3, Sprite{defaultTex, 1080.0f, 20.0f, 0.0f, engine::Color::White, 0.0f, 0.0f, -1});
     registry.add_component(wall3, Wall{});
+    registry.add_component(wall3, Scrollable{1.0f, false, true}); // Scroll et détruit hors écran
 
     // Mur horizontal bas
     Entity wall4 = registry.spawn_entity();
@@ -341,6 +356,7 @@ int main() {
     registry.add_component(wall4, Collider{1080.0f, 20.0f});
     registry.add_component(wall4, Sprite{defaultTex, 1080.0f, 20.0f, 0.0f, engine::Color::White, 0.0f, 0.0f, -1});
     registry.add_component(wall4, Wall{});
+    registry.add_component(wall4, Scrollable{1.0f, false, true}); // Scroll et détruit hors écran
 
     // Obstacles internes
     Entity obstacle1 = registry.spawn_entity();
@@ -348,15 +364,18 @@ int main() {
     registry.add_component(obstacle1, Collider{80.0f, 80.0f});
     registry.add_component(obstacle1, Sprite{defaultTex, 80.0f, 80.0f, 0.0f, engine::Color::White, 0.0f, 0.0f, -1});
     registry.add_component(obstacle1, Wall{});
+    registry.add_component(obstacle1, Scrollable{1.0f, false, true}); // Scroll et détruit hors écran
 
     Entity obstacle2 = registry.spawn_entity();
     registry.add_component(obstacle2, Position{1100.0f, 600.0f});
     registry.add_component(obstacle2, Collider{80.0f, 80.0f});
     registry.add_component(obstacle2, Sprite{defaultTex, 80.0f, 80.0f, 0.0f, engine::Color::White, 0.0f, 0.0f, -1});
     registry.add_component(obstacle2, Wall{});
+    registry.add_component(obstacle2, Scrollable{1.0f, false, true}); // Scroll et détruit hors écran
 
-    std::cout << "  - 4 murs delimitant l'arene" << std::endl;
-    std::cout << "  - 2 obstacles internes" << std::endl;
+    std::cout << "  - 4 murs delimitant l'arene (avec Scrollable)" << std::endl;
+    std::cout << "  - 2 obstacles internes (avec Scrollable)" << std::endl;
+    std::cout << "  - Tous les murs scrollent avec la map et se detruisent hors ecran" << std::endl;
     std::cout << std::endl;
 
     // ==
@@ -370,10 +389,6 @@ int main() {
     registry.add_component(enemy1, Sprite{enemyTex, enemyWidth, enemyHeight, 0.0f, engine::Color::White, 0.0f, 0.0f, 0});
     registry.add_component(enemy1, Enemy{});
     registry.add_component(enemy1, Health{50, 50});
-    registry.add_component(enemy1, Weapon{
-        WeaponType::BASIC, 1, 0.0f, 300.0f, 5.0f, 0.0f,
-        Sprite{bulletTex, bulletWidth, bulletHeight, 0.0f, engine::Color{255, 100, 100, 255}, 0.0f, 0.0f, 0}
-    });
 
     Entity enemy2 = registry.spawn_entity();
     registry.add_component(enemy2, Position{1200.0f, 500.0f});
@@ -381,10 +396,6 @@ int main() {
     registry.add_component(enemy2, Sprite{enemyTex, enemyWidth, enemyHeight, 0.0f, engine::Color::White, 0.0f, 0.0f, 0});
     registry.add_component(enemy2, Enemy{});
     registry.add_component(enemy2, Health{50, 50});
-    registry.add_component(enemy2, Weapon{
-        WeaponType::BASIC, 1, 0.0f, 300.0f, 5.0f, 2.0f,
-        Sprite{bulletTex, bulletWidth, bulletHeight, 0.0f, engine::Color{255, 100, 100, 255}, 0.0f, 0.0f, 0}
-    });
 
     Entity enemy3 = registry.spawn_entity();
     registry.add_component(enemy3, Position{800.0f, 700.0f});
@@ -392,12 +403,9 @@ int main() {
     registry.add_component(enemy3, Sprite{enemyTex, enemyWidth, enemyHeight, 0.0f, engine::Color::White, 0.0f, 0.0f, 0});
     registry.add_component(enemy3, Enemy{});
     registry.add_component(enemy3, Health{50, 50});
-    registry.add_component(enemy3, Weapon{
-        WeaponType::BASIC, 1, 0.0f, 300.0f, 5.0f, 4.0f,
-        Sprite{bulletTex, bulletWidth, bulletHeight, 0.0f, engine::Color{255, 100, 100, 255}, 0.0f, 0.0f, 0}
-    });
 
-    std::cout << "  - 3 ennemis places dans l'arene" << std::endl;
+    std::cout << "  - 3 ennemis places dans l'arene (avec Scrollable)" << std::endl;
+    std::cout << "  - Les ennemis scrollent avec la map et se detruisent hors ecran" << std::endl;
     std::cout << std::endl;
 
     // ==

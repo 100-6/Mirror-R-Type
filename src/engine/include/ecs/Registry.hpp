@@ -14,6 +14,7 @@
 #include <any>
 #include <typeindex>
 #include <typeinfo>
+#include <type_traits>
 #include <functional>
 #include <memory>
 
@@ -68,13 +69,11 @@ class Registry {
         template <typename Component>
         void add_component(Entity entity, Component&& component)
         {
-            // -> Component (le type genre Postion)
-            // -> component (la donné genre {x = 10, y = 10})
-            // j'aurais pu mettre un auto a la place de SparseSet<Component>
+            using ComponentType = std::decay_t<Component>;
 
-            SparseSet<Component>& sparseset = get_components<Component>();
-            
-            sparseset.insert_at(entity, component);
+            SparseSet<ComponentType>& sparseset = get_components<ComponentType>();
+
+            sparseset.insert_at(entity, std::forward<Component>(component));
         }
 
         template <typename Component>
