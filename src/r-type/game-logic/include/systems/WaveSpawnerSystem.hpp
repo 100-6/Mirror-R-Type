@@ -12,7 +12,7 @@
 #include "ecs/Registry.hpp"
 #include "components/GameComponents.hpp"
 #include "components/WaveConfig.hpp"
-#include "systems/WaveConfigLoader.hpp"
+#include "utils/WaveConfigLoader.hpp"
 #include "plugin_manager/IGraphicsPlugin.hpp"
 #include <vector>
 #include <memory>

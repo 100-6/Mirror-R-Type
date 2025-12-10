@@ -5,7 +5,7 @@
 ** WaveConfigLoader implementation
 */
 
-#include "systems/WaveConfigLoader.hpp"
+#include "utils/WaveConfigLoader.hpp"
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
