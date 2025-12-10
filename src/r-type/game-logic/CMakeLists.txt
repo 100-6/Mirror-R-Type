@@ -9,8 +9,8 @@ add_library(rtype_logic
     src/systems/ShootingSystem.cpp
     src/systems/CollisionSystem.cpp
     src/systems/PlayerInputSystem.cpp
-    src/systems/WaveConfigLoader.cpp
     src/systems/WaveSpawnerSystem.cpp
+    src/utils/WaveConfigLoader.cpp
 )
 
 target_include_directories(rtype_logic
