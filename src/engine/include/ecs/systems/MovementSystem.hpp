@@ -9,12 +9,16 @@
 #define MOVEMENTSYSTEM_HPP_
 
 #include "ecs/systems/ISystem.hpp"
-#include "ecs/Components.hpp"
+#include "ecs/CoreComponents.hpp"
 #include "ecs/Registry.hpp"
+#include "core/event/EventBus.hpp"
 
 // class Registry;
 
 class MovementSystem : public ISystem {
+    private:
+        core::EventBus::SubscriptionId moveSubId_;
+
     public:
         virtual ~MovementSystem() = default;
 

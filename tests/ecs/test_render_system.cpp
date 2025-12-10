@@ -7,7 +7,7 @@
 
 #include <gtest/gtest.h>
 #include "ecs/Registry.hpp"
-#include "ecs/Components.hpp"
+#include "components/GameComponents.hpp"
 #include "ecs/systems/RenderSystem.hpp"
 #include "plugin_manager/IGraphicsPlugin.hpp"
 #include <vector>
@@ -120,8 +120,8 @@ protected:
         // Initialize mock plugin
         mockPlugin.initialize();
 
-        // Create render system
-        renderSystem = new RenderSystem(&mockPlugin);
+        // Create render system with reference
+        renderSystem = new RenderSystem(mockPlugin);
         renderSystem->init(registry);
     }
 
@@ -141,16 +141,10 @@ protected:
 
 TEST_F(RenderSystemTest, SystemInitializesSuccessfully) {
     EXPECT_NO_THROW({
-        RenderSystem system(&mockPlugin);
+        RenderSystem system(mockPlugin);
         system.init(registry);
         system.shutdown();
     }) << "RenderSystem should initialize without crashing";
-}
-
-TEST_F(RenderSystemTest, SystemRejectsNullPlugin) {
-    EXPECT_THROW({
-        RenderSystem system(nullptr);
-    }, std::runtime_error) << "RenderSystem should throw when given null plugin";
 }
 
 TEST_F(RenderSystemTest, UpdateDoesNotCrashWithEmptyRegistry) {

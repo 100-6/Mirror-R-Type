@@ -6,20 +6,19 @@
 */
 
 #include "ecs/systems/InputSystem.hpp"
-#include "ecs/Components.hpp"
+#include "ecs/CoreComponents.hpp"
+#include "ecs/events/InputEvents.hpp"
+#include "plugin_manager/KeyConfig.hpp"
 #include <iostream>
 
-InputSystem::InputSystem(engine::IInputPlugin* plugin)
+InputSystem::InputSystem(engine::IInputPlugin& plugin)
     : input_plugin(plugin)
 {
-    if (!input_plugin) {
-        throw std::runtime_error("InputSystem: plugin cannot be null");
-    }
 }
 
 void InputSystem::init(Registry& registry)
 {
-    std::cout << "InputSystem: Initialisation avec " << input_plugin->get_name() << std::endl;
+    std::cout << "InputSystem: Initialisation avec " << input_plugin.get_name() << std::endl;
 }
 
 void InputSystem::shutdown()
@@ -31,38 +30,31 @@ void InputSystem::update(Registry& registry, float dt)
 {
     (void)dt;
 
-    // Mettre à jour le plugin (lit les événements du frame actuel)
-    input_plugin->update();
-
-    // Récupérer tous les composants Input
+    auto& eventBus = registry.get_event_bus();
     auto& inputs = registry.get_components<Input>();
 
-    // Parcourir toutes les entités avec un composant Input
+    static std::unordered_map<Entity, std::unordered_map<engine::Key, bool>> previousStates;
+
     for (size_t i = 0; i < inputs.size(); i++) {
         Entity entity = inputs.get_entity_at(i);
 
-        if (!inputs.has_entity(entity)) {
+        if (!inputs.has_entity(entity))
             continue;
+
+        auto& prevState = previousStates[entity];
+
+        for (const auto& key : engine::KeyConfig::ALL_KEYS) {
+            bool isPressed = input_plugin.is_key_pressed(key);
+            bool wasPressed = prevState[key];
+
+            if (isPressed && !wasPressed)
+                eventBus.publish(ecs::RawKeyPressedEvent{entity, key});
+            else if (!isPressed && wasPressed)
+                eventBus.publish(ecs::RawKeyReleasedEvent{entity, key});
+
+            prevState[key] = isPressed;
         }
-
-        Input& input = inputs.get_data_by_entity_id(entity);
-
-        // Lire les touches via le plugin
-        input.up = input_plugin->is_key_pressed(engine::Key::W) ||
-                   input_plugin->is_key_pressed(engine::Key::Up);
-
-        input.down = input_plugin->is_key_pressed(engine::Key::S) ||
-                     input_plugin->is_key_pressed(engine::Key::Down);
-
-        input.left = input_plugin->is_key_pressed(engine::Key::A) ||
-                     input_plugin->is_key_pressed(engine::Key::Left);
-
-        input.right = input_plugin->is_key_pressed(engine::Key::D) ||
-                      input_plugin->is_key_pressed(engine::Key::Right);
-
-        input.fire = input_plugin->is_key_pressed(engine::Key::Space);
-
-        input.special = input_plugin->is_key_pressed(engine::Key::LShift) ||
-                        input_plugin->is_key_pressed(engine::Key::RShift);
     }
+
+    input_plugin.update();
 }

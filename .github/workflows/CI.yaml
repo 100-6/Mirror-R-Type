@@ -18,6 +18,29 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4
 
+      - name: Cache build and vcpkg artifacts (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/cache@v4
+        with:
+          path: |
+            build
+            vcpkg_installed
+            ~/.cache/ccache
+          key: ${{ runner.os }}-build-${{ hashFiles('CMakeLists.txt', 'src/**', 'tests/**', 'vcpkg.json') }}
+          restore-keys: |
+            ${{ runner.os }}-build-
+
+      - name: Cache build and vcpkg artifacts (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: actions/cache@v4
+        with:
+          path: |
+            build
+            vcpkg_installed
+          key: ${{ runner.os }}-build-${{ hashFiles('CMakeLists.txt', 'src/**', 'tests/**', 'vcpkg.json') }}
+          restore-keys: |
+            ${{ runner.os }}-build-
+
       - name: Install system dependencies (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -32,29 +55,25 @@ jobs:
             libxinerama-dev \
             libxcursor-dev \
             libxi-dev \
-            libgl1-mesa-dev
+            libgl1-mesa-dev \
+            ccache
 
       - name: Setup vcpkg
         uses: lukka/run-vcpkg@v11
         with:
           vcpkgGitCommitId: 'bd52fac7114fdaa2208de8dd1227212a6683e562'
 
-      - name: Configure CMake
+      - name: Configure CMake (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: cmake -S . -B build -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+
+      - name: Configure CMake (Windows)
+        if: matrix.os == 'windows-latest'
         shell: bash
         run: cmake -S . -B build 
 
-      - name: Build (Windows)
-        if: matrix.os == 'windows-latest'
-        shell: bash
-        run: |
-          cmake --build build
-          if [ $? -ne 0 ]; then
-            echo "Build failed!"
-            exit 1
-          fi
-
-      - name: Build (Linux)
-        if: matrix.os == 'ubuntu-latest'
+      - name: Build
         shell: bash
         run: |
           cmake --build build
@@ -73,6 +92,17 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4
 
+      - name: Cache lint build artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            build
+            vcpkg_installed
+            ~/.cache/ccache
+          key: lint-${{ hashFiles('CMakeLists.txt', 'src/**', 'tests/**', 'vcpkg.json') }}
+          restore-keys: |
+            lint-
+
       - name: Install system dependencies
         run: |
           sudo apt-get update
@@ -86,7 +116,8 @@ jobs:
             libxinerama-dev \
             libxcursor-dev \
             libxi-dev \
-            libgl1-mesa-dev
+            libgl1-mesa-dev \
+            ccache
 
       - name: Setup vcpkg
         uses: lukka/run-vcpkg@v11
@@ -94,7 +125,11 @@ jobs:
           vcpkgGitCommitId: 'bd52fac7114fdaa2208de8dd1227212a6683e562'
 
       - name: Configure CMake with clang-tidy
-        run: cmake -S . -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_TOOLCHAIN_FILE=${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake
+        run: cmake -S . -B build \
+          -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+          -DCMAKE_TOOLCHAIN_FILE=${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake \
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 
       - name: Run clang-tidy
         run: |

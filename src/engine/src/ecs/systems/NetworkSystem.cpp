@@ -6,27 +6,25 @@
 */
 
 #include "ecs/systems/NetworkSystem.hpp"
-#include "ecs/Components.hpp"
+#include "ecs/CoreComponents.hpp"
 #include <iostream>
 
-NetworkSystem::NetworkSystem(engine::INetworkPlugin* plugin, bool server_mode, uint16_t port)
+NetworkSystem::NetworkSystem(engine::INetworkPlugin& plugin, bool server_mode, uint16_t port)
     : network_plugin(plugin), is_server_mode(server_mode), server_port(port)
 {
-    if (!network_plugin) {
-        throw std::runtime_error("NetworkSystem: plugin cannot be null");
-    }
+    // Pas besoin de vérifier null - les références ne peuvent pas être nulles
 }
 
 void NetworkSystem::init(Registry& registry)
 {
     (void)registry;
-    std::cout << "NetworkSystem: Initialisation in " 
-              << (is_server_mode ? "SERVER" : "CLIENT") 
-              << " mode with " << network_plugin->get_name() << std::endl;
-    
+    std::cout << "NetworkSystem: Initialisation in "
+              << (is_server_mode ? "SERVER" : "CLIENT")
+              << " mode with " << network_plugin.get_name() << std::endl;
+
     // Start server automatically in server mode
     if (is_server_mode) {
-        if (network_plugin->start_server(server_port)) {
+        if (network_plugin.start_server(server_port)) {
             std::cout << "NetworkSystem: Server started on port " << server_port << std::endl;
         } else {
             throw std::runtime_error("NetworkSystem: Failed to start server on port " + std::to_string(server_port));
@@ -37,23 +35,23 @@ void NetworkSystem::init(Registry& registry)
 void NetworkSystem::shutdown()
 {
     std::cout << "NetworkSystem: Shutdown" << std::endl;
-    
-    if (is_server_mode && network_plugin->is_server_running()) {
-        network_plugin->stop_server();
-    } else if (!is_server_mode && network_plugin->is_connected()) {
-        network_plugin->disconnect();
+
+    if (is_server_mode && network_plugin.is_server_running()) {
+        network_plugin.stop_server();
+    } else if (!is_server_mode && network_plugin.is_connected()) {
+        network_plugin.disconnect();
     }
 }
 
 void NetworkSystem::update(Registry& registry, float dt)
 {
     (void)registry;
-    
+
     // Update the network plugin (poll for events)
-    network_plugin->update(dt);
-    
+    network_plugin.update(dt);
+
     // Receive and process packets
-    auto packets = network_plugin->receive();
+    auto packets = network_plugin.receive();
     
     for (const auto& packet : packets) {
         // Process received packets

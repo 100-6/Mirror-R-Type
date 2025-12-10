@@ -6,22 +6,20 @@
 */
 
 #include "ecs/systems/RenderSystem.hpp"
-#include "ecs/Components.hpp"
+#include "ecs/CoreComponents.hpp"
 #include <iostream>
 #include <vector>
 #include <algorithm>
 
-RenderSystem::RenderSystem(engine::IGraphicsPlugin* plugin)
+RenderSystem::RenderSystem(engine::IGraphicsPlugin& plugin)
     : graphics_plugin(plugin)
 {
-    if (!graphics_plugin) {
-        throw std::runtime_error("RenderSystem: plugin cannot be null");
-    }
+    // Pas besoin de vérifier null - les références ne peuvent pas être nulles
 }
 
 void RenderSystem::init(Registry& registry)
 {
-    std::cout << "RenderSystem: Initialisation avec " << graphics_plugin->get_name() << std::endl;
+    std::cout << "RenderSystem: Initialisation avec " << graphics_plugin.get_name() << std::endl;
 }
 
 void RenderSystem::shutdown()
@@ -34,7 +32,7 @@ void RenderSystem::update(Registry& registry, float dt)
     (void)dt;
 
     // Effacer l'écran (fond gris foncé)
-    graphics_plugin->clear(engine::Color{30, 30, 40, 255});
+    graphics_plugin.clear(engine::Color{30, 30, 40, 255});
 
     // Récupérer les composants Position et Sprite
     auto& positions = registry.get_components<Position>();
@@ -88,7 +86,7 @@ void RenderSystem::update(Registry& registry, float dt)
         temp_sprite.tint = sprite.tint;
 
         // Dessiner le sprite à la position de l'entité
-        graphics_plugin->draw_sprite(temp_sprite, engine::Vector2f(pos.x, pos.y));
+        graphics_plugin.draw_sprite(temp_sprite, engine::Vector2f(pos.x, pos.y));
     }
 
     // Note: On n'appelle PAS display() ici pour permettre au main d'ajouter

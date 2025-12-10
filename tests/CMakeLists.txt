@@ -16,6 +16,7 @@ endif()
 
 # Include engine headers
 include_directories(${CMAKE_SOURCE_DIR}/src/engine/include)
+include_directories(${CMAKE_SOURCE_DIR}/src/r-type/game-logic/include)
 
 if(GTest_FOUND)
     # Test EventBus
@@ -24,7 +25,7 @@ if(GTest_FOUND)
     )
     target_link_libraries(test_eventbus
         PRIVATE
-            rtype_engine
+            game_engine
             ${GTEST_LIBRARIES}
             ${GTEST_MAIN_LIBRARIES}
             Threads::Threads
@@ -40,7 +41,7 @@ if(GTest_FOUND)
     )
     target_link_libraries(test_sparseset_gtest
         PRIVATE
-            rtype_engine
+            game_engine
             ${GTEST_LIBRARIES}
             ${GTEST_MAIN_LIBRARIES}
             Threads::Threads
@@ -54,7 +55,7 @@ if(GTest_FOUND)
     )
     target_link_libraries(test_registry
         PRIVATE
-            rtype_engine
+            game_engine
             ${GTEST_LIBRARIES}
             ${GTEST_MAIN_LIBRARIES}
             Threads::Threads
@@ -68,7 +69,8 @@ if(GTest_FOUND)
     )
     target_link_libraries(test_collision_system
         PRIVATE
-            rtype_engine
+            game_engine
+            rtype_logic
             ${GTEST_LIBRARIES}
             ${GTEST_MAIN_LIBRARIES}
             Threads::Threads
@@ -82,7 +84,7 @@ if(GTest_FOUND)
     )
     target_link_libraries(test_movement_system
         PRIVATE
-            rtype_engine
+            game_engine
             ${GTEST_LIBRARIES}
             ${GTEST_MAIN_LIBRARIES}
             Threads::Threads
@@ -96,13 +98,42 @@ if(GTest_FOUND)
     )
     target_link_libraries(test_physique_system
         PRIVATE
-            rtype_engine
+            game_engine
             ${GTEST_LIBRARIES}
             ${GTEST_MAIN_LIBRARIES}
             Threads::Threads
     )
     add_test(NAME PhysiqueSystemGTestSuite COMMAND test_physique_system)
     set_property(TARGET test_physique_system PROPERTY CXX_STANDARD 20)
+
+    # Test DestroySystem with GTest
+    add_executable(test_destroy_system
+        ecs/test_destroy_system.cpp
+    )
+    target_link_libraries(test_destroy_system
+        PRIVATE
+            game_engine
+            ${GTEST_LIBRARIES}
+            ${GTEST_MAIN_LIBRARIES}
+            Threads::Threads
+    )
+    add_test(NAME DestroySystemGTestSuite COMMAND test_destroy_system)
+    set_property(TARGET test_destroy_system PROPERTY CXX_STANDARD 20)
+
+    # Test ShootingSystem with GTest
+    add_executable(test_shooting_system
+        ecs/test_shooting_system.cpp
+    )
+    target_link_libraries(test_shooting_system
+        PRIVATE
+            game_engine
+            rtype_logic
+            ${GTEST_LIBRARIES}
+            ${GTEST_MAIN_LIBRARIES}
+            Threads::Threads
+    )
+    add_test(NAME ShootingSystemGTestSuite COMMAND test_shooting_system)
+    set_property(TARGET test_shooting_system PROPERTY CXX_STANDARD 20)
 endif()
 
 # Test Plugin Manager
@@ -111,7 +142,7 @@ add_executable(test_plugin_manager
 )
 target_link_libraries(test_plugin_manager
     PRIVATE
-        rtype_engine
+        game_engine
 )
 add_test(NAME PluginManagerTest COMMAND test_plugin_manager WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TARGET test_plugin_manager PROPERTY CXX_STANDARD 20)
@@ -122,7 +153,7 @@ add_library(test_plugin SHARED
 )
 target_link_libraries(test_plugin
     PRIVATE
-        rtype_engine
+        game_engine
 )
 set_target_properties(test_plugin PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/plugin_manager"
@@ -136,7 +167,7 @@ add_executable(example_plugin_manager
 )
 target_link_libraries(example_plugin_manager
     PRIVATE
-        rtype_engine
+        game_engine
 )
 set_property(TARGET example_plugin_manager PROPERTY CXX_STANDARD 20)
 
@@ -146,7 +177,7 @@ add_executable(test_miniaudio_plugin
 )
 target_link_libraries(test_miniaudio_plugin
     PRIVATE
-        rtype_engine
+        game_engine
 )
 add_test(NAME MiniaudioPluginTest COMMAND test_miniaudio_plugin)
 set_property(TARGET test_miniaudio_plugin PROPERTY CXX_STANDARD 20)
@@ -157,7 +188,7 @@ add_executable(example_miniaudio
 )
 target_link_libraries(example_miniaudio
     PRIVATE
-        rtype_engine
+        game_engine
 )
 set_property(TARGET example_miniaudio PROPERTY CXX_STANDARD 20)
 
@@ -167,7 +198,7 @@ add_executable(test_asio_network_plugin
 )
 target_link_libraries(test_asio_network_plugin
     PRIVATE
-        rtype_engine
+        game_engine
 )
 add_test(NAME AsioNetworkPluginTest COMMAND test_asio_network_plugin)
 set_property(TARGET test_asio_network_plugin PROPERTY CXX_STANDARD 20)
@@ -178,7 +209,7 @@ add_executable(test_raylib_plugin
 )
 target_link_libraries(test_raylib_plugin
     PRIVATE
-        rtype_engine
+        game_engine
 )
 add_test(NAME RaylibPluginTest COMMAND test_raylib_plugin WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TARGET test_raylib_plugin PROPERTY CXX_STANDARD 20)
@@ -190,7 +221,8 @@ if(GTest_FOUND)
     )
     target_link_libraries(test_collision_simple_gtest
         PRIVATE
-            rtype_engine
+            game_engine
+            rtype_logic
             ${GTEST_LIBRARIES}
             ${GTEST_MAIN_LIBRARIES}
             Threads::Threads
@@ -204,8 +236,7 @@ if(GTest_FOUND)
     )
     target_link_libraries(test_input_plugin_gtest
         PRIVATE
-            rtype_engine
-            raylib_input
+            game_engine
             ${GTEST_LIBRARIES}
             ${GTEST_MAIN_LIBRARIES}
             Threads::Threads
@@ -219,7 +250,8 @@ if(GTest_FOUND)
     )
     target_link_libraries(test_shooting_collision_gtest
         PRIVATE
-            rtype_engine
+            game_engine
+            rtype_logic
             ${GTEST_LIBRARIES}
             ${GTEST_MAIN_LIBRARIES}
             Threads::Threads
@@ -233,7 +265,7 @@ if(GTest_FOUND)
     )
     target_link_libraries(test_render_system
         PRIVATE
-            rtype_engine
+            game_engine
             ${GTEST_LIBRARIES}
             ${GTEST_MAIN_LIBRARIES}
             Threads::Threads

@@ -2,13 +2,15 @@
 ** EPITECH PROJECT, 2025
 ** Mirror-R-Type
 ** File description:
-** Component
+** CoreComponents
 */
 
-#ifndef COMPONENT_HPP_
-#define COMPONENT_HPP_
-#include <iostream>
+#ifndef CORE_COMPONENTS_HPP_
+#define CORE_COMPONENTS_HPP_
+
 #include "plugin_manager/CommonTypes.hpp"
+#include "plugin_manager/IInputPlugin.hpp"
+#include <unordered_map>
 
 // Physique et Mouvement 
 
@@ -29,13 +31,10 @@ struct Collider {
     float height = 0;
 };
 
+// Input
+
 struct Input {
-    bool up = false;
-    bool down = false;
-    bool left = false;
-    bool right = false;
-    bool fire = false;     // Tirer (Espace ou clic gauche)
-    bool special = false;  // Action spéciale (Shift)
+    int playerId = 0;
 };
 
 // Rendu
@@ -55,27 +54,14 @@ struct Sprite {
     int layer = 0;
 };
 
-// Tags
+// Tags Génériques
 
 struct Controllable {
     float speed = 200.0f;
 };
-struct Enemy {};
-struct Projectile {};
-struct Wall {};
 
-// Logique de jeu
+struct NoFriction {};
 
-struct Health
-{
-    int max = 100;
-    int current = 100;
-};
+struct ToDestroy {};
 
-struct Damage
-{
-    int value = 10;
-};
-
-
-#endif /* !COMPONENT_HPP_ */
+#endif /* !CORE_COMPONENTS_HPP_ */

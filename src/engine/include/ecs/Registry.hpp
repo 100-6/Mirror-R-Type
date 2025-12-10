@@ -9,10 +9,12 @@
 #define REGISTRY_HPP_
 #include "SparseSet.hpp"
 #include "systems/ISystem.hpp"
+#include "core/event/EventBus.hpp"
 #include <unordered_map>
 #include <any>
 #include <typeindex>
 #include <typeinfo>
+#include <type_traits>
 #include <functional>
 #include <memory>
 
@@ -22,9 +24,14 @@ class Registry {
         std::unordered_map<std::type_index, std::any> components;
         std::vector<std::function<void (Registry&, Entity)>> to_kill;
         std::vector<std::unique_ptr<ISystem>> systems;
+        core::EventBus eventBus_;
     public:
         Registry() = default;
         ~Registry() = default;
+
+        core::EventBus& get_event_bus() {
+            return eventBus_;
+        }
 
         template <typename Component>
         SparseSet<Component>& register_component()
@@ -62,13 +69,11 @@ class Registry {
         template <typename Component>
         void add_component(Entity entity, Component&& component)
         {
-            // -> Component (le type genre Postion)
-            // -> component (la donné genre {x = 10, y = 10})
-            // j'aurais pu mettre un auto a la place de SparseSet<Component>
+            using ComponentType = std::decay_t<Component>;
 
-            SparseSet<Component>& sparseset = get_components<Component>();
-            
-            sparseset.insert_at(entity, component);
+            SparseSet<ComponentType>& sparseset = get_components<ComponentType>();
+
+            sparseset.insert_at(entity, std::forward<Component>(component));
         }
 
         template <typename Component>

@@ -8,7 +8,7 @@
 #ifndef PHYSIQUESYSTEM_HPP_
     #define PHYSIQUESYSTEM_HPP_
     #include "ISystem.hpp"
-    #include "ecs/Components.hpp"
+    #include "ecs/CoreComponents.hpp"
     #include "ecs/Registry.hpp"
 
 class PhysiqueSystem : public ISystem {

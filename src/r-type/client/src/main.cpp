@@ -7,15 +7,26 @@
 
 #include <iostream>
 #include "ecs/Registry.hpp"
-#include "ecs/Components.hpp"
+#include "components/GameComponents.hpp"
 #include "cmath"
 #include "ecs/systems/InputSystem.hpp"
+#include "systems/PlayerInputSystem.hpp"
 #include "ecs/systems/MovementSystem.hpp"
+#include "systems/ShootingSystem.hpp"
 #include "ecs/systems/PhysiqueSystem.hpp"
-#include "ecs/systems/CollisionSystem.hpp"
+#include "systems/ScrollingSystem.hpp"
+#include "systems/CollisionSystem.hpp"
+#include "ecs/systems/DestroySystem.hpp"
 #include "ecs/systems/RenderSystem.hpp"
+#include "systems/ScoreSystem.hpp"
+
+#include "ecs/systems/AudioSystem.hpp"
+#include "systems/HealthSystem.hpp"
+#include "systems/HitEffectSystem.hpp"
+#include "systems/AISystem.hpp"
 #include "plugin_manager/PluginManager.hpp"
 #include "plugin_manager/IInputPlugin.hpp"
+#include "plugin_manager/IAudioPlugin.hpp"
 
 int main() {
     // Configuration de la fenêtre
@@ -25,12 +36,13 @@ int main() {
     std::cout << "=== R-Type Client - Solo Game ===" << std::endl;
     std::cout << std::endl;
 
-    // ============================================
+    // ==
     // CHARGEMENT DES PLUGINS
-    // ============================================
+    // ==
     engine::PluginManager pluginManager;
     engine::IGraphicsPlugin* graphicsPlugin = nullptr;
     engine::IInputPlugin* inputPlugin = nullptr;
+    engine::IAudioPlugin* audioPlugin = nullptr;
 
     std::cout << "Chargement du plugin graphique..." << std::endl;
     try {
@@ -71,6 +83,24 @@ int main() {
 
     std::cout << "✓ Plugin d'input chargé: " << inputPlugin->get_name()
               << " v" << inputPlugin->get_version() << std::endl;
+              
+    std::cout << "Chargement du plugin audio..." << std::endl;
+    try {
+        audioPlugin = pluginManager.load_plugin<engine::IAudioPlugin>(
+            "plugins/miniaudio_audio.so",
+            "create_audio_plugin"
+        );
+    } catch (const engine::PluginException& e) {
+        std::cerr << "⚠️ Erreur lors du chargement du plugin audio (sons désactivés): " << e.what() << std::endl;
+        // On continue sans audio
+    }
+
+    if (audioPlugin) {
+        std::cout << "✓ Plugin audio chargé: " << audioPlugin->get_name()
+                  << " v" << audioPlugin->get_version() << std::endl;
+    } else {
+        std::cout << "⚠️ Plugin audio non disponible." << std::endl;
+    }
 
     // Créer la fenêtre via le plugin
     if (!graphicsPlugin->create_window(SCREEN_WIDTH, SCREEN_HEIGHT, "R-Type Client - Solo Game")) {
@@ -82,12 +112,12 @@ int main() {
     std::cout << "✓ Fenêtre créée: " << SCREEN_WIDTH << "x" << SCREEN_HEIGHT << std::endl;
     std::cout << std::endl;
 
-    // ============================================
+    // ==
     // CHARGEMENT DES TEXTURES VIA LE PLUGIN
-    // ============================================
+    // ==
     std::cout << "Chargement des textures depuis assets/sprite/..." << std::endl;
 
-    engine::TextureHandle backgroundTex = graphicsPlugin->load_texture("assets/sprite/Background.png");
+    engine::TextureHandle backgroundTex = graphicsPlugin->load_texture("assets/sprite/symmetry.png");
     engine::TextureHandle playerTex = graphicsPlugin->load_texture("assets/sprite/player.png");
     engine::TextureHandle enemyTex = graphicsPlugin->load_texture("assets/sprite/enemy.png");
     engine::TextureHandle bulletTex = graphicsPlugin->load_texture("assets/sprite/bullet.png");
@@ -95,6 +125,7 @@ int main() {
     if (backgroundTex == 0 || playerTex == 0 || enemyTex == 0 || bulletTex == 0) {
         std::cerr << "❌ Erreur lors du chargement des textures" << std::endl;
         graphicsPlugin->shutdown();
+        if (audioPlugin) audioPlugin->shutdown();
         return 1;
     }
 
@@ -125,9 +156,9 @@ int main() {
     std::cout << "  Default (Pink/Black): 32x32" << std::endl;
     std::cout << std::endl;
 
-    // ============================================
+    // ==
     // CREATION DU REGISTRY ET DES COMPOSANTS
-    // ============================================
+    // ==
     Registry registry;
     registry.register_component<Position>();
     registry.register_component<Velocity>();
@@ -139,34 +170,69 @@ int main() {
     registry.register_component<Projectile>();
     registry.register_component<Wall>();
     registry.register_component<Health>();
+    registry.register_component<HitFlash>();
+    registry.register_component<Damage>();
+    registry.register_component<ToDestroy>();
+    registry.register_component<Weapon>();
+    registry.register_component<Score>();
+    registry.register_component<Background>();
+    registry.register_component<Invulnerability>();
+    registry.register_component<AI>();
+    registry.register_component<Scrollable>();
+    registry.register_component<NoFriction>(); // Add NoFriction registration
 
     std::cout << "✓ Composants enregistres" << std::endl;
 
-    // ============================================
+    // ==
     // CREATION ET ENREGISTREMENT DES SYSTEMES
-    // ============================================
+    // ==
 
     // Enregistrer les systèmes dans l'ordre d'exécution
-    registry.register_system<InputSystem>(inputPlugin);
+    registry.register_system<InputSystem>(*inputPlugin);        // 1. Read raw keys from plugin
+    registry.register_system<PlayerInputSystem>();              // 2. Interpret keys for R-Type
     registry.register_system<MovementSystem>();
+    registry.register_system<ShootingSystem>();
     registry.register_system<PhysiqueSystem>();
+    registry.register_system<ScrollingSystem>(-100.0f, static_cast<float>(SCREEN_WIDTH));
     registry.register_system<CollisionSystem>();
-    registry.register_system<RenderSystem>(graphicsPlugin);
+    registry.register_system<HealthSystem>();
+    registry.register_system<HitEffectSystem>();
+    registry.register_system<ScoreSystem>();
+    registry.register_system<AISystem>(*graphicsPlugin);
+    if (audioPlugin) {
+        registry.register_system<AudioSystem>(*audioPlugin);
+    }
+    registry.register_system<DestroySystem>();
+    registry.register_system<RenderSystem>(*graphicsPlugin);
 
     std::cout << "✓ Systemes enregistres :" << std::endl;
-    std::cout << "  1. InputSystem    - Capture les inputs du joueur" << std::endl;
-    std::cout << "  2. MovementSystem - Calcule la velocite en fonction des inputs" << std::endl;
-    std::cout << "  3. PhysiqueSystem - Applique la velocite, friction, limites d'ecran" << std::endl;
-    std::cout << "  4. CollisionSystem- Gere les collisions avec les murs" << std::endl;
-    std::cout << "  5. RenderSystem   - Rendu des sprites via plugin graphique" << std::endl;
+    std::cout << "  1. InputSystem       - Capture raw key states from plugin" << std::endl;
+    std::cout << "  2. PlayerInputSystem - Interpret keys for R-Type actions" << std::endl;
+    std::cout << "  3. MovementSystem    - Listen to movement events and update velocity" << std::endl;
+    std::cout << "  3. ShootingSystem - Ecoute les evenements de tir et cree des projectiles" << std::endl;
+    std::cout << "  4. PhysiqueSystem - Applique la velocite, friction, limites d'ecran" << std::endl;
+    std::cout << "  5. CollisionSystem- Gere les collisions et marque les entites a detruire" << std::endl;
+    std::cout << "  6. ScoreSystem    - Met a jour le score" << std::endl;
+    if (audioPlugin) {
+        std::cout << "  8. AudioSystem     - Joue des sons sur evenements" << std::endl;
+    }
+    std::cout << "  8. DestroySystem  - Detruit les entites marquees pour destruction" << std::endl;
+    std::cout << "  9. RenderSystem   - Rendu des sprites via plugin graphique" << std::endl;
     std::cout << std::endl;
 
-    // ============================================
-    // CREATION DU BACKGROUND
-    // ============================================
-    Entity background = registry.spawn_entity();
-    registry.add_component(background, Position{0.0f, 0.0f});
-    registry.add_component(background, Sprite{
+    // ==
+    // CREATION DU BACKGROUND (Défilement infini avec 2 images)
+    // ==
+    // Premier background
+    Entity background1 = registry.spawn_entity();
+    registry.add_component(background1, Position{0.0f, 0.0f});
+    registry.add_component(background1, Background{});  // Tag pour identifier le background
+    registry.add_component(background1, Scrollable{
+        1.0f,   // speedMultiplier: vitesse normale (100%)
+        true,   // wrap: boucle infinie
+        false   // destroyOffscreen: ne pas détruire
+    });
+    registry.add_component(background1, Sprite{
         backgroundTex,
         static_cast<float>(SCREEN_WIDTH),
         static_cast<float>(SCREEN_HEIGHT),
@@ -177,17 +243,39 @@ int main() {
         -100  // Layer très bas pour être en arrière-plan
     });
 
-    std::cout << "✓ Background cree" << std::endl;
+    // Deuxième background (juste à droite du premier pour seamless scrolling)
+    Entity background2 = registry.spawn_entity();
+    registry.add_component(background2, Position{static_cast<float>(SCREEN_WIDTH), 0.0f});
+    registry.add_component(background2, Background{});  // Tag pour identifier le background
+    registry.add_component(background2, Scrollable{
+        1.0f,   // speedMultiplier: vitesse normale (100%)
+        true,   // wrap: boucle infinie
+        false   // destroyOffscreen: ne pas détruire
+    });
+    registry.add_component(background2, Sprite{
+        backgroundTex,
+        static_cast<float>(SCREEN_WIDTH),
+        static_cast<float>(SCREEN_HEIGHT),
+        0.0f,
+        engine::Color::White,
+        0.0f,
+        0.0f,
+        -100
+    });
+
+    std::cout << "✓ Background defilant cree (2 images en boucle infinie via ScrollingSystem)" << std::endl;
+    std::cout << "  Vitesse: -100 px/s (definie dans ScrollingSystem)" << std::endl;
     std::cout << std::endl;
 
-    // ============================================
+    // ==
     // CREATION DU JOUEUR
-    // ============================================
+    // ==
     Entity player = registry.spawn_entity();
     registry.add_component(player, Position{200.0f, SCREEN_HEIGHT / 2.0f});
     registry.add_component(player, Velocity{0.0f, 0.0f});
-    registry.add_component(player, Input{});
+    registry.add_component(player, Input{});  // Component pour capturer les inputs
     registry.add_component(player, Collider{playerWidth, playerHeight});
+    registry.add_component(player, Controllable{300.0f}); // Vitesse de 300 pixels/s
     registry.add_component(player, Sprite{
         playerTex,           // texture
         playerWidth,         // width
@@ -198,26 +286,55 @@ int main() {
         0.0f,               // origin_y
         1                   // layer
     });
-    registry.add_component(player, Controllable{300.0f}); // Vitesse de 300 pixels/s
-    registry.add_component(player, Health{100, 100});
 
-    std::cout << "✓ Joueur cree avec sprite" << std::endl;
+    // ARME - Les stats sont dans CombatConfig.hpp (defines)
+    registry.add_component(player, Weapon{
+        WeaponType::BASIC,           // Type: BASIC/SPREAD/BURST/LASER
+        999.0f,                      // Temps depuis dernier tir
+        0,                           // Compteur de rafale
+        Sprite{                      // Apparence des projectiles
+            bulletTex,
+            bulletWidth,
+            bulletHeight,
+            0.0f,
+            engine::Color{255, 100, 255, 255},
+            0.0f,
+            0.0f,
+            1
+        }
+    });
+
+    registry.add_component(player, Health{100, 100});
+    registry.add_component(player, Score{0});
+    registry.add_component(player, Invulnerability{0.0f});
+
+    std::cout << "✓ Joueur cree avec sprite et arme SPREAD" << std::endl;
     std::cout << "  Position: (200, " << SCREEN_HEIGHT / 2.0f << ")" << std::endl;
     std::cout << "  Taille: " << playerWidth << "x" << playerHeight << std::endl;
     std::cout << "  Vitesse max: 300 pixels/s" << std::endl;
+    std::cout << "  Arme: SPREAD (5 projectiles, 40° d'éventail)" << std::endl;
     std::cout << std::endl;
 
-    // ============================================
+    // ==
     // CREATION DES MURS
-    // ============================================
+    // ==
     std::cout << "✓ Creation des murs (Gris)..." << std::endl;
 
-    // Mur vertical gauche
-    Entity wall1 = registry.spawn_entity();
-    registry.add_component(wall1, Position{400.0f, 200.0f});
-    registry.add_component(wall1, Collider{20.0f, 680.0f});
-    registry.add_component(wall1, Sprite{defaultTex, 20.0f, 680.0f, 0.0f, engine::Color::White, 0.0f, 0.0f, -1});
-    registry.add_component(wall1, Wall{});
+    // Mur vertical gauche - PARTIE HAUTE (avec un trou au milieu pour tirer)
+    Entity wall1_top = registry.spawn_entity();
+    registry.add_component(wall1_top, Position{400.0f, 200.0f});
+    registry.add_component(wall1_top, Collider{20.0f, 240.0f});  // Hauteur réduite
+    registry.add_component(wall1_top, Sprite{defaultTex, 20.0f, 240.0f, 0.0f, engine::Color::White, 0.0f, 0.0f, -1});
+    registry.add_component(wall1_top, Wall{});
+    registry.add_component(wall1_top, Scrollable{1.0f, false, true}); // Scroll et détruit hors écran
+
+    // Mur vertical gauche - PARTIE BASSE (trou de 200px au milieu)
+    Entity wall1_bottom = registry.spawn_entity();
+    registry.add_component(wall1_bottom, Position{400.0f, 640.0f});  // Commence après le trou
+    registry.add_component(wall1_bottom, Collider{20.0f, 240.0f});  // Hauteur réduite
+    registry.add_component(wall1_bottom, Sprite{defaultTex, 20.0f, 240.0f, 0.0f, engine::Color::White, 0.0f, 0.0f, -1});
+    registry.add_component(wall1_bottom, Wall{});
+    registry.add_component(wall1_bottom, Scrollable{1.0f, false, true}); // Scroll et détruit hors écran
 
     // Mur vertical droit
     Entity wall2 = registry.spawn_entity();
@@ -225,6 +342,7 @@ int main() {
     registry.add_component(wall2, Collider{20.0f, 680.0f});
     registry.add_component(wall2, Sprite{defaultTex, 20.0f, 680.0f, 0.0f, engine::Color::White, 0.0f, 0.0f, -1});
     registry.add_component(wall2, Wall{});
+    registry.add_component(wall2, Scrollable{1.0f, false, true}); // Scroll et détruit hors écran
 
     // Mur horizontal haut
     Entity wall3 = registry.spawn_entity();
@@ -232,6 +350,7 @@ int main() {
     registry.add_component(wall3, Collider{1080.0f, 20.0f});
     registry.add_component(wall3, Sprite{defaultTex, 1080.0f, 20.0f, 0.0f, engine::Color::White, 0.0f, 0.0f, -1});
     registry.add_component(wall3, Wall{});
+    registry.add_component(wall3, Scrollable{1.0f, false, true}); // Scroll et détruit hors écran
 
     // Mur horizontal bas
     Entity wall4 = registry.spawn_entity();
@@ -239,6 +358,7 @@ int main() {
     registry.add_component(wall4, Collider{1080.0f, 20.0f});
     registry.add_component(wall4, Sprite{defaultTex, 1080.0f, 20.0f, 0.0f, engine::Color::White, 0.0f, 0.0f, -1});
     registry.add_component(wall4, Wall{});
+    registry.add_component(wall4, Scrollable{1.0f, false, true}); // Scroll et détruit hors écran
 
     // Obstacles internes
     Entity obstacle1 = registry.spawn_entity();
@@ -246,20 +366,23 @@ int main() {
     registry.add_component(obstacle1, Collider{80.0f, 80.0f});
     registry.add_component(obstacle1, Sprite{defaultTex, 80.0f, 80.0f, 0.0f, engine::Color::White, 0.0f, 0.0f, -1});
     registry.add_component(obstacle1, Wall{});
+    registry.add_component(obstacle1, Scrollable{1.0f, false, true}); // Scroll et détruit hors écran
 
     Entity obstacle2 = registry.spawn_entity();
     registry.add_component(obstacle2, Position{1100.0f, 600.0f});
     registry.add_component(obstacle2, Collider{80.0f, 80.0f});
     registry.add_component(obstacle2, Sprite{defaultTex, 80.0f, 80.0f, 0.0f, engine::Color::White, 0.0f, 0.0f, -1});
     registry.add_component(obstacle2, Wall{});
+    registry.add_component(obstacle2, Scrollable{1.0f, false, true}); // Scroll et détruit hors écran
 
-    std::cout << "  - 4 murs delimitant l'arene" << std::endl;
-    std::cout << "  - 2 obstacles internes" << std::endl;
+    std::cout << "  - 4 murs delimitant l'arene (avec Scrollable)" << std::endl;
+    std::cout << "  - 2 obstacles internes (avec Scrollable)" << std::endl;
+    std::cout << "  - Tous les murs scrollent avec la map et se detruisent hors ecran" << std::endl;
     std::cout << std::endl;
 
-    // ============================================
+    // ==
     // CREATION D'ENNEMIS (AVEC SPRITES)
-    // ============================================
+    // ==
     std::cout << "✓ Creation d'ennemis avec sprites..." << std::endl;
 
     Entity enemy1 = registry.spawn_entity();
@@ -283,15 +406,16 @@ int main() {
     registry.add_component(enemy3, Enemy{});
     registry.add_component(enemy3, Health{50, 50});
 
-    std::cout << "  - 3 ennemis places dans l'arene" << std::endl;
+    std::cout << "  - 3 ennemis places dans l'arene (avec Scrollable)" << std::endl;
+    std::cout << "  - Les ennemis scrollent avec la map et se detruisent hors ecran" << std::endl;
     std::cout << std::endl;
 
-    // ============================================
+    // ==
     // INSTRUCTIONS
-    // ============================================
+    // ==
     std::cout << "=== CONTROLES ===" << std::endl;
     std::cout << "  WASD ou Fleches  : Deplacer le joueur" << std::endl;
-    std::cout << "  ESPACE           : Tirer (a implementer)" << std::endl;
+    std::cout << "  ESPACE           : Tirer" << std::endl;
     std::cout << "  ESC              : Quitter" << std::endl;
     std::cout << std::endl;
     std::cout << "=== FONCTIONNALITES ACTIVES ===" << std::endl;
@@ -304,21 +428,27 @@ int main() {
     std::cout << "Demarrage de la boucle de jeu..." << std::endl;
     std::cout << std::endl;
 
-    // ============================================
+    // ==
     // VARIABLES DE JEU
-    // ============================================
+    // ==
     auto& positions = registry.get_components<Position>();
     auto& velocities = registry.get_components<Velocity>();
     auto& colliders = registry.get_components<Collider>();
-    auto& inputs = registry.get_components<Input>();
+    // auto& inputs = registry.get_components<Input>(); // No longer used after refactor
+    auto& scores = registry.get_components<Score>();
+
+    auto& weapons = registry.get_components<Weapon>();
+
+    auto& healths = registry.get_components<Health>();
+
 
     int frameCount = 0;
     float debugTimer = 0.0f;
-    float shootCooldown = 0.0f;
+    // float shootCooldown = 0.0f; // No longer used after refactor
 
-    // ============================================
+    // ==
     // BOUCLE DE JEU PRINCIPALE
-    // ============================================
+    // ==
     while (graphicsPlugin->is_window_open()) {
         float dt = 1.0f / 60.0f;  // Fixed timestep
         frameCount++;
@@ -331,40 +461,21 @@ int main() {
         // 2. MovementSystem calcule la vélocité
         // 3. PhysiqueSystem applique vélocité + friction + limites
         // 4. CollisionSystem gère les collisions
-        // 5. RenderSystem effectue le rendu
+        // 5. ShootingSystem gère la création de projectiles selon l'arme
+        // 6. RenderSystem effectue le rendu
         registry.run_systems(dt);
 
-        // === SHOOTING MECHANIC ===
-        shootCooldown -= dt;
-        if (inputs.has_entity(player)) {
-            const Input& playerInput = inputs[player];
-            if (playerInput.fire && shootCooldown <= 0.0f) {
-                // Spawn projectile
-                const Position& playerPos = positions[player];
-                const Collider& playerCol = colliders[player];
-
-                Entity projectile = registry.spawn_entity();
-                registry.add_component(projectile, Position{
-                    playerPos.x + playerCol.width,  // Spawn at right side of player
-                    playerPos.y + playerCol.height / 2.0f - bulletHeight / 2.0f  // Centered vertically
-                });
-                registry.add_component(projectile, Velocity{800.0f, 0.0f});  // Fast horizontal velocity
-                registry.add_component(projectile, Collider{bulletWidth, bulletHeight});
-                registry.add_component(projectile, Sprite{bulletTex, bulletWidth, bulletHeight, 0.0f, engine::Color::White, 0.0f, 0.0f, 0});
-                registry.add_component(projectile, Projectile{});
-
-                shootCooldown = 0.2f;  // 200ms cooldown between shots
-            }
-        }
+        // === Old SHOOTING MECHANIC (removed as now handled by ShootingSystem) ===
+        // This block is removed as ShootingSystem now handles bullet spawning via events.
 
         // Note: RenderSystem a déjà appelé clear() et draw_sprite()
         // On peut maintenant ajouter les textes de debug par-dessus
 
         // === AFFICHAGE DES STATS À L'ÉCRAN ===
-        if (inputs.has_entity(player) && positions.has_entity(player) && velocities.has_entity(player)) {
+        if (positions.has_entity(player) && velocities.has_entity(player)) { // Removed inputs.has_entity(player)
             const Position& playerPos = positions[player];
             const Velocity& playerVel = velocities[player];
-            const Input& playerInput = inputs[player];
+            // const Input& playerInput = inputs[player]; // No longer used
 
             int yOffset = 10;
             int lineHeight = 25;
@@ -383,34 +494,71 @@ int main() {
                                      engine::Color{255, 255, 0, 255}, engine::INVALID_HANDLE, 20);
             yOffset += lineHeight;
 
-            // Touches pressées
-            std::string keysText = "Keys: ";
-            if (playerInput.up) keysText += "UP ";
-            if (playerInput.down) keysText += "DOWN ";
-            if (playerInput.left) keysText += "LEFT ";
-            if (playerInput.right) keysText += "RIGHT ";
-            if (playerInput.fire) keysText += "FIRE ";
-            if (keysText == "Keys: ") keysText += "NONE";
+            // Touches pressées - Display from InputSystem events instead of Input component
+            // For now, removing. If needed, a debug system could show last input events.
+            // std::string keysText = "Keys: ";
+            // if (playerInput.up) keysText += "UP ";
+            // if (playerInput.down) keysText += "DOWN ";
+            // if (playerInput.left) keysText += "LEFT ";
+            // if (playerInput.right) keysText += "RIGHT ";
+            // if (playerInput.fire) keysText += "FIRE ";
+            // if (keysText == "Keys: ") keysText += "NONE";
 
-            graphicsPlugin->draw_text(keysText, engine::Vector2f(10.0f, yOffset),
-                                     engine::Color{0, 255, 255, 255}, engine::INVALID_HANDLE, 20);
-            yOffset += lineHeight;
+            // graphicsPlugin->draw_text(keysText, engine::Vector2f(10.0f, yOffset),
+            //                          engine::Color{0, 255, 255, 255}, engine::INVALID_HANDLE, 20);
+            // yOffset += lineHeight;
 
             // FPS / Frame count
             std::string fpsText = "Frame: " + std::to_string(frameCount) + " (60 FPS)";
             graphicsPlugin->draw_text(fpsText, engine::Vector2f(10.0f, yOffset),
                                      engine::Color{0, 255, 0, 255}, engine::INVALID_HANDLE, 20);
+            yOffset += lineHeight;
+
+            // Score (dans le debug)
+            if (scores.has_entity(player)) {
+                std::string scoreText = "Score: " + std::to_string(scores[player].value);
+                graphicsPlugin->draw_text(scoreText, engine::Vector2f(10.0f, yOffset),
+                                         engine::Color{255, 0, 255, 255}, engine::INVALID_HANDLE, 20);
+            }
+        }
+
+        // Score affiché en grand en haut à droite (toujours visible)
+        if (scores.has_entity(player)) {
+            std::string scoreText = "SCORE: " + std::to_string(scores[player].value);
+            graphicsPlugin->draw_text(scoreText, engine::Vector2f(SCREEN_WIDTH - 300.0f, 30.0f),
+                                     engine::Color{255, 255, 0, 255}, engine::INVALID_HANDLE, 40);
+        }
+
+        // Vie du joueur affichée en haut à gauche (toujours visible)
+        if (healths.has_entity(player)) {
+            int hp = healths[player].current;
+            int maxHp = healths[player].max;
+            std::string healthText = "HP: " + std::to_string(hp) + " / " + std::to_string(maxHp);
+
+            // Couleur selon la vie restante
+            engine::Color healthColor;
+            float hpPercent = static_cast<float>(hp) / static_cast<float>(maxHp);
+            if (hpPercent > 0.6f)
+                healthColor = engine::Color{0, 255, 0, 255};     // Vert
+            else if (hpPercent > 0.3f)
+                healthColor = engine::Color{255, 165, 0, 255};   // Orange
+            else
+                healthColor = engine::Color{255, 0, 0, 255};     // Rouge
+
+            graphicsPlugin->draw_text(healthText, engine::Vector2f(30.0f, 30.0f),
+                                     healthColor, engine::INVALID_HANDLE, 40);
         }
 
         // Afficher le frame complet (sprites + UI)
         graphicsPlugin->display();
     }
 
-    // ============================================
+    // ==
     // NETTOYAGE
-    // ============================================
+    // ==
     inputPlugin->shutdown();
     graphicsPlugin->shutdown();
+    if (audioPlugin) audioPlugin->shutdown();
 
     std::cout << "=== Fin de la demo ===" << std::endl;
     std::cout << "Total frames: " << frameCount << std::endl;

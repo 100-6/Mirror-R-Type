@@ -23,6 +23,7 @@ void PhysiqueSystem::update(Registry& registry, float dt)
     auto& positions = registry.get_components<Position>();
     auto& velocitys = registry.get_components<Velocity>();
     auto& controllables = registry.get_components<Controllable>();
+    auto& noFrictions = registry.get_components<NoFriction>();
 
     for (size_t i = 0; i < velocitys.size(); i++)
     {
@@ -37,9 +38,11 @@ void PhysiqueSystem::update(Registry& registry, float dt)
         pos.x += vel.x * dt;
         pos.y += vel.y * dt;
 
-        //FRICTION (je suis pas sur sah)
-        vel.x *= 0.98f;
-        vel.y *= 0.98f;
+        //FRICTION : Appliquer uniquement aux entités qui n'ont PAS le tag NoFriction
+        if (!noFrictions.has_entity(entity)){
+            vel.x *= 0.98f;
+            vel.y *= 0.98f;
+        }
 
         if (controllables.has_entity(entity)) {
             // Limite Gauche/Droite
@@ -51,5 +54,4 @@ void PhysiqueSystem::update(Registry& registry, float dt)
             if (pos.y > SCREEN_HEIGHT) pos.y = SCREEN_HEIGHT;
         }
     }
-
 }
