@@ -3,6 +3,7 @@
   "loopWaves": false,
   "waves": [
     {
+      "waveNumber": 1,
       "trigger": {
         "scrollDistance": 0,
         "timeDelay": 0
@@ -19,6 +20,7 @@
       ]
     },
     {
+      "waveNumber": 2,
       "trigger": {
         "scrollDistance": 100,
         "timeDelay": 0
@@ -36,6 +38,7 @@
       ]
     },
     {
+      "waveNumber": 3,
       "trigger": {
         "scrollDistance": 400,
         "timeDelay": 0
@@ -69,8 +72,9 @@
       ]
     },
     {
+      "waveNumber": 4,
       "trigger": {
-        "scrollDistance": 800,
+        "scrollDistance": 1800,
         "timeDelay": 0
       },
       "spawns": [

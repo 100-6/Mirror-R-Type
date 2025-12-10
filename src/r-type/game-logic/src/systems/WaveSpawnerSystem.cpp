@@ -21,9 +21,25 @@ void WaveSpawnerSystem::init(Registry& registry)
     std::cout << "WaveSpawnerSystem: Initialization" << std::endl;
     loadTextures();
 
+    // Create a WaveController entity to track wave state
+    Entity waveController = registry.spawn_entity();
+    registry.add_component(waveController, WaveController{
+        "assets/waves_test_walls.json",
+        0.0f,  // totalScrollDistance
+        0,     // currentWaveIndex
+        0,     // currentWaveNumber
+        0,     // totalWaveCount
+        false  // allWavesCompleted
+    });
+
     // Try to load default wave configuration
     if (loadWaveConfiguration("assets/waves_test_walls.json")) {
         std::cout << "WaveSpawnerSystem: Loaded wave configuration with walls" << std::endl;
+        // Update total wave count in the component
+        auto& waveControllers = registry.get_components<WaveController>();
+        if (waveControllers.has_entity(waveController)) {
+            waveControllers[waveController].totalWaveCount = config_.waves.size();
+        }
     } else {
         std::cerr << "WaveSpawnerSystem: Warning - No wave configuration loaded" << std::endl;
     }
@@ -159,8 +175,22 @@ void WaveSpawnerSystem::checkWaveTriggers(Registry& registry, float dt)
     if (!wave.trigger.triggered && totalScrollDistance_ >= wave.trigger.scrollDistance) {
         wave.trigger.triggered = true;
 
-        std::cout << "WaveSpawnerSystem: Wave " << currentWaveIndex_ + 1
-                  << " triggered at scroll distance " << totalScrollDistance_ << std::endl;
+        std::cout << "========================================" << std::endl;
+        std::cout << "WAVE " << wave.waveNumber << " TRIGGERED!" << std::endl;
+        std::cout << "Scroll distance: " << totalScrollDistance_ << "px" << std::endl;
+        std::cout << "========================================" << std::endl;
+
+        // Update WaveController component
+        auto& waveControllers = registry.get_components<WaveController>();
+        for (size_t i = 0; i < waveControllers.size(); ++i) {
+            if (waveControllers.has_entity(i)) {
+                waveControllers[i].currentWaveIndex = currentWaveIndex_;
+                waveControllers[i].currentWaveNumber = wave.waveNumber;
+                waveControllers[i].totalScrollDistance = totalScrollDistance_;
+                waveControllers[i].allWavesCompleted = (currentWaveIndex_ + 1 >= config_.waves.size());
+                break; // Only one WaveController should exist
+            }
+        }
 
         // Check if there's a time delay
         if (wave.trigger.timeDelay > 0.0f) {

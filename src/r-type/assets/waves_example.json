@@ -3,6 +3,7 @@
   "loopWaves": false,
   "waves": [
     {
+      "waveNumber": 1,
       "trigger": {
         "scrollDistance": 0,
         "timeDelay": 0
@@ -20,6 +21,7 @@
       ]
     },
     {
+      "waveNumber": 2,
       "trigger": {
         "scrollDistance": 500,
         "timeDelay": 0
@@ -37,6 +39,7 @@
       ]
     },
     {
+      "waveNumber": 3,
       "trigger": {
         "scrollDistance": 1000,
         "timeDelay": 2.0
@@ -62,6 +65,7 @@
       ]
     },
     {
+      "waveNumber": 4,
       "trigger": {
         "scrollDistance": 1500,
         "timeDelay": 0
@@ -79,6 +83,7 @@
       ]
     },
     {
+      "waveNumber": 5,
       "trigger": {
         "scrollDistance": 2000,
         "timeDelay": 1.0
@@ -96,6 +101,7 @@
       ]
     },
     {
+      "waveNumber": 6,
       "trigger": {
         "scrollDistance": 2500,
         "timeDelay": 0
@@ -121,6 +127,7 @@
       ]
     },
     {
+      "waveNumber": 7,
       "trigger": {
         "scrollDistance": 3000,
         "timeDelay": 3.0

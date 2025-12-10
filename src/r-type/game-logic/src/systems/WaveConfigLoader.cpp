@@ -58,6 +58,13 @@ WaveConfiguration loadWaveConfig(const std::string& filepath) {
         const auto& waveJson = wavesArray[i];
         Wave wave;
 
+        // Parse wave number
+        if (waveJson.contains("waveNumber")) {
+            wave.waveNumber = waveJson["waveNumber"].get<int>();
+        } else {
+            wave.waveNumber = static_cast<int>(i + 1);  // Default to index + 1
+        }
+
         // Parse trigger conditions
         if (waveJson.contains("trigger")) {
             const auto& trigger = waveJson["trigger"];

@@ -171,6 +171,7 @@ int main() {
     registry.register_component<AI>();
     registry.register_component<Scrollable>();
     registry.register_component<NoFriction>(); // Add NoFriction registration
+    registry.register_component<WaveController>(); // Wave system state tracking
 
     std::cout << "✓ Composants enregistres" << std::endl;
 
@@ -194,8 +195,7 @@ int main() {
     registry.register_system<AISystem>(*graphicsPlugin);
 
     // Wave Spawner System - charge la configuration et spawn les ennemis/murs
-    // Note: On ne peut pas charger la config avant register_system car init() est appelé automatiquement
-    // La config sera chargée manuellement après l'enregistrement
+    // Note: init() sera appelé automatiquement par register_system
     registry.register_system<WaveSpawnerSystem>(*graphicsPlugin);
 
     if (audioPlugin) {
@@ -353,6 +353,8 @@ int main() {
 
     auto& healths = registry.get_components<Health>();
 
+    auto& waveControllers = registry.get_components<WaveController>();
+
 
     int frameCount = 0;
     float debugTimer = 0.0f;
@@ -459,6 +461,26 @@ int main() {
 
             graphicsPlugin->draw_text(healthText, engine::Vector2f(30.0f, 30.0f),
                                      healthColor, engine::INVALID_HANDLE, 40);
+        }
+
+        // Wave number displayed in the center-top of the screen
+        // Find the WaveController component
+        for (size_t i = 0; i < waveControllers.size(); ++i) {
+            if (waveControllers.has_entity(i)) {
+                const auto& waveCtrl = waveControllers[i];
+
+                if (waveCtrl.currentWaveNumber > 0) {
+                    std::string waveText = "WAVE " + std::to_string(waveCtrl.currentWaveNumber) +
+                                           " / " + std::to_string(waveCtrl.totalWaveCount);
+                    graphicsPlugin->draw_text(waveText, engine::Vector2f(SCREEN_WIDTH / 2.0f - 100.0f, 30.0f),
+                                             engine::Color{255, 255, 255, 255}, engine::INVALID_HANDLE, 40);
+                } else if (waveCtrl.allWavesCompleted) {
+                    std::string waveText = "ALL WAVES COMPLETE!";
+                    graphicsPlugin->draw_text(waveText, engine::Vector2f(SCREEN_WIDTH / 2.0f - 200.0f, 30.0f),
+                                             engine::Color{0, 255, 0, 255}, engine::INVALID_HANDLE, 40);
+                }
+                break; // Only one WaveController should exist
+            }
         }
 
         // Afficher le frame complet (sprites + UI)
