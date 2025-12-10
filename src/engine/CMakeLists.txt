@@ -1,34 +1,28 @@
-# Engine library (core only, without plugins)
-add_library(rtype_engine
+# Game Engine library (core only, without plugins)
+add_library(game_engine
     src/ecs/SparseSet.cpp
     src/ecs/Registry.cpp
-    src/ecs/systems/CollisionSystem.cpp
     src/ecs/systems/MovementSystem.cpp
     src/ecs/systems/PhysiqueSystem.cpp
     src/ecs/systems/InputSystem.cpp
-    src/ecs/systems/ShootingSystem.cpp
     src/ecs/systems/RenderSystem.cpp
     src/ecs/systems/NetworkSystem.cpp
     src/ecs/systems/DestroySystem.cpp
-    src/ecs/systems/ScoreSystem.cpp
     src/ecs/systems/AudioSystem.cpp
-    src/ecs/systems/HealthSystem.cpp
-    src/ecs/systems/HitEffectSystem.cpp
-    src/ecs/systems/AISystem.cpp    src/ecs/systems/ScrollingSystem.cpp
     src/core/event/EventBus.cpp
     src/plugin_manager/PluginManager.cpp
 )
 
-target_include_directories(rtype_engine
+target_include_directories(game_engine
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
 # Link system libraries for dynamic loading
 if(WIN32)
-    target_link_libraries(rtype_engine PUBLIC)
+    target_link_libraries(game_engine PUBLIC)
 else()
-    target_link_libraries(rtype_engine PUBLIC ${CMAKE_DL_LIBS})
+    target_link_libraries(game_engine PUBLIC ${CMAKE_DL_LIBS})
 endif()
 
 # ============================================

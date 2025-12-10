@@ -7,7 +7,7 @@
 
 #include <gtest/gtest.h>
 #include "ecs/Registry.hpp"
-#include "ecs/Components.hpp"
+#include "components/GameComponents.hpp"
 #include "ecs/systems/MovementSystem.hpp"
 #include <cmath>
 

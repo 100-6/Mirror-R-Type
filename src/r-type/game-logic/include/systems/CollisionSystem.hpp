@@ -8,7 +8,7 @@
 #ifndef COLLISIONSYSTEM_HPP_
 #define COLLISIONSYSTEM_HPP_
 #include "ecs/Registry.hpp"
-#include "ecs/Components.hpp"
+#include "ecs/CoreComponents.hpp"
 #include "ecs/systems/ISystem.hpp"
 
 class CollisionSystem : public ISystem {

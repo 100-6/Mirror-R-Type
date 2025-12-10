@@ -5,8 +5,8 @@
 ** HitEffectSystem
 */
 
-#include "ecs/systems/HitEffectSystem.hpp"
-#include "ecs/Components.hpp"
+#include "systems/HitEffectSystem.hpp"
+#include "components/GameComponents.hpp"
 #include "ecs/events/InputEvents.hpp"
 #include <iostream>
 
@@ -16,12 +16,10 @@ void HitEffectSystem::init(Registry& registry)
 
     auto& eventBus = registry.get_event_bus();
 
-    // S'abonner aux dégâts pour déclencher l'effet visuel
     damageSubId_ = eventBus.subscribe<ecs::DamageEvent>(
         [&registry](const ecs::DamageEvent& event) {
             auto& sprites = registry.get_components<Sprite>();
             
-            // Si l'entité n'a pas de sprite, pas d'effet visuel
             if (!sprites.has_entity(event.target))
                 return;
 
@@ -29,12 +27,10 @@ void HitEffectSystem::init(Registry& registry)
             auto& flashes = registry.get_components<HitFlash>();
 
             if (flashes.has_entity(event.target)) {
-                // Déjà en train de flasher, on reset le timer
                 flashes[event.target].time_remaining = 0.1f;
             } else {
-                // Commence à flasher : sauvegarde couleur et applique rouge
                 registry.add_component(event.target, HitFlash{0.1f, sprite.tint});
-                sprite.tint = engine::Color{255, 0, 0, 255}; // Rouge
+                sprite.tint = engine::Color{255, 0, 0, 255};
             }
         }
     );
@@ -58,10 +54,8 @@ void HitEffectSystem::update(Registry& registry, float dt)
             flash.time_remaining -= dt;
 
             if (flash.time_remaining <= 0.0f) {
-                // Fin de l'effet
-                if (sprites.has_entity(entity)) {
+                if (sprites.has_entity(entity))
                     sprites[entity].tint = flash.original_color;
-                }
                 registry.remove_component<HitFlash>(entity);
             }
         }

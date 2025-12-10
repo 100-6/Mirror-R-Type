@@ -6,8 +6,9 @@
 */
 
 #include "ecs/systems/InputSystem.hpp"
-#include "ecs/Components.hpp"
+#include "ecs/CoreComponents.hpp"
 #include "ecs/events/InputEvents.hpp"
+#include "plugin_manager/KeyConfig.hpp"
 #include <iostream>
 
 InputSystem::InputSystem(engine::IInputPlugin& plugin)
@@ -32,43 +33,27 @@ void InputSystem::update(Registry& registry, float dt)
     auto& eventBus = registry.get_event_bus();
     auto& inputs = registry.get_components<Input>();
 
+    static std::unordered_map<Entity, std::unordered_map<engine::Key, bool>> previousStates;
+
     for (size_t i = 0; i < inputs.size(); i++) {
         Entity entity = inputs.get_entity_at(i);
 
         if (!inputs.has_entity(entity))
             continue;
 
-        auto& input = inputs[entity];
+        auto& prevState = previousStates[entity];
 
-        // Capturer l'état des touches
-        input.up = input_plugin.is_key_pressed(engine::Key::W) ||
-                   input_plugin.is_key_pressed(engine::Key::Up);
-        input.down = input_plugin.is_key_pressed(engine::Key::S) ||
-                     input_plugin.is_key_pressed(engine::Key::Down);
-        input.left = input_plugin.is_key_pressed(engine::Key::A) ||
-                     input_plugin.is_key_pressed(engine::Key::Left);
-        input.right = input_plugin.is_key_pressed(engine::Key::D) ||
-                      input_plugin.is_key_pressed(engine::Key::Right);
-        input.fire = input_plugin.is_key_pressed(engine::Key::Space);
-        input.special = input_plugin.is_key_just_pressed(engine::Key::LShift) ||
-                        input_plugin.is_key_just_pressed(engine::Key::RShift);
+        for (const auto& key : engine::KeyConfig::ALL_KEYS) {
+            bool isPressed = input_plugin.is_key_pressed(key);
+            bool wasPressed = prevState[key];
 
-        // Publier les événements pour les autres systèmes
-        float dirX = 0.0f;
-        float dirY = 0.0f;
+            if (isPressed && !wasPressed)
+                eventBus.publish(ecs::RawKeyPressedEvent{entity, key});
+            else if (!isPressed && wasPressed)
+                eventBus.publish(ecs::RawKeyReleasedEvent{entity, key});
 
-        if (input.up) dirY -= 1.0f;
-        if (input.down) dirY += 1.0f;
-        if (input.left) dirX -= 1.0f;
-        if (input.right) dirX += 1.0f;
-
-        eventBus.publish(ecs::PlayerMoveEvent{entity, dirX, dirY});
-
-        if (input.fire)
-            eventBus.publish(ecs::PlayerFireEvent{entity});
-
-        if (input.special)
-            eventBus.publish(ecs::PlayerSpecialEvent{entity});
+            prevState[key] = isPressed;
+        }
     }
 
     input_plugin.update();

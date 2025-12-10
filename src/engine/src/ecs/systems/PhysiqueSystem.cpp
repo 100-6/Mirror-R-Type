@@ -23,7 +23,7 @@ void PhysiqueSystem::update(Registry& registry, float dt)
     auto& positions = registry.get_components<Position>();
     auto& velocitys = registry.get_components<Velocity>();
     auto& controllables = registry.get_components<Controllable>();
-    auto& projectiles = registry.get_components<Projectile>();
+    auto& noFrictions = registry.get_components<NoFriction>();
 
     for (size_t i = 0; i < velocitys.size(); i++)
     {
@@ -38,8 +38,8 @@ void PhysiqueSystem::update(Registry& registry, float dt)
         pos.x += vel.x * dt;
         pos.y += vel.y * dt;
 
-        //FRICTION : Appliquer uniquement aux entités qui ne sont PAS des projectiles
-        if (!projectiles.has_entity(entity)){
+        //FRICTION : Appliquer uniquement aux entités qui n'ont PAS le tag NoFriction
+        if (!noFrictions.has_entity(entity)){
             vel.x *= 0.98f;
             vel.y *= 0.98f;
         }

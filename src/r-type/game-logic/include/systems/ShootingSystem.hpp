@@ -9,7 +9,7 @@
 #define SHOOTINGSYSTEM_HPP_
 
 #include "ecs/systems/ISystem.hpp"
-#include "ecs/Components.hpp"
+#include "components/GameComponents.hpp"
 #include "ecs/Registry.hpp"
 #include "core/event/EventBus.hpp"
 #include "plugin_manager/IGraphicsPlugin.hpp"
@@ -18,9 +18,7 @@ class ShootingSystem : public ISystem {
     private:
         core::EventBus::SubscriptionId fireSubId_;
 
-        void createBasicProjectile(Registry& registry, Entity shooter, const Weapon& weapon, const Position& shooterPos, float shooterHeight);
-        void createSpreadProjectiles(Registry& registry, Entity shooter, const Weapon& weapon, const Position& shooterPos, float shooterHeight);
-        void createBurstProjectiles(Registry& registry, Entity shooter, Weapon& weapon, const Position& shooterPos, float shooterHeight);
+        void createProjectiles(Registry& registry, Entity shooter, Weapon& weapon, const Position& shooterPos, float shooterHeight);
 
     public:
         ShootingSystem() = default;

@@ -6,7 +6,7 @@
 */
 
 #include "ecs/Registry.hpp"
-#include "ecs/Components.hpp"
+#include "components/GameComponents.hpp"
 #include "ecs/systems/InputSystem.hpp"
 #include "plugins/input/raylib/RaylibInputPlugin.hpp"
 #include <raylib.h>

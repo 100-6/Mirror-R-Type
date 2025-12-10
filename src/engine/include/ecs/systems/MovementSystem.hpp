@@ -9,7 +9,7 @@
 #define MOVEMENTSYSTEM_HPP_
 
 #include "ecs/systems/ISystem.hpp"
-#include "ecs/Components.hpp"
+#include "ecs/CoreComponents.hpp"
 #include "ecs/Registry.hpp"
 #include "core/event/EventBus.hpp"
 

@@ -7,22 +7,23 @@
 
 #include <iostream>
 #include "ecs/Registry.hpp"
-#include "ecs/Components.hpp"
+#include "components/GameComponents.hpp"
 #include "cmath"
 #include "ecs/systems/InputSystem.hpp"
+#include "systems/PlayerInputSystem.hpp"
 #include "ecs/systems/MovementSystem.hpp"
-#include "ecs/systems/ShootingSystem.hpp"
+#include "systems/ShootingSystem.hpp"
 #include "ecs/systems/PhysiqueSystem.hpp"
-#include "ecs/systems/ScrollingSystem.hpp"
-#include "ecs/systems/CollisionSystem.hpp"
+#include "systems/ScrollingSystem.hpp"
+#include "systems/CollisionSystem.hpp"
 #include "ecs/systems/DestroySystem.hpp"
 #include "ecs/systems/RenderSystem.hpp"
-#include "ecs/systems/ScoreSystem.hpp"
+#include "systems/ScoreSystem.hpp"
 
 #include "ecs/systems/AudioSystem.hpp"
-#include "ecs/systems/HealthSystem.hpp"
-#include "ecs/systems/HitEffectSystem.hpp"
-#include "ecs/systems/AISystem.hpp"
+#include "systems/HealthSystem.hpp"
+#include "systems/HitEffectSystem.hpp"
+#include "systems/AISystem.hpp"
 #include "plugin_manager/PluginManager.hpp"
 #include "plugin_manager/IInputPlugin.hpp"
 #include "plugin_manager/IAudioPlugin.hpp"
@@ -167,7 +168,6 @@ int main() {
     registry.register_component<Controllable>();
     registry.register_component<Enemy>();
     registry.register_component<Projectile>();
-    registry.register_component<EnemyProjectile>();
     registry.register_component<Wall>();
     registry.register_component<Health>();
     registry.register_component<HitFlash>();
@@ -178,8 +178,8 @@ int main() {
     registry.register_component<Background>();
     registry.register_component<Invulnerability>();
     registry.register_component<AI>();
-    registry.register_component<IsEnemyProjectile>();
     registry.register_component<Scrollable>();
+    registry.register_component<NoFriction>(); // Add NoFriction registration
 
     std::cout << "✓ Composants enregistres" << std::endl;
 
@@ -188,7 +188,8 @@ int main() {
     // ==
 
     // Enregistrer les systèmes dans l'ordre d'exécution
-    registry.register_system<InputSystem>(*inputPlugin);
+    registry.register_system<InputSystem>(*inputPlugin);        // 1. Read raw keys from plugin
+    registry.register_system<PlayerInputSystem>();              // 2. Interpret keys for R-Type
     registry.register_system<MovementSystem>();
     registry.register_system<ShootingSystem>();
     registry.register_system<PhysiqueSystem>();
@@ -205,8 +206,9 @@ int main() {
     registry.register_system<RenderSystem>(*graphicsPlugin);
 
     std::cout << "✓ Systemes enregistres :" << std::endl;
-    std::cout << "  1. InputSystem    - Capture les inputs et publie des evenements" << std::endl;
-    std::cout << "  2. MovementSystem - Ecoute les evenements de mouvement et met a jour la velocite" << std::endl;
+    std::cout << "  1. InputSystem       - Capture raw key states from plugin" << std::endl;
+    std::cout << "  2. PlayerInputSystem - Interpret keys for R-Type actions" << std::endl;
+    std::cout << "  3. MovementSystem    - Listen to movement events and update velocity" << std::endl;
     std::cout << "  3. ShootingSystem - Ecoute les evenements de tir et cree des projectiles" << std::endl;
     std::cout << "  4. PhysiqueSystem - Applique la velocite, friction, limites d'ecran" << std::endl;
     std::cout << "  5. CollisionSystem- Gere les collisions et marque les entites a detruire" << std::endl;
@@ -285,20 +287,17 @@ int main() {
         1                   // layer
     });
 
-    // ARME SIMPLE - Tire 1 projectile vers l'avant
+    // ARME - Les stats sont dans CombatConfig.hpp (defines)
     registry.add_component(player, Weapon{
-        WeaponType::BASIC,  // Type d'arme
-        1,                   // 1 projectile par tir
-        0.0f,                // Pas d'éventail
-        450.0f,              // Vitesse des projectiles
-        0.3f,                // Cadence de tir : 0.3s entre chaque tir
-        999.0f,              // Temps depuis dernier tir (commence prêt à tirer)
-        Sprite{              // Apparence des projectiles
+        WeaponType::BASIC,           // Type: BASIC/SPREAD/BURST/LASER
+        999.0f,                      // Temps depuis dernier tir
+        0,                           // Compteur de rafale
+        Sprite{                      // Apparence des projectiles
             bulletTex,
             bulletWidth,
             bulletHeight,
             0.0f,
-            engine::Color{255, 100, 255, 255},  // Couleur violette
+            engine::Color{255, 100, 255, 255},
             0.0f,
             0.0f,
             1

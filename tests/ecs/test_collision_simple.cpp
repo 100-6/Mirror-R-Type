@@ -1,6 +1,6 @@
 #include "ecs/Registry.hpp"
-#include "ecs/Components.hpp"
-#include "ecs/systems/CollisionSystem.hpp"
+#include "components/GameComponents.hpp"
+#include "systems/CollisionSystem.hpp"
 #include <iostream>
 #include <cmath>
 

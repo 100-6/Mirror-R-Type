@@ -8,7 +8,7 @@
 #pragma once
 
 #include "core/event/Event.hpp"
-#include "ecs/Components.hpp" // For Entity
+#include "ecs/CoreComponents.hpp" // For Entity
 
 namespace ecs {
 

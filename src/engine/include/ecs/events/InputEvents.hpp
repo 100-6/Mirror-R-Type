@@ -8,9 +8,46 @@
 #pragma once
 
 #include "core/event/Event.hpp"
-#include "ecs/Components.hpp"
+#include "ecs/CoreComponents.hpp"
+#include "plugin_manager/IInputPlugin.hpp"
 
 namespace ecs {
+
+// ========== RAW INPUT EVENTS (Generic, published by InputSystem) ==========
+
+/**
+ * @brief Raw event fired when any key is pressed (generic, no game logic)
+ */
+struct RawKeyPressedEvent : public core::Event {
+    Entity entity;           // Entity with Input component
+    engine::Key key;         // Which key was pressed
+
+    RawKeyPressedEvent(Entity e, engine::Key k) : entity(e), key(k) {}
+};
+
+/**
+ * @brief Raw event fired when any key is released (generic, no game logic)
+ */
+struct RawKeyReleasedEvent : public core::Event {
+    Entity entity;
+    engine::Key key;
+
+    RawKeyReleasedEvent(Entity e, engine::Key k) : entity(e), key(k) {}
+};
+
+/**
+ * @brief Raw event for mouse button press
+ */
+struct RawMouseButtonPressedEvent : public core::Event {
+    Entity entity;
+    engine::MouseButton button;
+    engine::Vector2f position;
+
+    RawMouseButtonPressedEvent(Entity e, engine::MouseButton b, engine::Vector2f pos)
+        : entity(e), button(b), position(pos) {}
+};
+
+// ========== GAME-SPECIFIC EVENTS (R-Type specific, published by PlayerInputSystem) ==========
 
 /**
  * @brief Event fired when a player wants to move

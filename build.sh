@@ -97,7 +97,7 @@ case "$CMD" in
             cmake -S . -B "$BUILD_DIR" -DBUILD_TESTS="$BUILD_TESTS" -DCMAKE_TOOLCHAIN_FILE="$VCPKG_DIR/scripts/buildsystems/vcpkg.cmake"
         fi
         echo "Building (incremental)..."
-        cmake --build "$BUILD_DIR"
+        cmake --build "$BUILD_DIR" -j$(nproc)
         echo "✓ Build completed"
         exit 0
         ;;
@@ -119,6 +119,6 @@ echo "Configuring CMake..."
 cmake -S . -B "$BUILD_DIR" -DBUILD_TESTS="$BUILD_TESTS" -DCMAKE_TOOLCHAIN_FILE="$VCPKG_DIR/scripts/buildsystems/vcpkg.cmake"
 
 echo "Building..."
-cmake --build "$BUILD_DIR"
+cmake --build "$BUILD_DIR" -j$(nproc)
 
 echo "✓ Build completed successfully"
