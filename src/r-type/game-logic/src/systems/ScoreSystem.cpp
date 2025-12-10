@@ -22,7 +22,6 @@ void ScoreSystem::init(Registry& registry)
         [&registry](const ecs::EnemyKilledEvent& event) {
             auto& scores = registry.get_components<Score>();
 
-            // Ajouter le score à toutes les entités avec un composant Score (les joueurs)
             for (size_t i = 0; i < scores.size(); i++) {
                 Entity entity = scores.get_entity_at(i);
                 Score& score = scores[entity];

@@ -38,20 +38,17 @@ struct Scrollable {
 // Combat
 
 enum class WeaponType {
-    BASIC,      // 1 projectile, tout droit
-    SPREAD,     // Plusieurs projectiles en éventail
-    BURST,      // Rafale rapide
-    LASER       // Ligne continue (futur)
+    BASIC,
+    SPREAD,
+    BURST,
+    LASER
 };
 
 struct Weapon {
     WeaponType type = WeaponType::BASIC;
-    int projectile_count = 1;              // Nombre de projectiles par tir
-    float spread_angle = 0.0f;             // Angle d'écart total en degrés
-    float projectile_speed = 400.0f;       // Vitesse des projectiles
-    float fire_rate = 0.5f;                // Cooldown entre chaque tir (secondes)
-    float time_since_last_fire = 999.0f;   // Temps écoulé depuis le dernier tir
-    Sprite projectile_sprite;              // Apparence du projectile à créer
+    float time_since_last_fire = 999.0f;
+    int burst_count = 0;
+    Sprite projectile_sprite;
 };
 
 struct FireRate {
@@ -63,14 +60,18 @@ struct FireRate {
 
 struct Enemy {};
 
+enum class ProjectileFaction {
+    Player,
+    Enemy
+};
+
 struct Projectile {
     float angle = 0.0f;
     float lifetime = 5.0f;
     float time_alive = 0.0f;
+    ProjectileFaction faction = ProjectileFaction::Player;
 };
 
-struct EnemyProjectile {};  // Projectile tiré par un ennemi
-struct IsEnemyProjectile {};  // Alias pour AISystem (Legacy support or fix later)
 struct Wall {};
 struct Background {};
 

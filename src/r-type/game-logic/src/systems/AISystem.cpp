@@ -6,6 +6,7 @@
 */
 
 #include "systems/AISystem.hpp"
+#include "components/CombatHelpers.hpp"
 #include "ecs/events/GameEvents.hpp"
 #include <iostream>
 #include <cmath>
@@ -124,34 +125,28 @@ void AISystem::spawnEnemy(Registry& registry, EnemyType type)
 {
     Entity e = registry.spawn_entity();
     
-    // Default stats
-    float speed = 100.0f;
-    int health = 50;
+    // Default stats coming from config
+    float detection = ENEMY_BASIC_DETECTION;
+    float cooldown = ENEMY_BASIC_SHOOT_COOLDOWN;
+    float speed = ENEMY_BASIC_SPEED;
+    int health = ENEMY_BASIC_HEALTH;
+    get_enemy_stats(type, detection, cooldown, speed, health);
+
     engine::TextureHandle tex = basicEnemyTex_;
     engine::Color tint = engine::Color::White;
-    float cooldown = 2.0f;
 
     switch (type) {
         case EnemyType::Basic:
-            speed = 100.0f;
-            health = 30;
             tex = basicEnemyTex_;
             tint = engine::Color{200, 200, 200, 255}; // Light Grey
-            cooldown = 2.0f;
             break;
         case EnemyType::Fast:
-            speed = 250.0f;
-            health = 20;
             tex = fastEnemyTex_;
             tint = engine::Color{255, 100, 100, 255}; // Reddish
-            cooldown = 1.0f;
             break;
         case EnemyType::Tank:
-            speed = 50.0f;
-            health = 100;
             tex = tankEnemyTex_;
             tint = engine::Color{100, 100, 255, 255}; // Blueish
-            cooldown = 3.0f;
             break;
         default: break;
     }
@@ -166,7 +161,7 @@ void AISystem::spawnEnemy(Registry& registry, EnemyType type)
     registry.add_component(e, Sprite{tex, size.x, size.y, 0.0f, tint, 0.0f, 0.0f, 0});
     registry.add_component(e, Collider{size.x, size.y});
     registry.add_component(e, Enemy{});
-    registry.add_component(e, AI{type, 800.0f, cooldown, 0.0f, speed});
+    registry.add_component(e, AI{type, detection, cooldown, 0.0f, speed});
     registry.add_component(e, Health{health, health});
     registry.add_component(e, Score{type == EnemyType::Tank ? 300 : (type == EnemyType::Fast ? 200 : 100)});
 }
@@ -282,9 +277,8 @@ void AISystem::updateEnemyBehavior(Registry& registry, float dt)
                      registry.add_component(bullet, Velocity{-400.0f, vy_offset}); // Shoot left with optional Y spread
                      registry.add_component(bullet, Sprite{bulletTex_, bulletSize.x, bulletSize.y, 0.0f, engine::Color{255, 100, 100, 255}}); 
                      registry.add_component(bullet, Collider{bulletSize.x, bulletSize.y});
-                     registry.add_component(bullet, Projectile{});
+                     registry.add_component(bullet, Projectile{180.0f, 5.0f, 0.0f, ProjectileFaction::Enemy});
                      registry.add_component(bullet, NoFriction{});
-                     registry.add_component(bullet, IsEnemyProjectile{});
                  };
 
                  createBullet(0.0f); // Center bullet

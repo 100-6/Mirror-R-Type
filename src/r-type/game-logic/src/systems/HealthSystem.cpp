@@ -42,17 +42,15 @@ void HealthSystem::init(Registry& registry)
 
                 registry.get_event_bus().publish(ecs::EntityDeathEvent{event.target, isPlayer});
 
-                if (isEnemy) {
+                if (isEnemy)
                     registry.get_event_bus().publish(ecs::EnemyKilledEvent{event.target, 100});
-                }
 
                 registry.add_component(event.target, ToDestroy{});
 
-                if (isPlayer) {
+                if (isPlayer)
                     std::cout << "GAME OVER! Player died!" << std::endl;
-                } else if (isEnemy) {
+                else if (isEnemy)
                     std::cout << "Enemy " << event.target << " destroyed!" << std::endl;
-                }
             }
         }
     );

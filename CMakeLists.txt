@@ -63,18 +63,11 @@ foreach(CONFIG_TYPE Debug Release RelWithDebInfo MinSizeRel)
     set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_${CONFIG_TYPE_UPPER} ${CMAKE_BINARY_DIR})
 endforeach()
 
-# Copy assets directory to build directory
-add_custom_target(copy_assets ALL
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_SOURCE_DIR}/assets
-        ${CMAKE_BINARY_DIR}/assets
-    COMMENT "Copying assets to build directory"
-)
-
+# Add game engine (shared/reusable)
 add_subdirectory(src/engine)
-add_subdirectory(src/game)
-add_subdirectory(src/client)
-add_subdirectory(src/server)
+
+# Add R-Type game
+add_subdirectory(src/r-type)
 
 if (BUILD_TESTS)
     add_subdirectory(tests)

@@ -9,6 +9,8 @@
 #define CORE_COMPONENTS_HPP_
 
 #include "plugin_manager/CommonTypes.hpp"
+#include "plugin_manager/IInputPlugin.hpp"
+#include <unordered_map>
 
 // Physique et Mouvement 
 
@@ -32,12 +34,7 @@ struct Collider {
 // Input
 
 struct Input {
-    bool up = false;
-    bool down = false;
-    bool left = false;
-    bool right = false;
-    bool fire = false;        // Tirer (Espace ou clic gauche)
-    bool special = false;     // Action spéciale (Shift)
+    int playerId = 0;
 };
 
 // Rendu

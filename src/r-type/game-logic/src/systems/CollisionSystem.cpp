@@ -14,9 +14,8 @@ bool CollisionSystem::check_collision(const Position& pos1, const Position& pos2
     const Collider& col1, const Collider& col2)
     {
         // Ignore colliders with zero size
-        if (col1.width <= 0 || col1.height <= 0 || col2.width <= 0 || col2.height <= 0) {
+        if (col1.width <= 0 || col1.height <= 0 || col2.width <= 0 || col2.height <= 0)
             return false;
-        }
 
         float left1 = pos1.x;
         float right1 = pos1.x + col1.width;
@@ -51,20 +50,20 @@ void CollisionSystem::update(Registry& registry, float dt)
     for (size_t i = 0; i < invulnerabilities.size(); i++) {
         Entity entity = invulnerabilities.get_entity_at(i);
         auto& invul = invulnerabilities[entity];
-        if (invul.time_remaining > 0.0f) {
+        if (invul.time_remaining > 0.0f)
             invul.time_remaining -= dt;
-        }
     }
 
-auto& damages = registry.get_components<Damage>();
+    auto& damages = registry.get_components<Damage>();
+    auto& projectiles = registry.get_components<Projectile>();
 
     // Collision Projectile (joueur) vs Enemy : Applique les dégâts à l'ennemi
-    scan_collisions<Projectile, Enemy>(registry, [&registry, &damages](Entity bullet, Entity enemy) {
-        // Ignore friendly fire (Enemy bullet vs Enemy)
-        auto& enemyProjectiles = registry.get_components<IsEnemyProjectile>();
-        if (enemyProjectiles.has_entity(bullet)) {
+    scan_collisions<Projectile, Enemy>(registry, [&registry, &damages, &projectiles](Entity bullet, Entity enemy) {
+        if (!projectiles.has_entity(bullet))
             return;
-        }
+
+        if (projectiles[bullet].faction != ProjectileFaction::Player)
+            return;
 
         registry.add_component(bullet, ToDestroy{});
 
@@ -72,16 +71,14 @@ auto& damages = registry.get_components<Damage>();
         registry.get_event_bus().publish(ecs::DamageEvent{enemy, bullet, dmg});
     });
 
-    // Collision EnemyProjectile vs Player : Applique les dégâts au joueur
-    scan_collisions<EnemyProjectile, Controllable>(registry, [&registry, &damages](Entity bullet, Entity player) {
-        registry.add_component(bullet, ToDestroy{});
+    // Collision Projectile (ennemi) vs Player : Applique les dégâts au joueur
+    scan_collisions<Projectile, Controllable>(registry, [&registry, &damages, &projectiles](Entity bullet, Entity player) {
+        if (!projectiles.has_entity(bullet))
+            return;
 
-        int dmg = damages.has_entity(bullet) ? damages[bullet].value : 10;
-        registry.get_event_bus().publish(ecs::DamageEvent{player, bullet, dmg});
-    });
+        if (projectiles[bullet].faction != ProjectileFaction::Enemy)
+            return;
 
-    // Collision IsEnemyProjectile vs Player : Applique les dégâts au joueur (AISystem)
-    scan_collisions<IsEnemyProjectile, Controllable>(registry, [&registry, &damages](Entity bullet, Entity player) {
         registry.add_component(bullet, ToDestroy{});
 
         int dmg = damages.has_entity(bullet) ? damages[bullet].value : 10;
@@ -94,12 +91,6 @@ auto& damages = registry.get_components<Damage>();
         registry.add_component(bullet, ToDestroy{});
     });
 
-    // Collision EnemyProjectile vs Wall : Marque le projectile pour destruction
-    scan_collisions<EnemyProjectile, Wall>(registry, [&registry](Entity bullet, Entity wall) {
-        (void)wall;
-        registry.add_component(bullet, ToDestroy{});
-    });
-
     // Collision Player (Controllable) vs Enemy : Publie PlayerHitEvent
     scan_collisions<Controllable, Enemy>(registry, [&registry](Entity player, Entity enemy) {
         (void)enemy;
@@ -107,14 +98,11 @@ auto& damages = registry.get_components<Damage>();
         auto& invulnerabilities = registry.get_components<Invulnerability>();
         if (invulnerabilities.has_entity(player)) {
             auto& invul = invulnerabilities[player];
-            if (invul.time_remaining > 0.0f) {
-                return; // Player is invulnerable
-            }
-            // Set invulnerability cooldown
+            if (invul.time_remaining > 0.0f)
+                return;
             invul.time_remaining = 3.0f;
         }
 
-        // Publier l'événement PlayerHitEvent
         registry.get_event_bus().publish(ecs::PlayerHitEvent{player, enemy});
     });
 
