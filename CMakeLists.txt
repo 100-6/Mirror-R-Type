@@ -72,14 +72,9 @@ add_custom_target(copy_assets ALL
 )
 
 add_subdirectory(src/engine)
-
-if (BUILD_SERVER)
-    add_subdirectory(src/server)
-endif()
-
-if (BUILD_CLIENT)
-    add_subdirectory(src/client)
-endif()
+add_subdirectory(src/game)
+add_subdirectory(src/client)
+add_subdirectory(src/server)
 
 if (BUILD_TESTS)
     add_subdirectory(tests)

@@ -16,6 +16,7 @@ endif()
 
 # Include engine headers
 include_directories(${CMAKE_SOURCE_DIR}/src/engine/include)
+include_directories(${CMAKE_SOURCE_DIR}/src/game/include)
 
 if(GTest_FOUND)
     # Test EventBus
@@ -69,6 +70,7 @@ if(GTest_FOUND)
     target_link_libraries(test_collision_system
         PRIVATE
             rtype_engine
+            rtype_game
             ${GTEST_LIBRARIES}
             ${GTEST_MAIN_LIBRARIES}
             Threads::Threads
@@ -125,6 +127,7 @@ if(GTest_FOUND)
     target_link_libraries(test_shooting_system
         PRIVATE
             rtype_engine
+            rtype_game
             ${GTEST_LIBRARIES}
             ${GTEST_MAIN_LIBRARIES}
             Threads::Threads
@@ -219,6 +222,7 @@ if(GTest_FOUND)
     target_link_libraries(test_collision_simple_gtest
         PRIVATE
             rtype_engine
+            rtype_game
             ${GTEST_LIBRARIES}
             ${GTEST_MAIN_LIBRARIES}
             Threads::Threads
@@ -247,6 +251,7 @@ if(GTest_FOUND)
     target_link_libraries(test_shooting_collision_gtest
         PRIVATE
             rtype_engine
+            rtype_game
             ${GTEST_LIBRARIES}
             ${GTEST_MAIN_LIBRARIES}
             Threads::Threads

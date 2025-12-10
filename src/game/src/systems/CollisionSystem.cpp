@@ -5,7 +5,8 @@
 ** CollisionSystem
 */
 
-#include "ecs/systems/CollisionSystem.hpp"
+#include "systems/CollisionSystem.hpp"
+#include "components/GameComponents.hpp"
 #include "ecs/events/InputEvents.hpp"
 #include "ecs/events/GameEvents.hpp"
 

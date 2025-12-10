@@ -5,8 +5,8 @@
 ** ScoreSystem
 */
 
-#include "ecs/systems/ScoreSystem.hpp"
-#include "ecs/Components.hpp"
+#include "systems/ScoreSystem.hpp"
+#include "components/GameComponents.hpp"
 #include "ecs/Registry.hpp"
 #include "ecs/events/InputEvents.hpp"
 #include <iostream>

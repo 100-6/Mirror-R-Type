@@ -10,7 +10,7 @@
 
 #include "plugin_manager/IInputPlugin.hpp"
 #include "ecs/Registry.hpp"
-#include "ecs/Components.hpp"
+#include "ecs/CoreComponents.hpp"
 #include <raylib.h>
 #include <unordered_map>
 

@@ -5,8 +5,8 @@
 ** HitEffectSystem
 */
 
-#include "ecs/systems/HitEffectSystem.hpp"
-#include "ecs/Components.hpp"
+#include "systems/HitEffectSystem.hpp"
+#include "components/GameComponents.hpp"
 #include "ecs/events/InputEvents.hpp"
 #include <iostream>
 

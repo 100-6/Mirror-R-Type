@@ -9,7 +9,7 @@
 #define SHOOTINGSYSTEM_HPP_
 
 #include "ecs/systems/ISystem.hpp"
-#include "ecs/Components.hpp"
+#include "components/GameComponents.hpp"
 #include "ecs/Registry.hpp"
 #include "core/event/EventBus.hpp"
 #include "plugin_manager/IGraphicsPlugin.hpp"

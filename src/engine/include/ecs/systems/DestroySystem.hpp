@@ -8,7 +8,7 @@
 #ifndef DESTROYSYSTEM_HPP_
 #define DESTROYSYSTEM_HPP_
 #include "ecs/Registry.hpp"
-#include "ecs/Components.hpp"
+#include "ecs/CoreComponents.hpp"
 #include "ecs/systems/ISystem.hpp"
 
 class DestroySystem : public ISystem {

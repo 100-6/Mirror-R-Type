@@ -2,19 +2,13 @@
 add_library(rtype_engine
     src/ecs/SparseSet.cpp
     src/ecs/Registry.cpp
-    src/ecs/systems/CollisionSystem.cpp
     src/ecs/systems/MovementSystem.cpp
     src/ecs/systems/PhysiqueSystem.cpp
     src/ecs/systems/InputSystem.cpp
-    src/ecs/systems/ShootingSystem.cpp
     src/ecs/systems/RenderSystem.cpp
     src/ecs/systems/NetworkSystem.cpp
     src/ecs/systems/DestroySystem.cpp
-    src/ecs/systems/ScoreSystem.cpp
     src/ecs/systems/AudioSystem.cpp
-    src/ecs/systems/HealthSystem.cpp
-    src/ecs/systems/HitEffectSystem.cpp
-    src/ecs/systems/AISystem.cpp    src/ecs/systems/ScrollingSystem.cpp
     src/core/event/EventBus.cpp
     src/plugin_manager/PluginManager.cpp
 )

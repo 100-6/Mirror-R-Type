@@ -6,7 +6,7 @@
 */
 
 #include "ecs/systems/NetworkSystem.hpp"
-#include "ecs/Components.hpp"
+#include "ecs/CoreComponents.hpp"
 #include <iostream>
 
 NetworkSystem::NetworkSystem(engine::INetworkPlugin& plugin, bool server_mode, uint16_t port)

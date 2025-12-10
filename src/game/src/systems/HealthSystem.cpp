@@ -5,8 +5,8 @@
 ** HealthSystem
 */
 
-#include "ecs/systems/HealthSystem.hpp"
-#include "ecs/Components.hpp"
+#include "systems/HealthSystem.hpp"
+#include "components/GameComponents.hpp"
 #include "ecs/Registry.hpp"
 #include "ecs/events/InputEvents.hpp"
 #include <iostream>

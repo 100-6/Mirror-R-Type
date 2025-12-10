@@ -7,8 +7,8 @@
 
 #include <gtest/gtest.h>
 #include "ecs/Registry.hpp"
-#include "ecs/Components.hpp"
-#include "ecs/systems/ShootingSystem.hpp"
+#include "components/GameComponents.hpp"
+#include "systems/ShootingSystem.hpp"
 #include "ecs/events/InputEvents.hpp"
 #include <cmath>
 

@@ -7,7 +7,7 @@
 
 #include <gtest/gtest.h>
 #include "ecs/Registry.hpp"
-#include "ecs/Components.hpp"
+#include "components/GameComponents.hpp"
 #include "plugin_manager/PluginManager.hpp"
 #include "plugin_manager/IInputPlugin.hpp"
 

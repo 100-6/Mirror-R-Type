@@ -8,7 +8,7 @@
 #pragma once
 
 #include "core/event/Event.hpp"
-#include "ecs/Components.hpp"
+#include "ecs/CoreComponents.hpp"
 
 namespace ecs {
 

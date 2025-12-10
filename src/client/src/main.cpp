@@ -7,22 +7,22 @@
 
 #include <iostream>
 #include "ecs/Registry.hpp"
-#include "ecs/Components.hpp"
+#include "components/GameComponents.hpp"
 #include "cmath"
 #include "ecs/systems/InputSystem.hpp"
 #include "ecs/systems/MovementSystem.hpp"
-#include "ecs/systems/ShootingSystem.hpp"
+#include "systems/ShootingSystem.hpp"
 #include "ecs/systems/PhysiqueSystem.hpp"
-#include "ecs/systems/ScrollingSystem.hpp"
-#include "ecs/systems/CollisionSystem.hpp"
+#include "systems/ScrollingSystem.hpp"
+#include "systems/CollisionSystem.hpp"
 #include "ecs/systems/DestroySystem.hpp"
 #include "ecs/systems/RenderSystem.hpp"
-#include "ecs/systems/ScoreSystem.hpp"
+#include "systems/ScoreSystem.hpp"
 
 #include "ecs/systems/AudioSystem.hpp"
-#include "ecs/systems/HealthSystem.hpp"
-#include "ecs/systems/HitEffectSystem.hpp"
-#include "ecs/systems/AISystem.hpp"
+#include "systems/HealthSystem.hpp"
+#include "systems/HitEffectSystem.hpp"
+#include "systems/AISystem.hpp"
 #include "plugin_manager/PluginManager.hpp"
 #include "plugin_manager/IInputPlugin.hpp"
 #include "plugin_manager/IAudioPlugin.hpp"
@@ -180,6 +180,7 @@ int main() {
     registry.register_component<AI>();
     registry.register_component<IsEnemyProjectile>();
     registry.register_component<Scrollable>();
+    registry.register_component<NoFriction>(); // Add NoFriction registration
 
     std::cout << "✓ Composants enregistres" << std::endl;
 

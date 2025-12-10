@@ -1,4 +1,4 @@
-#include "ecs/systems/ScrollingSystem.hpp"
+#include "systems/ScrollingSystem.hpp"
 #include <iostream>
 
 void ScrollingSystem::init(Registry& registry)

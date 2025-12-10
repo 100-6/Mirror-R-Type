@@ -6,7 +6,7 @@
 */
 
 #include "ecs/systems/RenderSystem.hpp"
-#include "ecs/Components.hpp"
+#include "ecs/CoreComponents.hpp"
 #include <iostream>
 #include <vector>
 #include <algorithm>

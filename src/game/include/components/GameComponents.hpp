@@ -2,80 +2,13 @@
 ** EPITECH PROJECT, 2025
 ** Mirror-R-Type
 ** File description:
-** Component
+** GameComponents
 */
 
-#ifndef COMPONENT_HPP_
-#define COMPONENT_HPP_
-#include <iostream>
-#include "plugin_manager/CommonTypes.hpp"
+#ifndef GAME_COMPONENTS_HPP_
+#define GAME_COMPONENTS_HPP_
 
-// Physique et Mouvement 
-
-struct Position {
-    float x = 0.0f;
-    float y = 0.0f;
-};
-
-struct Velocity {
-    float x = 0.0f;
-    float y = 0.0f;
-};
-
-// Collision
-
-struct Collider {
-    float width = 0;
-    float height = 0;
-};
-
-struct Input {
-    bool up = false;
-    bool down = false;
-    bool left = false;
-    bool right = false;
-    bool fire = false;        // Tirer (Espace ou clic gauche)
-    bool special = false;     // Action spéciale (Shift)
-};
-
-// Rendu
-
-struct Sprite {
-    engine::TextureHandle texture = engine::INVALID_HANDLE;
-    float width = 0.0f;
-    float height = 0.0f;
-    float rotation = 0.0f;
-    engine::Color tint = engine::Color::White;
-
-    // Origin/Pivot pour centrer le sprite (par défaut coin supérieur gauche)
-    float origin_x = 0.0f;
-    float origin_y = 0.0f;
-
-    // Layer pour l'ordre de rendu (0=fond, plus élevé=premier plan)
-    int layer = 0;
-};
-
-struct HitFlash {
-    float time_remaining = 0.0f;
-    engine::Color original_color = engine::Color::White;
-};
-
-// Tags
-
-struct Controllable {
-    float speed = 200.0f;
-};
-struct Enemy {};
-struct Projectile {
-    float angle = 0.0f;
-    float lifetime = 5.0f;
-    float time_alive = 0.0f;
-};
-struct EnemyProjectile {};  // Projectile tiré par un ennemi
-struct IsEnemyProjectile {};  // Alias pour AISystem
-struct Wall {};
-struct ToDestroy {};
-struct Background {};
+#include "ecs/CoreComponents.hpp"
 
 // AI
 
@@ -126,7 +59,27 @@ struct FireRate {
     float time_since_last_fire = 999.0f;
 };
 
-// Logique de jeu
+// Tags Spécifiques R-Type
+
+struct Enemy {};
+
+struct Projectile {
+    float angle = 0.0f;
+    float lifetime = 5.0f;
+    float time_alive = 0.0f;
+};
+
+struct EnemyProjectile {};  // Projectile tiré par un ennemi
+struct IsEnemyProjectile {};  // Alias pour AISystem (Legacy support or fix later)
+struct Wall {};
+struct Background {};
+
+struct HitFlash {
+    float time_remaining = 0.0f;
+    engine::Color original_color = engine::Color::White;
+};
+
+// Logique de jeu (Stats)
 
 struct Health
 {
@@ -148,4 +101,4 @@ struct Score
     int value = 0;
 };
 
-#endif /* !COMPONENT_HPP_ */
+#endif /* !GAME_COMPONENTS_HPP_ */

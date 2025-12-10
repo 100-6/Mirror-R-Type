@@ -5,7 +5,7 @@
 ** AISystem
 */
 
-#include "ecs/systems/AISystem.hpp"
+#include "systems/AISystem.hpp"
 #include "ecs/events/GameEvents.hpp"
 #include <iostream>
 #include <cmath>
@@ -283,6 +283,7 @@ void AISystem::updateEnemyBehavior(Registry& registry, float dt)
                      registry.add_component(bullet, Sprite{bulletTex_, bulletSize.x, bulletSize.y, 0.0f, engine::Color{255, 100, 100, 255}}); 
                      registry.add_component(bullet, Collider{bulletSize.x, bulletSize.y});
                      registry.add_component(bullet, Projectile{});
+                     registry.add_component(bullet, NoFriction{});
                      registry.add_component(bullet, IsEnemyProjectile{});
                  };
 

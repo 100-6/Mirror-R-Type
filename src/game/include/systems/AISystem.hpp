@@ -8,9 +8,9 @@
 #ifndef AISYSTEM_HPP_
 #define AISYSTEM_HPP_
 
-#include "ISystem.hpp"
+#include "ecs/systems/ISystem.hpp"
 #include "ecs/Registry.hpp"
-#include "ecs/Components.hpp"
+#include "components/GameComponents.hpp"
 #include "plugin_manager/IGraphicsPlugin.hpp"
 #include <vector>
 

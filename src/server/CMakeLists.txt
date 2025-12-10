@@ -12,6 +12,7 @@ target_include_directories(r-type_server
 target_link_libraries(r-type_server
     PRIVATE
         rtype_engine
+        rtype_game
 )
 
 # Ensure the server can find shared libraries at runtime

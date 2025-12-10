@@ -6,7 +6,7 @@
 */
 
 #include "ecs/systems/InputSystem.hpp"
-#include "ecs/Components.hpp"
+#include "ecs/CoreComponents.hpp"
 #include "ecs/events/InputEvents.hpp"
 #include <iostream>
 

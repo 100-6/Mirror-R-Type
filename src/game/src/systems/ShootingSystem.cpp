@@ -5,7 +5,7 @@
 ** ShootingSystem
 */
 
-#include "ecs/systems/ShootingSystem.hpp"
+#include "systems/ShootingSystem.hpp"
 #include "ecs/events/InputEvents.hpp"
 #include "ecs/events/GameEvents.hpp" // Include for ShotFiredEvent
 #include <iostream>
@@ -115,6 +115,7 @@ void ShootingSystem::update(Registry& registry, float dt)
                 registry.add_component(projectile, EnemyProjectile{});
                 registry.add_component(projectile, Damage{10});
                 registry.add_component(projectile, Projectile{180.0f, 5.0f, 0.0f});
+                registry.add_component(projectile, NoFriction{});
             }
         }
     }
@@ -166,6 +167,7 @@ void ShootingSystem::createBasicProjectile(Registry& registry, Entity shooter, c
     });
 
     registry.add_component(projectile, Projectile{0.0f, 5.0f, 0.0f});  // Angle 0° = droite
+    registry.add_component(projectile, NoFriction{});
 
     // Publier l'événement pour AudioSystem
     registry.get_event_bus().publish(ecs::ShotFiredEvent{shooter, projectile});
@@ -217,6 +219,7 @@ void ShootingSystem::createSpreadProjectiles(Registry& registry, Entity shooter,
         });
 
         registry.add_component(projectile, Projectile{angle, 5.0f, 0.0f});
+        registry.add_component(projectile, NoFriction{});
 
         // Publier l'événement pour AudioSystem
         registry.get_event_bus().publish(ecs::ShotFiredEvent{shooter, projectile});
@@ -253,6 +256,7 @@ void ShootingSystem::createBurstProjectiles(Registry& registry, Entity shooter, 
     });
 
     registry.add_component(projectile, Projectile{0.0f, 5.0f, 0.0f});
+    registry.add_component(projectile, NoFriction{});
 
     // Publier l'événement pour AudioSystem
     registry.get_event_bus().publish(ecs::ShotFiredEvent{shooter, projectile});
