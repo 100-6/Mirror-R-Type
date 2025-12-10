@@ -55,6 +55,11 @@ struct Sprite {
     int layer = 0;
 };
 
+struct HitFlash {
+    float time_remaining = 0.0f;
+    engine::Color original_color = engine::Color::White;
+};
+
 // Tags
 
 struct Controllable {

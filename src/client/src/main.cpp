@@ -21,6 +21,7 @@
 
 #include "ecs/systems/AudioSystem.hpp"
 #include "ecs/systems/HealthSystem.hpp"
+#include "ecs/systems/HitEffectSystem.hpp"
 #include "ecs/systems/AISystem.hpp"
 #include "plugin_manager/PluginManager.hpp"
 #include "plugin_manager/IInputPlugin.hpp"
@@ -169,6 +170,7 @@ int main() {
     registry.register_component<EnemyProjectile>();
     registry.register_component<Wall>();
     registry.register_component<Health>();
+    registry.register_component<HitFlash>();
     registry.register_component<Damage>();
     registry.register_component<ToDestroy>();
     registry.register_component<Weapon>();
@@ -193,6 +195,7 @@ int main() {
     registry.register_system<ScrollingSystem>(-100.0f, static_cast<float>(SCREEN_WIDTH));
     registry.register_system<CollisionSystem>();
     registry.register_system<HealthSystem>();
+    registry.register_system<HitEffectSystem>();
     registry.register_system<ScoreSystem>();
     registry.register_system<AISystem>(*graphicsPlugin);
     if (audioPlugin) {
@@ -282,11 +285,11 @@ int main() {
         1                   // layer
     });
 
-    // ARME SPREAD - Tire 5 projectiles en éventail de 40 degrés
+    // ARME SIMPLE - Tire 1 projectile vers l'avant
     registry.add_component(player, Weapon{
-        WeaponType::SPREAD,  // Type d'arme
-        5,                   // 5 projectiles par tir
-        40.0f,               // Éventail de 40 degrés
+        WeaponType::BASIC,  // Type d'arme
+        1,                   // 1 projectile par tir
+        0.0f,                // Pas d'éventail
         450.0f,              // Vitesse des projectiles
         0.3f,                // Cadence de tir : 0.3s entre chaque tir
         999.0f,              // Temps depuis dernier tir (commence prêt à tirer)
@@ -295,7 +298,7 @@ int main() {
             bulletWidth,
             bulletHeight,
             0.0f,
-            engine::Color{255, 100, 255, 255},  // Couleur violette pour les différencier
+            engine::Color{255, 100, 255, 255},  // Couleur violette
             0.0f,
             0.0f,
             1
