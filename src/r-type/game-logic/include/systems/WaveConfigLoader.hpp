@@ -6,7 +6,7 @@
 */
 
 #ifndef WAVE_CONFIG_LOADER_HPP_
-#define WAVE_CONFIG_LOADER_HPP_
+    #define WAVE_CONFIG_LOADER_HPP_
 
 #include <string>
 #include <vector>
@@ -22,6 +22,7 @@ namespace WaveLoader {
  * @brief Represents a single wave with spawn data and trigger conditions
  */
 struct Wave {
+    int waveNumber = 0;  // Explicit wave number from JSON
     std::vector<WaveSpawnData> spawnData;
     WaveTrigger trigger;
 };

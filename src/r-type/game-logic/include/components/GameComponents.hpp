@@ -139,6 +139,8 @@ struct WaveController {
     std::string configFilePath;               // Path to JSON config file
     float totalScrollDistance = 0.0f;         // Total scrolling since start
     size_t currentWaveIndex = 0;              // Current wave being processed
+    int currentWaveNumber = 0;                // Current wave number from JSON
+    size_t totalWaveCount = 0;                // Total number of waves
     bool allWavesCompleted = false;           // All waves finished
 };
 
