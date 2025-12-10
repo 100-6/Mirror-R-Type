@@ -12,9 +12,9 @@ add_library(rtype_engine
     src/ecs/systems/DestroySystem.cpp
     src/ecs/systems/ScoreSystem.cpp
     src/ecs/systems/AudioSystem.cpp
-src/ecs/systems/HealthSystem.cpp
-    src/ecs/systems/AISystem.cpp
-    src/ecs/systems/ScrollingSystem.cpp
+    src/ecs/systems/HealthSystem.cpp
+    src/ecs/systems/HitEffectSystem.cpp
+    src/ecs/systems/AISystem.cpp    src/ecs/systems/ScrollingSystem.cpp
     src/core/event/EventBus.cpp
     src/plugin_manager/PluginManager.cpp
 )
