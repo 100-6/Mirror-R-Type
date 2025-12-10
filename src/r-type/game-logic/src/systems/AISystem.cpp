@@ -21,149 +21,20 @@ void AISystem::init(Registry& registry)
 {
     std::cout << "AISystem: Initialisation" << std::endl;
 
-    // Load textures
-    // Note: In a real engine, these might be cached in a ResourceManager
-    basicEnemyTex_ = graphics_.load_texture("assets/sprite/enemy.png");
-    fastEnemyTex_ = graphics_.load_texture("assets/sprite/enemy.png"); // Reuse for now
-    tankEnemyTex_ = graphics_.load_texture("assets/sprite/enemy.png"); // Reuse for now
+    // Load textures for bullets only (enemies are spawned by WaveSpawnerSystem)
     bulletTex_ = graphics_.load_texture("assets/sprite/bullet.png");
-
-    // Setup Waves (5 waves as requested)
-    waves_.push_back({2, 0, 0, 3.0f}); // Wave 1: 2 Basic
-    waves_.push_back({3, 1, 0, 2.5f}); // Wave 2: 3 Basic, 1 Fast
-    waves_.push_back({2, 2, 1, 2.0f}); // Wave 3: 2 Basic, 2 Fast, 1 Tank
-    waves_.push_back({0, 4, 2, 1.5f}); // Wave 4: 4 Fast, 2 Tank
-    waves_.push_back({5, 3, 3, 1.0f}); // Wave 5: Swarm
-
-    startNextWave();
 }
 
 void AISystem::shutdown()
 {
     std::cout << "AISystem: Shutdown" << std::endl;
-    // Unload textures if this system owns them. 
-    // If Resource Manager exists, it would handle this.
-    // Assuming we should cleanup:
-    if (basicEnemyTex_) graphics_.unload_texture(basicEnemyTex_);
-    if (fastEnemyTex_ != basicEnemyTex_) graphics_.unload_texture(fastEnemyTex_);
-    if (tankEnemyTex_ != basicEnemyTex_) graphics_.unload_texture(tankEnemyTex_);
     if (bulletTex_) graphics_.unload_texture(bulletTex_);
-}
-
-void AISystem::startNextWave()
-{
-    if (currentWaveIndex_ >= waves_.size()) {
-        std::cout << "AISystem: All waves completed!" << std::endl;
-        isWaveInProgress_ = false;
-        return;
-    }
-
-    std::cout << "AISystem: Starting Wave " << (currentWaveIndex_ + 1) << std::endl;
-    isWaveInProgress_ = true;
-    enemiesSpawnedInWave_ = 0;
-    spawnTimer_ = 0.0f;
 }
 
 void AISystem::update(Registry& registry, float dt)
 {
-    // 1. Wave Management
-    auto& enemies = registry.get_components<AI>();
-    int aliveEnemies = 0;
-    // Count alive enemies that are part of the wave (AI component)
-    for (size_t i = 0; i < enemies.size(); ++i) {
-        if (enemies.has_entity(enemies.get_entity_at(i))) {
-            aliveEnemies++;
-        }
-    }
-
-    if (isWaveInProgress_) {
-        const auto& wave = waves_[currentWaveIndex_];
-        int totalEnemiesInWave = wave.basicCount + wave.fastCount + wave.tankCount;
-
-        spawnTimer_ += dt;
-
-        if (enemiesSpawnedInWave_ < totalEnemiesInWave) {
-            if (spawnTimer_ >= wave.spawnInterval) {
-                spawnTimer_ = 0.0f;
-                
-                // Determine what to spawn
-                EnemyType typeToSpawn = EnemyType::Basic;
-                // Simple logic: spawn basics, then fast, then tanks
-                if (enemiesSpawnedInWave_ < wave.basicCount) {
-                    typeToSpawn = EnemyType::Basic;
-                } else if (enemiesSpawnedInWave_ < wave.basicCount + wave.fastCount) {
-                    typeToSpawn = EnemyType::Fast;
-                } else {
-                    typeToSpawn = EnemyType::Tank;
-                }
-
-                spawnEnemy(registry, typeToSpawn);
-                enemiesSpawnedInWave_++;
-            }
-        } else if (aliveEnemies == 0) {
-            // Wave Complete
-            std::cout << "AISystem: Wave " << (currentWaveIndex_ + 1) << " Complete!" << std::endl;
-            isWaveInProgress_ = false;
-            waveTimer_ = timeBetweenWaves_;
-            currentWaveIndex_++;
-        }
-    } else {
-        // Between waves
-        if (currentWaveIndex_ < waves_.size()) {
-            waveTimer_ -= dt;
-            if (waveTimer_ <= 0.0f) {
-                startNextWave();
-            }
-        }
-    }
-
-    // 2. AI Behavior
+    // AI Behavior only - spawning is handled by WaveSpawnerSystem
     updateEnemyBehavior(registry, dt);
-}
-
-void AISystem::spawnEnemy(Registry& registry, EnemyType type)
-{
-    Entity e = registry.spawn_entity();
-    
-    // Default stats coming from config
-    float detection = ENEMY_BASIC_DETECTION;
-    float cooldown = ENEMY_BASIC_SHOOT_COOLDOWN;
-    float speed = ENEMY_BASIC_SPEED;
-    int health = ENEMY_BASIC_HEALTH;
-    get_enemy_stats(type, detection, cooldown, speed, health);
-
-    engine::TextureHandle tex = basicEnemyTex_;
-    engine::Color tint = engine::Color::White;
-
-    switch (type) {
-        case EnemyType::Basic:
-            tex = basicEnemyTex_;
-            tint = engine::Color{200, 200, 200, 255}; // Light Grey
-            break;
-        case EnemyType::Fast:
-            tex = fastEnemyTex_;
-            tint = engine::Color{255, 100, 100, 255}; // Reddish
-            break;
-        case EnemyType::Tank:
-            tex = tankEnemyTex_;
-            tint = engine::Color{100, 100, 255, 255}; // Blueish
-            break;
-        default: break;
-    }
-
-    engine::Vector2f size = graphics_.get_texture_size(tex);
-    
-    // Random Y position
-    float yPos = 50.0f + static_cast<float>(rand() % 900); // Keep within 1080p roughly
-
-    registry.add_component(e, Position{1920.0f + 50.0f, yPos}); // Spawn off-screen right
-    registry.add_component(e, Velocity{-speed, 0.0f}); // Default move left
-    registry.add_component(e, Sprite{tex, size.x, size.y, 0.0f, tint, 0.0f, 0.0f, 0});
-    registry.add_component(e, Collider{size.x, size.y});
-    registry.add_component(e, Enemy{});
-    registry.add_component(e, AI{type, detection, cooldown, 0.0f, speed});
-    registry.add_component(e, Health{health, health});
-    registry.add_component(e, Score{type == EnemyType::Tank ? 300 : (type == EnemyType::Fast ? 200 : 100)});
 }
 
 Entity AISystem::findNearestPlayer(Registry& registry, const Position& enemyPos)

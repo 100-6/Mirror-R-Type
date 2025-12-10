@@ -1,0 +1,141 @@
+{
+  "defaultSpawnInterval": 2.0,
+  "loopWaves": false,
+  "waves": [
+    {
+      "trigger": {
+        "scrollDistance": 0,
+        "timeDelay": 0
+      },
+      "spawns": [
+        {
+          "type": "enemy",
+          "enemyType": "basic",
+          "positionX": 1920,
+          "positionY": 300,
+          "count": 3,
+          "pattern": "line",
+          "spacing": 150
+        }
+      ]
+    },
+    {
+      "trigger": {
+        "scrollDistance": 500,
+        "timeDelay": 0
+      },
+      "spawns": [
+        {
+          "type": "enemy",
+          "enemyType": "fast",
+          "positionX": 2000,
+          "positionY": 200,
+          "count": 4,
+          "pattern": "random",
+          "spacing": 0
+        }
+      ]
+    },
+    {
+      "trigger": {
+        "scrollDistance": 1000,
+        "timeDelay": 2.0
+      },
+      "spawns": [
+        {
+          "type": "enemy",
+          "enemyType": "tank",
+          "positionX": 1920,
+          "positionY": 400,
+          "count": 2,
+          "pattern": "line",
+          "spacing": 200
+        },
+        {
+          "type": "wall",
+          "positionX": 1920,
+          "positionY": 150,
+          "count": 1,
+          "pattern": "single",
+          "spacing": 0
+        }
+      ]
+    },
+    {
+      "trigger": {
+        "scrollDistance": 1500,
+        "timeDelay": 0
+      },
+      "spawns": [
+        {
+          "type": "enemy",
+          "enemyType": "basic",
+          "positionX": 2100,
+          "positionY": 400,
+          "count": 6,
+          "pattern": "formation",
+          "spacing": 80
+        }
+      ]
+    },
+    {
+      "trigger": {
+        "scrollDistance": 2000,
+        "timeDelay": 1.0
+      },
+      "spawns": [
+        {
+          "type": "enemy",
+          "enemyType": "fast",
+          "positionX": 1920,
+          "positionY": 300,
+          "count": 8,
+          "pattern": "grid",
+          "spacing": 100
+        }
+      ]
+    },
+    {
+      "trigger": {
+        "scrollDistance": 2500,
+        "timeDelay": 0
+      },
+      "spawns": [
+        {
+          "type": "wall",
+          "positionX": 1920,
+          "positionY": 200,
+          "count": 3,
+          "pattern": "line",
+          "spacing": 250
+        },
+        {
+          "type": "enemy",
+          "enemyType": "tank",
+          "positionX": 2000,
+          "positionY": 500,
+          "count": 3,
+          "pattern": "line",
+          "spacing": 150
+        }
+      ]
+    },
+    {
+      "trigger": {
+        "scrollDistance": 3000,
+        "timeDelay": 3.0
+      },
+      "spawns": [
+        {
+          "type": "enemy",
+          "enemyType": "boss",
+          "positionX": 1920,
+          "positionY": 540,
+          "count": 1,
+          "pattern": "single",
+          "spacing": 0
+        }
+      ]
+    }
+  ]
+}

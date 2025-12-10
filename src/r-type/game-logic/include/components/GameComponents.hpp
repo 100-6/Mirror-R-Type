@@ -102,4 +102,44 @@ struct Score
     int value = 0;
 };
 
+// Wave System
+
+enum class SpawnPattern {
+    SINGLE,      // Spawn single entity at position
+    LINE,        // Spawn entities in horizontal line
+    GRID,        // Spawn entities in grid pattern
+    RANDOM,      // Spawn at random Y positions
+    FORMATION    // Spawn in specific formation (V, diamond, etc.)
+};
+
+enum class EntitySpawnType {
+    ENEMY,
+    WALL,
+    OBSTACLE,
+    POWERUP
+};
+
+struct WaveSpawnData {
+    EntitySpawnType entityType = EntitySpawnType::ENEMY;
+    EnemyType enemyType = EnemyType::Basic;  // Used if entityType is ENEMY
+    float positionX = 0.0f;                   // Relative to scroll position
+    float positionY = 0.0f;                   // Absolute Y position
+    int count = 1;                            // Number of entities to spawn
+    SpawnPattern pattern = SpawnPattern::SINGLE;
+    float spacing = 0.0f;                     // Spacing between entities in pattern
+};
+
+struct WaveTrigger {
+    float scrollDistance = 0.0f;              // Scroll distance to trigger wave
+    float timeDelay = 0.0f;                   // Optional time delay after scroll trigger
+    bool triggered = false;                   // Has this wave been triggered?
+};
+
+struct WaveController {
+    std::string configFilePath;               // Path to JSON config file
+    float totalScrollDistance = 0.0f;         // Total scrolling since start
+    size_t currentWaveIndex = 0;              // Current wave being processed
+    bool allWavesCompleted = false;           // All waves finished
+};
+
 #endif /* !GAME_COMPONENTS_HPP_ */

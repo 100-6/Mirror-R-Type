@@ -24,6 +24,7 @@
 #include "systems/HealthSystem.hpp"
 #include "systems/HitEffectSystem.hpp"
 #include "systems/AISystem.hpp"
+#include "systems/WaveSpawnerSystem.hpp"
 #include "plugin_manager/PluginManager.hpp"
 #include "plugin_manager/IInputPlugin.hpp"
 #include "plugin_manager/IAudioPlugin.hpp"
@@ -119,10 +120,9 @@ int main() {
 
     engine::TextureHandle backgroundTex = graphicsPlugin->load_texture("assets/sprite/symmetry.png");
     engine::TextureHandle playerTex = graphicsPlugin->load_texture("assets/sprite/player.png");
-    engine::TextureHandle enemyTex = graphicsPlugin->load_texture("assets/sprite/enemy.png");
     engine::TextureHandle bulletTex = graphicsPlugin->load_texture("assets/sprite/bullet.png");
 
-    if (backgroundTex == 0 || playerTex == 0 || enemyTex == 0 || bulletTex == 0) {
+    if (backgroundTex == 0 || playerTex == 0 || bulletTex == 0) {
         std::cerr << "❌ Erreur lors du chargement des textures" << std::endl;
         graphicsPlugin->shutdown();
         if (audioPlugin) audioPlugin->shutdown();
@@ -131,29 +131,20 @@ int main() {
 
     // Récupérer les tailles des textures
     engine::Vector2f playerSize = graphicsPlugin->get_texture_size(playerTex);
-    engine::Vector2f enemySize = graphicsPlugin->get_texture_size(enemyTex);
     engine::Vector2f bulletSize = graphicsPlugin->get_texture_size(bulletTex);
 
     // Calculer les échelles pour des tailles de jeu raisonnables
     const float PLAYER_SCALE = 1.00f;  // 256x128 -> 64x32 pixels
-    const float ENEMY_SCALE = 1.00f;    // 277x88 -> 55x18 pixels
     const float BULLET_SCALE = 1.00f;   // 93x10 -> 74x8 pixels
 
     float playerWidth = playerSize.x * PLAYER_SCALE;
     float playerHeight = playerSize.y * PLAYER_SCALE;
-    float enemyWidth = enemySize.x * ENEMY_SCALE;
-    float enemyHeight = enemySize.y * ENEMY_SCALE;
     float bulletWidth = bulletSize.x * BULLET_SCALE;
     float bulletHeight = bulletSize.y * BULLET_SCALE;
 
-    // Get default checkerboard texture for walls
-    engine::TextureHandle defaultTex = graphicsPlugin->get_default_texture();
-
     std::cout << "✓ Textures chargées:" << std::endl;
     std::cout << "  Player: " << playerWidth << "x" << playerHeight << std::endl;
-    std::cout << "  Enemy: " << enemyWidth << "x" << enemyHeight << std::endl;
     std::cout << "  Bullet: " << bulletWidth << "x" << bulletHeight << std::endl;
-    std::cout << "  Default (Pink/Black): 32x32" << std::endl;
     std::cout << std::endl;
 
     // ==
@@ -198,7 +189,15 @@ int main() {
     registry.register_system<HealthSystem>();
     registry.register_system<HitEffectSystem>();
     registry.register_system<ScoreSystem>();
+
+    // AI System - gere le comportement des ennemis (mouvement, tir)
     registry.register_system<AISystem>(*graphicsPlugin);
+
+    // Wave Spawner System - charge la configuration et spawn les ennemis/murs
+    // Note: On ne peut pas charger la config avant register_system car init() est appelé automatiquement
+    // La config sera chargée manuellement après l'enregistrement
+    registry.register_system<WaveSpawnerSystem>(*graphicsPlugin);
+
     if (audioPlugin) {
         registry.register_system<AudioSystem>(*audioPlugin);
     }
@@ -206,18 +205,23 @@ int main() {
     registry.register_system<RenderSystem>(*graphicsPlugin);
 
     std::cout << "✓ Systemes enregistres :" << std::endl;
-    std::cout << "  1. InputSystem       - Capture raw key states from plugin" << std::endl;
-    std::cout << "  2. PlayerInputSystem - Interpret keys for R-Type actions" << std::endl;
-    std::cout << "  3. MovementSystem    - Listen to movement events and update velocity" << std::endl;
-    std::cout << "  3. ShootingSystem - Ecoute les evenements de tir et cree des projectiles" << std::endl;
-    std::cout << "  4. PhysiqueSystem - Applique la velocite, friction, limites d'ecran" << std::endl;
-    std::cout << "  5. CollisionSystem- Gere les collisions et marque les entites a detruire" << std::endl;
-    std::cout << "  6. ScoreSystem    - Met a jour le score" << std::endl;
+    std::cout << "  1. InputSystem         - Capture raw key states from plugin" << std::endl;
+    std::cout << "  2. PlayerInputSystem   - Interpret keys for R-Type actions" << std::endl;
+    std::cout << "  3. MovementSystem      - Listen to movement events and update velocity" << std::endl;
+    std::cout << "  4. ShootingSystem      - Ecoute les evenements de tir et cree des projectiles" << std::endl;
+    std::cout << "  5. PhysiqueSystem      - Applique la velocite, friction, limites d'ecran" << std::endl;
+    std::cout << "  6. ScrollingSystem     - Gere le scrolling automatique" << std::endl;
+    std::cout << "  7. CollisionSystem     - Gere les collisions et marque les entites a detruire" << std::endl;
+    std::cout << "  8. HealthSystem        - Gere les degats et la vie" << std::endl;
+    std::cout << "  9. HitEffectSystem     - Effets visuels lors des impacts" << std::endl;
+    std::cout << "  10. ScoreSystem        - Met a jour le score" << std::endl;
+    std::cout << "  11. AISystem           - Comportement IA (mouvement, tir des ennemis)" << std::endl;
+    std::cout << "  12. WaveSpawnerSystem  - Spawn automatique base sur le scrolling (JSON)" << std::endl;
     if (audioPlugin) {
-        std::cout << "  8. AudioSystem     - Joue des sons sur evenements" << std::endl;
+        std::cout << "  13. AudioSystem        - Joue des sons sur evenements" << std::endl;
     }
-    std::cout << "  8. DestroySystem  - Detruit les entites marquees pour destruction" << std::endl;
-    std::cout << "  9. RenderSystem   - Rendu des sprites via plugin graphique" << std::endl;
+    std::cout << "  14. DestroySystem      - Detruit les entites marquees pour destruction" << std::endl;
+    std::cout << "  15. RenderSystem       - Rendu des sprites via plugin graphique" << std::endl;
     std::cout << std::endl;
 
     // ==
@@ -315,99 +319,7 @@ int main() {
     std::cout << "  Arme: SPREAD (5 projectiles, 40° d'éventail)" << std::endl;
     std::cout << std::endl;
 
-    // ==
-    // CREATION DES MURS
-    // ==
-    std::cout << "✓ Creation des murs (Gris)..." << std::endl;
-
-    // Mur vertical gauche - PARTIE HAUTE (avec un trou au milieu pour tirer)
-    Entity wall1_top = registry.spawn_entity();
-    registry.add_component(wall1_top, Position{400.0f, 200.0f});
-    registry.add_component(wall1_top, Collider{20.0f, 240.0f});  // Hauteur réduite
-    registry.add_component(wall1_top, Sprite{defaultTex, 20.0f, 240.0f, 0.0f, engine::Color::White, 0.0f, 0.0f, -1});
-    registry.add_component(wall1_top, Wall{});
-    registry.add_component(wall1_top, Scrollable{1.0f, false, true}); // Scroll et détruit hors écran
-
-    // Mur vertical gauche - PARTIE BASSE (trou de 200px au milieu)
-    Entity wall1_bottom = registry.spawn_entity();
-    registry.add_component(wall1_bottom, Position{400.0f, 640.0f});  // Commence après le trou
-    registry.add_component(wall1_bottom, Collider{20.0f, 240.0f});  // Hauteur réduite
-    registry.add_component(wall1_bottom, Sprite{defaultTex, 20.0f, 240.0f, 0.0f, engine::Color::White, 0.0f, 0.0f, -1});
-    registry.add_component(wall1_bottom, Wall{});
-    registry.add_component(wall1_bottom, Scrollable{1.0f, false, true}); // Scroll et détruit hors écran
-
-    // Mur vertical droit
-    Entity wall2 = registry.spawn_entity();
-    registry.add_component(wall2, Position{1500.0f, 200.0f});
-    registry.add_component(wall2, Collider{20.0f, 680.0f});
-    registry.add_component(wall2, Sprite{defaultTex, 20.0f, 680.0f, 0.0f, engine::Color::White, 0.0f, 0.0f, -1});
-    registry.add_component(wall2, Wall{});
-    registry.add_component(wall2, Scrollable{1.0f, false, true}); // Scroll et détruit hors écran
-
-    // Mur horizontal haut
-    Entity wall3 = registry.spawn_entity();
-    registry.add_component(wall3, Position{420.0f, 200.0f});
-    registry.add_component(wall3, Collider{1080.0f, 20.0f});
-    registry.add_component(wall3, Sprite{defaultTex, 1080.0f, 20.0f, 0.0f, engine::Color::White, 0.0f, 0.0f, -1});
-    registry.add_component(wall3, Wall{});
-    registry.add_component(wall3, Scrollable{1.0f, false, true}); // Scroll et détruit hors écran
-
-    // Mur horizontal bas
-    Entity wall4 = registry.spawn_entity();
-    registry.add_component(wall4, Position{420.0f, 860.0f});
-    registry.add_component(wall4, Collider{1080.0f, 20.0f});
-    registry.add_component(wall4, Sprite{defaultTex, 1080.0f, 20.0f, 0.0f, engine::Color::White, 0.0f, 0.0f, -1});
-    registry.add_component(wall4, Wall{});
-    registry.add_component(wall4, Scrollable{1.0f, false, true}); // Scroll et détruit hors écran
-
-    // Obstacles internes
-    Entity obstacle1 = registry.spawn_entity();
-    registry.add_component(obstacle1, Position{700.0f, 400.0f});
-    registry.add_component(obstacle1, Collider{80.0f, 80.0f});
-    registry.add_component(obstacle1, Sprite{defaultTex, 80.0f, 80.0f, 0.0f, engine::Color::White, 0.0f, 0.0f, -1});
-    registry.add_component(obstacle1, Wall{});
-    registry.add_component(obstacle1, Scrollable{1.0f, false, true}); // Scroll et détruit hors écran
-
-    Entity obstacle2 = registry.spawn_entity();
-    registry.add_component(obstacle2, Position{1100.0f, 600.0f});
-    registry.add_component(obstacle2, Collider{80.0f, 80.0f});
-    registry.add_component(obstacle2, Sprite{defaultTex, 80.0f, 80.0f, 0.0f, engine::Color::White, 0.0f, 0.0f, -1});
-    registry.add_component(obstacle2, Wall{});
-    registry.add_component(obstacle2, Scrollable{1.0f, false, true}); // Scroll et détruit hors écran
-
-    std::cout << "  - 4 murs delimitant l'arene (avec Scrollable)" << std::endl;
-    std::cout << "  - 2 obstacles internes (avec Scrollable)" << std::endl;
-    std::cout << "  - Tous les murs scrollent avec la map et se detruisent hors ecran" << std::endl;
-    std::cout << std::endl;
-
-    // ==
-    // CREATION D'ENNEMIS (AVEC SPRITES)
-    // ==
-    std::cout << "✓ Creation d'ennemis avec sprites..." << std::endl;
-
-    Entity enemy1 = registry.spawn_entity();
-    registry.add_component(enemy1, Position{900.0f, 400.0f});
-    registry.add_component(enemy1, Collider{enemyWidth, enemyHeight});
-    registry.add_component(enemy1, Sprite{enemyTex, enemyWidth, enemyHeight, 0.0f, engine::Color::White, 0.0f, 0.0f, 0});
-    registry.add_component(enemy1, Enemy{});
-    registry.add_component(enemy1, Health{50, 50});
-
-    Entity enemy2 = registry.spawn_entity();
-    registry.add_component(enemy2, Position{1200.0f, 500.0f});
-    registry.add_component(enemy2, Collider{enemyWidth, enemyHeight});
-    registry.add_component(enemy2, Sprite{enemyTex, enemyWidth, enemyHeight, 0.0f, engine::Color::White, 0.0f, 0.0f, 0});
-    registry.add_component(enemy2, Enemy{});
-    registry.add_component(enemy2, Health{50, 50});
-
-    Entity enemy3 = registry.spawn_entity();
-    registry.add_component(enemy3, Position{800.0f, 700.0f});
-    registry.add_component(enemy3, Collider{enemyWidth, enemyHeight});
-    registry.add_component(enemy3, Sprite{enemyTex, enemyWidth, enemyHeight, 0.0f, engine::Color::White, 0.0f, 0.0f, 0});
-    registry.add_component(enemy3, Enemy{});
-    registry.add_component(enemy3, Health{50, 50});
-
-    std::cout << "  - 3 ennemis places dans l'arene (avec Scrollable)" << std::endl;
-    std::cout << "  - Les ennemis scrollent avec la map et se detruisent hors ecran" << std::endl;
+    std::cout << "✓ Murs et ennemis seront spawnes par le WaveSpawnerSystem" << std::endl;
     std::cout << std::endl;
 
     // ==
