@@ -11,6 +11,7 @@
 #include "plugin_manager/CommonTypes.hpp"
 #include "plugin_manager/IInputPlugin.hpp"
 #include <unordered_map>
+#include <string>
 
 // Physique et Mouvement 
 
@@ -63,5 +64,32 @@ struct Controllable {
 struct NoFriction {};
 
 struct ToDestroy {};
+
+// Effet visuel : cercle autour d'une entité (ex: bouclier)
+struct CircleEffect {
+    static constexpr float DEFAULT_RADIUS = 30.0f;
+    static constexpr int DEFAULT_LAYER = 10;
+
+    float radius = DEFAULT_RADIUS;
+    engine::Color color = engine::Color::ShieldViolet;
+    float offsetX = 0.0f;
+    float offsetY = 0.0f;
+    bool active = true;
+    int layer = DEFAULT_LAYER;
+};
+
+// Effet visuel : texte flottant (ex: indicateur de boost)
+struct TextEffect {
+    static constexpr float DEFAULT_POS_X = 10.0f;
+    static constexpr float DEFAULT_POS_Y = 150.0f;
+    static constexpr int DEFAULT_FONT_SIZE = 25;
+
+    std::string text = "";
+    float posX = DEFAULT_POS_X;
+    float posY = DEFAULT_POS_Y;
+    engine::Color color = engine::Color::SpeedBlue;
+    int fontSize = DEFAULT_FONT_SIZE;
+    bool active = true;
+};
 
 #endif /* !CORE_COMPONENTS_HPP_ */

@@ -102,6 +102,14 @@ struct Score
     int value = 0;
 };
 
+// Bonus System
+
+enum class BonusType {
+    HEALTH,     // +20 HP (vert)
+    SHIELD,     // Protection 1 hit (violet)
+    SPEED       // +50% vitesse pendant 20s (bleu)
+};
+
 // Wave System
 
 enum class SpawnPattern {
@@ -122,6 +130,7 @@ enum class EntitySpawnType {
 struct WaveSpawnData {
     EntitySpawnType entityType = EntitySpawnType::ENEMY;
     EnemyType enemyType = EnemyType::Basic;  // Used if entityType is ENEMY
+    BonusType bonusType = BonusType::HEALTH; // Used if entityType is POWERUP
     float positionX = 0.0f;                   // Relative to scroll position
     float positionY = 0.0f;                   // Absolute Y position
     int count = 1;                            // Number of entities to spawn
@@ -142,6 +151,21 @@ struct WaveController {
     int currentWaveNumber = 0;                // Current wave number from JSON
     size_t totalWaveCount = 0;                // Total number of waves
     bool allWavesCompleted = false;           // All waves finished
+};
+
+struct Bonus {
+    BonusType type = BonusType::HEALTH;
+    float radius = 20.0f;
+};
+
+struct Shield {
+    bool active = true;  // Se désactive après 1 hit
+};
+
+struct SpeedBoost {
+    float timeRemaining = 20.0f;      // Durée restante
+    float multiplier = 1.5f;          // +50% vitesse
+    float originalSpeed = 0.0f;       // Vitesse originale pour restauration
 };
 
 #endif /* !GAME_COMPONENTS_HPP_ */

@@ -25,6 +25,7 @@
 #include "systems/HitEffectSystem.hpp"
 #include "systems/AISystem.hpp"
 #include "systems/WaveSpawnerSystem.hpp"
+#include "systems/BonusSystem.hpp"
 #include "plugin_manager/PluginManager.hpp"
 #include "plugin_manager/IInputPlugin.hpp"
 #include "plugin_manager/IAudioPlugin.hpp"
@@ -84,7 +85,7 @@ int main() {
 
     std::cout << "✓ Plugin d'input chargé: " << inputPlugin->get_name()
               << " v" << inputPlugin->get_version() << std::endl;
-              
+
     std::cout << "Chargement du plugin audio..." << std::endl;
     try {
         audioPlugin = pluginManager.load_plugin<engine::IAudioPlugin>(
@@ -170,8 +171,13 @@ int main() {
     registry.register_component<Invulnerability>();
     registry.register_component<AI>();
     registry.register_component<Scrollable>();
-    registry.register_component<NoFriction>(); // Add NoFriction registration
-    registry.register_component<WaveController>(); // Wave system state tracking
+    registry.register_component<NoFriction>();
+    registry.register_component<WaveController>();
+    registry.register_component<Bonus>();
+    registry.register_component<Shield>();
+    registry.register_component<SpeedBoost>();
+    registry.register_component<CircleEffect>();
+    registry.register_component<TextEffect>();
 
     std::cout << "✓ Composants enregistres" << std::endl;
 
@@ -198,6 +204,9 @@ int main() {
     // Note: init() sera appelé automatiquement par register_system
     registry.register_system<WaveSpawnerSystem>(*graphicsPlugin);
 
+    // Bonus System - spawn et collecte des bonus (HP, Bouclier, Vitesse)
+    registry.register_system<BonusSystem>(*graphicsPlugin, SCREEN_WIDTH, SCREEN_HEIGHT);
+
     if (audioPlugin) {
         registry.register_system<AudioSystem>(*audioPlugin);
     }
@@ -217,11 +226,12 @@ int main() {
     std::cout << "  10. ScoreSystem        - Met a jour le score" << std::endl;
     std::cout << "  11. AISystem           - Comportement IA (mouvement, tir des ennemis)" << std::endl;
     std::cout << "  12. WaveSpawnerSystem  - Spawn automatique base sur le scrolling (JSON)" << std::endl;
+    std::cout << "  13. BonusSystem        - Spawn et collecte des bonus (HP, Bouclier, Vitesse)" << std::endl;
     if (audioPlugin) {
-        std::cout << "  13. AudioSystem        - Joue des sons sur evenements" << std::endl;
+        std::cout << "  14. AudioSystem        - Joue des sons sur evenements" << std::endl;
     }
-    std::cout << "  14. DestroySystem      - Detruit les entites marquees pour destruction" << std::endl;
-    std::cout << "  15. RenderSystem       - Rendu des sprites via plugin graphique" << std::endl;
+    std::cout << "  15. DestroySystem      - Detruit les entites marquees pour destruction" << std::endl;
+    std::cout << "  16. RenderSystem       - Rendu des sprites via plugin graphique" << std::endl;
     std::cout << std::endl;
 
     // ==
@@ -336,6 +346,7 @@ int main() {
     std::cout << "  ✓ Physique     : Application velocite + friction (0.98)" << std::endl;
     std::cout << "  ✓ Collision    : Detection et repulsion murs" << std::endl;
     std::cout << "  ✓ Limites      : Joueur reste dans l'ecran (1920x1080)" << std::endl;
+    std::cout << "  ✓ Bonus        : HP (vert), Bouclier (violet), Vitesse (bleu)" << std::endl;
     std::cout << std::endl;
     std::cout << "Demarrage de la boucle de jeu..." << std::endl;
     std::cout << std::endl;
@@ -346,19 +357,13 @@ int main() {
     auto& positions = registry.get_components<Position>();
     auto& velocities = registry.get_components<Velocity>();
     auto& colliders = registry.get_components<Collider>();
-    // auto& inputs = registry.get_components<Input>(); // No longer used after refactor
     auto& scores = registry.get_components<Score>();
-
     auto& weapons = registry.get_components<Weapon>();
-
     auto& healths = registry.get_components<Health>();
-
     auto& waveControllers = registry.get_components<WaveController>();
-
 
     int frameCount = 0;
     float debugTimer = 0.0f;
-    // float shootCooldown = 0.0f; // No longer used after refactor
 
     // ==
     // BOUCLE DE JEU PRINCIPALE
@@ -369,27 +374,12 @@ int main() {
         debugTimer += dt;
 
         // === UPDATE ===
-
-        // Exécuter tous les systèmes dans l'ordre
-        // 1. InputSystem capture les inputs
-        // 2. MovementSystem calcule la vélocité
-        // 3. PhysiqueSystem applique vélocité + friction + limites
-        // 4. CollisionSystem gère les collisions
-        // 5. ShootingSystem gère la création de projectiles selon l'arme
-        // 6. RenderSystem effectue le rendu
         registry.run_systems(dt);
 
-        // === Old SHOOTING MECHANIC (removed as now handled by ShootingSystem) ===
-        // This block is removed as ShootingSystem now handles bullet spawning via events.
-
-        // Note: RenderSystem a déjà appelé clear() et draw_sprite()
-        // On peut maintenant ajouter les textes de debug par-dessus
-
         // === AFFICHAGE DES STATS À L'ÉCRAN ===
-        if (positions.has_entity(player) && velocities.has_entity(player)) { // Removed inputs.has_entity(player)
+        if (positions.has_entity(player) && velocities.has_entity(player)) {
             const Position& playerPos = positions[player];
             const Velocity& playerVel = velocities[player];
-            // const Input& playerInput = inputs[player]; // No longer used
 
             int yOffset = 10;
             int lineHeight = 25;
@@ -407,20 +397,6 @@ int main() {
             graphicsPlugin->draw_text(velText, engine::Vector2f(10.0f, yOffset),
                                      engine::Color{255, 255, 0, 255}, engine::INVALID_HANDLE, 20);
             yOffset += lineHeight;
-
-            // Touches pressées - Display from InputSystem events instead of Input component
-            // For now, removing. If needed, a debug system could show last input events.
-            // std::string keysText = "Keys: ";
-            // if (playerInput.up) keysText += "UP ";
-            // if (playerInput.down) keysText += "DOWN ";
-            // if (playerInput.left) keysText += "LEFT ";
-            // if (playerInput.right) keysText += "RIGHT ";
-            // if (playerInput.fire) keysText += "FIRE ";
-            // if (keysText == "Keys: ") keysText += "NONE";
-
-            // graphicsPlugin->draw_text(keysText, engine::Vector2f(10.0f, yOffset),
-            //                          engine::Color{0, 255, 255, 255}, engine::INVALID_HANDLE, 20);
-            // yOffset += lineHeight;
 
             // FPS / Frame count
             std::string fpsText = "Frame: " + std::to_string(frameCount) + " (60 FPS)";

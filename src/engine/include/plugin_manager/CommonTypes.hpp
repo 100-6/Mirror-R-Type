@@ -44,6 +44,9 @@ struct Color {
     static const Color Yellow;
     static const Color Magenta;
     static const Color Cyan;
+    static const Color Purple;
+    static const Color ShieldViolet;
+    static const Color SpeedBlue;
     static const Color Transparent;
 };
 
@@ -56,6 +59,9 @@ inline const Color Color::Blue{0, 0, 255, 255};
 inline const Color Color::Yellow{255, 255, 0, 255};
 inline const Color Color::Magenta{255, 0, 255, 255};
 inline const Color Color::Cyan{0, 255, 255, 255};
+inline const Color Color::Purple{148, 0, 211, 255};
+inline const Color Color::ShieldViolet{148, 0, 211, 100};
+inline const Color Color::SpeedBlue{0, 150, 255, 255};
 inline const Color Color::Transparent{0, 0, 0, 0};
 
 /**

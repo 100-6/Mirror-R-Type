@@ -2,7 +2,7 @@
 
 ## Overview
 
-Le système de vagues (Wave System) permet de spawn automatiquement des entités (ennemis, murs, obstacles) basé sur la progression du scrolling et configuré via des fichiers JSON.
+Le système de vagues (Wave System) permet de spawn automatiquement des entités (ennemis, murs, obstacles, bonus/powerups) basé sur la progression du scrolling et configuré via des fichiers JSON.
 
 ## Architecture
 
@@ -64,6 +64,7 @@ Les constantes de configuration sont définies dans [`WaveConfig.hpp`](src/r-typ
 {
   "type": "enemy",           // Type: "enemy", "wall", "obstacle", "powerup"
   "enemyType": "basic",      // Pour enemies: "basic", "fast", "tank", "boss"
+  "bonusType": "health",     // Pour powerups: "health", "shield", "speed"
   "positionX": 1920,         // Position X absolue
   "positionY": 300,          // Position Y absolue
   "count": 3,                // Nombre d'entités à spawner
@@ -201,6 +202,27 @@ Configurés dans [`WaveConfig.hpp`](src/r-type/game-logic/include/components/Wav
 - **Murs**: Santé 100, Taille 50x100
 - **Obstacles**: Santé 50, Taille 50x100
 
+### Powerups (Bonus)
+
+Trois types de bonus sont disponibles:
+
+- **health** (Vert): +20 HP au joueur
+- **shield** (Violet): Protection d'1 hit (cercle violet autour du joueur)
+- **speed** (Bleu): +50% de vitesse pendant 20 secondes
+
+Exemple de spawn de bonus:
+
+```json
+{
+  "type": "powerup",
+  "bonusType": "health",
+  "positionX": 1920,
+  "positionY": 500,
+  "count": 1,
+  "pattern": "single"
+}
+```
+
 ## Tips & Best Practices
 
 ### 1. Planification des vagues
@@ -305,7 +327,7 @@ src/r-type/assets/
 
 ## Future Improvements
 
-- [ ] Support pour les powerups
+- [x] Support pour les powerups (health, shield, speed)
 - [ ] Patterns de spawn plus complexes (cercle, spirale)
 - [ ] Événements scriptables (changement de musique, effets visuels)
 - [ ] Conditions de trigger multiples (temps ET distance)

@@ -324,8 +324,7 @@ void WaveSpawnerSystem::spawnEntity(Registry& registry, const WaveSpawnData& spa
             break;
 
         case EntitySpawnType::POWERUP:
-            // TODO: Implement powerup spawning
-            std::cout << "WaveSpawnerSystem: Powerup spawning not yet implemented" << std::endl;
+            spawnBonus(registry, spawnData.bonusType, spawnData.positionX, spawnData.positionY);
             break;
     }
 }
@@ -426,6 +425,53 @@ Entity WaveSpawnerSystem::spawnObstacle(Registry& registry, float x, float y)
     registry.add_component(e, Scrollable{1.0f, false, true});
 
     std::cout << "WaveSpawnerSystem: Spawned obstacle at (" << x << ", " << y << ")" << std::endl;
+
+    return e;
+}
+
+Entity WaveSpawnerSystem::spawnBonus(Registry& registry, BonusType type, float x, float y)
+{
+    Entity e = registry.spawn_entity();
+
+    const float BONUS_RADIUS = 20.0f;
+
+    // Couleur selon le type de bonus
+    engine::Color tint;
+    std::string typeName;
+    switch (type) {
+        case BonusType::HEALTH:
+            tint = engine::Color{0, 255, 0, 255};     // Vert
+            typeName = "HP";
+            break;
+        case BonusType::SHIELD:
+            tint = engine::Color{148, 0, 211, 255};   // Violet
+            typeName = "Bouclier";
+            break;
+        case BonusType::SPEED:
+            tint = engine::Color{0, 150, 255, 255};   // Bleu
+            typeName = "Vitesse";
+            break;
+    }
+
+    // Récupérer la taille du sprite bullet
+    engine::Vector2f bulletSize = graphics_.get_texture_size(bulletTex_);
+
+    registry.add_component(e, Position{x, y});
+    registry.add_component(e, Bonus{type, BONUS_RADIUS});
+    registry.add_component(e, Collider{BONUS_RADIUS * 2, BONUS_RADIUS * 2});
+    registry.add_component(e, Scrollable{1.0f, false, true}); // Scroll and destroy offscreen
+    registry.add_component(e, Sprite{
+        bulletTex_,
+        bulletSize.x,
+        bulletSize.y,
+        0.0f,
+        tint,
+        0.0f,
+        0.0f,
+        0  // Layer
+    });
+
+    std::cout << "WaveSpawnerSystem: Spawned bonus " << typeName << " at (" << x << ", " << y << ")" << std::endl;
 
     return e;
 }
