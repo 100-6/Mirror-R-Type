@@ -106,6 +106,12 @@ WaveConfiguration loadWaveConfig(const std::string& filepath) {
                 spawnData.enemyType = parseEnemyType(enemyTypeStr);
             }
 
+            // Parse bonus subtype (for powerups)
+            if (spawnData.entityType == EntitySpawnType::POWERUP && spawnJson.contains("bonusType")) {
+                std::string bonusTypeStr = spawnJson["bonusType"].get<std::string>();
+                spawnData.bonusType = parseBonusType(bonusTypeStr);
+            }
+
             // Parse position
             if (spawnJson.contains("positionX")) {
                 spawnData.positionX = spawnJson["positionX"].get<float>();

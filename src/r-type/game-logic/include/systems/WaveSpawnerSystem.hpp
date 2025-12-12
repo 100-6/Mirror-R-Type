@@ -99,6 +99,11 @@ private:
     Entity spawnObstacle(Registry& registry, float x, float y);
 
     /**
+     * @brief Spawn a bonus/powerup entity
+     */
+    Entity spawnBonus(Registry& registry, BonusType type, float x, float y);
+
+    /**
      * @brief Apply spawn pattern to create multiple entities
      */
     void applySpawnPattern(Registry& registry, const WaveSpawnData& spawnData);

@@ -77,6 +77,18 @@ inline SpawnPattern parseSpawnPattern(const std::string& patternStr) {
 }
 
 /**
+ * @brief Parse BonusType from string
+ * @param typeStr String representation of bonus type
+ * @return Corresponding BonusType enum value
+ */
+inline BonusType parseBonusType(const std::string& typeStr) {
+    if (typeStr == "health") return BonusType::HEALTH;
+    if (typeStr == "shield") return BonusType::SHIELD;
+    if (typeStr == "speed") return BonusType::SPEED;
+    return BonusType::HEALTH; // Default
+}
+
+/**
  * @brief Load wave configuration from JSON file
  * @param filepath Path to the JSON configuration file
  * @return WaveConfiguration structure containing all waves
