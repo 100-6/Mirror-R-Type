@@ -47,18 +47,24 @@ inline Weapon create_weapon(WeaponType type, engine::TextureHandle texture)
             weapon.projectile_sprite.height = WEAPON_LASER_HEIGHT;
             weapon.projectile_sprite.tint = engine::Color{WEAPON_LASER_COLOR_R, WEAPON_LASER_COLOR_G, WEAPON_LASER_COLOR_B, WEAPON_LASER_COLOR_A};
             break;
+        case WeaponType::CHARGE:
+            weapon.projectile_sprite.width = WEAPON_CHARGE_WIDTH_MIN;
+            weapon.projectile_sprite.height = WEAPON_CHARGE_HEIGHT_MIN;
+            weapon.projectile_sprite.tint = engine::Color{WEAPON_CHARGE_COLOR_R, WEAPON_CHARGE_COLOR_G, WEAPON_CHARGE_COLOR_B, WEAPON_CHARGE_COLOR_A};
+            break;
     }
     
     return weapon;
 }
 
 // Helper pour récupérer les stats d'une arme
-inline void get_weapon_stats(WeaponType type, int& projectiles, float& spread, float& speed, float& firerate, float& burst_delay)
+inline void get_weapon_stats(WeaponType type, int& projectiles, float& spread, int& damage, float& speed, float& firerate, float& burst_delay)
 {
     switch (type) {
         case WeaponType::BASIC:
             projectiles = WEAPON_BASIC_PROJECTILES;
             spread = WEAPON_BASIC_SPREAD;
+            damage = WEAPON_BASIC_DAMAGE;
             speed = WEAPON_BASIC_SPEED;
             firerate = WEAPON_BASIC_FIRERATE;
             burst_delay = WEAPON_BASIC_BURST_DELAY;
@@ -66,6 +72,7 @@ inline void get_weapon_stats(WeaponType type, int& projectiles, float& spread, f
         case WeaponType::SPREAD:
             projectiles = WEAPON_SPREAD_PROJECTILES;
             spread = WEAPON_SPREAD_SPREAD;
+            damage = WEAPON_SPREAD_DAMAGE;
             speed = WEAPON_SPREAD_SPEED;
             firerate = WEAPON_SPREAD_FIRERATE;
             burst_delay = WEAPON_SPREAD_BURST_DELAY;
@@ -73,6 +80,7 @@ inline void get_weapon_stats(WeaponType type, int& projectiles, float& spread, f
         case WeaponType::BURST:
             projectiles = WEAPON_BURST_PROJECTILES;
             spread = WEAPON_BURST_SPREAD;
+            damage = WEAPON_BURST_DAMAGE;
             speed = WEAPON_BURST_SPEED;
             firerate = WEAPON_BURST_FIRERATE;
             burst_delay = WEAPON_BURST_BURST_DELAY;
@@ -80,9 +88,18 @@ inline void get_weapon_stats(WeaponType type, int& projectiles, float& spread, f
         case WeaponType::LASER:
             projectiles = WEAPON_LASER_PROJECTILES;
             spread = WEAPON_LASER_SPREAD;
+            damage = WEAPON_LASER_DAMAGE;
             speed = WEAPON_LASER_SPEED;
             firerate = WEAPON_LASER_FIRERATE;
             burst_delay = WEAPON_LASER_BURST_DELAY;
+            break;
+        case WeaponType::CHARGE:
+            projectiles = WEAPON_CHARGE_PROJECTILES;
+            spread = WEAPON_CHARGE_SPREAD;
+            damage = WEAPON_CHARGE_DAMAGE_MIN; // Damage depends on charge, returning MIN here
+            speed = WEAPON_CHARGE_SPEED;
+            firerate = WEAPON_CHARGE_FIRERATE;
+            burst_delay = WEAPON_CHARGE_BURST_DELAY;
             break;
     }
 }

@@ -27,6 +27,7 @@
 #include "systems/AISystem.hpp"
 #include "systems/WaveSpawnerSystem.hpp"
 #include "systems/BonusSystem.hpp"
+#include "systems/AttachmentSystem.hpp"
 #include "plugin_manager/PluginManager.hpp"
 #include "plugin_manager/IInputPlugin.hpp"
 #include "plugin_manager/IAudioPlugin.hpp"
@@ -179,6 +180,7 @@ int main() {
     registry.register_component<SpeedBoost>();
     registry.register_component<CircleEffect>();
     registry.register_component<TextEffect>();
+    registry.register_component<Attached>();
 
     std::cout << "✓ Composants enregistres" << std::endl;
 
@@ -197,6 +199,7 @@ int main() {
     registry.register_system<HealthSystem>();
     registry.register_system<HitEffectSystem>();
     registry.register_system<ScoreSystem>();
+    registry.register_system<AttachmentSystem>();
 
     // AI System - gere le comportement des ennemis (mouvement, tir)
     registry.register_system<AISystem>(*graphicsPlugin);
@@ -303,7 +306,7 @@ int main() {
     });
 
     // ARME - Les stats sont dans CombatConfig.hpp (defines)
-    registry.add_component(player, create_weapon(WeaponType::LASER, bulletTex));
+    registry.add_component(player, create_weapon(WeaponType::CHARGE, bulletTex));
 
     registry.add_component(player, Health{100, 100});
     registry.add_component(player, Score{0});

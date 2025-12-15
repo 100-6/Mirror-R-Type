@@ -41,13 +41,21 @@ enum class WeaponType {
     BASIC,
     SPREAD,
     BURST,
-    LASER
+    LASER,
+    CHARGE
 };
 
 struct Weapon {
     WeaponType type = WeaponType::BASIC;
     float time_since_last_fire = 999.0f;
     int burst_count = 0;
+    
+    // Charge System
+    bool trigger_held = false;
+    bool is_charging = false;
+    float current_charge_duration = 0.0f;
+    size_t chargeEffectEntity = -1; // -1 = invalid
+
     Sprite projectile_sprite;
 };
 

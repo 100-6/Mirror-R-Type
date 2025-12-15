@@ -20,12 +20,18 @@ void PlayerInputSystem::init(Registry& registry)
     auto& eventBus = registry.get_event_bus();
 
     // S'abonner aux événements bruts d'input
-    eventBus.subscribe<ecs::RawKeyPressedEvent>([](const ecs::RawKeyPressedEvent& event) {
+    eventBus.subscribe<ecs::RawKeyPressedEvent>([&registry](const ecs::RawKeyPressedEvent& event) {
         keyStates[event.entity][event.key] = true;
+        
+        if (event.key == engine::Key::Space)
+            registry.get_event_bus().publish(ecs::PlayerStartFireEvent{event.entity});
     });
 
-    eventBus.subscribe<ecs::RawKeyReleasedEvent>([](const ecs::RawKeyReleasedEvent& event) {
+    eventBus.subscribe<ecs::RawKeyReleasedEvent>([&registry](const ecs::RawKeyReleasedEvent& event) {
         keyStates[event.entity][event.key] = false;
+
+        if (event.key == engine::Key::Space)
+            registry.get_event_bus().publish(ecs::PlayerStopFireEvent{event.entity});
     });
 
     std::cout << "PlayerInputSystem: Initialisation" << std::endl;
@@ -66,9 +72,6 @@ void PlayerInputSystem::update(Registry& registry, float dt)
             dirX += 1.0f;
 
         eventBus.publish(ecs::PlayerMoveEvent{entity, dirX, dirY});
-
-        if (entityKeys[engine::Key::Space])
-            eventBus.publish(ecs::PlayerFireEvent{entity});
 
         if (entityKeys[engine::Key::LShift] || entityKeys[engine::Key::RShift])
             eventBus.publish(ecs::PlayerSpecialEvent{entity});

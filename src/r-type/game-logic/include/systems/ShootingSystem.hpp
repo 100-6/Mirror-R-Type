@@ -18,7 +18,7 @@ class ShootingSystem : public ISystem {
     private:
         core::EventBus::SubscriptionId fireSubId_;
 
-        void createProjectiles(Registry& registry, Entity shooter, Weapon& weapon, const Position& shooterPos, float shooterHeight);
+        void createProjectiles(Registry& registry, Entity shooter, Weapon& weapon, const Position& shooterPos, float shooterWidth, float shooterHeight);
 
     public:
         ShootingSystem() = default;

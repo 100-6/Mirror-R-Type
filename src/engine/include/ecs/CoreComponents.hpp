@@ -55,6 +55,12 @@ struct Sprite {
     int layer = 0;
 };
 
+struct Attached {
+    size_t parentEntity = 0;
+    float offsetX = 0.0f;
+    float offsetY = 0.0f;
+};
+
 // Tags Génériques
 
 struct Controllable {
