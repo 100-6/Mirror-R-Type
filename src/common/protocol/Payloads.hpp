@@ -313,20 +313,38 @@ struct __attribute__((packed)) ServerSnapshotPayload {
 static_assert(sizeof(ServerSnapshotPayload) == 6, "ServerSnapshotPayload base must be 6 bytes");
 
 /**
+ * @brief Enemy subtype identifiers for SERVER_ENTITY_SPAWN
+ */
+enum class EnemySubtype : uint8_t {
+    BASIC = 0x00,
+    FAST = 0x01,
+    TANK = 0x02,
+    BOSS = 0x03,
+};
+
+/**
  * @brief SERVER_ENTITY_SPAWN payload (0xB0)
- * Base size: 13 bytes + variable spawn parameters
+ * Total size: 16 bytes (enhanced with subtype and health)
+ * Layout: entity_id(4) + entity_type(1) + spawn_x(4) + spawn_y(4) + subtype(1) + health(2) = 16 bytes
  */
 struct __attribute__((packed)) ServerEntitySpawnPayload {
     uint32_t entity_id;
     EntityType entity_type;
     float spawn_x;
     float spawn_y;
+    uint8_t subtype;
+    uint16_t health;
 
     ServerEntitySpawnPayload()
-        : entity_id(0), entity_type(EntityType::ENEMY_BASIC), spawn_x(0.0f), spawn_y(0.0f) {}
+        : entity_id(0)
+        , entity_type(EntityType::ENEMY_BASIC)
+        , spawn_x(0.0f)
+        , spawn_y(0.0f)
+        , subtype(static_cast<uint8_t>(EnemySubtype::BASIC))
+        , health(100) {}
 };
 
-static_assert(sizeof(ServerEntitySpawnPayload) == 13, "ServerEntitySpawnPayload base must be 13 bytes");
+static_assert(sizeof(ServerEntitySpawnPayload) == 16, "ServerEntitySpawnPayload must be 16 bytes");
 
 /**
  * @brief SERVER_ENTITY_DESTROY payload (0xB1)
@@ -399,6 +417,51 @@ struct __attribute__((packed)) ServerScoreUpdatePayload {
 };
 
 static_assert(sizeof(ServerScoreUpdatePayload) == 13, "ServerScoreUpdatePayload must be 13 bytes");
+
+/**
+ * @brief SERVER_WAVE_START payload (0xC2)
+ * Total size: 44 bytes
+ */
+struct __attribute__((packed)) ServerWaveStartPayload {
+    uint32_t wave_number;
+    uint16_t total_waves;
+    float scroll_distance;
+    uint16_t expected_enemies;
+    char wave_name[32];
+
+    ServerWaveStartPayload()
+        : wave_number(0), total_waves(0), scroll_distance(0.0f), expected_enemies(0) {
+        std::memset(wave_name, 0, sizeof(wave_name));
+    }
+
+    void set_wave_name(const std::string& name) {
+        std::memset(wave_name, 0, sizeof(wave_name));
+        std::strncpy(wave_name, name.c_str(), sizeof(wave_name) - 1);
+    }
+};
+
+static_assert(sizeof(ServerWaveStartPayload) == 44, "ServerWaveStartPayload must be 44 bytes");
+
+/**
+ * @brief SERVER_WAVE_COMPLETE payload (0xC3)
+ * Total size: 13 bytes
+ */
+struct __attribute__((packed)) ServerWaveCompletePayload {
+    uint32_t wave_number;
+    uint32_t completion_time;
+    uint16_t enemies_killed;
+    uint16_t bonus_points;
+    uint8_t all_waves_complete;
+
+    ServerWaveCompletePayload()
+        : wave_number(0)
+        , completion_time(0)
+        , enemies_killed(0)
+        , bonus_points(0)
+        , all_waves_complete(0) {}
+};
+
+static_assert(sizeof(ServerWaveCompletePayload) == 13, "ServerWaveCompletePayload must be 13 bytes");
 
 /**
  * @brief SERVER_PLAYER_RESPAWN payload (0xC5)
