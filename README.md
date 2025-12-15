@@ -24,6 +24,7 @@
 
 - **[Setup Guide](docs/SETUP.md)** - Get started with building and running the project
 - **[Developer Guide](docs/DEVELOPER.md)** - Contributing guidelines and development workflow
+- **[Wave System Guide](docs/WAVE_SYSTEM.md)** - JSON-based wave spawning system documentation
 
 ## Quick Start
 

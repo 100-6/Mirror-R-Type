@@ -89,6 +89,52 @@ void RenderSystem::update(Registry& registry, float dt)
         graphics_plugin.draw_sprite(temp_sprite, engine::Vector2f(pos.x, pos.y));
     }
 
+    // === RENDU DES CERCLES (CircleEffect) ===
+    if (registry.has_component_registered<CircleEffect>()) {
+        auto& circles = registry.get_components<CircleEffect>();
+        auto& colliders = registry.get_components<Collider>();
+
+        for (size_t i = 0; i < circles.size(); i++) {
+            Entity entity = circles.get_entity_at(i);
+            const CircleEffect& circle = circles[entity];
+
+            if (!circle.active)
+                continue;
+            if (!positions.has_entity(entity))
+                continue;
+
+            const Position& pos = positions[entity];
+
+            // Calculer le centre (avec offset si collider présent)
+            float centerX = pos.x + circle.offsetX;
+            float centerY = pos.y + circle.offsetY;
+
+            if (colliders.has_entity(entity)) {
+                const Collider& col = colliders[entity];
+                centerX = pos.x + col.width / 2.0f + circle.offsetX;
+                centerY = pos.y + col.height / 2.0f + circle.offsetY;
+            }
+
+            graphics_plugin.draw_circle(engine::Vector2f{centerX, centerY}, circle.radius, circle.color);
+        }
+    }
+
+    // === RENDU DES TEXTES (TextEffect) ===
+    if (registry.has_component_registered<TextEffect>()) {
+        auto& texts = registry.get_components<TextEffect>();
+
+        for (size_t i = 0; i < texts.size(); i++) {
+            Entity entity = texts.get_entity_at(i);
+            const TextEffect& text = texts[entity];
+
+            if (!text.active || text.text.empty())
+                continue;
+
+            graphics_plugin.draw_text(text.text, engine::Vector2f{text.posX, text.posY},
+                                      text.color, engine::INVALID_HANDLE, text.fontSize);
+        }
+    }
+
     // Note: On n'appelle PAS display() ici pour permettre au main d'ajouter
     // des éléments UI/debug par-dessus avant d'afficher le frame
 }

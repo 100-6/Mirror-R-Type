@@ -71,8 +71,9 @@ void CollisionSystem::update(Registry& registry, float dt)
         registry.get_event_bus().publish(ecs::DamageEvent{enemy, bullet, dmg});
     });
 
-    // Collision Projectile (ennemi) vs Player : Applique les dégâts au joueur
-    scan_collisions<Projectile, Controllable>(registry, [&registry, &damages, &projectiles](Entity bullet, Entity player) {
+    // Collision Projectile (ennemi) vs Player : Applique les dégâts au joueur (ou casse le bouclier)
+    auto& shields = registry.get_components<Shield>();
+    scan_collisions<Projectile, Controllable>(registry, [&registry, &damages, &projectiles, &shields](Entity bullet, Entity player) {
         if (!projectiles.has_entity(bullet))
             return;
 
@@ -80,6 +81,14 @@ void CollisionSystem::update(Registry& registry, float dt)
             return;
 
         registry.add_component(bullet, ToDestroy{});
+
+        // Vérifier si le joueur a un bouclier actif
+        if (shields.has_entity(player) && shields[player].active) {
+            // Le bouclier absorbe le coup et se casse
+            registry.remove_component<Shield>(player);
+            std::cout << "CollisionSystem: Bouclier du joueur détruit!" << std::endl;
+            return;
+        }
 
         int dmg = damages.has_entity(bullet) ? damages[bullet].value : 10;
         registry.get_event_bus().publish(ecs::DamageEvent{player, bullet, dmg});

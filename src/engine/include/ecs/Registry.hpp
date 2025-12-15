@@ -67,6 +67,13 @@ class Registry {
         }
 
         template <typename Component>
+        bool has_component_registered() const
+        {
+            std::type_index index = std::type_index(typeid(Component));
+            return components.find(index) != components.end();
+        }
+
+        template <typename Component>
         void add_component(Entity entity, Component&& component)
         {
             using ComponentType = std::decay_t<Component>;

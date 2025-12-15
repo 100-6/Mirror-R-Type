@@ -102,4 +102,70 @@ struct Score
     int value = 0;
 };
 
+// Bonus System
+
+enum class BonusType {
+    HEALTH,     // +20 HP (vert)
+    SHIELD,     // Protection 1 hit (violet)
+    SPEED       // +50% vitesse pendant 20s (bleu)
+};
+
+// Wave System
+
+enum class SpawnPattern {
+    SINGLE,      // Spawn single entity at position
+    LINE,        // Spawn entities in horizontal line
+    GRID,        // Spawn entities in grid pattern
+    RANDOM,      // Spawn at random Y positions
+    FORMATION    // Spawn in specific formation (V, diamond, etc.)
+};
+
+enum class EntitySpawnType {
+    ENEMY,
+    WALL,
+    OBSTACLE,
+    POWERUP
+};
+
+struct WaveSpawnData {
+    EntitySpawnType entityType = EntitySpawnType::ENEMY;
+    EnemyType enemyType = EnemyType::Basic;  // Used if entityType is ENEMY
+    BonusType bonusType = BonusType::HEALTH; // Used if entityType is POWERUP
+    float positionX = 0.0f;                   // Relative to scroll position
+    float positionY = 0.0f;                   // Absolute Y position
+    int count = 1;                            // Number of entities to spawn
+    SpawnPattern pattern = SpawnPattern::SINGLE;
+    float spacing = 0.0f;                     // Spacing between entities in pattern
+};
+
+struct WaveTrigger {
+    float scrollDistance = 0.0f;              // Scroll distance to trigger wave
+    float timeDelay = 0.0f;                   // Optional time delay after scroll trigger
+    bool triggered = false;                   // Has this wave been triggered?
+};
+
+struct WaveController {
+    std::string configFilePath;               // Path to JSON config file
+    float totalScrollDistance = 0.0f;         // Total scrolling since start
+    size_t currentWaveIndex = 0;              // Current wave being processed
+    int currentWaveNumber = 0;                // Current wave number from JSON
+    size_t totalWaveCount = 0;                // Total number of waves
+    bool allWavesCompleted = false;           // All waves finished
+};
+
+struct Bonus {
+    BonusType type = BonusType::HEALTH;
+    float radius = 20.0f;
+};
+
+struct Shield {
+    bool active = true;  // Se désactive après 1 hit
+};
+
+struct SpeedBoost {
+    float timeRemaining = 20.0f;      // Durée restante
+    float multiplier = 1.5f;          // +50% vitesse
+    float originalSpeed = 0.0f;       // Vitesse originale pour restauration
+};
+
 #endif /* !GAME_COMPONENTS_HPP_ */
