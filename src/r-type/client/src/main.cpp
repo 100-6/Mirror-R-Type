@@ -26,6 +26,7 @@
 #include "systems/AISystem.hpp"
 #include "systems/WaveSpawnerSystem.hpp"
 #include "systems/BonusSystem.hpp"
+#include "systems/HUDSystem.hpp"
 #include "plugin_manager/PluginManager.hpp"
 #include "plugin_manager/IInputPlugin.hpp"
 #include "plugin_manager/IAudioPlugin.hpp"
@@ -213,6 +214,9 @@ int main() {
     registry.register_system<DestroySystem>();
     registry.register_system<RenderSystem>(*graphicsPlugin);
 
+    // HUD System - modern UI rendering (health bar, score, wave, etc.)
+    registry.register_system<HUDSystem>(*graphicsPlugin, SCREEN_WIDTH, SCREEN_HEIGHT);
+
     std::cout << "✓ Systemes enregistres :" << std::endl;
     std::cout << "  1. InputSystem         - Capture raw key states from plugin" << std::endl;
     std::cout << "  2. PlayerInputSystem   - Interpret keys for R-Type actions" << std::endl;
@@ -232,6 +236,7 @@ int main() {
     }
     std::cout << "  15. DestroySystem      - Detruit les entites marquees pour destruction" << std::endl;
     std::cout << "  16. RenderSystem       - Rendu des sprites via plugin graphique" << std::endl;
+    std::cout << "  17. HUDSystem          - Modern UI rendering (health bar, score, wave)" << std::endl;
     std::cout << std::endl;
 
     // ==
@@ -376,90 +381,8 @@ int main() {
         // === UPDATE ===
         registry.run_systems(dt);
 
-        // === AFFICHAGE DES STATS À L'ÉCRAN ===
-        if (positions.has_entity(player) && velocities.has_entity(player)) {
-            const Position& playerPos = positions[player];
-            const Velocity& playerVel = velocities[player];
-
-            int yOffset = 10;
-            int lineHeight = 25;
-
-            // Position
-            std::string posText = "Position: (" + std::to_string(static_cast<int>(playerPos.x)) + ", " +
-                                  std::to_string(static_cast<int>(playerPos.y)) + ")";
-            graphicsPlugin->draw_text(posText, engine::Vector2f(10.0f, yOffset),
-                                     engine::Color{255, 255, 0, 255}, engine::INVALID_HANDLE, 20);
-            yOffset += lineHeight;
-
-            // Vélocité
-            std::string velText = "Velocity: (" + std::to_string(static_cast<int>(playerVel.x)) + ", " +
-                                  std::to_string(static_cast<int>(playerVel.y)) + ")";
-            graphicsPlugin->draw_text(velText, engine::Vector2f(10.0f, yOffset),
-                                     engine::Color{255, 255, 0, 255}, engine::INVALID_HANDLE, 20);
-            yOffset += lineHeight;
-
-            // FPS / Frame count
-            std::string fpsText = "Frame: " + std::to_string(frameCount) + " (60 FPS)";
-            graphicsPlugin->draw_text(fpsText, engine::Vector2f(10.0f, yOffset),
-                                     engine::Color{0, 255, 0, 255}, engine::INVALID_HANDLE, 20);
-            yOffset += lineHeight;
-
-            // Score (dans le debug)
-            if (scores.has_entity(player)) {
-                std::string scoreText = "Score: " + std::to_string(scores[player].value);
-                graphicsPlugin->draw_text(scoreText, engine::Vector2f(10.0f, yOffset),
-                                         engine::Color{255, 0, 255, 255}, engine::INVALID_HANDLE, 20);
-            }
-        }
-
-        // Score affiché en grand en haut à droite (toujours visible)
-        if (scores.has_entity(player)) {
-            std::string scoreText = "SCORE: " + std::to_string(scores[player].value);
-            graphicsPlugin->draw_text(scoreText, engine::Vector2f(SCREEN_WIDTH - 300.0f, 30.0f),
-                                     engine::Color{255, 255, 0, 255}, engine::INVALID_HANDLE, 40);
-        }
-
-        // Vie du joueur affichée en haut à gauche (toujours visible)
-        if (healths.has_entity(player)) {
-            int hp = healths[player].current;
-            int maxHp = healths[player].max;
-            std::string healthText = "HP: " + std::to_string(hp) + " / " + std::to_string(maxHp);
-
-            // Couleur selon la vie restante
-            engine::Color healthColor;
-            float hpPercent = static_cast<float>(hp) / static_cast<float>(maxHp);
-            if (hpPercent > 0.6f)
-                healthColor = engine::Color{0, 255, 0, 255};     // Vert
-            else if (hpPercent > 0.3f)
-                healthColor = engine::Color{255, 165, 0, 255};   // Orange
-            else
-                healthColor = engine::Color{255, 0, 0, 255};     // Rouge
-
-            graphicsPlugin->draw_text(healthText, engine::Vector2f(30.0f, 30.0f),
-                                     healthColor, engine::INVALID_HANDLE, 40);
-        }
-
-        // Wave number displayed in the center-top of the screen
-        // Find the WaveController component
-        for (size_t i = 0; i < waveControllers.size(); ++i) {
-            if (waveControllers.has_entity(i)) {
-                const auto& waveCtrl = waveControllers[i];
-
-                if (waveCtrl.currentWaveNumber > 0) {
-                    std::string waveText = "WAVE " + std::to_string(waveCtrl.currentWaveNumber) +
-                                           " / " + std::to_string(waveCtrl.totalWaveCount);
-                    graphicsPlugin->draw_text(waveText, engine::Vector2f(SCREEN_WIDTH / 2.0f - 100.0f, 30.0f),
-                                             engine::Color{255, 255, 255, 255}, engine::INVALID_HANDLE, 40);
-                } else if (waveCtrl.allWavesCompleted) {
-                    std::string waveText = "ALL WAVES COMPLETE!";
-                    graphicsPlugin->draw_text(waveText, engine::Vector2f(SCREEN_WIDTH / 2.0f - 200.0f, 30.0f),
-                                             engine::Color{0, 255, 0, 255}, engine::INVALID_HANDLE, 40);
-                }
-                break; // Only one WaveController should exist
-            }
-        }
-
-        // Afficher le frame complet (sprites + UI)
+        // All HUD rendering is now handled by HUDSystem
+        // Display the complete frame (sprites + UI)
         graphicsPlugin->display();
     }
 

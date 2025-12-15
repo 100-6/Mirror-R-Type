@@ -135,6 +135,87 @@ void RenderSystem::update(Registry& registry, float dt)
         }
     }
 
+    // === RENDU DES UI PANELS ===
+    if (registry.has_component_registered<UIPanel>()) {
+        auto& panels = registry.get_components<UIPanel>();
+
+        for (size_t i = 0; i < panels.size(); i++) {
+            Entity entity = panels.get_entity_at(i);
+            const UIPanel& panel = panels[entity];
+
+            if (!panel.active || !positions.has_entity(entity))
+                continue;
+
+            const Position& pos = positions[entity];
+
+            // Background
+            engine::Rectangle bg = {pos.x, pos.y, panel.width, panel.height};
+            graphics_plugin.draw_rectangle(bg, panel.backgroundColor);
+
+            // Border
+            engine::Rectangle border = {pos.x, pos.y, panel.width, panel.height};
+            graphics_plugin.draw_rectangle_outline(border, panel.borderColor, panel.borderThickness);
+        }
+    }
+
+    // === RENDU DES UI BARS ===
+    if (registry.has_component_registered<UIBar>()) {
+        auto& bars = registry.get_components<UIBar>();
+
+        for (size_t i = 0; i < bars.size(); i++) {
+            Entity entity = bars.get_entity_at(i);
+            const UIBar& bar = bars[entity];
+
+            if (!bar.active || !positions.has_entity(entity))
+                continue;
+
+            const Position& pos = positions[entity];
+
+            // Background
+            engine::Rectangle barBg = {pos.x, pos.y, bar.width, bar.height};
+            graphics_plugin.draw_rectangle(barBg, bar.backgroundColor);
+
+            // Fill based on current/max value
+            float fillPercent = bar.currentValue / bar.maxValue;
+            if (fillPercent < 0.0f) fillPercent = 0.0f;
+            if (fillPercent > 1.0f) fillPercent = 1.0f;
+
+            float fillWidth = bar.width * fillPercent;
+            engine::Rectangle barFill = {pos.x, pos.y, fillWidth, bar.height};
+            graphics_plugin.draw_rectangle(barFill, bar.fillColor);
+
+            // Border
+            engine::Rectangle barOutline = {pos.x, pos.y, bar.width, bar.height};
+            graphics_plugin.draw_rectangle_outline(barOutline, bar.borderColor, bar.borderThickness);
+        }
+    }
+
+    // === RENDU DES UI TEXT ===
+    if (registry.has_component_registered<UIText>()) {
+        auto& uitexts = registry.get_components<UIText>();
+
+        for (size_t i = 0; i < uitexts.size(); i++) {
+            Entity entity = uitexts.get_entity_at(i);
+            const UIText& uitext = uitexts[entity];
+
+            if (!uitext.active || uitext.text.empty() || !positions.has_entity(entity))
+                continue;
+
+            const Position& pos = positions[entity];
+
+            // Shadow
+            if (uitext.hasShadow) {
+                graphics_plugin.draw_text(uitext.text,
+                    engine::Vector2f{pos.x + uitext.shadowOffsetX, pos.y + uitext.shadowOffsetY},
+                    uitext.shadowColor, engine::INVALID_HANDLE, uitext.fontSize);
+            }
+
+            // Text
+            graphics_plugin.draw_text(uitext.text, engine::Vector2f{pos.x, pos.y},
+                                      uitext.color, engine::INVALID_HANDLE, uitext.fontSize);
+        }
+    }
+
     // Note: On n'appelle PAS display() ici pour permettre au main d'ajouter
     // des éléments UI/debug par-dessus avant d'afficher le frame
 }

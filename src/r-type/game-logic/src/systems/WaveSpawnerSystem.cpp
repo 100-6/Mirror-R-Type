@@ -390,10 +390,9 @@ Entity WaveSpawnerSystem::spawnWall(Registry& registry, float x, float y)
     registry.add_component(e, Position{x, y});
     registry.add_component(e, Velocity{0.0f, 0.0f}); // Stationary
 
-    // Use default texture (pink/black checkerboard)
-    engine::TextureHandle defaultTex = graphics_.get_default_texture();
-    registry.add_component(e, Sprite{defaultTex, size.x, size.y, 0.0f,
-                                    engine::Color{100, 100, 100, 255}, 0.0f, 0.0f, -1});
+    // Use lock.png texture for walls
+    registry.add_component(e, Sprite{wallTex_, size.x, size.y, 0.0f,
+                                    engine::Color::White, 0.0f, 0.0f, -1});
 
     registry.add_component(e, Collider{size.x, size.y});
     registry.add_component(e, Wall{});
@@ -414,10 +413,9 @@ Entity WaveSpawnerSystem::spawnObstacle(Registry& registry, float x, float y)
     registry.add_component(e, Position{x, y});
     registry.add_component(e, Velocity{0.0f, 0.0f});
 
-    // Use default texture (pink/black checkerboard) with different color
-    engine::TextureHandle defaultTex = graphics_.get_default_texture();
-    registry.add_component(e, Sprite{defaultTex, size.x, size.y, 0.0f,
-                                    engine::Color{150, 100, 50, 255}, 0.0f, 0.0f, 0});
+    // Use lock.png texture for obstacles (with slight color tint to differentiate)
+    registry.add_component(e, Sprite{obstacleTex_, size.x, size.y, 0.0f,
+                                    engine::Color{200, 200, 200, 255}, 0.0f, 0.0f, 0});
 
     registry.add_component(e, Collider{size.x, size.y});
     registry.add_component(e, Wall{}); // Obstacles use Wall component too for collision
@@ -497,11 +495,10 @@ void WaveSpawnerSystem::loadTextures()
     bossEnemyTex_ = basicEnemyTex_;  // Reuse for now
     bulletTex_ = graphics_.load_texture("assets/sprite/bullet.png");
 
-    // Try to load wall/obstacle textures (optional - use default if not found)
-    // We'll use INVALID_HANDLE to indicate no texture, entity spawning will handle this
-    wallTex_ = engine::INVALID_HANDLE;
-    obstacleTex_ = engine::INVALID_HANDLE;
+    // Load wall/obstacle textures
+    wallTex_ = graphics_.load_texture("assets/sprite/lock.png");
+    obstacleTex_ = graphics_.load_texture("assets/sprite/lock.png");
 
     std::cout << "WaveSpawnerSystem: Textures loaded" << std::endl;
-    std::cout << "  Note: Wall/Obstacle textures not loaded (optional)" << std::endl;
+    std::cout << "  Wall/Obstacle textures: lock.png" << std::endl;
 }
