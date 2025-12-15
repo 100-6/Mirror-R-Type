@@ -11,6 +11,47 @@
 #include "GameComponents.hpp"
 #include "CombatConfig.hpp"
 
+// Helper pour créer une arme configurée
+inline Weapon create_weapon(WeaponType type, engine::TextureHandle texture)
+{
+    Weapon weapon;
+    weapon.type = type;
+    weapon.time_since_last_fire = 999.0f;
+    weapon.burst_count = 0;
+    
+    // Config de base du sprite
+    weapon.projectile_sprite.texture = texture;
+    weapon.projectile_sprite.rotation = 0.0f;
+    weapon.projectile_sprite.origin_x = 0.0f;
+    weapon.projectile_sprite.origin_y = 0.0f;
+    weapon.projectile_sprite.layer = 1;
+
+    switch (type) {
+        case WeaponType::BASIC:
+            weapon.projectile_sprite.width = WEAPON_BASIC_WIDTH;
+            weapon.projectile_sprite.height = WEAPON_BASIC_HEIGHT;
+            weapon.projectile_sprite.tint = engine::Color{WEAPON_BASIC_COLOR_R, WEAPON_BASIC_COLOR_G, WEAPON_BASIC_COLOR_B, WEAPON_BASIC_COLOR_A};
+            break;
+        case WeaponType::SPREAD:
+            weapon.projectile_sprite.width = WEAPON_SPREAD_WIDTH;
+            weapon.projectile_sprite.height = WEAPON_SPREAD_HEIGHT;
+            weapon.projectile_sprite.tint = engine::Color{WEAPON_SPREAD_COLOR_R, WEAPON_SPREAD_COLOR_G, WEAPON_SPREAD_COLOR_B, WEAPON_SPREAD_COLOR_A};
+            break;
+        case WeaponType::BURST:
+            weapon.projectile_sprite.width = WEAPON_BURST_WIDTH;
+            weapon.projectile_sprite.height = WEAPON_BURST_HEIGHT;
+            weapon.projectile_sprite.tint = engine::Color{WEAPON_BURST_COLOR_R, WEAPON_BURST_COLOR_G, WEAPON_BURST_COLOR_B, WEAPON_BURST_COLOR_A};
+            break;
+        case WeaponType::LASER:
+            weapon.projectile_sprite.width = WEAPON_LASER_WIDTH;
+            weapon.projectile_sprite.height = WEAPON_LASER_HEIGHT;
+            weapon.projectile_sprite.tint = engine::Color{WEAPON_LASER_COLOR_R, WEAPON_LASER_COLOR_G, WEAPON_LASER_COLOR_B, WEAPON_LASER_COLOR_A};
+            break;
+    }
+    
+    return weapon;
+}
+
 // Helper pour récupérer les stats d'une arme
 inline void get_weapon_stats(WeaponType type, int& projectiles, float& spread, float& speed, float& firerate, float& burst_delay)
 {

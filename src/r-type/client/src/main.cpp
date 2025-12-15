@@ -8,6 +8,7 @@
 #include <iostream>
 #include "ecs/Registry.hpp"
 #include "components/GameComponents.hpp"
+#include "components/CombatHelpers.hpp"
 #include "cmath"
 #include "ecs/systems/InputSystem.hpp"
 #include "systems/PlayerInputSystem.hpp"
@@ -302,21 +303,7 @@ int main() {
     });
 
     // ARME - Les stats sont dans CombatConfig.hpp (defines)
-    registry.add_component(player, Weapon{
-        WeaponType::BASIC,           // Type: BASIC/SPREAD/BURST/LASER
-        999.0f,                      // Temps depuis dernier tir
-        0,                           // Compteur de rafale
-        Sprite{                      // Apparence des projectiles
-            bulletTex,
-            bulletWidth,
-            bulletHeight,
-            0.0f,
-            engine::Color{255, 100, 255, 255},
-            0.0f,
-            0.0f,
-            1
-        }
-    });
+    registry.add_component(player, create_weapon(WeaponType::LASER, bulletTex));
 
     registry.add_component(player, Health{100, 100});
     registry.add_component(player, Score{0});

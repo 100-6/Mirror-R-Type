@@ -105,7 +105,7 @@ void ShootingSystem::update(Registry& registry, float dt)
                     weapon.projectile_sprite.width,
                     weapon.projectile_sprite.height,
                     180.0f,
-                    engine::Color{255, 100, 100, 255},
+                    engine::Color{ENEMY_PROJECTILE_COLOR_R, ENEMY_PROJECTILE_COLOR_G, ENEMY_PROJECTILE_COLOR_B, ENEMY_PROJECTILE_COLOR_A},
                     0.0f,
                     0.0f,
                     0
