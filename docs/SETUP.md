@@ -363,4 +363,3 @@ On WSL, you need an X server like [VcXsrv](https://sourceforge.net/projects/vcxs
 
 - Check existing [GitHub Issues](https://github.com/100-6/Mirror-R-Type/issues)
 - Contact the development team
-
