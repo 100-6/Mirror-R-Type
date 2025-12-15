@@ -24,7 +24,7 @@ void WaveSpawnerSystem::init(Registry& registry)
     // Create a WaveController entity to track wave state
     Entity waveController = registry.spawn_entity();
     registry.add_component(waveController, WaveController{
-        "assets/waves_test_walls.json",
+        "assets/waves_simple.json",
         0.0f,  // totalScrollDistance
         0,     // currentWaveIndex
         0,     // currentWaveNumber
@@ -33,7 +33,7 @@ void WaveSpawnerSystem::init(Registry& registry)
     });
 
     // Try to load default wave configuration
-    if (loadWaveConfiguration("assets/waves_test_walls.json")) {
+    if (loadWaveConfiguration("assets/waves_simple.json")) {
         std::cout << "WaveSpawnerSystem: Loaded wave configuration with walls" << std::endl;
         // Update total wave count in the component
         auto& waveControllers = registry.get_components<WaveController>();
@@ -433,22 +433,22 @@ Entity WaveSpawnerSystem::spawnBonus(Registry& registry, BonusType type, float x
 {
     Entity e = registry.spawn_entity();
 
-    const float BONUS_RADIUS = 20.0f;
+    constexpr float BONUS_RADIUS = 20.0f;
 
     // Couleur selon le type de bonus
     engine::Color tint;
     std::string typeName;
     switch (type) {
         case BonusType::HEALTH:
-            tint = engine::Color{0, 255, 0, 255};     // Vert
+            tint = engine::Color::Green;
             typeName = "HP";
             break;
         case BonusType::SHIELD:
-            tint = engine::Color{148, 0, 211, 255};   // Violet
+            tint = engine::Color::Purple;
             typeName = "Bouclier";
             break;
         case BonusType::SPEED:
-            tint = engine::Color{0, 150, 255, 255};   // Bleu
+            tint = engine::Color::SpeedBlue;
             typeName = "Vitesse";
             break;
     }
