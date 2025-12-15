@@ -27,13 +27,24 @@
 #include "plugin_manager/PluginManager.hpp"
 #include "plugin_manager/IInputPlugin.hpp"
 #include "plugin_manager/IAudioPlugin.hpp"
+#include "plugin_manager/INetworkPlugin.hpp"
+#include "systems/ClientNetworkSystem.hpp"
 
 int main() {
     // Configuration de la fenêtre
     const int SCREEN_WIDTH = 1920;
     const int SCREEN_HEIGHT = 1080;
 
-    std::cout << "=== R-Type Client - Solo Game ===" << std::endl;
+    std::cout << "=== R-Type Client ===" << std::endl;
+
+    // Check if we want multiplayer mode
+    bool multiplayer_mode = true;  // Set to true to connect to server
+
+    if (multiplayer_mode) {
+        std::cout << "Mode: MULTIPLAYER - Connecting to server..." << std::endl;
+    } else {
+        std::cout << "Mode: SOLO - Local game" << std::endl;
+    }
     std::cout << std::endl;
 
     // ==
@@ -43,6 +54,7 @@ int main() {
     engine::IGraphicsPlugin* graphicsPlugin = nullptr;
     engine::IInputPlugin* inputPlugin = nullptr;
     engine::IAudioPlugin* audioPlugin = nullptr;
+    engine::INetworkPlugin* networkPlugin = nullptr;
 
     std::cout << "Chargement du plugin graphique..." << std::endl;
     try {
@@ -102,8 +114,27 @@ int main() {
         std::cout << "⚠️ Plugin audio non disponible." << std::endl;
     }
 
+    std::cout << "Chargement du plugin réseau..." << std::endl;
+    try {
+        networkPlugin = pluginManager.load_plugin<engine::INetworkPlugin>(
+            "plugins/asio_network.so",
+            "create_network_plugin"
+        );
+    } catch (const engine::PluginException& e) {
+        std::cerr << "⚠️ Erreur lors du chargement du plugin réseau (mode solo): " << e.what() << std::endl;
+        // On continue sans réseau
+    }
+
+    if (networkPlugin) {
+        std::cout << "✓ Plugin réseau chargé: " << networkPlugin->get_name()
+                  << " v" << networkPlugin->get_version() << std::endl;
+    } else {
+        std::cout << "⚠️ Plugin réseau non disponible - Mode solo uniquement." << std::endl;
+    }
+
     // Créer la fenêtre via le plugin
-    if (!graphicsPlugin->create_window(SCREEN_WIDTH, SCREEN_HEIGHT, "R-Type Client - Solo Game")) {
+    std::string window_title = multiplayer_mode ? "R-Type Client - Multiplayer" : "R-Type Client - Solo Game";
+    if (!graphicsPlugin->create_window(SCREEN_WIDTH, SCREEN_HEIGHT, window_title.c_str())) {
         std::cerr << "❌ Erreur lors de la création de la fenêtre" << std::endl;
         return 1;
     }
@@ -188,17 +219,32 @@ int main() {
     // ==
 
     // Enregistrer les systèmes dans l'ordre d'exécution
+    if (multiplayer_mode && networkPlugin) {
+        registry.register_system<rtype::client::ClientNetworkSystem>(*networkPlugin, "127.0.0.1", 4242,
+                                                                       playerTex, playerWidth, playerHeight);
+    }
+
     registry.register_system<InputSystem>(*inputPlugin);        // 1. Read raw keys from plugin
     registry.register_system<PlayerInputSystem>();              // 2. Interpret keys for R-Type
-    registry.register_system<MovementSystem>();
-    registry.register_system<ShootingSystem>();
-    registry.register_system<PhysiqueSystem>();
-    registry.register_system<ScrollingSystem>(-100.0f, static_cast<float>(SCREEN_WIDTH));
-    registry.register_system<CollisionSystem>();
-    registry.register_system<HealthSystem>();
-    registry.register_system<HitEffectSystem>();
-    registry.register_system<ScoreSystem>();
-    registry.register_system<AISystem>(*graphicsPlugin);
+
+    if (!multiplayer_mode) {
+        // Solo mode - run all game logic locally
+        registry.register_system<MovementSystem>();
+        registry.register_system<ShootingSystem>();
+        registry.register_system<PhysiqueSystem>();
+        registry.register_system<ScrollingSystem>(-100.0f, static_cast<float>(SCREEN_WIDTH));
+        registry.register_system<CollisionSystem>();
+        registry.register_system<HealthSystem>();
+        registry.register_system<HitEffectSystem>();
+        registry.register_system<ScoreSystem>();
+        registry.register_system<AISystem>(*graphicsPlugin);
+    } else {
+        // Multiplayer mode - server authoritative, positions come from snapshots
+        // DO NOT register MovementSystem - the server handles movement
+        // DO NOT register PhysiqueSystem - positions are updated by ClientNetworkSystem from snapshots
+        // The client only sends inputs and renders entities received from server
+    }
+
     if (audioPlugin) {
         registry.register_system<AudioSystem>(*audioPlugin);
     }
@@ -206,25 +252,36 @@ int main() {
     registry.register_system<RenderSystem>(*graphicsPlugin);
 
     std::cout << "✓ Systemes enregistres :" << std::endl;
+    if (networkPlugin) {
+        std::cout << "  0. ClientNetworkSystem - Connexion au serveur et sync des joueurs" << std::endl;
+    }
     std::cout << "  1. InputSystem       - Capture raw key states from plugin" << std::endl;
     std::cout << "  2. PlayerInputSystem - Interpret keys for R-Type actions" << std::endl;
     std::cout << "  3. MovementSystem    - Listen to movement events and update velocity" << std::endl;
-    std::cout << "  3. ShootingSystem - Ecoute les evenements de tir et cree des projectiles" << std::endl;
-    std::cout << "  4. PhysiqueSystem - Applique la velocite, friction, limites d'ecran" << std::endl;
-    std::cout << "  5. CollisionSystem- Gere les collisions et marque les entites a detruire" << std::endl;
-    std::cout << "  6. ScoreSystem    - Met a jour le score" << std::endl;
+    std::cout << "  4. ShootingSystem    - Ecoute les evenements de tir et cree des projectiles" << std::endl;
+    std::cout << "  5. PhysiqueSystem    - Applique la velocite, friction, limites d'ecran" << std::endl;
+    std::cout << "  6. CollisionSystem   - Gere les collisions et marque les entites a detruire" << std::endl;
+    std::cout << "  7. ScoreSystem       - Met a jour le score" << std::endl;
     if (audioPlugin) {
-        std::cout << "  8. AudioSystem     - Joue des sons sur evenements" << std::endl;
+        std::cout << "  8. AudioSystem       - Joue des sons sur evenements" << std::endl;
     }
-    std::cout << "  8. DestroySystem  - Detruit les entites marquees pour destruction" << std::endl;
-    std::cout << "  9. RenderSystem   - Rendu des sprites via plugin graphique" << std::endl;
+    std::cout << "  9. DestroySystem     - Detruit les entites marquees pour destruction" << std::endl;
+    std::cout << " 10. RenderSystem      - Rendu des sprites via plugin graphique" << std::endl;
     std::cout << std::endl;
 
     // ==
-    // CREATION DU BACKGROUND (Défilement infini avec 2 images)
+    // CREATION DES ENTITES DU JEU
     // ==
-    // Premier background
-    Entity background1 = registry.spawn_entity();
+    Entity player = 0;  // Player entity (needed in both modes)
+
+    if (!multiplayer_mode) {
+        // ==
+        // MODE SOLO - Créer tout le monde du jeu localement
+        // ==
+
+        // CREATION DU BACKGROUND (Défilement infini avec 2 images)
+        std::cout << "✓ Creation du background defilant..." << std::endl;
+        Entity background1 = registry.spawn_entity();
     registry.add_component(background1, Position{0.0f, 0.0f});
     registry.add_component(background1, Background{});  // Tag pour identifier le background
     registry.add_component(background1, Scrollable{
@@ -406,9 +463,41 @@ int main() {
     registry.add_component(enemy3, Enemy{});
     registry.add_component(enemy3, Health{50, 50});
 
-    std::cout << "  - 3 ennemis places dans l'arene (avec Scrollable)" << std::endl;
-    std::cout << "  - Les ennemis scrollent avec la map et se detruisent hors ecran" << std::endl;
-    std::cout << std::endl;
+        std::cout << "  - 3 ennemis places dans l'arene (avec Scrollable)" << std::endl;
+        std::cout << "  - Les ennemis scrollent avec la map et se detruisent hors ecran" << std::endl;
+        std::cout << std::endl;
+
+    } else {
+        // ==
+        // MODE MULTIPLAYER - Créer seulement le background, les joueurs viennent du serveur
+        // ==
+        std::cout << "✓ Mode multiplayer - Creation du monde local..." << std::endl;
+
+        // Create static background (no scrolling in multiplayer)
+        Entity background1 = registry.spawn_entity();
+        registry.add_component(background1, Position{0.0f, 0.0f});
+        registry.add_component(background1, Sprite{
+            backgroundTex,
+            static_cast<float>(SCREEN_WIDTH),
+            static_cast<float>(SCREEN_HEIGHT),
+            0.0f,
+            engine::Color::White,
+            0.0f,
+            0.0f,
+            -100  // Layer très bas pour être en arrière-plan
+        });
+
+        // Create input-only entity for capturing keyboard input
+        // This entity has ONLY Input component - no Position/Velocity/Sprite
+        // The actual player entity will come from server snapshots
+        Entity inputEntity = registry.spawn_entity();
+        registry.add_component(inputEntity, Input{});
+
+        std::cout << "  - Background statique cree" << std::endl;
+        std::cout << "  - Entite Input creee pour capturer les controles clavier" << std::endl;
+        std::cout << "  - Joueurs seront recus du serveur via snapshots" << std::endl;
+        std::cout << std::endl;
+    }
 
     // ==
     // INSTRUCTIONS

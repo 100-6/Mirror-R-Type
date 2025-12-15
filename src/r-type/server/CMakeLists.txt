@@ -2,11 +2,13 @@
 
 add_executable(r-type_server
     src/main.cpp
+    src/systems/ServerNetworkSystem.cpp
 )
 
 target_include_directories(r-type_server
     PRIVATE
         ${CMAKE_SOURCE_DIR}/src/engine/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
 target_link_libraries(r-type_server

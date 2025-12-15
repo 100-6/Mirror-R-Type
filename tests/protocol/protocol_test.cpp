@@ -1,8 +1,8 @@
 #include <gtest/gtest.h>
-#include "../src/common/protocol/PacketHeader.hpp"
-#include "../src/common/protocol/PacketTypes.hpp"
-#include "../src/common/protocol/Payloads.hpp"
-#include "../src/common/protocol/ProtocolEncoder.hpp"
+#include "../src/engine/include/network/protocol/PacketHeader.hpp"
+#include "../src/engine/include/network/protocol/PacketTypes.hpp"
+#include "../src/engine/include/network/protocol/Payloads.hpp"
+#include "../src/engine/include/network/protocol/ProtocolEncoder.hpp"
 #include <cstring>
 
 using namespace rtype::protocol;

@@ -2,11 +2,13 @@
 
 add_executable(r-type_client
     src/main.cpp
+    src/systems/ClientNetworkSystem.cpp
 )
 
 target_include_directories(r-type_client
     PRIVATE
         ${CMAKE_SOURCE_DIR}/src/engine/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
 target_link_libraries(r-type_client
