@@ -2,11 +2,18 @@
 
 add_executable(r-type_server
     src/main.cpp
+    src/Server.cpp
+    src/LobbyManager.cpp
+    src/GameSession.cpp
+    src/WaveManager.cpp
 )
 
 target_include_directories(r-type_server
     PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${CMAKE_SOURCE_DIR}/src/engine/include
+        ${CMAKE_SOURCE_DIR}/src/r-type/shared
+        ${CMAKE_SOURCE_DIR}/src/r-type/game-logic/include
 )
 
 target_link_libraries(r-type_server
