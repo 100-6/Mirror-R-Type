@@ -11,47 +11,64 @@
 #include "ecs/events/GameEvents.hpp"
 #include <iostream>
 #include <cmath>
+#include <algorithm>
 
 void ShootingSystem::init(Registry& registry)
 {
     std::cout << "ShootingSystem: Initialisation." << std::endl;
 
     auto& eventBus = registry.get_event_bus();
-    fireSubId_ = eventBus.subscribe<ecs::PlayerFireEvent>([this, &registry](const ecs::PlayerFireEvent& event) {
-        auto& positions = registry.get_components<Position>();
+
+    // Trigger Pressed
+    eventBus.subscribe<ecs::PlayerStartFireEvent>([this, &registry](const ecs::PlayerStartFireEvent& event) {
         auto& weapons = registry.get_components<Weapon>();
-        auto& sprites = registry.get_components<Sprite>();
-
-        if (!positions.has_entity(event.player))
-            return;
-
-        if (!weapons.has_entity(event.player))
-            return;
+        if (!weapons.has_entity(event.player)) return;
 
         auto& weapon = weapons[event.player];
+        weapon.trigger_held = true;
 
-        // Récupérer les stats de l'arme
-        int projectiles; float spread, speed, firerate, burst_delay;
-        get_weapon_stats(weapon.type, projectiles, spread, speed, firerate, burst_delay);
+        // Pour les armes automatiques, on tire immédiatement si le cooldown est prêt
+        if (weapon.type != WeaponType::CHARGE) {
+            int projectiles; int damage; float spread, speed, firerate, burst_delay;
+            get_weapon_stats(weapon.type, projectiles, spread, damage, speed, firerate, burst_delay);
 
-        // Vérifier le cooldown
-        if (weapon.time_since_last_fire < firerate)
-            return;
+            if (weapon.time_since_last_fire >= firerate) {
+                auto& positions = registry.get_components<Position>();
+                auto& sprites = registry.get_components<Sprite>();
 
-        // Pour les rafales, gérer le compteur
-        if (weapon.type == WeaponType::BURST && weapon.burst_count > 0) {
-            if (weapon.time_since_last_fire < burst_delay)
-                return;
+                if (positions.has_entity(event.player)) {
+                     float playerHeight = sprites.has_entity(event.player) ? sprites[event.player].height : 0.0f;
+                     float playerWidth = sprites.has_entity(event.player) ? sprites[event.player].width : 0.0f;
+                     createProjectiles(registry, event.player, weapon, positions[event.player], playerWidth, playerHeight);
+                }
+            }
         }
+    });
 
-        const Position& playerPos = positions[event.player];
+    // Trigger Released
+    eventBus.subscribe<ecs::PlayerStopFireEvent>([this, &registry](const ecs::PlayerStopFireEvent& event) {
+        auto& weapons = registry.get_components<Weapon>();
+        if (!weapons.has_entity(event.player)) return;
 
-        float playerHeight = 0.0f;
-        if (sprites.has_entity(event.player))
-            playerHeight = sprites[event.player].height;
+        auto& weapon = weapons[event.player];
+        weapon.trigger_held = false;
 
-        // Fonction générique pour tous les types d'armes
-        createProjectiles(registry, event.player, weapon, playerPos, playerHeight);
+        // Pour le tir chargé, on tire au relâchement
+        if (weapon.type == WeaponType::CHARGE) {
+            auto& positions = registry.get_components<Position>();
+            auto& sprites = registry.get_components<Sprite>();
+
+            if (positions.has_entity(event.player)) {
+                float playerHeight = sprites.has_entity(event.player) ? sprites[event.player].height : 0.0f;
+                float playerWidth = sprites.has_entity(event.player) ? sprites[event.player].width : 0.0f;
+                createProjectiles(registry, event.player, weapon, positions[event.player], playerWidth, playerHeight);
+            }
+            
+            // Note: L'effet visuel sera caché automatiquement par l'update
+            weapon.is_charging = false;
+            weapon.current_charge_duration = 0.0f;
+            weapon.time_since_last_fire = 0.0f;
+        }
     });
 }
 
@@ -67,6 +84,7 @@ void ShootingSystem::update(Registry& registry, float dt)
     auto& enemies = registry.get_components<Enemy>();
     auto& positions = registry.get_components<Position>();
     auto& sprites = registry.get_components<Sprite>();
+    auto& attacheds = registry.get_components<Attached>();
 
     for (size_t i = 0; i < weapons.size(); i++) {
         Entity entity = weapons.get_entity_at(i);
@@ -77,10 +95,103 @@ void ShootingSystem::update(Registry& registry, float dt)
         auto& weapon = weapons[entity];
         weapon.time_since_last_fire += dt;
 
+        // Logique Joueur
+        if (!enemies.has_entity(entity)) {
+            if (weapon.trigger_held) {
+                if (weapon.type == WeaponType::CHARGE) {
+                    weapon.is_charging = true;
+                    weapon.current_charge_duration += dt;
+                    
+                    // Création paresseuse de l'effet visuel
+                    if (weapon.chargeEffectEntity == (size_t)-1 || !sprites.has_entity(weapon.chargeEffectEntity)) {
+                         Entity effect = registry.spawn_entity();
+                         weapon.chargeEffectEntity = effect;
+                         
+                         float pW = sprites.has_entity(entity) ? sprites[entity].width : 0.0f;
+                         float pH = sprites.has_entity(entity) ? sprites[entity].height : 0.0f;
+                         float startSize = WEAPON_CHARGE_WIDTH_MIN / 2.0f;
+                         
+                         registry.add_component(effect, Position{0, 0});
+                         registry.add_component(effect, Attached{entity, pW + 5.0f, (pH - startSize) / 2.0f});
+                         registry.add_component(effect, Sprite{
+                            weapon.projectile_sprite.texture,
+                            0.0f, 0.0f, 0.0f, engine::Color{0, 150, 255, 150}, 0.0f, 0.0f, 2
+                         });
+                    }
+
+                    // Animer l'effet de charge
+                    if (sprites.has_entity(weapon.chargeEffectEntity)) {
+                        auto& effectSprite = sprites[weapon.chargeEffectEntity];
+                        
+                        float t = std::clamp((weapon.current_charge_duration) / (WEAPON_CHARGE_TIME_MAX), 0.0f, 1.0f);
+                        
+                        // Pulsing size
+                        float baseSize = WEAPON_CHARGE_WIDTH_MIN / 1.5f;
+                        float maxSize = WEAPON_CHARGE_WIDTH_MAX;
+                        float currentSize = baseSize + (maxSize - baseSize) * t;
+                        
+                        // Ajouter une pulsation rapide
+                        float pulse = std::sin(weapon.current_charge_duration * 15.0f) * 5.0f;
+                        
+                        effectSprite.width = currentSize + pulse;
+                        effectSprite.height = currentSize + pulse;
+                        
+                        // Recalculer l'offset pour rester centré malgré le changement de taille
+                        if (attacheds.has_entity(weapon.chargeEffectEntity)) {
+                             float pW = sprites.has_entity(entity) ? sprites[entity].width : 0.0f;
+                             float pH = sprites.has_entity(entity) ? sprites[entity].height : 0.0f;
+                             attacheds[weapon.chargeEffectEntity].offsetY = (pH - effectSprite.height) / 2.0f;
+                             attacheds[weapon.chargeEffectEntity].offsetX = pW + 5.0f;
+                        }
+                        
+                        // Rotate
+                        effectSprite.tint.r = static_cast<unsigned char>(t * 255);
+                        effectSprite.tint.g = static_cast<unsigned char>(150 + (t * 105)); // 150 -> 255
+                        effectSprite.tint.b = 255;
+                        effectSprite.tint.a = static_cast<unsigned char>(150 + (t * 105)); // Fade in opacity
+                    }
+
+                } else {
+                    // Tir automatique (continue)
+                    int projectiles; int damage; float spread, speed, firerate, burst_delay;
+                    get_weapon_stats(weapon.type, projectiles, spread, damage, speed, firerate, burst_delay);
+
+                    if (weapon.time_since_last_fire >= firerate) {
+                        if (positions.has_entity(entity)) {
+                            float h = sprites.has_entity(entity) ? sprites[entity].height : 0.0f;
+                            float w = sprites.has_entity(entity) ? sprites[entity].width : 0.0f;
+                            createProjectiles(registry, entity, weapon, positions[entity], w, h);
+                        }
+                    }
+                }
+            } else {
+                // Si on ne charge pas, cacher l'effet visuel
+                if (weapon.type == WeaponType::CHARGE && weapon.chargeEffectEntity != (size_t)-1) {
+                    if (sprites.has_entity(weapon.chargeEffectEntity)) {
+                        sprites[weapon.chargeEffectEntity].tint.a = 0;
+                    }
+                }
+            }
+            
+            // Gestion de la rafale (BURST) même si trigger relâché
+            if (weapon.type == WeaponType::BURST && weapon.burst_count > 0) {
+                 int projectiles; int damage; float spread, speed, firerate, burst_delay;
+                 get_weapon_stats(weapon.type, projectiles, spread, damage, speed, firerate, burst_delay);
+                 
+                 if (weapon.time_since_last_fire >= burst_delay) {
+                     if (positions.has_entity(entity)) {
+                        float h = sprites.has_entity(entity) ? sprites[entity].height : 0.0f;
+                        float w = sprites.has_entity(entity) ? sprites[entity].width : 0.0f;
+                        createProjectiles(registry, entity, weapon, positions[entity], w, h);
+                     }
+                 }
+            }
+        }
+
         // Tir automatique pour les ennemis uniquement
         if (enemies.has_entity(entity) && positions.has_entity(entity)) {
-            int projectiles; float spread, speed, firerate, burst_delay;
-            get_weapon_stats(weapon.type, projectiles, spread, speed, firerate, burst_delay);
+            int projectiles; int damage; float spread, speed, firerate, burst_delay;
+            get_weapon_stats(weapon.type, projectiles, spread, damage, speed, firerate, burst_delay);
 
             if (weapon.time_since_last_fire >= firerate) {
                 weapon.time_since_last_fire = 0.0f;
@@ -105,12 +216,12 @@ void ShootingSystem::update(Registry& registry, float dt)
                     weapon.projectile_sprite.width,
                     weapon.projectile_sprite.height,
                     180.0f,
-                    engine::Color{255, 100, 100, 255},
+                    engine::Color{ENEMY_PROJECTILE_COLOR_R, ENEMY_PROJECTILE_COLOR_G, ENEMY_PROJECTILE_COLOR_B, ENEMY_PROJECTILE_COLOR_A},
                     0.0f,
                     0.0f,
                     0
                 });
-                registry.add_component(projectile, Damage{10});
+                registry.add_component(projectile, Damage{damage});
                 registry.add_component(projectile, Projectile{180.0f, 5.0f, 0.0f, ProjectileFaction::Enemy});
                 registry.add_component(projectile, NoFriction{});
             }
@@ -134,16 +245,43 @@ void ShootingSystem::update(Registry& registry, float dt)
     }
 }
 
-void ShootingSystem::createProjectiles(Registry& registry, Entity shooter, Weapon& weapon, const Position& shooterPos, float shooterHeight)
+void ShootingSystem::createProjectiles(Registry& registry, Entity shooter, Weapon& weapon, const Position& shooterPos, float shooterWidth, float shooterHeight)
 {
-    int projectiles; 
+    int projectiles; int damage;
     float spread, speed, firerate, burst_delay;
 
-    get_weapon_stats(weapon.type, projectiles, spread, speed, firerate, burst_delay);
+    get_weapon_stats(weapon.type, projectiles, spread, damage, speed, firerate, burst_delay);
 
     int projectile_count = projectiles;
     float startAngle = 0.0f;
     float angleStep = 0.0f;
+
+    // Calcul des stats dynamiques (pour le tir chargé)
+    float actual_width = weapon.projectile_sprite.width;
+    float actual_height = weapon.projectile_sprite.height;
+    int actual_damage = damage;
+    engine::Color actual_color = weapon.projectile_sprite.tint;
+
+    if (weapon.type == WeaponType::CHARGE) {
+        float t = std::clamp((weapon.current_charge_duration - WEAPON_CHARGE_TIME_MIN) / (WEAPON_CHARGE_TIME_MAX - WEAPON_CHARGE_TIME_MIN), 0.0f, 1.0f);
+        
+        if (weapon.current_charge_duration < WEAPON_CHARGE_TIME_MIN) {
+             // Non chargé (tir de base)
+             actual_damage = WEAPON_CHARGE_DAMAGE_MIN;
+             actual_width = WEAPON_CHARGE_WIDTH_MIN;
+             actual_height = WEAPON_CHARGE_HEIGHT_MIN;
+        } else {
+             // Chargé
+             actual_damage = static_cast<int>(WEAPON_CHARGE_DAMAGE_MIN + t * (WEAPON_CHARGE_DAMAGE_MAX - WEAPON_CHARGE_DAMAGE_MIN));
+             actual_width = WEAPON_CHARGE_WIDTH_MIN + t * (WEAPON_CHARGE_WIDTH_MAX - WEAPON_CHARGE_WIDTH_MIN);
+             actual_height = WEAPON_CHARGE_HEIGHT_MIN + t * (WEAPON_CHARGE_HEIGHT_MAX - WEAPON_CHARGE_HEIGHT_MIN);
+             
+             // Transition de couleur (Bleu -> Blanc/Cyan Brillant)
+             // Reste bleu (0, 150, 255) mais devient plus clair ou change
+             actual_color.g = static_cast<unsigned char>(150 + (t * 105)); // 150 -> 255
+             actual_color.r = static_cast<unsigned char>(t * 200);         // 0 -> 200
+        }
+    }
 
     // Pour SPREAD: calculer les angles d'éventail
     if (weapon.type == WeaponType::SPREAD && projectile_count > 1) {
@@ -161,8 +299,8 @@ void ShootingSystem::createProjectiles(Registry& registry, Entity shooter, Weapo
 
         Entity projectile = registry.spawn_entity();
 
-        float bulletOffsetX = 50.0f;
-        float bulletOffsetY = (shooterHeight / 2.0f) - (weapon.projectile_sprite.height / 2.0f);
+        float bulletOffsetX = shooterWidth + 5.0f;
+        float bulletOffsetY = (shooterHeight / 2.0f) - (actual_height / 2.0f);
 
         registry.add_component(projectile, Position{
             shooterPos.x + bulletOffsetX,
@@ -173,19 +311,20 @@ void ShootingSystem::createProjectiles(Registry& registry, Entity shooter, Weapo
         float vy = speed * std::sin(radians);
 
         registry.add_component(projectile, Velocity{vx, vy});
-        registry.add_component(projectile, Collider{weapon.projectile_sprite.width, weapon.projectile_sprite.height});
+        registry.add_component(projectile, Collider{actual_width, actual_height});
 
         registry.add_component(projectile, Sprite{
             weapon.projectile_sprite.texture,
-            weapon.projectile_sprite.width,
-            weapon.projectile_sprite.height,
+            actual_width,
+            actual_height,
             weapon.projectile_sprite.rotation,
-            weapon.projectile_sprite.tint,
+            actual_color,
             weapon.projectile_sprite.origin_x,
             weapon.projectile_sprite.origin_y,
             weapon.projectile_sprite.layer
         });
 
+        registry.add_component(projectile, Damage{actual_damage});
         registry.add_component(projectile, Projectile{angle, 5.0f, 0.0f, ProjectileFaction::Player});
         registry.add_component(projectile, NoFriction{});
 

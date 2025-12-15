@@ -8,6 +8,7 @@
 #include <iostream>
 #include "ecs/Registry.hpp"
 #include "components/GameComponents.hpp"
+#include "components/CombatHelpers.hpp"
 #include "cmath"
 #include "ecs/systems/InputSystem.hpp"
 #include "systems/PlayerInputSystem.hpp"
@@ -26,6 +27,7 @@
 #include "systems/AISystem.hpp"
 #include "systems/WaveSpawnerSystem.hpp"
 #include "systems/BonusSystem.hpp"
+#include "systems/AttachmentSystem.hpp"
 #include "plugin_manager/PluginManager.hpp"
 #include "plugin_manager/IInputPlugin.hpp"
 #include "plugin_manager/IAudioPlugin.hpp"
@@ -178,6 +180,7 @@ int main() {
     registry.register_component<SpeedBoost>();
     registry.register_component<CircleEffect>();
     registry.register_component<TextEffect>();
+    registry.register_component<Attached>();
 
     std::cout << "✓ Composants enregistres" << std::endl;
 
@@ -196,6 +199,7 @@ int main() {
     registry.register_system<HealthSystem>();
     registry.register_system<HitEffectSystem>();
     registry.register_system<ScoreSystem>();
+    registry.register_system<AttachmentSystem>();
 
     // AI System - gere le comportement des ennemis (mouvement, tir)
     registry.register_system<AISystem>(*graphicsPlugin);
@@ -302,21 +306,7 @@ int main() {
     });
 
     // ARME - Les stats sont dans CombatConfig.hpp (defines)
-    registry.add_component(player, Weapon{
-        WeaponType::BASIC,           // Type: BASIC/SPREAD/BURST/LASER
-        999.0f,                      // Temps depuis dernier tir
-        0,                           // Compteur de rafale
-        Sprite{                      // Apparence des projectiles
-            bulletTex,
-            bulletWidth,
-            bulletHeight,
-            0.0f,
-            engine::Color{255, 100, 255, 255},
-            0.0f,
-            0.0f,
-            1
-        }
-    });
+    registry.add_component(player, create_weapon(WeaponType::CHARGE, bulletTex));
 
     registry.add_component(player, Health{100, 100});
     registry.add_component(player, Score{0});

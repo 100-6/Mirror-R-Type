@@ -12,6 +12,7 @@ add_library(rtype_logic
     src/systems/WaveSpawnerSystem.cpp
     src/utils/WaveConfigLoader.cpp
     src/systems/BonusSystem.cpp
+    src/systems/AttachmentSystem.cpp
 )
 
 target_include_directories(rtype_logic
