@@ -8,9 +8,10 @@
 
 namespace rtype::server {
 
-Server::Server(uint16_t port)
+Server::Server(uint16_t tcp_port, uint16_t udp_port)
     : network_plugin_(nullptr)
-    , port_(port)
+    , tcp_port_(tcp_port)
+    , udp_port_(udp_port)
     , running_(false)
     , next_player_id_(1)
     , next_session_id_(1) {
@@ -21,10 +22,12 @@ Server::~Server() {
 }
 
 bool Server::start() {
-    std::cout << "[Server] Starting server on port " << port_ << "...\n";
+    std::cout << "[Server] Starting hybrid server - TCP:" << tcp_port_
+              << " UDP:" << udp_port_ << "...\n";
 
     try {
-        network_plugin_ = plugin_manager_.load_plugin<engine::INetworkPlugin>("plugins/asio_network.so", "create_network_plugin");
+        network_plugin_ = plugin_manager_.load_plugin<engine::INetworkPlugin>(
+            "plugins/asio_network.so", "create_network_plugin");
         if (!network_plugin_) {
             std::cerr << "[Server] Failed to load network plugin\n";
             return false;
@@ -34,13 +37,19 @@ bool Server::start() {
         std::cerr << "[Server] Exception loading plugin: " << e.what() << "\n";
         return false;
     }
-    if (!network_plugin_->start_server(port_, engine::NetworkProtocol::UDP)) {
-        std::cerr << "[Server] Failed to start server on port " << port_ << "\n";
+
+    // Start hybrid server (TCP + UDP)
+    if (!network_plugin_->start_server(tcp_port_, udp_port_)) {
+        std::cerr << "[Server] Failed to start hybrid server\n";
         return false;
     }
+
+    // Set callback for TCP client disconnection
     network_plugin_->set_on_client_disconnected([this](uint32_t client_id) {
         on_client_disconnected(client_id);
     });
+
+    // Set lobby callbacks
     lobby_manager_.set_lobby_state_callback([this](uint32_t lobby_id, const std::vector<uint8_t>& payload) {
         on_lobby_state_changed(lobby_id, payload);
     });
@@ -50,8 +59,11 @@ bool Server::start() {
     lobby_manager_.set_game_start_callback([this](uint32_t lobby_id, const std::vector<uint32_t>& player_ids) {
         on_game_start(lobby_id, player_ids);
     });
+
     running_ = true;
-    std::cout << "[Server] Server started successfully on UDP port " << port_ << "\n";
+    std::cout << "[Server] Server started successfully\n";
+    std::cout << "[Server] TCP port " << tcp_port_ << " - Connections, Lobby\n";
+    std::cout << "[Server] UDP port " << udp_port_ << " - Gameplay\n";
     std::cout << "[Server] Waiting for connections...\n";
     return true;
 }
@@ -72,7 +84,7 @@ void Server::run() {
         std::cerr << "[Server] Cannot run - server not started\n";
         return;
     }
-    const auto tick_duration = std::chrono::milliseconds(config::TICK_INTERVAL_MS); // 32 TPS = ~31ms per tick
+    const auto tick_duration = std::chrono::milliseconds(config::TICK_INTERVAL_MS);
     auto last_tick_time = std::chrono::steady_clock::now();
 
     std::cout << "[Server] Running at " << config::SERVER_TICK_RATE << " TPS (tick interval: "
@@ -81,10 +93,10 @@ void Server::run() {
     while (running_) {
         auto tick_start = std::chrono::steady_clock::now();
         auto delta = std::chrono::duration_cast<std::chrono::microseconds>(tick_start - last_tick_time);
-        float delta_time = delta.count() / 1000000.0f; // Convert to seconds
+        float delta_time = delta.count() / 1000000.0f;
         last_tick_time = tick_start;
 
-        // Process network packets
+        // Process network packets (TCP + UDP)
         handle_packets();
 
         // Update lobby system
@@ -109,88 +121,126 @@ void Server::handle_packets() {
             std::cerr << "[Server] Packet too small from client " << packet.sender_id << "\n";
             continue;
         }
-        protocol::PacketHeader header = protocol::ProtocolEncoder::decode_header(packet.data.data(), packet.data.size());
+        protocol::PacketHeader header = protocol::ProtocolEncoder::decode_header(
+            packet.data.data(), packet.data.size());
         if (header.version != 0x01) {
-            std::cerr << "[Server] Invalid protocol version from client " << packet.sender_id << ": "
-                      << static_cast<int>(header.version) << "\n";
+            std::cerr << "[Server] Invalid protocol version from client " << packet.sender_id
+                      << ": " << static_cast<int>(header.version) << "\n";
             continue;
         }
         std::vector<uint8_t> payload(
             packet.data.begin() + protocol::HEADER_SIZE,
             packet.data.begin() + protocol::HEADER_SIZE + header.payload_length
         );
-        route_packet(packet.sender_id, header, payload);
+        route_packet(packet.sender_id, header, payload, packet.protocol);
     }
 }
 
-void Server::route_packet(uint32_t client_id, const protocol::PacketHeader& header, const std::vector<uint8_t>& payload) {
+void Server::route_packet(uint32_t client_id, const protocol::PacketHeader& header,
+                          const std::vector<uint8_t>& payload, engine::NetworkProtocol protocol) {
     auto packet_type = static_cast<protocol::PacketType>(header.type);
 
-    switch (packet_type) {
-        case protocol::PacketType::CLIENT_CONNECT: {
-            if (payload.size() != sizeof(protocol::ClientConnectPayload)) {
-                std::cerr << "[Server] Invalid CLIENT_CONNECT payload size\n";
-                return;
+    // Route based on protocol
+    if (protocol == engine::NetworkProtocol::TCP) {
+        // TCP packets: connection, lobby, authentication
+        switch (packet_type) {
+            case protocol::PacketType::CLIENT_CONNECT: {
+                if (payload.size() != sizeof(protocol::ClientConnectPayload)) {
+                    std::cerr << "[Server] Invalid CLIENT_CONNECT payload size\n";
+                    return;
+                }
+                protocol::ClientConnectPayload connect_payload;
+                std::memcpy(&connect_payload, payload.data(), sizeof(connect_payload));
+                handle_client_connect(client_id, connect_payload);
+                break;
             }
-            protocol::ClientConnectPayload connect_payload;
-            std::memcpy(&connect_payload, payload.data(), sizeof(connect_payload));
-            handle_client_connect(client_id, connect_payload);
-            break;
-        }
-        case protocol::PacketType::CLIENT_DISCONNECT: {
-            if (payload.size() != sizeof(protocol::ClientDisconnectPayload)) {
-                std::cerr << "[Server] Invalid CLIENT_DISCONNECT payload size\n";
-                return;
+            case protocol::PacketType::CLIENT_DISCONNECT: {
+                if (payload.size() != sizeof(protocol::ClientDisconnectPayload)) {
+                    std::cerr << "[Server] Invalid CLIENT_DISCONNECT payload size\n";
+                    return;
+                }
+                protocol::ClientDisconnectPayload disconnect_payload;
+                std::memcpy(&disconnect_payload, payload.data(), sizeof(disconnect_payload));
+                handle_client_disconnect(client_id, disconnect_payload);
+                break;
             }
-            protocol::ClientDisconnectPayload disconnect_payload;
-            std::memcpy(&disconnect_payload, payload.data(), sizeof(disconnect_payload));
-            handle_client_disconnect(client_id, disconnect_payload);
-            break;
-        }
-        case protocol::PacketType::CLIENT_PING: {
-            if (payload.size() != sizeof(protocol::ClientPingPayload)) {
-                std::cerr << "[Server] Invalid CLIENT_PING payload size\n";
-                return;
+            case protocol::PacketType::CLIENT_PING: {
+                if (payload.size() != sizeof(protocol::ClientPingPayload)) {
+                    std::cerr << "[Server] Invalid CLIENT_PING payload size\n";
+                    return;
+                }
+                protocol::ClientPingPayload ping_payload;
+                std::memcpy(&ping_payload, payload.data(), sizeof(ping_payload));
+                handle_client_ping(client_id, ping_payload);
+                break;
             }
-            protocol::ClientPingPayload ping_payload;
-            std::memcpy(&ping_payload, payload.data(), sizeof(ping_payload));
-            handle_client_ping(client_id, ping_payload);
-            break;
-        }
-        case protocol::PacketType::CLIENT_JOIN_LOBBY: {
-            if (payload.size() != sizeof(protocol::ClientJoinLobbyPayload)) {
-                std::cerr << "[Server] Invalid CLIENT_JOIN_LOBBY payload size\n";
-                return;
+            case protocol::PacketType::CLIENT_JOIN_LOBBY: {
+                if (payload.size() != sizeof(protocol::ClientJoinLobbyPayload)) {
+                    std::cerr << "[Server] Invalid CLIENT_JOIN_LOBBY payload size\n";
+                    return;
+                }
+                protocol::ClientJoinLobbyPayload join_payload;
+                std::memcpy(&join_payload, payload.data(), sizeof(join_payload));
+                handle_client_join_lobby(client_id, join_payload);
+                break;
             }
-            protocol::ClientJoinLobbyPayload join_payload;
-            std::memcpy(&join_payload, payload.data(), sizeof(join_payload));
-            handle_client_join_lobby(client_id, join_payload);
-            break;
-        }
-        case protocol::PacketType::CLIENT_LEAVE_LOBBY: {
-            if (payload.size() != sizeof(protocol::ClientLeaveLobbyPayload)) {
-                std::cerr << "[Server] Invalid CLIENT_LEAVE_LOBBY payload size\n";
-                return;
+            case protocol::PacketType::CLIENT_LEAVE_LOBBY: {
+                if (payload.size() != sizeof(protocol::ClientLeaveLobbyPayload)) {
+                    std::cerr << "[Server] Invalid CLIENT_LEAVE_LOBBY payload size\n";
+                    return;
+                }
+                protocol::ClientLeaveLobbyPayload leave_payload;
+                std::memcpy(&leave_payload, payload.data(), sizeof(leave_payload));
+                handle_client_leave_lobby(client_id, leave_payload);
+                break;
             }
-            protocol::ClientLeaveLobbyPayload leave_payload;
-            std::memcpy(&leave_payload, payload.data(), sizeof(leave_payload));
-            handle_client_leave_lobby(client_id, leave_payload);
-            break;
+            default:
+                std::cerr << "[Server] Unexpected TCP packet type: 0x" << std::hex
+                          << static_cast<int>(header.type) << std::dec << "\n";
+                break;
         }
-        case protocol::PacketType::CLIENT_INPUT: {
-            if (payload.size() != sizeof(protocol::ClientInputPayload)) {
-                std::cerr << "[Server] Invalid CLIENT_INPUT payload size\n";
-                return;
+    } else if (protocol == engine::NetworkProtocol::UDP) {
+        // UDP packets: gameplay, inputs
+        switch (packet_type) {
+            case protocol::PacketType::CLIENT_UDP_HANDSHAKE: {
+                if (payload.size() != sizeof(protocol::ClientUdpHandshakePayload)) {
+                    std::cerr << "[Server] Invalid CLIENT_UDP_HANDSHAKE payload size\n";
+                    return;
+                }
+                protocol::ClientUdpHandshakePayload handshake_payload;
+                std::memcpy(&handshake_payload, payload.data(), sizeof(handshake_payload));
+                handle_udp_handshake(client_id, handshake_payload);
+                break;
             }
-            protocol::ClientInputPayload input_payload;
-            std::memcpy(&input_payload, payload.data(), sizeof(input_payload));
-            handle_client_input(client_id, input_payload);
-            break;
+            case protocol::PacketType::CLIENT_INPUT: {
+                if (payload.size() != sizeof(protocol::ClientInputPayload)) {
+                    std::cerr << "[Server] Invalid CLIENT_INPUT payload size\n";
+                    return;
+                }
+                protocol::ClientInputPayload input_payload;
+                std::memcpy(&input_payload, payload.data(), sizeof(input_payload));
+                handle_client_input(client_id, input_payload);
+                break;
+            }
+            case protocol::PacketType::CLIENT_PING: {
+                // Ping can also come via UDP
+                if (payload.size() != sizeof(protocol::ClientPingPayload)) {
+                    return;
+                }
+                protocol::ClientPingPayload ping_payload;
+                std::memcpy(&ping_payload, payload.data(), sizeof(ping_payload));
+                // For UDP ping, we need to find the TCP client and respond via UDP
+                uint32_t tcp_client_id = network_plugin_->get_tcp_client_from_udp(client_id);
+                if (tcp_client_id != 0) {
+                    handle_client_ping(tcp_client_id, ping_payload);
+                }
+                break;
+            }
+            default:
+                std::cerr << "[Server] Unexpected UDP packet type: 0x" << std::hex
+                          << static_cast<int>(header.type) << std::dec << "\n";
+                break;
         }
-        default:
-            std::cerr << "[Server] Unhandled packet type: 0x" << std::hex
-                      << static_cast<int>(header.type) << std::dec << "\n";
-            break;
     }
 }
 
@@ -198,7 +248,7 @@ void Server::handle_client_connect(uint32_t client_id, const protocol::ClientCon
     std::string player_name(payload.player_name);
     player_name = player_name.substr(0, player_name.find('\0'));
 
-    std::cout << "[Server] Client " << client_id << " connecting as '" << player_name << "'\n";
+    std::cout << "[Server] TCP client " << client_id << " connecting as '" << player_name << "'\n";
     if (connected_clients_.find(client_id) != connected_clients_.end()) {
         std::cerr << "[Server] Client " << client_id << " already connected\n";
         return;
@@ -206,12 +256,16 @@ void Server::handle_client_connect(uint32_t client_id, const protocol::ClientCon
     uint32_t player_id = generate_player_id();
     PlayerInfo info(client_id, player_id, player_name);
     connected_clients_[client_id] = info;
+
     protocol::ServerAcceptPayload accept;
     accept.assigned_player_id = htonl(player_id);
     accept.server_tick_rate = 60;
     accept.max_players = 4;
     accept.map_id = htons(0);
-    send_packet(client_id, protocol::PacketType::SERVER_ACCEPT, serialize_payload(&accept, sizeof(accept)));
+
+    send_tcp_packet(client_id, protocol::PacketType::SERVER_ACCEPT,
+                    serialize_payload(&accept, sizeof(accept)));
+
     std::cout << "[Server] Client " << client_id << " accepted with player ID " << player_id << "\n";
     std::cout << "[Server] Total connected clients: " << connected_clients_.size() << "\n";
 }
@@ -222,8 +276,12 @@ void Server::handle_client_disconnect(uint32_t client_id, const protocol::Client
     if (it == connected_clients_.end())
         return;
     std::cout << "[Server] Client " << client_id << " (" << it->second.player_name << ") disconnecting\n";
-    // TODO Phase 2: Remove from lobby if in one
-    // TODO Phase 3: Remove from game session if in one
+
+    // Remove from lobby if in one
+    if (it->second.in_lobby) {
+        lobby_manager_.leave_lobby(it->second.player_id);
+    }
+
     connected_clients_.erase(it);
     std::cout << "[Server] Total connected clients: " << connected_clients_.size() << "\n";
 }
@@ -238,7 +296,32 @@ void Server::handle_client_ping(uint32_t client_id, const protocol::ClientPingPa
             std::chrono::steady_clock::now().time_since_epoch()
         ).count()
     ));
-    send_packet(client_id, protocol::PacketType::SERVER_PONG, serialize_payload(&pong, sizeof(pong)));
+    send_tcp_packet(client_id, protocol::PacketType::SERVER_PONG,
+                    serialize_payload(&pong, sizeof(pong)));
+}
+
+void Server::handle_udp_handshake(uint32_t udp_client_id,
+                                  const protocol::ClientUdpHandshakePayload& payload) {
+    uint32_t player_id = ntohl(payload.player_id);
+    uint32_t session_id = ntohl(payload.session_id);
+
+    std::cout << "[Server] UDP handshake from player " << player_id
+              << " for session " << session_id << "\n";
+
+    // Find the TCP client for this player
+    for (auto& [tcp_client_id, player_info] : connected_clients_) {
+        if (player_info.player_id == player_id) {
+            // Associate UDP with TCP client
+            network_plugin_->associate_udp_client(tcp_client_id, udp_client_id);
+            player_info.udp_client_id = udp_client_id;
+
+            std::cout << "[Server] UDP associated: TCP client " << tcp_client_id
+                      << " <-> UDP client " << udp_client_id << "\n";
+            return;
+        }
+    }
+
+    std::cerr << "[Server] UDP handshake failed: player " << player_id << " not found\n";
 }
 
 void Server::on_client_disconnected(uint32_t client_id) {
@@ -252,28 +335,14 @@ void Server::on_client_disconnected(uint32_t client_id) {
     uint32_t player_id = it->second.player_id;
     lobby_manager_.leave_lobby(player_id);
 
-    // TODO Phase 3: Handle in-game disconnection
     connected_clients_.erase(it);
     std::cout << "[Server] Total connected clients: " << connected_clients_.size() << "\n";
 }
 
-void Server::send_packet(uint32_t client_id, protocol::PacketType type, const std::vector<uint8_t>& payload) {
-    protocol::PacketHeader header;
-    header.version = 0x01;
-    header.type = static_cast<uint8_t>(type);
-    header.payload_length = static_cast<uint16_t>(payload.size());
-    header.sequence_number = 0; // TODO: Implement proper sequence tracking
+// ============== TCP Sending ==============
 
-    std::vector<uint8_t> packet_data(protocol::HEADER_SIZE);
-    protocol::ProtocolEncoder::encode_header(header, packet_data.data());
-    packet_data.insert(packet_data.end(), payload.begin(), payload.end());
-
-    engine::NetworkPacket packet;
-    packet.data = packet_data;
-    network_plugin_->send_to(packet, client_id);
-}
-
-void Server::broadcast_packet(protocol::PacketType type, const std::vector<uint8_t>& payload) {
+void Server::send_tcp_packet(uint32_t client_id, protocol::PacketType type,
+                             const std::vector<uint8_t>& payload) {
     protocol::PacketHeader header;
     header.version = 0x01;
     header.type = static_cast<uint8_t>(type);
@@ -286,20 +355,93 @@ void Server::broadcast_packet(protocol::PacketType type, const std::vector<uint8
 
     engine::NetworkPacket packet;
     packet.data = packet_data;
-    network_plugin_->broadcast(packet);
+    network_plugin_->send_tcp_to(packet, client_id);
 }
 
-uint32_t Server::generate_player_id() {
-    return next_player_id_++;
+void Server::broadcast_tcp_packet(protocol::PacketType type, const std::vector<uint8_t>& payload) {
+    protocol::PacketHeader header;
+    header.version = 0x01;
+    header.type = static_cast<uint8_t>(type);
+    header.payload_length = static_cast<uint16_t>(payload.size());
+    header.sequence_number = 0;
+
+    std::vector<uint8_t> packet_data(protocol::HEADER_SIZE);
+    protocol::ProtocolEncoder::encode_header(header, packet_data.data());
+    packet_data.insert(packet_data.end(), payload.begin(), payload.end());
+
+    engine::NetworkPacket packet;
+    packet.data = packet_data;
+    network_plugin_->broadcast_tcp(packet);
 }
 
-std::vector<uint8_t> Server::serialize_payload(const void* payload, size_t size) {
-    const uint8_t* bytes = static_cast<const uint8_t*>(payload);
+void Server::broadcast_tcp_to_lobby(uint32_t lobby_id, protocol::PacketType type,
+                                    const std::vector<uint8_t>& payload) {
+    auto player_ids = lobby_manager_.get_lobby_players(lobby_id);
 
-    return std::vector<uint8_t>(bytes, bytes + size);
+    for (uint32_t player_id : player_ids) {
+        for (const auto& [client_id, player_info] : connected_clients_) {
+            if (player_info.player_id == player_id) {
+                send_tcp_packet(client_id, type, payload);
+                break;
+            }
+        }
+    }
 }
 
-void Server::handle_client_join_lobby(uint32_t client_id, const protocol::ClientJoinLobbyPayload& payload) {
+// ============== UDP Sending ==============
+
+void Server::send_udp_packet(uint32_t client_id, protocol::PacketType type,
+                             const std::vector<uint8_t>& payload) {
+    protocol::PacketHeader header;
+    header.version = 0x01;
+    header.type = static_cast<uint8_t>(type);
+    header.payload_length = static_cast<uint16_t>(payload.size());
+    header.sequence_number = 0;
+
+    std::vector<uint8_t> packet_data(protocol::HEADER_SIZE);
+    protocol::ProtocolEncoder::encode_header(header, packet_data.data());
+    packet_data.insert(packet_data.end(), payload.begin(), payload.end());
+
+    engine::NetworkPacket packet;
+    packet.data = packet_data;
+    network_plugin_->send_udp_to(packet, client_id);
+}
+
+void Server::broadcast_udp_to_session(uint32_t session_id, protocol::PacketType type,
+                                      const std::vector<uint8_t>& payload) {
+    auto session_it = game_sessions_.find(session_id);
+
+    if (session_it == game_sessions_.end())
+        return;
+
+    protocol::PacketHeader header;
+    header.version = 0x01;
+    header.type = static_cast<uint8_t>(type);
+    header.payload_length = static_cast<uint16_t>(payload.size());
+    header.sequence_number = 0;
+
+    std::vector<uint8_t> packet_data(protocol::HEADER_SIZE);
+    protocol::ProtocolEncoder::encode_header(header, packet_data.data());
+    packet_data.insert(packet_data.end(), payload.begin(), payload.end());
+
+    engine::NetworkPacket packet;
+    packet.data = packet_data;
+
+    auto player_ids = session_it->second->get_player_ids();
+    for (uint32_t player_id : player_ids) {
+        for (const auto& [client_id, player_info] : connected_clients_) {
+            if (player_info.player_id == player_id && player_info.has_udp_connection()) {
+                network_plugin_->send_udp_to(packet, client_id);
+                break;
+            }
+        }
+    }
+}
+
+// ============== Lobby Callbacks ==============
+
+void Server::handle_client_join_lobby(uint32_t client_id,
+                                      const protocol::ClientJoinLobbyPayload& payload) {
     auto it = connected_clients_.find(client_id);
 
     if (it == connected_clients_.end()) {
@@ -325,7 +467,8 @@ void Server::handle_client_join_lobby(uint32_t client_id, const protocol::Client
     it->second.lobby_id = lobby_id;
 }
 
-void Server::handle_client_leave_lobby(uint32_t client_id, const protocol::ClientLeaveLobbyPayload& payload) {
+void Server::handle_client_leave_lobby(uint32_t client_id,
+                                       const protocol::ClientLeaveLobbyPayload& payload) {
     auto it = connected_clients_.find(client_id);
 
     if (it == connected_clients_.end()) {
@@ -337,7 +480,8 @@ void Server::handle_client_leave_lobby(uint32_t client_id, const protocol::Clien
         std::cerr << "[Server] Player ID mismatch in LEAVE_LOBBY\n";
         return;
     }
-    std::cout << "[Server] Player " << player_id << " (" << it->second.player_name << ") leaving lobby\n";
+    std::cout << "[Server] Player " << player_id << " (" << it->second.player_name
+              << ") leaving lobby\n";
     bool left = lobby_manager_.leave_lobby(player_id);
     if (left) {
         it->second.in_lobby = false;
@@ -345,22 +489,9 @@ void Server::handle_client_leave_lobby(uint32_t client_id, const protocol::Clien
     }
 }
 
-void Server::broadcast_to_lobby(uint32_t lobby_id, protocol::PacketType type, const std::vector<uint8_t>& payload) {
-    auto player_ids = lobby_manager_.get_lobby_players(lobby_id);
-
-    for (uint32_t player_id : player_ids) {
-        for (const auto& [client_id, player_info] : connected_clients_) {
-            if (player_info.player_id == player_id) {
-                send_packet(client_id, type, payload);
-                break;
-            }
-        }
-    }
-}
-
 void Server::on_lobby_state_changed(uint32_t lobby_id, const std::vector<uint8_t>& payload) {
     std::cout << "[Server] Broadcasting lobby state for lobby " << lobby_id << "\n";
-    broadcast_to_lobby(lobby_id, protocol::PacketType::SERVER_LOBBY_STATE, payload);
+    broadcast_tcp_to_lobby(lobby_id, protocol::PacketType::SERVER_LOBBY_STATE, payload);
 }
 
 void Server::on_countdown_tick(uint32_t lobby_id, uint8_t seconds_remaining) {
@@ -368,12 +499,15 @@ void Server::on_countdown_tick(uint32_t lobby_id, uint8_t seconds_remaining) {
     countdown.lobby_id = htonl(lobby_id);
     countdown.countdown_value = seconds_remaining;
 
-    std::cout << "[Server] Countdown tick for lobby " << lobby_id << ": " << static_cast<int>(seconds_remaining) << "s\n";
-    broadcast_to_lobby(lobby_id, protocol::PacketType::SERVER_GAME_START_COUNTDOWN, serialize_payload(&countdown, sizeof(countdown)));
+    std::cout << "[Server] Countdown tick for lobby " << lobby_id << ": "
+              << static_cast<int>(seconds_remaining) << "s\n";
+    broadcast_tcp_to_lobby(lobby_id, protocol::PacketType::SERVER_GAME_START_COUNTDOWN,
+                           serialize_payload(&countdown, sizeof(countdown)));
 }
 
 void Server::on_game_start(uint32_t lobby_id, const std::vector<uint32_t>& player_ids) {
-    std::cout << "[Server] Game starting for lobby " << lobby_id << " with " << player_ids.size() << " players\n";
+    std::cout << "[Server] Game starting for lobby " << lobby_id
+              << " with " << player_ids.size() << " players\n";
     const auto* lobby = lobby_manager_.get_lobby(lobby_id);
 
     if (!lobby) {
@@ -383,6 +517,7 @@ void Server::on_game_start(uint32_t lobby_id, const std::vector<uint32_t>& playe
     protocol::GameMode game_mode = lobby->game_mode;
     protocol::Difficulty difficulty = lobby->difficulty;
     uint32_t session_id = generate_session_id();
+
     auto session = std::make_unique<GameSession>(session_id, game_mode, difficulty, 0);
     session->set_state_snapshot_callback([this](uint32_t sid, const std::vector<uint8_t>& snapshot) {
         on_state_snapshot(sid, snapshot);
@@ -396,6 +531,7 @@ void Server::on_game_start(uint32_t lobby_id, const std::vector<uint32_t>& playe
     session->set_game_over_callback([this](uint32_t sid, const std::vector<uint32_t>& pids) {
         on_game_over(sid, pids);
     });
+
     for (uint32_t player_id : player_ids) {
         for (auto& [client_id, player_info] : connected_clients_) {
             if (player_info.player_id == player_id) {
@@ -404,13 +540,18 @@ void Server::on_game_start(uint32_t lobby_id, const std::vector<uint32_t>& playe
                 player_info.in_game = true;
                 player_info.session_id = session_id;
                 session->add_player(player_id, player_info.player_name);
+
+                // Send game start with UDP port
                 protocol::ServerGameStartPayload game_start;
                 game_start.game_session_id = htonl(session_id);
                 game_start.game_mode = game_mode;
                 game_start.difficulty = difficulty;
                 game_start.server_tick = htonl(0);
                 game_start.level_seed = htonl(0);
-                send_packet(client_id, protocol::PacketType::SERVER_GAME_START, serialize_payload(&game_start, sizeof(game_start)));
+                game_start.udp_port = htons(udp_port_);  // Include UDP port
+
+                send_tcp_packet(client_id, protocol::PacketType::SERVER_GAME_START,
+                               serialize_payload(&game_start, sizeof(game_start)));
                 break;
             }
         }
@@ -419,42 +560,39 @@ void Server::on_game_start(uint32_t lobby_id, const std::vector<uint32_t>& playe
     std::cout << "[Server] GameSession " << session_id << " created\n";
 }
 
-void Server::handle_client_input(uint32_t client_id, const protocol::ClientInputPayload& payload) {
-    auto it = connected_clients_.find(client_id);
+// ============== Input Handling ==============
 
+void Server::handle_client_input(uint32_t client_id, const protocol::ClientInputPayload& payload) {
+    // For UDP packets, client_id is the UDP client ID
+    // We need to find the corresponding TCP client
+    uint32_t tcp_client_id = network_plugin_->get_tcp_client_from_udp(client_id);
+    if (tcp_client_id == 0) {
+        // Maybe client_id is already the TCP client ID
+        tcp_client_id = client_id;
+    }
+
+    auto it = connected_clients_.find(tcp_client_id);
     if (it == connected_clients_.end())
         return;
     if (!it->second.in_game)
         return;
+
     uint32_t session_id = it->second.session_id;
     auto session_it = game_sessions_.find(session_id);
     if (session_it == game_sessions_.end())
         return;
+
     session_it->second->handle_input(it->second.player_id, payload);
 }
 
-void Server::broadcast_to_session(uint32_t session_id, protocol::PacketType type, const std::vector<uint8_t>& payload) {
-    auto session_it = game_sessions_.find(session_id);
-
-    if (session_it == game_sessions_.end())
-        return;
-    auto player_ids = session_it->second->get_player_ids();
-    for (uint32_t player_id : player_ids) {
-        for (const auto& [client_id, player_info] : connected_clients_) {
-            if (player_info.player_id == player_id) {
-                send_packet(client_id, type, payload);
-                break;
-            }
-        }
-    }
-}
+// ============== Game Session Callbacks ==============
 
 void Server::on_state_snapshot(uint32_t session_id, const std::vector<uint8_t>& snapshot) {
-    broadcast_to_session(session_id, protocol::PacketType::SERVER_DELTA_SNAPSHOT, snapshot);
+    broadcast_udp_to_session(session_id, protocol::PacketType::SERVER_DELTA_SNAPSHOT, snapshot);
 }
 
 void Server::on_entity_spawn(uint32_t session_id, const std::vector<uint8_t>& spawn_data) {
-    broadcast_to_session(session_id, protocol::PacketType::SERVER_ENTITY_SPAWN, spawn_data);
+    broadcast_udp_to_session(session_id, protocol::PacketType::SERVER_ENTITY_SPAWN, spawn_data);
 }
 
 void Server::on_entity_destroy(uint32_t session_id, uint32_t entity_id) {
@@ -464,17 +602,27 @@ void Server::on_entity_destroy(uint32_t session_id, uint32_t entity_id) {
     destroy.position_x = 0.0f;
     destroy.position_y = 0.0f;
 
-    broadcast_to_session(session_id, protocol::PacketType::SERVER_ENTITY_DESTROY, serialize_payload(&destroy, sizeof(destroy)));
+    broadcast_udp_to_session(session_id, protocol::PacketType::SERVER_ENTITY_DESTROY,
+                             serialize_payload(&destroy, sizeof(destroy)));
 }
 
 void Server::on_game_over(uint32_t session_id, const std::vector<uint32_t>& player_ids) {
     std::cout << "[Server] Game over for session " << session_id << "\n";
 
+    // Send game over via TCP (reliable)
     for (uint32_t player_id : player_ids) {
         for (auto& [client_id, player_info] : connected_clients_) {
             if (player_info.player_id == player_id) {
                 player_info.in_game = false;
                 player_info.session_id = 0;
+
+                protocol::ServerGameOverPayload game_over;
+                game_over.result = protocol::GameResult::VICTORY;
+                game_over.total_time = 0;
+                game_over.enemies_killed = 0;
+
+                send_tcp_packet(client_id, protocol::PacketType::SERVER_GAME_OVER,
+                               serialize_payload(&game_over, sizeof(game_over)));
                 break;
             }
         }
@@ -496,9 +644,19 @@ void Server::update_game_sessions(float delta_time) {
     }
 }
 
+// ============== Utilities ==============
+
+uint32_t Server::generate_player_id() {
+    return next_player_id_++;
+}
+
 uint32_t Server::generate_session_id() {
     return next_session_id_++;
 }
 
+std::vector<uint8_t> Server::serialize_payload(const void* payload, size_t size) {
+    const uint8_t* bytes = static_cast<const uint8_t*>(payload);
+    return std::vector<uint8_t>(bytes, bytes + size);
 }
 
+}

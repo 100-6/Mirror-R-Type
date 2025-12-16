@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include "protocol/NetworkConfig.hpp"
 
 namespace rtype::server {
 
@@ -10,7 +11,10 @@ namespace rtype::server {
 namespace config {
 
 // === Network Configuration ===
-constexpr uint16_t DEFAULT_SERVER_PORT = 4242;
+// Port constants are inherited from protocol::config::DEFAULT_TCP_PORT and DEFAULT_UDP_PORT
+// for consistency between client and server
+constexpr uint16_t DEFAULT_TCP_PORT = protocol::config::DEFAULT_TCP_PORT;
+constexpr uint16_t DEFAULT_UDP_PORT = protocol::config::DEFAULT_UDP_PORT;
 constexpr uint32_t MAX_CLIENTS = 16;
 constexpr uint32_t MAX_PACKET_SIZE = 1400;
 
