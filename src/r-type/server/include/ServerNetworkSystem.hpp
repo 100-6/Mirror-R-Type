@@ -128,9 +128,19 @@ private:
     void broadcast_pending_projectiles();
 
     /**
-     * @brief Spawn a projectile entity
+     * @brief Spawn a player projectile entity
      */
     void spawn_projectile(Registry& registry, Entity owner, float x, float y);
+
+    /**
+     * @brief Spawn an enemy projectile entity
+     */
+    void spawn_enemy_projectile(Registry& registry, Entity owner, float x, float y);
+
+    /**
+     * @brief Update enemy shooting logic
+     */
+    void update_enemy_shooting(Registry& registry, float dt);
 
     /**
      * @brief Serialize the current world state to bytes
@@ -158,6 +168,11 @@ private:
 
     // Event subscription
     core::EventBus::SubscriptionId shotFiredSubId_;
+
+    // Enemy shooting tracking (entity_id -> time since last shot)
+    std::unordered_map<Entity, float> enemy_shoot_cooldowns_;
+    static constexpr float ENEMY_SHOOT_COOLDOWN = 1.5f;  // 1.5s between enemy shots
+    static constexpr float ENEMY_SHOOT_RANGE = 800.0f;   // Enemies shoot when player is within 800px
 
     // Callbacks to Server for actual network send
     SnapshotCallback snapshot_callback_;

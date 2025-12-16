@@ -650,7 +650,24 @@ void Server::on_wave_complete(uint32_t session_id, const std::vector<uint8_t>& p
 void Server::on_game_over(uint32_t session_id, const std::vector<uint32_t>& player_ids) {
     std::cout << "[Server] Game over for session " << session_id << "\n";
 
-    // Send game over via TCP (reliable)
+    // Determine if it's a victory or defeat
+    // If player_ids is empty, all players died = DEFEAT
+    // Otherwise check if waves are complete = VICTORY
+    protocol::GameResult result = protocol::GameResult::DEFEAT;
+    auto session_it = game_sessions_.find(session_id);
+    if (session_it != game_sessions_.end() && session_it->second) {
+        // If session ended with players still alive, it's a victory
+        if (!player_ids.empty()) {
+            result = protocol::GameResult::VICTORY;
+        }
+    }
+
+    // Send game over packet to all clients in session via UDP
+    protocol::ServerGameOverPayload game_over;
+    game_over.result = result;
+    broadcast_udp_to_session(session_id, protocol::PacketType::SERVER_GAME_OVER, serialize(game_over));
+
+    // Clean up player states
     for (uint32_t player_id : player_ids) {
         auto client_it = player_to_client_.find(player_id);
         if (client_it == player_to_client_.end())
@@ -659,6 +676,15 @@ void Server::on_game_over(uint32_t session_id, const std::vector<uint32_t>& play
         player_info.in_game = false;
         player_info.session_id = 0;
     }
+
+    // Also clean up any remaining players in the session
+    for (auto& [tcp_client_id, player_info] : connected_clients_) {
+        if (player_info.session_id == session_id) {
+            player_info.in_game = false;
+            player_info.session_id = 0;
+        }
+    }
+
     game_sessions_.erase(session_id);
 }
 
