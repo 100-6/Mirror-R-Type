@@ -71,8 +71,8 @@ if(GTest_FOUND)
         PRIVATE
             game_engine
             rtype_logic
-            ${GTEST_LIBRARIES}
-            ${GTEST_MAIN_LIBRARIES}
+            GTest::gtest
+            GTest::gtest_main
             Threads::Threads
     )
     add_test(NAME CollisionSystemGTestSuite COMMAND test_collision_system)
