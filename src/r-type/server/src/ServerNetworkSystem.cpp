@@ -26,6 +26,9 @@ ServerNetworkSystem::ServerNetworkSystem(uint32_t session_id, float snapshot_int
 
 void ServerNetworkSystem::init(Registry& registry)
 {
+    // Register Weapon component for shooting mechanics
+    registry.register_component<Weapon>();
+
     std::cout << "[ServerNetworkSystem " << session_id_ << "] Initialized\n";
 }
 
