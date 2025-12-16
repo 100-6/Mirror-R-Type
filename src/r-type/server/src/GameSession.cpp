@@ -1,5 +1,18 @@
 #include "GameSession.hpp"
 #include "ServerConfig.hpp"
+#include "systems/ShootingSystem.hpp"
+#include "systems/BonusSystem.hpp"
+#include "components/CombatHelpers.hpp"
+
+// Undefine macros from CombatConfig.hpp that collide with ServerConfig
+#undef ENEMY_BASIC_SPEED
+#undef ENEMY_BASIC_HEALTH
+#undef ENEMY_FAST_SPEED
+#undef ENEMY_FAST_HEALTH
+#undef ENEMY_TANK_SPEED
+#undef ENEMY_TANK_HEALTH
+#undef ENEMY_BOSS_SPEED
+#undef ENEMY_BOSS_HEALTH
 #include <iostream>
 #include <arpa/inet.h>
 #include <cstring>
@@ -40,20 +53,38 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode, prot
     registry_.register_component<Wall>();
     registry_.register_component<Bonus>();
     registry_.register_component<Shield>();
+    registry_.register_component<Weapon>();
+    registry_.register_component<SpeedBoost>();
+    registry_.register_component<Scrollable>();
+    registry_.register_component<Attached>();
+    
+    // Visual components used by systems (needed even if server doesn't render, to avoid crash)
+    registry_.register_component<Sprite>();
+    registry_.register_component<TextEffect>();
+    registry_.register_component<CircleEffect>();
 
     // Register game engine systems
     registry_.register_system<MovementSystem>();
     registry_.register_system<PhysiqueSystem>();
     registry_.register_system<CollisionSystem>();
     registry_.register_system<HealthSystem>();
+    registry_.register_system<ShootingSystem>();
+    registry_.register_system<BonusSystem>();
+    
+    // Initialize systems without graphics
+    registry_.get_system<ShootingSystem>().init(registry_);
+    registry_.get_system<BonusSystem>().init(registry_);
 
     // Register ServerNetworkSystem BEFORE DestroySystem so it can queue destroys before entities are killed
     registry_.register_system<ServerNetworkSystem>(session_id_, config::SNAPSHOT_INTERVAL);
 
+    // Initialize ServerNetworkSystem to subscribe to events
+    network_system_ = &registry_.get_system<ServerNetworkSystem>();
+    network_system_->init(registry_);
+    network_system_->set_player_entities(&player_entities_);
+
     // DestroySystem must be LAST to kill entities after network has queued destroy notifications
     registry_.register_system<DestroySystem>();
-    network_system_ = &registry_.get_system<ServerNetworkSystem>();
-    network_system_->set_player_entities(&player_entities_);
 
     // Load wave configuration
     std::string wave_file = WaveManager::get_map_file(game_mode, difficulty);
@@ -163,15 +194,11 @@ void GameSession::update(float delta_time) {
     tick_count_++;
     current_scroll_ += config::GAME_SCROLL_SPEED * delta_time;
 
-    // Debug scroll progress every 5 seconds
-    static int scroll_log_counter = 0;
-    if (++scroll_log_counter % 300 == 0) {
-        std::cout << "[GameSession " << session_id_ << "] current_scroll=" << current_scroll_ << "\n";
-    }
-
     wave_manager_.update(delta_time, current_scroll_);
 
     // ServerNetworkSystem now handles queueing destroy notifications BEFORE DestroySystem kills entities
+    registry_.get_system<BonusSystem>().update(registry_, delta_time);
+    registry_.get_system<ShootingSystem>().update(registry_, delta_time);
     registry_.run_systems(delta_time);
 
     check_offscreen_enemies();
@@ -205,6 +232,11 @@ void GameSession::spawn_player_entity(GamePlayer& player) {
     registry_.add_component(entity, Collider{config::PLAYER_WIDTH, config::PLAYER_HEIGHT});
     registry_.add_component(entity, Invulnerability{3.0f});  // 3 seconds invulnerability at spawn
     registry_.add_component(entity, Score{0});
+    
+    // Add Weapon component
+    Weapon weapon = create_weapon(WeaponType::BASIC, engine::INVALID_HANDLE);
+    registry_.add_component(entity, weapon);
+
     std::cout << "[GameSession " << session_id_ << "] Spawned player entity " << entity
               << " at (" << spawn_x << ", " << spawn_y << ")\n";
 }
@@ -275,7 +307,7 @@ void GameSession::spawn_wall(float x, float y) {
     registry_.add_component(wall, Collider{config::WALL_WIDTH, config::WALL_HEIGHT});
     registry_.add_component(wall, Wall{});
     registry_.add_component(wall, NoFriction{});
-    registry_.add_component(wall, Health{999999, 999999});  // Walls are indestructible
+    registry_.add_component(wall, Health{65535, 65535});  // Walls are indestructible
 
     std::cout << "[GameSession " << session_id_ << "] Spawned wall " << wall << " at (" << x << ", " << y << ")\n";
 
@@ -286,7 +318,7 @@ void GameSession::spawn_wall(float x, float y) {
             protocol::EntityType::WALL,
             x,
             y,
-            999999,
+            65535,
             0
         );
     }

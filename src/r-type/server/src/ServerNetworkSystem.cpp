@@ -11,6 +11,10 @@
 #include <iostream>
 #include <arpa/inet.h>
 #include <cstring>
+#include "ecs/events/GameEvents.hpp"
+#include "ecs/events/InputEvents.hpp" // If needed
+#include "components/CombatHelpers.hpp" // For WeaponType stats if needed
+#include "systems/ShootingSystem.hpp" // For event definition if needed here, but GameEvents is key
 
 namespace rtype::server {
 
@@ -18,7 +22,6 @@ ServerNetworkSystem::ServerNetworkSystem(uint32_t session_id, float snapshot_int
     : session_id_(session_id)
     , snapshot_interval_(snapshot_interval)
     , snapshot_timer_(0.0f)
-    , tick_count_(0)
 {
     std::cout << "[ServerNetworkSystem " << session_id_ << "] Created (snapshot interval: "
               << snapshot_interval_ << "s)\n";
@@ -27,12 +30,41 @@ ServerNetworkSystem::ServerNetworkSystem(uint32_t session_id, float snapshot_int
 void ServerNetworkSystem::init(Registry& registry)
 {
     std::cout << "[ServerNetworkSystem " << session_id_ << "] Initialized\n";
+    
+    // Subscribe to ShotFiredEvent from ShootingSystem
+    shotFiredSubId_ = registry.get_event_bus().subscribe<ecs::ShotFiredEvent>([this, &registry](const ecs::ShotFiredEvent& event) {
+        auto& velocities = registry.get_components<Velocity>();
+        auto& positions = registry.get_components<Position>();
+        auto& projectiles = registry.get_components<Projectile>();
+        
+        if (!velocities.has_entity(event.projectile) || !positions.has_entity(event.projectile) || !projectiles.has_entity(event.projectile))
+            return;
+            
+        const auto& vel = velocities[event.projectile];
+        const auto& pos = positions[event.projectile];
+        // Note: Projectile component handles angle and faction, but Payload expects simple type
+        
+        protocol::ServerProjectileSpawnPayload spawn;
+        spawn.projectile_id = htonl(event.projectile);
+        spawn.owner_id = htonl(event.shooter);
+        spawn.projectile_type = protocol::ProjectileType::BULLET; // Simplification, could map from Weapon/Projectile type
+        spawn.spawn_x = pos.x;
+        spawn.spawn_y = pos.y;
+        spawn.velocity_x = static_cast<int16_t>(vel.x);
+        spawn.velocity_y = static_cast<int16_t>(vel.y);
+        
+        pending_projectiles_.push(spawn);
+        std::cout << "[SHOOT] Queued projectile " << event.projectile << " from shooter " << event.shooter << "\n";
+    });
 }
 
 void ServerNetworkSystem::update(Registry& registry, float dt)
 {
     // Update shoot cooldowns
     for (auto& [player_id, cooldown] : shoot_cooldowns_) {
+        cooldown += dt;
+    }
+    for (auto& [player_id, cooldown] : switch_cooldowns_) {
         cooldown += dt;
     }
 
@@ -51,7 +83,6 @@ void ServerNetworkSystem::update(Registry& registry, float dt)
     }
 
     // 3. Queue destroy notifications for entities marked ToDestroy
-    // This runs AFTER CollisionSystem has marked entities but BEFORE DestroySystem kills them
     auto& to_destroy = registry.get_components<ToDestroy>();
     for (size_t i = 0; i < to_destroy.size(); ++i) {
         Entity entity = to_destroy.get_entity_at(i);
@@ -111,37 +142,15 @@ void ServerNetworkSystem::process_pending_inputs(Registry& registry)
         auto [player_id, input] = pending_inputs_.front();
         pending_inputs_.pop();
 
-        // DEBUG: Log input flags every 60 frames
-        static int input_debug_counter = 0;
-        if (++input_debug_counter % 60 == 0) {
-            std::cout << "[ServerNetworkSystem " << session_id_ << "] Player " << player_id
-                      << " input_flags=0x" << std::hex << (int)input.input_flags << std::dec
-                      << " up=" << input.is_up_pressed()
-                      << " down=" << input.is_down_pressed()
-                      << " left=" << input.is_left_pressed()
-                      << " right=" << input.is_right_pressed()
-                      << " shoot=" << input.is_shoot_pressed() << "\n";
-        }
-
         // Find the entity for this player
         auto it = player_entities_->find(player_id);
-        if (it == player_entities_->end()) {
-            static int entity_not_found_counter = 0;
-            if (++entity_not_found_counter % 60 == 0) {
-                std::cout << "[ServerNetworkSystem " << session_id_ << "] WARNING: Player " << player_id << " entity not found in map!\n";
-            }
+        if (it == player_entities_->end())
             continue;
-        }
 
         Entity player_entity = it->second;
 
-        if (!velocities.has_entity(player_entity)) {
-            static int no_velocity_counter = 0;
-            if (++no_velocity_counter % 60 == 0) {
-                std::cout << "[ServerNetworkSystem " << session_id_ << "] WARNING: Player " << player_id << " entity " << player_entity << " has no velocity component!\n";
-            }
+        if (!velocities.has_entity(player_entity))
             continue;
-        }
 
         Velocity& vel = velocities[player_entity];
 
@@ -158,32 +167,35 @@ void ServerNetworkSystem::process_pending_inputs(Registry& registry)
         if (input.is_right_pressed())
             vel.x = config::PLAYER_MOVEMENT_SPEED;
 
-        static int vel_log_counter = 0;
-        if (++vel_log_counter % 60 == 0) {
-            std::cout << "[ServerNetworkSystem " << session_id_ << "] Player " << player_id
-                      << " vel=(" << vel.x << "," << vel.y << ")"
-                      << " after processing flags=0x" << std::hex << (int)input.input_flags << std::dec << "\n";
+        // Handle shooting input - publish events for ShootingSystem
+        auto& weapons = registry.get_components<Weapon>();
+        if (weapons.has_entity(player_entity)) {
+            bool was_held = weapons[player_entity].trigger_held;
+            bool is_pressed = input.is_shoot_pressed();
+
+            if (is_pressed && !was_held) {
+                // Start firing
+                std::cout << "[SHOOT] PlayerStartFireEvent for player " << player_id << "\n";
+                registry.get_event_bus().publish(ecs::PlayerStartFireEvent{player_entity});
+            } else if (!is_pressed && was_held) {
+                // Stop firing
+                std::cout << "[SHOOT] PlayerStopFireEvent for player " << player_id << "\n";
+                registry.get_event_bus().publish(ecs::PlayerStopFireEvent{player_entity});
+            }
         }
 
-        // Handle shooting
-        if (input.is_shoot_pressed()) {
-            // Check cooldown
-            if (shoot_cooldowns_.find(player_id) == shoot_cooldowns_.end()) {
-                shoot_cooldowns_[player_id] = SHOOT_COOLDOWN;  // Allow first shot
-            }
+        // Handle Weapon Switch
+        if (input.is_switch_weapon_pressed()) {
+            if (switch_cooldowns_.find(player_id) == switch_cooldowns_.end())
+                 switch_cooldowns_[player_id] = SWITCH_COOLDOWN;
 
-            if (shoot_cooldowns_[player_id] >= SHOOT_COOLDOWN) {
-                auto& positions = registry.get_components<Position>();
-                auto& colliders = registry.get_components<Collider>();
-                if (positions.has_entity(player_entity) && colliders.has_entity(player_entity)) {
-                    Position& pos = positions[player_entity];
-                    Collider& col = colliders[player_entity];
-                    // Spawn projectile at the right edge of player, centered vertically
-                    float spawn_x = pos.x + col.width;
-                    float spawn_y = pos.y + col.height / 2.0f - config::PROJECTILE_HEIGHT / 2.0f;
-                    spawn_projectile(registry, player_entity, spawn_x, spawn_y);
-                    shoot_cooldowns_[player_id] = 0.0f;
-                }
+            if (switch_cooldowns_[player_id] >= SWITCH_COOLDOWN) {
+                 if (weapons.has_entity(player_entity)) {
+                     Weapon& w = weapons[player_entity];
+                     int nextType = (static_cast<int>(w.type) + 1) % 5;
+                     w = create_weapon(static_cast<WeaponType>(nextType), engine::INVALID_HANDLE);
+                     switch_cooldowns_[player_id] = 0.0f;
+                 }
             }
         }
     }
@@ -268,21 +280,13 @@ std::vector<uint8_t> ServerNetworkSystem::serialize_snapshot(Registry& registry)
 
 void ServerNetworkSystem::broadcast_pending_spawns()
 {
-    if (!entity_spawn_callback_) {
-        std::cout << "[ServerNetworkSystem " << session_id_ << "] WARNING: No spawn callback set!\n";
+    if (!entity_spawn_callback_)
         return;
-    }
 
-    int spawn_count = 0;
     while (!pending_spawns_.empty()) {
         const auto& spawn = pending_spawns_.front();
         entity_spawn_callback_(session_id_, serialize(spawn));
         pending_spawns_.pop();
-        spawn_count++;
-    }
-
-    if (spawn_count > 0) {
-        std::cout << "[ServerNetworkSystem " << session_id_ << "] Broadcasted " << spawn_count << " spawns\n";
     }
 }
 
@@ -291,36 +295,23 @@ void ServerNetworkSystem::broadcast_pending_destroys()
     if (!entity_destroy_callback_)
         return;
 
-    int destroy_count = 0;
     while (!pending_destroys_.empty()) {
         uint32_t entity_id = pending_destroys_.front();
         entity_destroy_callback_(session_id_, entity_id);
         pending_destroys_.pop();
-        destroy_count++;
-    }
-
-    if (destroy_count > 0) {
-        std::cout << "[ServerNetworkSystem " << session_id_ << "] Broadcasted " << destroy_count << " entity destroys\n";
     }
 }
 
 void ServerNetworkSystem::broadcast_pending_projectiles()
 {
-    if (!projectile_spawn_callback_) {
-        std::cout << "[ServerNetworkSystem " << session_id_ << "] WARNING: No projectile_spawn_callback set!\n";
+    if (!projectile_spawn_callback_)
         return;
-    }
 
-    int proj_count = 0;
     while (!pending_projectiles_.empty()) {
         const auto& proj = pending_projectiles_.front();
         projectile_spawn_callback_(session_id_, serialize(proj));
         pending_projectiles_.pop();
-        proj_count++;
-    }
-
-    if (proj_count > 0) {
-        std::cout << "[ServerNetworkSystem " << session_id_ << "] Broadcasted " << proj_count << " projectiles\n";
+        std::cout << "[SHOOT] Sent projectile " << ntohl(proj.projectile_id) << " to clients\n";
     }
 }
 
