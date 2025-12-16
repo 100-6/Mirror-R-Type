@@ -111,6 +111,7 @@ private:
     // UDP sending (fast)
     void send_udp_packet(uint32_t client_id, protocol::PacketType type, const std::vector<uint8_t>& payload);
     void broadcast_udp_to_session(uint32_t session_id, protocol::PacketType type, const std::vector<uint8_t>& payload);
+    void broadcast_tcp_to_session(uint32_t session_id, protocol::PacketType type, const std::vector<uint8_t>& payload);
 
     void on_client_disconnected(uint32_t client_id);
 

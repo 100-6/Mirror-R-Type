@@ -193,6 +193,17 @@ void Server::route_packet(uint32_t client_id, const protocol::PacketHeader& head
                 handle_client_leave_lobby(client_id, leave_payload);
                 break;
             }
+            case protocol::PacketType::CLIENT_INPUT: {
+                // Also handle inputs via TCP as fallback when UDP isn't connected
+                if (payload.size() != sizeof(protocol::ClientInputPayload)) {
+                    std::cerr << "[Server] Invalid CLIENT_INPUT (TCP) payload size\n";
+                    return;
+                }
+                protocol::ClientInputPayload input_payload;
+                std::memcpy(&input_payload, payload.data(), sizeof(input_payload));
+                handle_client_input(client_id, input_payload);
+                break;
+            }
             default:
                 std::cerr << "[Server] Unexpected TCP packet type: 0x" << std::hex
                           << static_cast<int>(header.type) << std::dec << "\n";
@@ -436,6 +447,22 @@ void Server::broadcast_udp_to_session(uint32_t session_id, protocol::PacketType 
     }
 }
 
+void Server::broadcast_tcp_to_session(uint32_t session_id, protocol::PacketType type,
+                                      const std::vector<uint8_t>& payload) {
+    auto session_it = game_sessions_.find(session_id);
+
+    if (session_it == game_sessions_.end())
+        return;
+
+    auto player_ids = session_it->second->get_player_ids();
+    for (uint32_t player_id : player_ids) {
+        auto client_it = player_to_client_.find(player_id);
+        if (client_it != player_to_client_.end()) {
+            send_tcp_packet(client_it->second, type, payload);
+        }
+    }
+}
+
 // ============== Lobby Callbacks ==============
 
 void Server::handle_client_join_lobby(uint32_t client_id,
@@ -547,6 +574,7 @@ void Server::on_game_start(uint32_t lobby_id, const std::vector<uint32_t>& playe
         game_start.difficulty = difficulty;
         game_start.server_tick = htonl(0);
         game_start.level_seed = htonl(0);
+        game_start.udp_port = htons(udp_port_);  // Send the actual UDP port
         send_tcp_packet(client_id, protocol::PacketType::SERVER_GAME_START, serialize(game_start));
     }
     game_sessions_[session_id] = std::move(session);
@@ -565,15 +593,30 @@ void Server::handle_client_input(uint32_t client_id, const protocol::ClientInput
     }
 
     auto it = connected_clients_.find(tcp_client_id);
-    if (it == connected_clients_.end())
+    if (it == connected_clients_.end()) {
+        std::cerr << "[Server] Input from unknown client " << client_id << " (tcp=" << tcp_client_id << ")\n";
         return;
-    if (!it->second.in_game)
+    }
+    if (!it->second.in_game) {
+        std::cerr << "[Server] Input from player not in game\n";
         return;
+    }
 
     uint32_t session_id = it->second.session_id;
     auto session_it = game_sessions_.find(session_id);
-    if (session_it == game_sessions_.end())
+    if (session_it == game_sessions_.end()) {
+        std::cerr << "[Server] Input for non-existent session " << session_id << "\n";
         return;
+    }
+
+    // Debug: log inputs periodically
+    static int input_count = 0;
+    input_count++;
+    uint16_t flags = ntohs(payload.input_flags);
+    if (input_count % 60 == 1 || flags != 0) {  // Log every second or when there's actual input
+        std::cout << "[Server] Input #" << input_count << " from player " << it->second.player_id
+                  << " flags=0x" << std::hex << flags << std::dec << "\n";
+    }
 
     session_it->second->handle_input(it->second.player_id, payload);
 }
@@ -583,7 +626,8 @@ void Server::on_state_snapshot(uint32_t session_id, const std::vector<uint8_t>& 
 }
 
 void Server::on_entity_spawn(uint32_t session_id, const std::vector<uint8_t>& spawn_data) {
-    broadcast_udp_to_session(session_id, protocol::PacketType::SERVER_ENTITY_SPAWN, spawn_data);
+    // Use TCP for spawns to ensure reliability (UDP might not be connected yet for initial spawns)
+    broadcast_tcp_to_session(session_id, protocol::PacketType::SERVER_ENTITY_SPAWN, spawn_data);
 }
 
 void Server::on_entity_destroy(uint32_t session_id, uint32_t entity_id) {
@@ -598,17 +642,37 @@ void Server::on_entity_destroy(uint32_t session_id, uint32_t entity_id) {
 }
 
 void Server::on_game_over(uint32_t session_id, const std::vector<uint32_t>& player_ids) {
-    std::cout << "[Server] Game over for session " << session_id << "\n";
+    std::cout << "[Server] Game over for session " << session_id << " (" << player_ids.size() << " players)\n";
 
-    // Send game over via TCP (reliable)
-    for (uint32_t player_id : player_ids) {
+    // Get player IDs from the session if list is empty (for victory case)
+    std::vector<uint32_t> actual_player_ids = player_ids;
+    if (actual_player_ids.empty()) {
+        auto session_it = game_sessions_.find(session_id);
+        if (session_it != game_sessions_.end()) {
+            actual_player_ids = session_it->second->get_player_ids();
+        }
+    }
+
+    // Send game over packet via TCP (reliable) to all players in session
+    protocol::ServerGameOverPayload game_over;
+    game_over.result = protocol::GameResult::VICTORY;  // Could be DEFEAT based on context
+    game_over.total_time = htonl(0);  // TODO: Track actual game time
+    game_over.enemies_killed = htonl(0);  // TODO: Track enemies killed
+
+    for (uint32_t player_id : actual_player_ids) {
         auto client_it = player_to_client_.find(player_id);
         if (client_it == player_to_client_.end())
             continue;
-        auto& player_info = connected_clients_[client_it->second];
+
+        uint32_t client_id = client_it->second;
+        send_tcp_packet(client_id, protocol::PacketType::SERVER_GAME_OVER, serialize(game_over));
+
+        auto& player_info = connected_clients_[client_id];
         player_info.in_game = false;
         player_info.session_id = 0;
+        std::cout << "[Server] Sent game over to player " << player_id << "\n";
     }
+
     game_sessions_.erase(session_id);
 }
 

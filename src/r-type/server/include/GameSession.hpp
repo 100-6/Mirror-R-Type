@@ -9,6 +9,7 @@
 
 #include "ecs/Registry.hpp"
 #include "ecs/CoreComponents.hpp"
+#include "components/GameComponents.hpp"
 #include "ecs/systems/MovementSystem.hpp"
 #include "ecs/systems/PhysiqueSystem.hpp"
 #include "ecs/systems/DestroySystem.hpp"
@@ -129,6 +130,13 @@ public:
     }
 
     /**
+     * @brief Queue a shoot request from a player
+     */
+    void queue_shoot(uint32_t player_id) {
+        pending_shoots_.push_back(player_id);
+    }
+
+    /**
      * @brief Get the ECS registry for this session
      */
     Registry& get_registry() { return registry_; }
@@ -157,8 +165,15 @@ private:
 
     void spawn_player_entity(GamePlayer& player);
     void spawn_enemy(const std::string& enemy_type, float x, float y);
+    void spawn_wall(float x, float y);
+    void spawn_projectile(uint32_t owner_player_id, float x, float y, float vx, float vy);
     void check_game_over();
     void check_offscreen_enemies();
+    void check_collisions();
+    void process_shooting();
+
+    // Track pending shoots from players
+    std::vector<uint32_t> pending_shoots_;
 };
 
 }

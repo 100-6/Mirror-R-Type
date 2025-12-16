@@ -35,6 +35,7 @@ public:
     using SnapshotCallback = std::function<void(uint32_t session_id, const std::vector<uint8_t>&)>;
     using EntitySpawnCallback = std::function<void(uint32_t session_id, const std::vector<uint8_t>&)>;
     using EntityDestroyCallback = std::function<void(uint32_t session_id, uint32_t entity_id)>;
+    using ShootCallback = std::function<void(uint32_t player_id)>;
 
     /**
      * @brief Construct a new ServerNetworkSystem
@@ -92,6 +93,7 @@ public:
     void set_snapshot_callback(SnapshotCallback callback) { snapshot_callback_ = std::move(callback); }
     void set_entity_spawn_callback(EntitySpawnCallback callback) { entity_spawn_callback_ = std::move(callback); }
     void set_entity_destroy_callback(EntityDestroyCallback callback) { entity_destroy_callback_ = std::move(callback); }
+    void set_shoot_callback(ShootCallback callback) { shoot_callback_ = std::move(callback); }
 
     /**
      * @brief Get current tick count
@@ -138,9 +140,14 @@ private:
     SnapshotCallback snapshot_callback_;
     EntitySpawnCallback entity_spawn_callback_;
     EntityDestroyCallback entity_destroy_callback_;
+    ShootCallback shoot_callback_;
 
     // Player ID -> Entity mapping (owned by GameSession)
     std::unordered_map<uint32_t, Entity>* player_entities_ = nullptr;
+
+    // Track which players are currently holding shoot (for cooldown)
+    std::unordered_map<uint32_t, float> player_shoot_cooldowns_;
+    static constexpr float SHOOT_COOLDOWN = 0.15f;  // 150ms between shots
 };
 
 } // namespace rtype::server

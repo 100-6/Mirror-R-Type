@@ -47,6 +47,7 @@ struct WaveConfig {
 class WaveManager {
 public:
     using SpawnEnemyCallback = std::function<void(const std::string& enemy_type, float x, float y)>;
+    using SpawnWallCallback = std::function<void(float x, float y)>;
     using WaveStartCallback = std::function<void(uint32_t wave_number, const std::string& wave_name)>;
     using WaveCompleteCallback = std::function<void(uint32_t wave_number)>;
 
@@ -91,6 +92,13 @@ public:
     }
 
     /**
+     * @brief Set callback for wall spawns
+     */
+    void set_spawn_wall_callback(SpawnWallCallback callback) {
+        spawn_wall_callback_ = callback;
+    }
+
+    /**
      * @brief Set callback for wave start
      */
     void set_wave_start_callback(WaveStartCallback callback) {
@@ -115,6 +123,7 @@ private:
     float accumulated_time_;
 
     SpawnEnemyCallback spawn_enemy_callback_;
+    SpawnWallCallback spawn_wall_callback_;
     WaveStartCallback wave_start_callback_;
     WaveCompleteCallback wave_complete_callback_;
 

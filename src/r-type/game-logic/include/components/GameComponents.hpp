@@ -110,6 +110,11 @@ struct Score
     int value = 0;
 };
 
+struct Owner
+{
+    uint32_t player_id = 0;  // ID of the player who owns this entity
+};
+
 // Bonus System
 
 enum class BonusType {

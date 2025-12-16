@@ -9,6 +9,7 @@
 #include "protocol/ProtocolEncoder.hpp"
 #include <iostream>
 #include <chrono>
+#include <thread>
 #include <cstring>
 
 #ifdef _WIN32
@@ -131,6 +132,15 @@ void NetworkClient::send_input(uint16_t input_flags, uint32_t client_tick) {
     payload.input_flags = htons(input_flags);
     payload.client_tick = htonl(client_tick);
 
+    // Debug: log input state periodically
+    static int input_count = 0;
+    input_count++;
+    if (input_count % 60 == 1) {  // Log every ~1 second at 60 Hz
+        std::cout << "[NetworkClient] Sending input #" << input_count
+                  << " (flags=0x" << std::hex << input_flags << std::dec
+                  << ", UDP=" << (network_plugin_.is_udp_connected() ? "yes" : "no") << ")\n";
+    }
+
     // Send via UDP if connected, otherwise TCP
     if (network_plugin_.is_udp_connected()) {
         send_udp_packet(protocol::PacketType::CLIENT_INPUT, serialize_payload(&payload, sizeof(payload)));
@@ -200,10 +210,8 @@ void NetworkClient::handle_packet(const engine::NetworkPacket& packet) {
             break;
         case protocol::PacketType::SERVER_SNAPSHOT:
         case protocol::PacketType::SERVER_DELTA_SNAPSHOT:
-            // TODO: Handle game state snapshots when in game
-            // For now, silently ignore if not in game
             if (in_game_) {
-                // Process snapshot
+                handle_snapshot(payload);
             }
             break;
         default:
@@ -365,6 +373,48 @@ void NetworkClient::handle_game_over(const std::vector<uint8_t>& payload) {
         on_game_over_(game_over);
 }
 
+void NetworkClient::handle_snapshot(const std::vector<uint8_t>& payload) {
+    if (payload.size() < sizeof(protocol::ServerSnapshotPayload)) {
+        return;
+    }
+
+    protocol::ServerSnapshotPayload header;
+    std::memcpy(&header, payload.data(), sizeof(header));
+
+    uint16_t entity_count = ntohs(header.entity_count);
+    size_t expected_size = sizeof(header) + entity_count * sizeof(protocol::EntityState);
+
+    if (payload.size() < expected_size) {
+        return;
+    }
+
+    std::vector<protocol::EntityState> entities;
+    entities.reserve(entity_count);
+
+    const uint8_t* entity_data = payload.data() + sizeof(header);
+    for (uint16_t i = 0; i < entity_count; ++i) {
+        protocol::EntityState state;
+        std::memcpy(&state, entity_data + i * sizeof(protocol::EntityState), sizeof(state));
+
+        // Convert from network byte order
+        state.entity_id = ntohl(state.entity_id);
+        state.health = ntohs(state.health);
+
+        entities.push_back(state);
+    }
+
+    // Debug: Log snapshot reception periodically
+    static int snapshot_count = 0;
+    snapshot_count++;
+    if (snapshot_count % 60 == 1) {  // Log every ~3 seconds (at 20 Hz)
+        std::cout << "[NetworkClient] Received snapshot #" << snapshot_count
+                  << " with " << entity_count << " entities\n";
+    }
+
+    if (on_snapshot_)
+        on_snapshot_(entities);
+}
+
 // ============== UDP Connection ==============
 
 void NetworkClient::connect_udp(uint16_t udp_port) {
@@ -375,8 +425,16 @@ void NetworkClient::connect_udp(uint16_t udp_port) {
         return;
     }
 
-    std::cout << "[NetworkClient] UDP connected, sending handshake...\n";
+    std::cout << "[NetworkClient] UDP connected successfully!\n";
+    std::cout << "[NetworkClient] Sending UDP handshake...\n";
     send_udp_handshake();
+
+    // Send multiple handshakes to ensure at least one arrives (UDP is unreliable)
+    for (int i = 0; i < 3; ++i) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        send_udp_handshake();
+    }
+    std::cout << "[NetworkClient] UDP handshakes sent\n";
 }
 
 void NetworkClient::send_udp_handshake() {
@@ -476,6 +534,10 @@ void NetworkClient::set_on_game_over(std::function<void(const protocol::ServerGa
 
 void NetworkClient::set_on_disconnected(std::function<void()> callback) {
     on_disconnected_ = callback;
+}
+
+void NetworkClient::set_on_snapshot(std::function<void(const std::vector<protocol::EntityState>&)> callback) {
+    on_snapshot_ = callback;
 }
 
 }

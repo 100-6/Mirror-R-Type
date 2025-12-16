@@ -2,6 +2,7 @@
 #include <fstream>
 #include <iostream>
 #include <cmath>
+#include <random>
 
 namespace rtype::server {
 
@@ -96,7 +97,7 @@ std::string WaveManager::get_map_file(protocol::GameMode mode, protocol::Difficu
     }
     // For now, use the simple wave file as fallback
     // In production, you would have files like: waves_duo_easy.json, waves_squad_hard.json, etc.
-    return "src/r-type/assets/waves_simple.json";
+    return "assets/waves_simple.json";
 }
 
 void WaveManager::check_wave_triggers(float current_scroll) {
@@ -130,14 +131,45 @@ void WaveManager::trigger_wave(Wave& wave) {
 }
 
 void WaveManager::spawn_from_config(const SpawnConfig& spawn) {
-    if (!spawn_enemy_callback_)
+    // Determine which callback to use based on type
+    bool is_wall = (spawn.type == "wall");
+    bool is_enemy = (spawn.type == "enemy");
+
+    // Check we have the appropriate callback
+    if (is_wall && !spawn_wall_callback_)
         return;
-    if (spawn.pattern == "single")
-        spawn_enemy_callback_(spawn.enemy_type, spawn.position_x, spawn.position_y);
+    if (is_enemy && !spawn_enemy_callback_)
+        return;
+    if (!is_wall && !is_enemy)
+        return; // Unsupported type (powerups, etc. not yet implemented on server)
+
+    if (spawn.pattern == "single") {
+        if (is_wall)
+            spawn_wall_callback_(spawn.position_x, spawn.position_y);
+        else
+            spawn_enemy_callback_(spawn.enemy_type, spawn.position_x, spawn.position_y);
+    }
     else if (spawn.pattern == "line") {
         for (uint32_t i = 0; i < spawn.count; ++i) {
             float y = spawn.position_y + (i * spawn.spacing);
-            spawn_enemy_callback_(spawn.enemy_type, spawn.position_x, y);
+            if (is_wall)
+                spawn_wall_callback_(spawn.position_x, y);
+            else
+                spawn_enemy_callback_(spawn.enemy_type, spawn.position_x, y);
+        }
+    }
+    else if (spawn.pattern == "random") {
+        // Random pattern: spawn at random Y positions within a range
+        static std::random_device rd;
+        static std::mt19937 gen(rd());
+        std::uniform_real_distribution<float> dist(100.0f, 900.0f); // Y range
+
+        for (uint32_t i = 0; i < spawn.count; ++i) {
+            float y = dist(gen);
+            if (is_wall)
+                spawn_wall_callback_(spawn.position_x, y);
+            else
+                spawn_enemy_callback_(spawn.enemy_type, spawn.position_x, y);
         }
     }
     else if (spawn.pattern == "formation") {
@@ -149,7 +181,10 @@ void WaveManager::spawn_from_config(const SpawnConfig& spawn) {
 
                 float x = spawn.position_x + (c * spawn.spacing);
                 float y = spawn.position_y + (r * spawn.spacing);
-                spawn_enemy_callback_(spawn.enemy_type, x, y);
+                if (is_wall)
+                    spawn_wall_callback_(x, y);
+                else
+                    spawn_enemy_callback_(spawn.enemy_type, x, y);
             }
         }
     }

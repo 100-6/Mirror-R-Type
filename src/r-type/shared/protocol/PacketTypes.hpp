@@ -127,6 +127,8 @@ enum class EntityType : uint8_t {
     ENEMY_TANK = 0x0B,
     POWERUP_HEALTH = 0x0C,
     POWERUP_SPEED = 0x0D,
+    WALL = 0x0E,
+    PROJECTILE = 0x0F,  // Alias for PROJECTILE_PLAYER
 };
 
 /**

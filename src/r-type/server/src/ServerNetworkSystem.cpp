@@ -14,6 +14,8 @@
 
 namespace rtype::server {
 
+using namespace rtype::protocol;
+
 ServerNetworkSystem::ServerNetworkSystem(uint32_t session_id, float snapshot_interval)
     : session_id_(session_id)
     , snapshot_interval_(snapshot_interval)
@@ -27,24 +29,6 @@ ServerNetworkSystem::ServerNetworkSystem(uint32_t session_id, float snapshot_int
 void ServerNetworkSystem::init(Registry& registry)
 {
     std::cout << "[ServerNetworkSystem " << session_id_ << "] Initialized\n";
-}
-
-void ServerNetworkSystem::update(Registry& registry, float dt)
-{
-    // 1. Process pending inputs from clients
-    process_pending_inputs(registry);
-
-    // 2. Send snapshot if interval reached
-    snapshot_timer_ += dt;
-    if (snapshot_timer_ >= snapshot_interval_) {
-        send_state_snapshot(registry);
-        snapshot_timer_ = 0.0f;
-        tick_count_++;
-    }
-
-    // 3. Broadcast pending spawn/destroy events
-    broadcast_pending_spawns();
-    broadcast_pending_destroys();
 }
 
 void ServerNetworkSystem::shutdown()
@@ -81,6 +65,7 @@ void ServerNetworkSystem::process_pending_inputs(Registry& registry)
         return;
 
     auto& velocities = registry.get_components<Velocity>();
+    auto& positions = registry.get_components<Position>();
 
     while (!pending_inputs_.empty()) {
         auto [player_id, input] = pending_inputs_.front();
@@ -98,24 +83,64 @@ void ServerNetworkSystem::process_pending_inputs(Registry& registry)
 
         Velocity& vel = velocities[player_entity];
 
+        // Convert input_flags from network byte order to host byte order
+        uint16_t flags = ntohs(input.input_flags);
+
         // Reset velocity and apply based on input flags
         vel.x = 0.0f;
         vel.y = 0.0f;
 
-        if (input.is_up_pressed())
+        if (flags & INPUT_UP)
             vel.y = -config::PLAYER_MOVEMENT_SPEED;
-        if (input.is_down_pressed())
+        if (flags & INPUT_DOWN)
             vel.y = config::PLAYER_MOVEMENT_SPEED;
-        if (input.is_left_pressed())
+        if (flags & INPUT_LEFT)
             vel.x = -config::PLAYER_MOVEMENT_SPEED;
-        if (input.is_right_pressed())
+        if (flags & INPUT_RIGHT)
             vel.x = config::PLAYER_MOVEMENT_SPEED;
+        if (flags != 0 && positions.has_entity(player_entity)) {
+            Position& pos = positions[player_entity];
+            std::cout << "[ServerNetworkSystem] Player " << player_id
+                      << " input=0x" << std::hex << flags << std::dec
+                      << " -> vel=(" << vel.x << "," << vel.y << ")"
+                      << " pos=(" << pos.x << "," << pos.y << ")\n";
+        }
 
-        // TODO: Handle shooting
-        if (input.is_shoot_pressed()) {
-            // Spawn projectile entity
+        // Handle shooting with cooldown
+        if (flags & INPUT_SHOOT) {
+            auto cooldown_it = player_shoot_cooldowns_.find(player_id);
+            if (cooldown_it == player_shoot_cooldowns_.end() || cooldown_it->second <= 0.0f) {
+                // Can shoot - notify GameSession via callback
+                if (shoot_callback_)
+                    shoot_callback_(player_id);
+                player_shoot_cooldowns_[player_id] = SHOOT_COOLDOWN;
+            }
         }
     }
+}
+
+void ServerNetworkSystem::update(Registry& registry, float dt)
+{
+    // Update shoot cooldowns
+    for (auto& [player_id, cooldown] : player_shoot_cooldowns_) {
+        if (cooldown > 0.0f)
+            cooldown -= dt;
+    }
+
+    // 1. Process pending inputs from clients
+    process_pending_inputs(registry);
+
+    // 2. Send snapshot if interval reached
+    snapshot_timer_ += dt;
+    if (snapshot_timer_ >= snapshot_interval_) {
+        send_state_snapshot(registry);
+        snapshot_timer_ = 0.0f;
+        tick_count_++;
+    }
+
+    // 3. Broadcast pending spawn/destroy events
+    broadcast_pending_spawns();
+    broadcast_pending_destroys();
 }
 
 void ServerNetworkSystem::send_state_snapshot(Registry& registry)
@@ -139,6 +164,8 @@ std::vector<uint8_t> ServerNetworkSystem::serialize_snapshot(Registry& registry)
     auto& positions = registry.get_components<Position>();
     auto& velocities = registry.get_components<Velocity>();
     auto& healths = registry.get_components<Health>();
+    auto& controllables = registry.get_components<Controllable>();
+    auto& enemies = registry.get_components<Enemy>();
 
     uint16_t entity_count = 0;
     std::vector<protocol::EntityState> entity_states;
@@ -149,7 +176,17 @@ std::vector<uint8_t> ServerNetworkSystem::serialize_snapshot(Registry& registry)
 
         protocol::EntityState state;
         state.entity_id = htonl(entity);
-        state.entity_type = protocol::EntityType::PLAYER; // TODO: Distinguish entity types
+
+        // Determine entity type based on components
+        if (controllables.has_entity(entity)) {
+            state.entity_type = protocol::EntityType::PLAYER;
+        } else if (enemies.has_entity(entity)) {
+            state.entity_type = protocol::EntityType::ENEMY_BASIC;
+        } else {
+            // Default for other entities (walls, projectiles, etc.)
+            state.entity_type = protocol::EntityType::ENEMY_BASIC;
+        }
+
         state.position_x = pos.x;
         state.position_y = pos.y;
 

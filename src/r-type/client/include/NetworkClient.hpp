@@ -163,6 +163,12 @@ public:
      */
     void set_on_disconnected(std::function<void()> callback);
 
+    /**
+     * @brief Set callback for state snapshot
+     * @param callback Function receiving entity states
+     */
+    void set_on_snapshot(std::function<void(const std::vector<protocol::EntityState>& entities)> callback);
+
     // ============== Getters ==============
 
     uint32_t get_player_id() const { return player_id_; }
@@ -184,6 +190,7 @@ private:
     void handle_entity_spawn(const std::vector<uint8_t>& payload);
     void handle_entity_destroy(const std::vector<uint8_t>& payload);
     void handle_game_over(const std::vector<uint8_t>& payload);
+    void handle_snapshot(const std::vector<uint8_t>& payload);
 
     // UDP connection after game start
     void connect_udp(uint16_t udp_port);
@@ -220,6 +227,7 @@ private:
     std::function<void(const protocol::ServerEntityDestroyPayload&)> on_entity_destroy_;
     std::function<void(const protocol::ServerGameOverPayload&)> on_game_over_;
     std::function<void()> on_disconnected_;
+    std::function<void(const std::vector<protocol::EntityState>&)> on_snapshot_;
 };
 
 }
