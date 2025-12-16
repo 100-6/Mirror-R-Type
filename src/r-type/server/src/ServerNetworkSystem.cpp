@@ -50,7 +50,15 @@ void ServerNetworkSystem::update(Registry& registry, float dt)
         }
     }
 
-    // 3. Send snapshot if interval reached
+    // 3. Queue destroy notifications for entities marked ToDestroy
+    // This runs AFTER CollisionSystem has marked entities but BEFORE DestroySystem kills them
+    auto& to_destroy = registry.get_components<ToDestroy>();
+    for (size_t i = 0; i < to_destroy.size(); ++i) {
+        Entity entity = to_destroy.get_entity_at(i);
+        queue_entity_destroy(entity);
+    }
+
+    // 4. Send snapshot if interval reached
     snapshot_timer_ += dt;
     if (snapshot_timer_ >= snapshot_interval_) {
         send_state_snapshot(registry);
@@ -58,7 +66,7 @@ void ServerNetworkSystem::update(Registry& registry, float dt)
         tick_count_++;
     }
 
-    // 4. Broadcast pending spawn/destroy/projectile events
+    // 5. Broadcast pending spawn/destroy/projectile events
     broadcast_pending_spawns();
     broadcast_pending_destroys();
     broadcast_pending_projectiles();

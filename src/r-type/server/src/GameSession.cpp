@@ -46,10 +46,12 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode, prot
     registry_.register_system<PhysiqueSystem>();
     registry_.register_system<CollisionSystem>();
     registry_.register_system<HealthSystem>();
-    registry_.register_system<DestroySystem>();
 
-    // Register ServerNetworkSystem (must be after other systems for proper snapshot timing)
+    // Register ServerNetworkSystem BEFORE DestroySystem so it can queue destroys before entities are killed
     registry_.register_system<ServerNetworkSystem>(session_id_, config::SNAPSHOT_INTERVAL);
+
+    // DestroySystem must be LAST to kill entities after network has queued destroy notifications
+    registry_.register_system<DestroySystem>();
     network_system_ = &registry_.get_system<ServerNetworkSystem>();
     network_system_->set_player_entities(&player_entities_);
 
@@ -169,10 +171,7 @@ void GameSession::update(float delta_time) {
 
     wave_manager_.update(delta_time, current_scroll_);
 
-    // Queue network destroy notifications for entities marked ToDestroy BEFORE they get killed
-    // CRITICAL: This must run BEFORE run_systems() because DestroySystem will kill the entities!
-    process_destroyed_entities();
-
+    // ServerNetworkSystem now handles queueing destroy notifications BEFORE DestroySystem kills entities
     registry_.run_systems(delta_time);
 
     check_offscreen_enemies();

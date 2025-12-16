@@ -56,17 +56,6 @@ struct TexturePack {
     engine::TextureHandle wall = engine::INVALID_HANDLE;
 };
 
-struct DisplayMetrics {
-    float playerWidth = 0.0f;
-    float playerHeight = 0.0f;
-    float enemyWidth = 0.0f;
-    float enemyHeight = 0.0f;
-    float projectileWidth = 0.0f;
-    float projectileHeight = 0.0f;
-    float wallWidth = 0.0f;
-    float wallHeight = 0.0f;
-};
-
 struct RemoteWorldState {
     std::unordered_map<uint32_t, Entity> serverToLocal;
     std::unordered_map<uint32_t, protocol::EntityType> serverTypes;
@@ -125,86 +114,43 @@ static EntityDimensions get_collider_dimensions(protocol::EntityType type)
     }
 }
 
-static EntityDimensions get_visual_dimensions(protocol::EntityType type,
-                                              const DisplayMetrics& metrics)
-{
-    switch (type) {
-        case protocol::EntityType::PLAYER:
-            return {metrics.playerWidth, metrics.playerHeight};
-        case protocol::EntityType::ENEMY_FAST:
-            return {metrics.enemyWidth * 0.8f, metrics.enemyHeight * 0.8f};
-        case protocol::EntityType::ENEMY_TANK:
-            return {metrics.enemyWidth * 1.3f, metrics.enemyHeight * 1.3f};
-        case protocol::EntityType::ENEMY_BOSS:
-            return {metrics.enemyWidth * 1.8f, metrics.enemyHeight * 1.8f};
-        case protocol::EntityType::WALL:
-            return {metrics.wallWidth, metrics.wallHeight};
-        case protocol::EntityType::PROJECTILE_PLAYER:
-        case protocol::EntityType::PROJECTILE_ENEMY:
-            return {metrics.projectileWidth, metrics.projectileHeight};
-        case protocol::EntityType::POWERUP_HEALTH:
-        case protocol::EntityType::POWERUP_SHIELD:
-        case protocol::EntityType::POWERUP_SPEED:
-        case protocol::EntityType::POWERUP_SCORE:
-            return {metrics.projectileWidth * 1.4f, metrics.projectileHeight * 1.4f};
-        default:
-            return {metrics.enemyWidth, metrics.enemyHeight};
-    }
-}
-
 static Sprite build_sprite(protocol::EntityType type,
                            const TexturePack& textures,
-                           const DisplayMetrics& metrics,
                            bool isLocalPlayer = false,
                            uint8_t subtype = 0)
 {
     Sprite sprite{};
     sprite.texture = textures.enemy;
-    auto visual = get_visual_dimensions(type, metrics);
-    sprite.width = visual.width;
-    sprite.height = visual.height;
+    auto dims = get_collider_dimensions(type);
+    sprite.width = dims.width;
+    sprite.height = dims.height;
     sprite.tint = engine::Color::White;
     sprite.layer = 5;
 
     switch (type) {
         case protocol::EntityType::PLAYER:
             sprite.texture = textures.playerFrames[0];
-            sprite.width = visual.width;
-            sprite.height = visual.height;
             sprite.layer = 10;
             sprite.tint = isLocalPlayer ? engine::Color::Cyan : engine::Color::White;
             break;
         case protocol::EntityType::ENEMY_FAST:
-            sprite.texture = textures.enemy;
-            sprite.width = visual.width;
-            sprite.height = visual.height;
             sprite.tint = engine::Color{255, 180, 0, 255};
             break;
         case protocol::EntityType::ENEMY_TANK:
-            sprite.texture = textures.enemy;
-            sprite.width = visual.width;
-            sprite.height = visual.height;
             sprite.tint = engine::Color{200, 80, 80, 255};
             break;
         case protocol::EntityType::ENEMY_BOSS:
-            sprite.texture = textures.enemy;
-            sprite.width = visual.width;
-            sprite.height = visual.height;
             sprite.layer = 6;
             sprite.tint = engine::Color{180, 0, 255, 255};
             break;
         case protocol::EntityType::WALL:
             sprite.texture = textures.wall;
-            sprite.width = visual.width;
-            sprite.height = visual.height;
             sprite.layer = 2;
             sprite.tint = engine::Color{180, 180, 255, 255};
             break;
         case protocol::EntityType::PROJECTILE_PLAYER:
         case protocol::EntityType::PROJECTILE_ENEMY:
             sprite.texture = textures.projectile;
-            sprite.width = visual.width;
-            sprite.height = visual.height;
             sprite.layer = 20;
             sprite.tint = type == protocol::EntityType::PROJECTILE_PLAYER
                 ? engine::Color::Cyan
@@ -215,8 +161,6 @@ static Sprite build_sprite(protocol::EntityType type,
         case protocol::EntityType::POWERUP_SPEED:
         case protocol::EntityType::POWERUP_SCORE:
             sprite.texture = textures.projectile;
-            sprite.width = visual.width;
-            sprite.height = visual.height;
             sprite.layer = 4;
             sprite.tint = engine::Color{120, 255, 120, 255};
             break;
@@ -413,21 +357,6 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    DisplayMetrics metrics;
-    engine::Vector2f playerSize = graphicsPlugin->get_texture_size(textures.playerFrames[0]);
-    engine::Vector2f enemySize = graphicsPlugin->get_texture_size(textures.enemy);
-    engine::Vector2f projectileSize = graphicsPlugin->get_texture_size(textures.projectile);
-    engine::Vector2f wallSize = graphicsPlugin->get_texture_size(textures.wall);
-
-    metrics.playerWidth = playerSize.x * 0.20f;
-    metrics.playerHeight = playerSize.y * 0.20f;
-    metrics.enemyWidth = enemySize.x;
-    metrics.enemyHeight = enemySize.y;
-    metrics.projectileWidth = projectileSize.x * 0.80f;
-    metrics.projectileHeight = projectileSize.y * 0.80f;
-    metrics.wallWidth = 50.0f;
-    metrics.wallHeight = 100.0f;
-
     Entity background1 = registry.spawn_entity();
     registry.add_component(background1, Position{0.0f, 0.0f});
     registry.add_component(background1, Background{});
@@ -580,7 +509,7 @@ int main(int argc, char* argv[])
             registry.add_component(entity, Position{x, y});
         }
 
-        Sprite sprite = build_sprite(type, textures, metrics, highlightAsLocal, subtype);
+        Sprite sprite = build_sprite(type, textures, highlightAsLocal, subtype);
         auto& sprites = registry.get_components<Sprite>();
         if (sprites.has_entity(entity)) {
             Sprite& existing = sprites[entity];
