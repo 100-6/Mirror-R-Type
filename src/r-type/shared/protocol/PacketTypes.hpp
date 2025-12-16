@@ -29,6 +29,7 @@ enum class PacketType : uint8_t {
     // Lobby & Matchmaking (0x05-0x09)
     CLIENT_JOIN_LOBBY = 0x05,
     CLIENT_LEAVE_LOBBY = 0x06,
+    CLIENT_UDP_HANDSHAKE = 0x08,  // UDP handshake to associate TCP/UDP connections
 
     // Player Input (0x10-0x1F)
     CLIENT_INPUT = 0x10,
@@ -280,6 +281,8 @@ inline std::string packet_type_to_string(PacketType type) {
         return "CLIENT_JOIN_LOBBY";
     case PacketType::CLIENT_LEAVE_LOBBY:
         return "CLIENT_LEAVE_LOBBY";
+    case PacketType::CLIENT_UDP_HANDSHAKE:
+        return "CLIENT_UDP_HANDSHAKE";
     case PacketType::CLIENT_INPUT:
         return "CLIENT_INPUT";
     case PacketType::SERVER_ACCEPT:

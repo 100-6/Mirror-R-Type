@@ -121,11 +121,10 @@ void Server::handle_packets() {
             std::cerr << "[Server] Packet too small from client " << packet.sender_id << "\n";
             continue;
         }
-        protocol::PacketHeader header = protocol::ProtocolEncoder::decode_header(
-            packet.data.data(), packet.data.size());
-        if (header.version != 0x01) {
-            std::cerr << "[Server] Invalid protocol version from client " << packet.sender_id
-                      << ": " << static_cast<int>(header.version) << "\n";
+        protocol::PacketHeader header = protocol::ProtocolEncoder::decode_header(packet.data.data(), packet.data.size());
+        if (header.version != protocol::PROTOCOL_VERSION) {
+            std::cerr << "[Server] Invalid protocol version from client " << packet.sender_id << ": "
+                      << static_cast<int>(header.version) << "\n";
             continue;
         }
         std::vector<uint8_t> payload(
@@ -256,7 +255,7 @@ void Server::handle_client_connect(uint32_t client_id, const protocol::ClientCon
     uint32_t player_id = generate_player_id();
     PlayerInfo info(client_id, player_id, player_name);
     connected_clients_[client_id] = info;
-
+    player_to_client_[player_id] = client_id;
     protocol::ServerAcceptPayload accept;
     accept.assigned_player_id = htonl(player_id);
     accept.server_tick_rate = 60;
@@ -264,7 +263,7 @@ void Server::handle_client_connect(uint32_t client_id, const protocol::ClientCon
     accept.map_id = htons(0);
 
     send_tcp_packet(client_id, protocol::PacketType::SERVER_ACCEPT,
-                    serialize_payload(&accept, sizeof(accept)));
+                    serialize(accept));
 
     std::cout << "[Server] Client " << client_id << " accepted with player ID " << player_id << "\n";
     std::cout << "[Server] Total connected clients: " << connected_clients_.size() << "\n";
@@ -276,12 +275,9 @@ void Server::handle_client_disconnect(uint32_t client_id, const protocol::Client
     if (it == connected_clients_.end())
         return;
     std::cout << "[Server] Client " << client_id << " (" << it->second.player_name << ") disconnecting\n";
-
-    // Remove from lobby if in one
-    if (it->second.in_lobby) {
-        lobby_manager_.leave_lobby(it->second.player_id);
-    }
-
+    // TODO Phase 2: Remove from lobby if in one
+    // TODO Phase 3: Remove from game session if in one
+    player_to_client_.erase(it->second.player_id);
     connected_clients_.erase(it);
     std::cout << "[Server] Total connected clients: " << connected_clients_.size() << "\n";
 }
@@ -297,7 +293,7 @@ void Server::handle_client_ping(uint32_t client_id, const protocol::ClientPingPa
         ).count()
     ));
     send_tcp_packet(client_id, protocol::PacketType::SERVER_PONG,
-                    serialize_payload(&pong, sizeof(pong)));
+                    serialize(pong));
 }
 
 void Server::handle_udp_handshake(uint32_t udp_client_id,
@@ -335,6 +331,8 @@ void Server::on_client_disconnected(uint32_t client_id) {
     uint32_t player_id = it->second.player_id;
     lobby_manager_.leave_lobby(player_id);
 
+    // TODO Phase 3: Handle in-game disconnection
+    player_to_client_.erase(player_id);
     connected_clients_.erase(it);
     std::cout << "[Server] Total connected clients: " << connected_clients_.size() << "\n";
 }
@@ -344,7 +342,7 @@ void Server::on_client_disconnected(uint32_t client_id) {
 void Server::send_tcp_packet(uint32_t client_id, protocol::PacketType type,
                              const std::vector<uint8_t>& payload) {
     protocol::PacketHeader header;
-    header.version = 0x01;
+    header.version = protocol::PROTOCOL_VERSION;
     header.type = static_cast<uint8_t>(type);
     header.payload_length = static_cast<uint16_t>(payload.size());
     header.sequence_number = 0;
@@ -360,7 +358,7 @@ void Server::send_tcp_packet(uint32_t client_id, protocol::PacketType type,
 
 void Server::broadcast_tcp_packet(protocol::PacketType type, const std::vector<uint8_t>& payload) {
     protocol::PacketHeader header;
-    header.version = 0x01;
+    header.version = protocol::PROTOCOL_VERSION;
     header.type = static_cast<uint8_t>(type);
     header.payload_length = static_cast<uint16_t>(payload.size());
     header.sequence_number = 0;
@@ -502,7 +500,7 @@ void Server::on_countdown_tick(uint32_t lobby_id, uint8_t seconds_remaining) {
     std::cout << "[Server] Countdown tick for lobby " << lobby_id << ": "
               << static_cast<int>(seconds_remaining) << "s\n";
     broadcast_tcp_to_lobby(lobby_id, protocol::PacketType::SERVER_GAME_START_COUNTDOWN,
-                           serialize_payload(&countdown, sizeof(countdown)));
+                           serialize(countdown));
 }
 
 void Server::on_game_start(uint32_t lobby_id, const std::vector<uint32_t>& player_ids) {
@@ -533,28 +531,23 @@ void Server::on_game_start(uint32_t lobby_id, const std::vector<uint32_t>& playe
     });
 
     for (uint32_t player_id : player_ids) {
-        for (auto& [client_id, player_info] : connected_clients_) {
-            if (player_info.player_id == player_id) {
-                player_info.in_lobby = false;
-                player_info.lobby_id = 0;
-                player_info.in_game = true;
-                player_info.session_id = session_id;
-                session->add_player(player_id, player_info.player_name);
-
-                // Send game start with UDP port
-                protocol::ServerGameStartPayload game_start;
-                game_start.game_session_id = htonl(session_id);
-                game_start.game_mode = game_mode;
-                game_start.difficulty = difficulty;
-                game_start.server_tick = htonl(0);
-                game_start.level_seed = htonl(0);
-                game_start.udp_port = htons(udp_port_);  // Include UDP port
-
-                send_tcp_packet(client_id, protocol::PacketType::SERVER_GAME_START,
-                               serialize_payload(&game_start, sizeof(game_start)));
-                break;
-            }
-        }
+        auto client_it = player_to_client_.find(player_id);
+        if (client_it == player_to_client_.end())
+            continue;
+        uint32_t client_id = client_it->second;
+        auto& player_info = connected_clients_[client_id];
+        player_info.in_lobby = false;
+        player_info.lobby_id = 0;
+        player_info.in_game = true;
+        player_info.session_id = session_id;
+        session->add_player(player_id, player_info.player_name);
+        protocol::ServerGameStartPayload game_start;
+        game_start.game_session_id = htonl(session_id);
+        game_start.game_mode = game_mode;
+        game_start.difficulty = difficulty;
+        game_start.server_tick = htonl(0);
+        game_start.level_seed = htonl(0);
+        send_tcp_packet(client_id, protocol::PacketType::SERVER_GAME_START, serialize(game_start));
     }
     game_sessions_[session_id] = std::move(session);
     std::cout << "[Server] GameSession " << session_id << " created\n";
@@ -585,8 +578,6 @@ void Server::handle_client_input(uint32_t client_id, const protocol::ClientInput
     session_it->second->handle_input(it->second.player_id, payload);
 }
 
-// ============== Game Session Callbacks ==============
-
 void Server::on_state_snapshot(uint32_t session_id, const std::vector<uint8_t>& snapshot) {
     broadcast_udp_to_session(session_id, protocol::PacketType::SERVER_DELTA_SNAPSHOT, snapshot);
 }
@@ -603,7 +594,7 @@ void Server::on_entity_destroy(uint32_t session_id, uint32_t entity_id) {
     destroy.position_y = 0.0f;
 
     broadcast_udp_to_session(session_id, protocol::PacketType::SERVER_ENTITY_DESTROY,
-                             serialize_payload(&destroy, sizeof(destroy)));
+                             serialize(destroy));
 }
 
 void Server::on_game_over(uint32_t session_id, const std::vector<uint32_t>& player_ids) {
@@ -611,21 +602,12 @@ void Server::on_game_over(uint32_t session_id, const std::vector<uint32_t>& play
 
     // Send game over via TCP (reliable)
     for (uint32_t player_id : player_ids) {
-        for (auto& [client_id, player_info] : connected_clients_) {
-            if (player_info.player_id == player_id) {
-                player_info.in_game = false;
-                player_info.session_id = 0;
-
-                protocol::ServerGameOverPayload game_over;
-                game_over.result = protocol::GameResult::VICTORY;
-                game_over.total_time = 0;
-                game_over.enemies_killed = 0;
-
-                send_tcp_packet(client_id, protocol::PacketType::SERVER_GAME_OVER,
-                               serialize_payload(&game_over, sizeof(game_over)));
-                break;
-            }
-        }
+        auto client_it = player_to_client_.find(player_id);
+        if (client_it == player_to_client_.end())
+            continue;
+        auto& player_info = connected_clients_[client_it->second];
+        player_info.in_game = false;
+        player_info.session_id = 0;
     }
     game_sessions_.erase(session_id);
 }
@@ -652,11 +634,6 @@ uint32_t Server::generate_player_id() {
 
 uint32_t Server::generate_session_id() {
     return next_session_id_++;
-}
-
-std::vector<uint8_t> Server::serialize_payload(const void* payload, size_t size) {
-    const uint8_t* bytes = static_cast<const uint8_t*>(payload);
-    return std::vector<uint8_t>(bytes, bytes + size);
 }
 
 }

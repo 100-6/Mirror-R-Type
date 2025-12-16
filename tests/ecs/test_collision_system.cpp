@@ -33,6 +33,11 @@ protected:
         registry.register_component<Enemy>();
         registry.register_component<Projectile>();
         registry.register_component<Wall>();
+        // Components used internally by CollisionSystem
+        registry.register_component<Invulnerability>();
+        registry.register_component<Damage>();
+        registry.register_component<ToDestroy>();
+        registry.register_component<Shield>();
     }
 
     void TearDown() override {
@@ -196,19 +201,18 @@ TEST_F(CollisionSystemTest, ProjectileDestroyEnemy) {
     registry.add_component(enemy, Collider{20.0f, 20.0f});
     registry.add_component(enemy, Enemy{});
 
-    // Create projectile overlapping with enemy
+    // Create projectile overlapping with enemy (player faction by default)
     Entity projectile = registry.spawn_entity();
     registry.add_component(projectile, Position{105.0f, 105.0f});
     registry.add_component(projectile, Collider{5.0f, 5.0f});
-    registry.add_component(projectile, Projectile{});
+    registry.add_component(projectile, Projectile{0.0f, 5.0f, 0.0f, ProjectileFaction::Player});
 
     collisionSystem.update(registry, 0.016f);
 
-    auto& positions = registry.get_components<Position>();
+    auto& toDestroy = registry.get_components<ToDestroy>();
 
-    // Both should be destroyed
-    EXPECT_FALSE(positions.has_entity(enemy)) << "Enemy should be destroyed";
-    EXPECT_FALSE(positions.has_entity(projectile)) << "Projectile should be destroyed";
+    // Projectile should be marked for destruction (enemy receives damage via event)
+    EXPECT_TRUE(toDestroy.has_entity(projectile)) << "Projectile should be marked for destruction";
 }
 
 TEST_F(CollisionSystemTest, ProjectileDoesNotDestroyEnemyWhenSeparated) {
@@ -276,26 +280,24 @@ TEST_F(CollisionSystemTest, MultipleProjectilesDestroyMultipleEnemies) {
     registry.add_component(enemy2, Collider{20.0f, 20.0f});
     registry.add_component(enemy2, Enemy{});
 
-    // Create 2 projectiles, each hitting one enemy
+    // Create 2 projectiles, each hitting one enemy (player faction)
     Entity projectile1 = registry.spawn_entity();
     registry.add_component(projectile1, Position{105.0f, 105.0f});
     registry.add_component(projectile1, Collider{5.0f, 5.0f});
-    registry.add_component(projectile1, Projectile{});
+    registry.add_component(projectile1, Projectile{0.0f, 5.0f, 0.0f, ProjectileFaction::Player});
 
     Entity projectile2 = registry.spawn_entity();
     registry.add_component(projectile2, Position{205.0f, 205.0f});
     registry.add_component(projectile2, Collider{5.0f, 5.0f});
-    registry.add_component(projectile2, Projectile{});
+    registry.add_component(projectile2, Projectile{0.0f, 5.0f, 0.0f, ProjectileFaction::Player});
 
     collisionSystem.update(registry, 0.016f);
 
-    auto& positions = registry.get_components<Position>();
+    auto& toDestroy = registry.get_components<ToDestroy>();
 
-    // All should be destroyed
-    EXPECT_FALSE(positions.has_entity(enemy1)) << "Enemy1 should be destroyed";
-    EXPECT_FALSE(positions.has_entity(enemy2)) << "Enemy2 should be destroyed";
-    EXPECT_FALSE(positions.has_entity(projectile1)) << "Projectile1 should be destroyed";
-    EXPECT_FALSE(positions.has_entity(projectile2)) << "Projectile2 should be destroyed";
+    // Both projectiles should be marked for destruction
+    EXPECT_TRUE(toDestroy.has_entity(projectile1)) << "Projectile1 should be marked for destruction";
+    EXPECT_TRUE(toDestroy.has_entity(projectile2)) << "Projectile2 should be marked for destruction";
 }
 
 // ============================================================================

@@ -18,24 +18,6 @@
 namespace engine {
 
 /**
- * @brief Network packet structure
- */
-struct NetworkPacket {
-    std::vector<uint8_t> data;
-    ClientId sender_id = 0;
-    uint32_t packet_id = 0;
-    uint64_t timestamp = 0;
-
-    NetworkPacket() = default;
-    
-    NetworkPacket(const std::vector<uint8_t>& data) : data(data) {}
-    
-    NetworkPacket(const void* buffer, size_t size) 
-        : data(static_cast<const uint8_t*>(buffer), 
-               static_cast<const uint8_t*>(buffer) + size) {}
-};
-
-/**
  * @brief Network protocol type
  */
 enum class NetworkProtocol {
@@ -44,26 +26,48 @@ enum class NetworkProtocol {
 };
 
 /**
+ * @brief Network packet structure
+ */
+struct NetworkPacket {
+    std::vector<uint8_t> data;
+    ClientId sender_id = 0;
+    uint32_t packet_id = 0;
+    uint64_t timestamp = 0;
+    NetworkProtocol protocol = NetworkProtocol::TCP;
+
+    NetworkPacket() = default;
+
+    NetworkPacket(const std::vector<uint8_t>& data) : data(data) {}
+
+    NetworkPacket(const void* buffer, size_t size)
+        : data(static_cast<const uint8_t*>(buffer),
+               static_cast<const uint8_t*>(buffer) + size) {}
+};
+
+/**
  * @brief Network plugin interface
- * 
+ *
  * This interface defines the contract for all network plugins.
- * Implementations can use Boost.Asio, ENet, or any other networking library.
+ * Supports hybrid TCP/UDP architecture:
+ * - TCP: Reliable communication for connections, lobbies, authentication
+ * - UDP: Low-latency communication for gameplay
  */
 class INetworkPlugin : public IPlugin {
 public:
     virtual ~INetworkPlugin() = default;
 
-    // Server operations
-    /**
-     * @brief Start a server on the specified port
-     * @param port Port to listen on
-     * @param protocol Protocol to use (UDP or TCP)
-     * @return true if server started successfully
-     */
-    virtual bool start_server(uint16_t port, NetworkProtocol protocol = NetworkProtocol::UDP) = 0;
+    // ============== Server Operations ==============
 
     /**
-     * @brief Stop the server
+     * @brief Start a hybrid server with TCP and UDP
+     * @param tcp_port Port for TCP connections (lobby, auth)
+     * @param udp_port Port for UDP communication (gameplay)
+     * @return true if server started successfully
+     */
+    virtual bool start_server(uint16_t tcp_port, uint16_t udp_port) = 0;
+
+    /**
+     * @brief Stop the server (both TCP and UDP)
      */
     virtual void stop_server() = 0;
 
@@ -73,74 +77,148 @@ public:
      */
     virtual bool is_server_running() const = 0;
 
-    // Client operations
-    /**
-     * @brief Connect to a server
-     * @param host Server hostname or IP address
-     * @param port Server port
-     * @param protocol Protocol to use (UDP or TCP)
-     * @return true if connection succeeded
-     */
-    virtual bool connect(const std::string& host, uint16_t port, 
-                        NetworkProtocol protocol = NetworkProtocol::UDP) = 0;
+    // ============== Client Operations ==============
 
     /**
-     * @brief Disconnect from the server
+     * @brief Connect to server via TCP (for lobby, authentication)
+     * @param host Server hostname or IP address
+     * @param port TCP port
+     * @return true if connection succeeded
+     */
+    virtual bool connect_tcp(const std::string& host, uint16_t port) = 0;
+
+    /**
+     * @brief Connect to server via UDP (for gameplay, called after TCP connection)
+     * @param host Server hostname or IP address
+     * @param port UDP port
+     * @return true if connection succeeded
+     */
+    virtual bool connect_udp(const std::string& host, uint16_t port) = 0;
+
+    /**
+     * @brief Disconnect from the server (both TCP and UDP)
      */
     virtual void disconnect() = 0;
 
     /**
-     * @brief Check if connected to a server
-     * @return true if connected
+     * @brief Check if connected via TCP
+     * @return true if TCP connected
      */
-    virtual bool is_connected() const = 0;
+    virtual bool is_tcp_connected() const = 0;
 
-    // Communication
     /**
-     * @brief Send a packet (client mode)
+     * @brief Check if connected via UDP
+     * @return true if UDP connected
+     */
+    virtual bool is_udp_connected() const = 0;
+
+    // ============== Client Communication ==============
+
+    /**
+     * @brief Send a packet via TCP (client mode)
      * @param packet Packet to send
      * @return true if packet was sent successfully
      */
-    virtual bool send(const NetworkPacket& packet) = 0;
+    virtual bool send_tcp(const NetworkPacket& packet) = 0;
 
     /**
-     * @brief Send a packet to a specific client (server mode)
+     * @brief Send a packet via UDP (client mode)
+     * @param packet Packet to send
+     * @return true if packet was sent successfully
+     */
+    virtual bool send_udp(const NetworkPacket& packet) = 0;
+
+    // ============== Server Communication ==============
+
+    /**
+     * @brief Send a TCP packet to a specific client (server mode)
      * @param packet Packet to send
      * @param client_id Target client ID
      * @return true if packet was sent successfully
      */
-    virtual bool send_to(const NetworkPacket& packet, ClientId client_id) = 0;
+    virtual bool send_tcp_to(const NetworkPacket& packet, ClientId client_id) = 0;
 
     /**
-     * @brief Broadcast a packet to all connected clients (server mode)
+     * @brief Send a UDP packet to a specific client (server mode)
+     * @param packet Packet to send
+     * @param client_id Target client ID (must be associated via associate_udp_client)
+     * @return true if packet was sent successfully
+     */
+    virtual bool send_udp_to(const NetworkPacket& packet, ClientId client_id) = 0;
+
+    /**
+     * @brief Broadcast a TCP packet to all connected clients (server mode)
      * @param packet Packet to broadcast
      * @return Number of clients the packet was sent to
      */
-    virtual size_t broadcast(const NetworkPacket& packet) = 0;
+    virtual size_t broadcast_tcp(const NetworkPacket& packet) = 0;
 
     /**
-     * @brief Broadcast a packet to all clients except one (server mode)
+     * @brief Broadcast a UDP packet to all associated clients (server mode)
+     * @param packet Packet to broadcast
+     * @return Number of clients the packet was sent to
+     */
+    virtual size_t broadcast_udp(const NetworkPacket& packet) = 0;
+
+    /**
+     * @brief Broadcast TCP packet to all clients except one (server mode)
      * @param packet Packet to broadcast
      * @param exclude_client_id Client to exclude
      * @return Number of clients the packet was sent to
      */
-    virtual size_t broadcast_except(const NetworkPacket& packet, ClientId exclude_client_id) = 0;
+    virtual size_t broadcast_tcp_except(const NetworkPacket& packet, ClientId exclude_client_id) = 0;
 
     /**
-     * @brief Receive available packets
+     * @brief Broadcast UDP packet to all clients except one (server mode)
+     * @param packet Packet to broadcast
+     * @param exclude_client_id Client to exclude
+     * @return Number of clients the packet was sent to
+     */
+    virtual size_t broadcast_udp_except(const NetworkPacket& packet, ClientId exclude_client_id) = 0;
+
+    // ============== UDP Client Association ==============
+
+    /**
+     * @brief Associate a UDP endpoint with a TCP client (server mode)
+     * Called when receiving UDP handshake from a client
+     * @param tcp_client_id The TCP client ID
+     * @param udp_client_id The UDP client ID (from UDP packet sender_id)
+     */
+    virtual void associate_udp_client(ClientId tcp_client_id, ClientId udp_client_id) = 0;
+
+    /**
+     * @brief Get the TCP client ID associated with a UDP client
+     * @param udp_client_id The UDP client ID
+     * @return TCP client ID, or 0 if not found
+     */
+    virtual ClientId get_tcp_client_from_udp(ClientId udp_client_id) const = 0;
+
+    /**
+     * @brief Check if a TCP client has an associated UDP connection
+     * @param tcp_client_id The TCP client ID
+     * @return true if UDP is associated
+     */
+    virtual bool has_udp_association(ClientId tcp_client_id) const = 0;
+
+    // ============== Receiving ==============
+
+    /**
+     * @brief Receive available packets (from both TCP and UDP)
+     * Check packet.protocol to determine the source
      * @return Vector of received packets
      */
     virtual std::vector<NetworkPacket> receive() = 0;
 
     /**
-     * @brief Update the network plugin (poll for events)
+     * @brief Update the network plugin (poll for events, check timeouts)
      * @param delta_time Time elapsed since last update
      */
     virtual void update(float delta_time) = 0;
 
-    // Callbacks
+    // ============== Callbacks ==============
+
     /**
-     * @brief Set callback for when a client connects (server mode)
+     * @brief Set callback for when a client connects via TCP (server mode)
      * @param callback Function to call with client ID
      */
     virtual void set_on_client_connected(std::function<void(ClientId)> callback) = 0;
@@ -158,26 +236,27 @@ public:
     virtual void set_on_packet_received(std::function<void(ClientId, const NetworkPacket&)> callback) = 0;
 
     /**
-     * @brief Set callback for when connection to server is established (client mode)
+     * @brief Set callback for when TCP connection to server is established (client mode)
      * @param callback Function to call
      */
     virtual void set_on_connected(std::function<void()> callback) = 0;
 
     /**
-     * @brief Set callback for when connection to server is lost (client mode)
+     * @brief Set callback for when TCP connection to server is lost (client mode)
      * @param callback Function to call
      */
     virtual void set_on_disconnected(std::function<void()> callback) = 0;
 
-    // Statistics
+    // ============== Statistics ==============
+
     /**
-     * @brief Get number of connected clients (server mode)
+     * @brief Get number of TCP connected clients (server mode)
      * @return Number of connected clients
      */
     virtual size_t get_client_count() const = 0;
 
     /**
-     * @brief Get list of connected client IDs (server mode)
+     * @brief Get list of TCP connected client IDs (server mode)
      * @return Vector of client IDs
      */
     virtual std::vector<ClientId> get_client_ids() const = 0;

@@ -9,8 +9,10 @@
 #include "ecs/CoreComponents.hpp"
 #include <iostream>
 
-NetworkSystem::NetworkSystem(engine::INetworkPlugin& plugin, bool server_mode, uint16_t port)
-    : network_plugin(plugin), is_server_mode(server_mode), server_port(port)
+NetworkSystem::NetworkSystem(engine::INetworkPlugin& plugin, bool server_mode,
+                             uint16_t tcp_port, uint16_t udp_port)
+    : network_plugin(plugin), is_server_mode(server_mode),
+      tcp_port_(tcp_port), udp_port_(udp_port)
 {
     // Pas besoin de vérifier null - les références ne peuvent pas être nulles
 }
@@ -24,10 +26,12 @@ void NetworkSystem::init(Registry& registry)
 
     // Start server automatically in server mode
     if (is_server_mode) {
-        if (network_plugin.start_server(server_port)) {
-            std::cout << "NetworkSystem: Server started on port " << server_port << std::endl;
+        if (network_plugin.start_server(tcp_port_, udp_port_)) {
+            std::cout << "NetworkSystem: Server started - TCP:" << tcp_port_
+                      << " UDP:" << udp_port_ << std::endl;
         } else {
-            throw std::runtime_error("NetworkSystem: Failed to start server on port " + std::to_string(server_port));
+            throw std::runtime_error("NetworkSystem: Failed to start server on TCP port "
+                                     + std::to_string(tcp_port_));
         }
     }
 }
@@ -38,7 +42,7 @@ void NetworkSystem::shutdown()
 
     if (is_server_mode && network_plugin.is_server_running()) {
         network_plugin.stop_server();
-    } else if (!is_server_mode && network_plugin.is_connected()) {
+    } else if (!is_server_mode && (network_plugin.is_tcp_connected() || network_plugin.is_udp_connected())) {
         network_plugin.disconnect();
     }
 }

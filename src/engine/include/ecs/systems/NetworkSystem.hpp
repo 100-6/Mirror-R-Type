@@ -17,21 +17,28 @@
  *
  * This system manages network operations for both server and client modes.
  * It processes network packets and synchronizes entity state across the network.
+ *
+ * Uses hybrid TCP/UDP architecture:
+ * - TCP: Connection, lobby, authentication
+ * - UDP: Gameplay, inputs, state snapshots
  */
 class NetworkSystem : public ISystem {
     private:
         engine::INetworkPlugin& network_plugin;  // Reference to the plugin (non-owned)
         bool is_server_mode;                     // True if running as server
-        uint16_t server_port;                    // Port to use in server mode
+        uint16_t tcp_port_;                      // TCP port (connection, lobby)
+        uint16_t udp_port_;                      // UDP port (gameplay)
 
     public:
         /**
          * @brief Constructor with a network plugin
          * @param plugin Reference to the network plugin to use
          * @param server_mode True if system should operate in server mode
-         * @param port Port to use in server mode (default: 4242)
+         * @param tcp_port TCP port for connections/lobby
+         * @param udp_port UDP port for gameplay
          */
-        explicit NetworkSystem(engine::INetworkPlugin& plugin, bool server_mode = false, uint16_t port = 4242);
+        explicit NetworkSystem(engine::INetworkPlugin& plugin, bool server_mode = false,
+                               uint16_t tcp_port = 0, uint16_t udp_port = 0);
         virtual ~NetworkSystem() = default;
 
         void init(Registry& registry) override;

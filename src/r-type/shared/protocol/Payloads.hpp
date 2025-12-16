@@ -1,6 +1,7 @@
 #pragma once
 
 #include "PacketTypes.hpp"
+#include "NetworkConfig.hpp"
 #include <cstdint>
 #include <cstring>
 
@@ -117,6 +118,20 @@ struct __attribute__((packed)) ClientJoinLobbyPayload {
 static_assert(sizeof(ClientJoinLobbyPayload) == 6, "ClientJoinLobbyPayload must be 6 bytes");
 
 /**
+ * @brief CLIENT_UDP_HANDSHAKE payload (0x08)
+ * Sent via UDP to associate TCP and UDP connections
+ * Total size: 8 bytes
+ */
+struct __attribute__((packed)) ClientUdpHandshakePayload {
+    uint32_t player_id;
+    uint32_t session_id;
+
+    ClientUdpHandshakePayload() : player_id(0), session_id(0) {}
+};
+
+static_assert(sizeof(ClientUdpHandshakePayload) == 8, "ClientUdpHandshakePayload must be 8 bytes");
+
+/**
  * @brief CLIENT_LEAVE_LOBBY payload (0x06)
  * Total size: 8 bytes
  */
@@ -227,7 +242,8 @@ static_assert(sizeof(PlayerSpawnData) == 12, "PlayerSpawnData must be 12 bytes")
 
 /**
  * @brief SERVER_GAME_START payload header (0x8A)
- * Base size: 14 bytes + (12 × player_count) bytes
+ * Base size: 16 bytes + (12 × player_count) bytes
+ * Contains UDP port for gameplay communication
  */
 struct __attribute__((packed)) ServerGameStartPayload {
     uint32_t game_session_id;
@@ -235,16 +251,18 @@ struct __attribute__((packed)) ServerGameStartPayload {
     Difficulty difficulty;
     uint32_t server_tick;
     uint32_t level_seed;
+    uint16_t udp_port;  // UDP port for gameplay communication
 
     ServerGameStartPayload()
         : game_session_id(0)
         , game_mode(GameMode::SQUAD)
         , difficulty(Difficulty::NORMAL)
         , server_tick(0)
-        , level_seed(0) {}
+        , level_seed(0)
+        , udp_port(config::DEFAULT_UDP_PORT) {}
 };
 
-static_assert(sizeof(ServerGameStartPayload) == 14, "ServerGameStartPayload base must be 14 bytes");
+static_assert(sizeof(ServerGameStartPayload) == 16, "ServerGameStartPayload base must be 16 bytes");
 
 /**
  * @brief CLIENT_INPUT payload (0x10)
