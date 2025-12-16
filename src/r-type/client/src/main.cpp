@@ -10,6 +10,7 @@
 #include "components/GameComponents.hpp"
 #include "cmath"
 #include "ecs/systems/InputSystem.hpp"
+#include "ecs/systems/SpriteAnimationSystem.hpp"
 #include "systems/PlayerInputSystem.hpp"
 #include "ecs/systems/MovementSystem.hpp"
 #include "systems/ShootingSystem.hpp"
@@ -27,6 +28,7 @@
 #include "systems/WaveSpawnerSystem.hpp"
 #include "systems/BonusSystem.hpp"
 #include "systems/HUDSystem.hpp"
+#include "systems/GameStateSystem.hpp"
 #include "plugin_manager/PluginManager.hpp"
 #include "plugin_manager/IInputPlugin.hpp"
 #include "plugin_manager/IAudioPlugin.hpp"
@@ -121,10 +123,13 @@ int main() {
     std::cout << "Chargement des textures depuis assets/sprite/..." << std::endl;
 
     engine::TextureHandle backgroundTex = graphicsPlugin->load_texture("assets/sprite/symmetry.png");
-    engine::TextureHandle playerTex = graphicsPlugin->load_texture("assets/sprite/player.png");
+    engine::TextureHandle playerTex1 = graphicsPlugin->load_texture("assets/sprite/ship1.png");
+    engine::TextureHandle playerTex2 = graphicsPlugin->load_texture("assets/sprite/ship2.png");
+    engine::TextureHandle playerTex3 = graphicsPlugin->load_texture("assets/sprite/ship3.png");
+    engine::TextureHandle playerTex4 = graphicsPlugin->load_texture("assets/sprite/ship4.png");
     engine::TextureHandle bulletTex = graphicsPlugin->load_texture("assets/sprite/bullet.png");
 
-    if (backgroundTex == 0 || playerTex == 0 || bulletTex == 0) {
+    if (backgroundTex == 0 || playerTex1 == 0 || playerTex2 == 0 || playerTex3 == 0 || playerTex4 == 0 || bulletTex == 0) {
         std::cerr << "❌ Erreur lors du chargement des textures" << std::endl;
         graphicsPlugin->shutdown();
         if (audioPlugin) audioPlugin->shutdown();
@@ -132,11 +137,11 @@ int main() {
     }
 
     // Récupérer les tailles des textures
-    engine::Vector2f playerSize = graphicsPlugin->get_texture_size(playerTex);
+    engine::Vector2f playerSize = graphicsPlugin->get_texture_size(playerTex1);
     engine::Vector2f bulletSize = graphicsPlugin->get_texture_size(bulletTex);
 
     // Calculer les échelles pour des tailles de jeu raisonnables
-    const float PLAYER_SCALE = 1.00f;  // 256x128 -> 64x32 pixels
+    const float PLAYER_SCALE = 0.20f;  // Réduction pour taille de jeu raisonnable
     const float BULLET_SCALE = 1.00f;   // 93x10 -> 74x8 pixels
 
     float playerWidth = playerSize.x * PLAYER_SCALE;
@@ -179,6 +184,7 @@ int main() {
     registry.register_component<SpeedBoost>();
     registry.register_component<CircleEffect>();
     registry.register_component<TextEffect>();
+    registry.register_component<SpriteAnimation>();
 
     std::cout << "✓ Composants enregistres" << std::endl;
 
@@ -208,6 +214,9 @@ int main() {
     // Bonus System - spawn et collecte des bonus (HP, Bouclier, Vitesse)
     registry.register_system<BonusSystem>(*graphicsPlugin, SCREEN_WIDTH, SCREEN_HEIGHT);
 
+    // Sprite Animation System - gere les animations de sprites
+    registry.register_system<SpriteAnimationSystem>();
+
     if (audioPlugin) {
         registry.register_system<AudioSystem>(*audioPlugin);
     }
@@ -216,6 +225,9 @@ int main() {
 
     // HUD System - modern UI rendering (health bar, score, wave, etc.)
     registry.register_system<HUDSystem>(*graphicsPlugin, SCREEN_WIDTH, SCREEN_HEIGHT);
+
+    // GameState System - manages game over/victory screens using UI components
+    registry.register_system<GameStateSystem>(*graphicsPlugin, SCREEN_WIDTH, SCREEN_HEIGHT);
 
     std::cout << "✓ Systemes enregistres :" << std::endl;
     std::cout << "  1. InputSystem         - Capture raw key states from plugin" << std::endl;
@@ -237,6 +249,7 @@ int main() {
     std::cout << "  15. DestroySystem      - Detruit les entites marquees pour destruction" << std::endl;
     std::cout << "  16. RenderSystem       - Rendu des sprites via plugin graphique" << std::endl;
     std::cout << "  17. HUDSystem          - Modern UI rendering (health bar, score, wave)" << std::endl;
+    std::cout << "  18. GameStateSystem    - Game Over/Victory screens (uses UI components)" << std::endl;
     std::cout << std::endl;
 
     // ==
@@ -296,7 +309,7 @@ int main() {
     registry.add_component(player, Collider{playerWidth, playerHeight});
     registry.add_component(player, Controllable{300.0f}); // Vitesse de 300 pixels/s
     registry.add_component(player, Sprite{
-        playerTex,           // texture
+        playerTex1,          // texture (starts with frame 1)
         playerWidth,         // width
         playerHeight,        // height
         0.0f,               // rotation
@@ -304,6 +317,16 @@ int main() {
         0.0f,               // origin_x
         0.0f,               // origin_y
         1                   // layer
+    });
+
+    // Animation du vaisseau (4 frames de flamme du réacteur)
+    registry.add_component(player, SpriteAnimation{
+        {playerTex1, playerTex2, playerTex3, playerTex4},  // 4 frames d'animation
+        0.10f,                              // frameTime: 100ms par frame
+        0.0f,                               // elapsedTime
+        0,                                  // currentFrame
+        true,                               // loop
+        true                                // playing
     });
 
     // ARME - Les stats sont dans CombatConfig.hpp (defines)
@@ -327,11 +350,12 @@ int main() {
     registry.add_component(player, Score{0});
     registry.add_component(player, Invulnerability{0.0f});
 
-    std::cout << "✓ Joueur cree avec sprite et arme SPREAD" << std::endl;
+    std::cout << "✓ Joueur cree avec sprite anime et arme BASIC" << std::endl;
     std::cout << "  Position: (200, " << SCREEN_HEIGHT / 2.0f << ")" << std::endl;
     std::cout << "  Taille: " << playerWidth << "x" << playerHeight << std::endl;
     std::cout << "  Vitesse max: 300 pixels/s" << std::endl;
-    std::cout << "  Arme: SPREAD (5 projectiles, 40° d'éventail)" << std::endl;
+    std::cout << "  Animation: 4 frames de flamme (100ms par frame)" << std::endl;
+    std::cout << "  Arme: BASIC" << std::endl;
     std::cout << std::endl;
 
     std::cout << "✓ Murs et ennemis seront spawnes par le WaveSpawnerSystem" << std::endl;

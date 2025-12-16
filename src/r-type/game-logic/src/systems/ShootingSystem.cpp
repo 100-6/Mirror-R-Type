@@ -136,10 +136,17 @@ void ShootingSystem::update(Registry& registry, float dt)
 
 void ShootingSystem::createProjectiles(Registry& registry, Entity shooter, Weapon& weapon, const Position& shooterPos, float shooterHeight)
 {
-    int projectiles; 
+    int projectiles;
     float spread, speed, firerate, burst_delay;
 
     get_weapon_stats(weapon.type, projectiles, spread, speed, firerate, burst_delay);
+
+    // Récupérer la largeur du shooter pour positionner le projectile à l'extrémité droite
+    auto& sprites = registry.get_components<Sprite>();
+    float shooterWidth = 0.0f;
+    if (sprites.has_entity(shooter)) {
+        shooterWidth = sprites[shooter].width;
+    }
 
     int projectile_count = projectiles;
     float startAngle = 0.0f;
@@ -161,7 +168,8 @@ void ShootingSystem::createProjectiles(Registry& registry, Entity shooter, Weapo
 
         Entity projectile = registry.spawn_entity();
 
-        float bulletOffsetX = 50.0f;
+        // Positionner le projectile à l'extrémité droite du vaisseau
+        float bulletOffsetX = shooterWidth;
         float bulletOffsetY = (shooterHeight / 2.0f) - (weapon.projectile_sprite.height / 2.0f);
 
         registry.add_component(projectile, Position{

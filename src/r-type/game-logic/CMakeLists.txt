@@ -13,6 +13,7 @@ add_library(rtype_logic
     src/utils/WaveConfigLoader.cpp
     src/systems/BonusSystem.cpp
     src/systems/HUDSystem.cpp
+    src/systems/GameStateSystem.cpp
 )
 
 target_include_directories(rtype_logic

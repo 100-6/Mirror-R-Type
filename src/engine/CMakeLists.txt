@@ -9,6 +9,7 @@ add_library(game_engine
     src/ecs/systems/NetworkSystem.cpp
     src/ecs/systems/DestroySystem.cpp
     src/ecs/systems/AudioSystem.cpp
+    src/ecs/systems/SpriteAnimationSystem.cpp
     src/core/event/EventBus.cpp
     src/plugin_manager/PluginManager.cpp
 )

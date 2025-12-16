@@ -190,29 +190,46 @@ void HUDSystem::update(Registry& registry, float dt) {
         break;
     }
 
-    if (!playerFound) return;
-
     // Update health bar
-    if (healths.has_entity(playerEntity) && uibars.has_entity(m_healthBarEntity)) {
-        const Health& health = healths[playerEntity];
+    if (uibars.has_entity(m_healthBarEntity)) {
         UIBar& healthBar = uibars[m_healthBarEntity];
 
-        // Smooth interpolation
-        float targetHealth = static_cast<float>(health.current);
-        m_healthBarAnimated = lerp(m_healthBarAnimated, targetHealth, dt * 5.0f);
+        if (playerFound && healths.has_entity(playerEntity)) {
+            const Health& health = healths[playerEntity];
 
-        healthBar.currentValue = m_healthBarAnimated;
-        healthBar.maxValue = static_cast<float>(health.max);
+            // Smooth interpolation
+            float targetHealth = static_cast<float>(health.current);
+            m_healthBarAnimated = lerp(m_healthBarAnimated, targetHealth, dt * 5.0f);
 
-        // Dynamic color based on health percentage
-        float healthPercent = health.current / static_cast<float>(health.max);
-        healthBar.fillColor = getHealthColor(healthPercent);
+            healthBar.currentValue = m_healthBarAnimated;
+            healthBar.maxValue = static_cast<float>(health.max);
 
-        // Update health text
-        if (uitexts.has_entity(m_healthTextEntity)) {
-            UIText& healthText = uitexts[m_healthTextEntity];
-            healthText.text = std::to_string(health.current) + " / " + std::to_string(health.max);
+            // Dynamic color based on health percentage
+            float healthPercent = health.current / static_cast<float>(health.max);
+            healthBar.fillColor = getHealthColor(healthPercent);
+
+            // Update health text
+            if (uitexts.has_entity(m_healthTextEntity)) {
+                UIText& healthText = uitexts[m_healthTextEntity];
+                healthText.text = std::to_string(health.current) + " / " + std::to_string(health.max);
+            }
+        } else {
+            // Player is dead - animate health to 0
+            m_healthBarAnimated = lerp(m_healthBarAnimated, 0.0f, dt * 5.0f);
+            healthBar.currentValue = m_healthBarAnimated;
+            healthBar.fillColor = getHealthColor(0.0f);  // Red color
+
+            // Update health text to show 0
+            if (uitexts.has_entity(m_healthTextEntity)) {
+                UIText& healthText = uitexts[m_healthTextEntity];
+                healthText.text = "0 / 100";
+            }
         }
+    }
+
+    // Skip score/wave updates if no player found
+    if (!playerFound) {
+        return;
     }
 
     // Update score
@@ -235,47 +252,11 @@ void HUDSystem::update(Registry& registry, float dt) {
             auto& positions = registry.get_components<Position>();
             float waveX = (m_screenWidth / 2.0f) - 150.0f;
 
-            if (waveCtrl.allWavesCompleted) {
-                waveText.text = "MISSION COMPLETE!";
-                waveText.color = engine::Color{0, 255, 100, 255}; // Green
-
-                // Enlarge panel for longer text and adjust position
-                if (uipanels.has_entity(m_wavePanelEntity)) {
-                    UIPanel& wavePanel = uipanels[m_wavePanelEntity];
-                    wavePanel.borderColor = engine::Color{0, 255, 100, 255};
-                    wavePanel.width = 450.0f; // Wider panel for "MISSION COMPLETE!"
-                }
-
-                // Center panel on screen
-                float newPanelX = (m_screenWidth / 2.0f) - 225.0f; // Center 450px panel
-                if (positions.has_entity(m_wavePanelEntity)) {
-                    Position& panelPos = positions[m_wavePanelEntity];
-                    panelPos.x = newPanelX;
-                }
-
-                // Center text in panel (approximativement au milieu du panel)
-                if (positions.has_entity(m_waveTextEntity)) {
-                    Position& textPos = positions[m_waveTextEntity];
-                    textPos.x = newPanelX + 225.0f - 130.0f; // Center text in 450px panel
-                }
-            } else if (waveCtrl.currentWaveNumber > 0) {
+            if (waveCtrl.currentWaveNumber > 0) {
                 waveText.text = "WAVE " + std::to_string(waveCtrl.currentWaveNumber) +
                                " / " + std::to_string(waveCtrl.totalWaveCount);
                 waveText.color = engine::Color{255, 255, 255, 255}; // White
 
-                // Reset panel to standard size and position
-                if (uipanels.has_entity(m_wavePanelEntity)) {
-                    UIPanel& wavePanel = uipanels[m_wavePanelEntity];
-                    wavePanel.borderColor = engine::Color{100, 150, 255, 255};
-                    wavePanel.width = 300.0f; // Standard width
-                }
-
-                if (positions.has_entity(m_wavePanelEntity)) {
-                    Position& panelPos = positions[m_wavePanelEntity];
-                    panelPos.x = waveX; // Standard position
-                }
-
-                // Standard position for wave number
                 if (positions.has_entity(m_waveTextEntity)) {
                     Position& textPos = positions[m_waveTextEntity];
                     textPos.x = waveX + 150.0f - 80.0f;
@@ -284,7 +265,6 @@ void HUDSystem::update(Registry& registry, float dt) {
                 waveText.text = "PREPARING...";
                 waveText.color = engine::Color{200, 200, 200, 255}; // Gray
 
-                // Position for "PREPARING..."
                 if (positions.has_entity(m_waveTextEntity)) {
                     Position& textPos = positions[m_waveTextEntity];
                     textPos.x = waveX + 150.0f - 70.0f;

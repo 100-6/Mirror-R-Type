@@ -12,6 +12,7 @@
 #include "plugin_manager/IInputPlugin.hpp"
 #include <unordered_map>
 #include <string>
+#include <vector>
 
 // Physique et Mouvement 
 
@@ -53,6 +54,16 @@ struct Sprite {
 
     // Layer pour l'ordre de rendu (0=fond, plus élevé=premier plan)
     int layer = 0;
+};
+
+// Animation de sprite (alternance entre plusieurs textures)
+struct SpriteAnimation {
+    std::vector<engine::TextureHandle> frames;  // Liste des textures
+    float frameTime = 0.1f;                      // Temps par frame en secondes
+    float elapsedTime = 0.0f;                    // Temps écoulé depuis le dernier changement
+    size_t currentFrame = 0;                     // Index de la frame actuelle
+    bool loop = true;                            // Boucler l'animation
+    bool playing = true;                         // Animation en cours
 };
 
 // Tags Génériques

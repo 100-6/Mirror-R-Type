@@ -168,4 +168,20 @@ struct SpeedBoost {
     float originalSpeed = 0.0f;       // Vitesse originale pour restauration
 };
 
+// Game State System
+
+enum class GameStateType {
+    PLAYING,
+    PAUSED,
+    GAME_OVER,
+    VICTORY
+};
+
+struct GameState {
+    GameStateType currentState = GameStateType::PLAYING;
+    float stateTimer = 0.0f;          // Timer for animations/transitions
+    int finalScore = 0;               // Score at game end
+    bool restartRequested = false;    // Player wants to restart
+};
+
 #endif /* !GAME_COMPONENTS_HPP_ */
