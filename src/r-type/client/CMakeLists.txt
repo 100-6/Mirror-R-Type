@@ -4,6 +4,12 @@
 set(RTYPE_CLIENT_SOURCES
     src/main.cpp
     src/NetworkClient.cpp
+    src/ClientGame.cpp
+    src/TextureManager.cpp
+    src/InputHandler.cpp
+    src/ScreenManager.cpp
+    src/EntityManager.cpp
+    src/StatusOverlay.cpp
 )
 
 add_executable(r-type_client ${RTYPE_CLIENT_SOURCES})

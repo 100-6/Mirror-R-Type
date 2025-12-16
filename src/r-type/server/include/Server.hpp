@@ -10,7 +10,9 @@
 #include "plugin_manager/PluginManager.hpp"
 #include "PlayerInfo.hpp"
 #include "LobbyManager.hpp"
-#include "GameSession.hpp"
+#include "GameSessionManager.hpp"
+#include "NetworkHandler.hpp"
+#include "PacketSender.hpp"
 #include "ServerConfig.hpp"
 #include "protocol/PacketHeader.hpp"
 #include "protocol/PacketTypes.hpp"
@@ -74,8 +76,13 @@ public:
     bool is_running() const { return running_; }
 
 private:
+    // Core components
     engine::PluginManager plugin_manager_;
     engine::INetworkPlugin* network_plugin_;
+    std::unique_ptr<NetworkHandler> network_handler_;
+    std::unique_ptr<PacketSender> packet_sender_;
+    std::unique_ptr<GameSessionManager> session_manager_;
+
     uint16_t tcp_port_;
     uint16_t udp_port_;
     std::atomic<bool> running_;
@@ -85,12 +92,12 @@ private:
     uint32_t next_player_id_;
 
     LobbyManager lobby_manager_;
-    std::unordered_map<uint32_t, std::unique_ptr<GameSession>> game_sessions_;
     uint32_t next_session_id_;
 
-    void handle_packets();
-    void route_packet(uint32_t client_id, const protocol::PacketHeader& header,
-                     const std::vector<uint8_t>& payload, engine::NetworkProtocol protocol);
+    // Setup methods
+    void setup_network_handlers();
+    void setup_lobby_callbacks();
+    void setup_session_callbacks();
 
     // TCP packet handlers (connection, lobby)
     void handle_client_connect(uint32_t client_id, const protocol::ClientConnectPayload& payload);
@@ -103,21 +110,14 @@ private:
     void handle_udp_handshake(uint32_t udp_client_id, const protocol::ClientUdpHandshakePayload& payload);
     void handle_client_input(uint32_t client_id, const protocol::ClientInputPayload& payload);
 
-    // TCP sending (reliable)
-    void send_tcp_packet(uint32_t client_id, protocol::PacketType type, const std::vector<uint8_t>& payload);
-    void broadcast_tcp_packet(protocol::PacketType type, const std::vector<uint8_t>& payload);
-    void broadcast_tcp_to_lobby(uint32_t lobby_id, protocol::PacketType type, const std::vector<uint8_t>& payload);
-
-    // UDP sending (fast)
-    void send_udp_packet(uint32_t client_id, protocol::PacketType type, const std::vector<uint8_t>& payload);
-    void broadcast_udp_to_session(uint32_t session_id, protocol::PacketType type, const std::vector<uint8_t>& payload);
-
     void on_client_disconnected(uint32_t client_id);
 
+    // Lobby callbacks
     void on_lobby_state_changed(uint32_t lobby_id, const std::vector<uint8_t>& payload);
     void on_countdown_tick(uint32_t lobby_id, uint8_t seconds_remaining);
     void on_game_start(uint32_t lobby_id, const std::vector<uint32_t>& player_ids);
 
+    // Session callbacks
     void on_state_snapshot(uint32_t session_id, const std::vector<uint8_t>& snapshot);
     void on_entity_spawn(uint32_t session_id, const std::vector<uint8_t>& spawn_data);
     void on_entity_destroy(uint32_t session_id, uint32_t entity_id);
@@ -125,8 +125,6 @@ private:
     void on_game_over(uint32_t session_id, const std::vector<uint32_t>& player_ids);
     void on_wave_start(uint32_t session_id, const std::vector<uint8_t>& payload);
     void on_wave_complete(uint32_t session_id, const std::vector<uint8_t>& payload);
-
-    void update_game_sessions(float delta_time);
 
     uint32_t generate_player_id();
     uint32_t generate_session_id();
