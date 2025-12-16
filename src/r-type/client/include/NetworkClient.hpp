@@ -1,0 +1,225 @@
+/*
+** EPITECH PROJECT, 2025
+** Mirror-R-Type
+** File description:
+** NetworkClient - Client network handler for hybrid TCP/UDP architecture
+*/
+
+#pragma once
+
+#include <memory>
+#include <string>
+#include <functional>
+#include <cstdint>
+#include <atomic>
+
+#include "plugin_manager/INetworkPlugin.hpp"
+#include "protocol/PacketHeader.hpp"
+#include "protocol/PacketTypes.hpp"
+#include "protocol/Payloads.hpp"
+
+namespace rtype::client {
+
+/**
+ * @brief Client-side network handler for hybrid TCP/UDP communication
+ *
+ * Handles:
+ * - TCP connection for lobby and authentication
+ * - UDP connection for gameplay
+ * - Packet serialization and deserialization
+ */
+class NetworkClient {
+public:
+    /**
+     * @brief Construct a new NetworkClient
+     * @param plugin Reference to the network plugin
+     */
+    explicit NetworkClient(engine::INetworkPlugin& plugin);
+
+    ~NetworkClient();
+
+    // ============== Connection ==============
+
+    /**
+     * @brief Connect to server via TCP
+     * @param host Server hostname or IP
+     * @param port TCP port
+     * @return true if connected successfully
+     */
+    bool connect(const std::string& host, uint16_t port);
+
+    /**
+     * @brief Disconnect from server
+     */
+    void disconnect();
+
+    /**
+     * @brief Check if TCP is connected
+     */
+    bool is_tcp_connected() const;
+
+    /**
+     * @brief Check if UDP is connected
+     */
+    bool is_udp_connected() const;
+
+    // ============== Sending ==============
+
+    /**
+     * @brief Send connection request to server
+     * @param player_name Player name (max 31 chars)
+     */
+    void send_connect(const std::string& player_name);
+
+    /**
+     * @brief Send disconnect notification
+     */
+    void send_disconnect();
+
+    /**
+     * @brief Send ping to server
+     */
+    void send_ping();
+
+    /**
+     * @brief Request to join a lobby
+     * @param mode Game mode
+     * @param difficulty Difficulty level
+     */
+    void send_join_lobby(protocol::GameMode mode, protocol::Difficulty difficulty);
+
+    /**
+     * @brief Request to leave current lobby
+     */
+    void send_leave_lobby();
+
+    /**
+     * @brief Send player input (via UDP if connected, TCP otherwise)
+     * @param input_flags Input bitfield
+     * @param client_tick Current client tick
+     */
+    void send_input(uint16_t input_flags, uint32_t client_tick);
+
+    // ============== Update ==============
+
+    /**
+     * @brief Process incoming packets - call this every frame
+     */
+    void update();
+
+    // ============== Callbacks ==============
+
+    /**
+     * @brief Set callback for when connection is accepted
+     * @param callback Function receiving player_id
+     */
+    void set_on_accepted(std::function<void(uint32_t player_id)> callback);
+
+    /**
+     * @brief Set callback for connection rejection
+     * @param callback Function receiving reason code and message
+     */
+    void set_on_rejected(std::function<void(uint8_t reason, const std::string& message)> callback);
+
+    /**
+     * @brief Set callback for lobby state updates
+     * @param callback Function receiving lobby info
+     */
+    void set_on_lobby_state(std::function<void(const protocol::ServerLobbyStatePayload& state)> callback);
+
+    /**
+     * @brief Set callback for countdown updates
+     * @param callback Function receiving seconds remaining
+     */
+    void set_on_countdown(std::function<void(uint8_t seconds)> callback);
+
+    /**
+     * @brief Set callback for game start
+     * @param callback Function receiving session_id and udp_port
+     */
+    void set_on_game_start(std::function<void(uint32_t session_id, uint16_t udp_port)> callback);
+
+    /**
+     * @brief Set callback for entity spawn
+     * @param callback Function receiving spawn data
+     */
+    void set_on_entity_spawn(std::function<void(const protocol::ServerEntitySpawnPayload& spawn)> callback);
+
+    /**
+     * @brief Set callback for entity destroy
+     * @param callback Function receiving destroy data
+     */
+    void set_on_entity_destroy(std::function<void(const protocol::ServerEntityDestroyPayload& destroy)> callback);
+
+    /**
+     * @brief Set callback for game over
+     * @param callback Function receiving game over data
+     */
+    void set_on_game_over(std::function<void(const protocol::ServerGameOverPayload& result)> callback);
+
+    /**
+     * @brief Set callback for disconnection
+     * @param callback Function to call on disconnect
+     */
+    void set_on_disconnected(std::function<void()> callback);
+
+    // ============== Getters ==============
+
+    uint32_t get_player_id() const { return player_id_; }
+    uint32_t get_session_id() const { return session_id_; }
+    uint32_t get_lobby_id() const { return lobby_id_; }
+    bool is_in_lobby() const { return in_lobby_; }
+    bool is_in_game() const { return in_game_; }
+
+private:
+    void handle_packet(const engine::NetworkPacket& packet);
+
+    // Packet handlers
+    void handle_server_accept(const std::vector<uint8_t>& payload);
+    void handle_server_reject(const std::vector<uint8_t>& payload);
+    void handle_server_pong(const std::vector<uint8_t>& payload);
+    void handle_lobby_state(const std::vector<uint8_t>& payload);
+    void handle_countdown(const std::vector<uint8_t>& payload);
+    void handle_game_start(const std::vector<uint8_t>& payload);
+    void handle_entity_spawn(const std::vector<uint8_t>& payload);
+    void handle_entity_destroy(const std::vector<uint8_t>& payload);
+    void handle_game_over(const std::vector<uint8_t>& payload);
+
+    // UDP connection after game start
+    void connect_udp(uint16_t udp_port);
+    void send_udp_handshake();
+
+    // Packet building
+    void send_tcp_packet(protocol::PacketType type, const std::vector<uint8_t>& payload);
+    void send_udp_packet(protocol::PacketType type, const std::vector<uint8_t>& payload);
+    std::vector<uint8_t> serialize_payload(const void* payload, size_t size);
+
+    engine::INetworkPlugin& network_plugin_;
+    std::string server_host_;
+    uint16_t tcp_port_ = 0;
+    uint16_t udp_port_ = 0;
+
+    // State
+    uint32_t player_id_ = 0;
+    uint32_t session_id_ = 0;
+    uint32_t lobby_id_ = 0;
+    std::atomic<bool> in_lobby_{false};
+    std::atomic<bool> in_game_{false};
+
+    // Ping tracking
+    uint32_t last_ping_timestamp_ = 0;
+    int server_ping_ms_ = -1;
+
+    // Callbacks
+    std::function<void(uint32_t)> on_accepted_;
+    std::function<void(uint8_t, const std::string&)> on_rejected_;
+    std::function<void(const protocol::ServerLobbyStatePayload&)> on_lobby_state_;
+    std::function<void(uint8_t)> on_countdown_;
+    std::function<void(uint32_t, uint16_t)> on_game_start_;
+    std::function<void(const protocol::ServerEntitySpawnPayload&)> on_entity_spawn_;
+    std::function<void(const protocol::ServerEntityDestroyPayload&)> on_entity_destroy_;
+    std::function<void(const protocol::ServerGameOverPayload&)> on_game_over_;
+    std::function<void()> on_disconnected_;
+};
+
+}

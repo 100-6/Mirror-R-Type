@@ -108,6 +108,30 @@ class Registry {
                 system->update(*this, dt);
         }
 
+        template <typename System>
+        System& get_system()
+        {
+            static_assert(std::is_base_of<ISystem, System>::value, "System must inherit from ISystem");
+            for (auto& sys : systems) {
+                if (auto* ptr = dynamic_cast<System*>(sys.get())) {
+                    return *ptr;
+                }
+            }
+            throw std::runtime_error("System not found in registry");
+        }
+
+        template <typename System>
+        bool has_system() const
+        {
+            static_assert(std::is_base_of<ISystem, System>::value, "System must inherit from ISystem");
+            for (const auto& sys : systems) {
+                if (dynamic_cast<const System*>(sys.get())) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
 };
 
 #endif /* !REGISTRY_HPP_ */

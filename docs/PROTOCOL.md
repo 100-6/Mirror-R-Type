@@ -573,6 +573,10 @@ All multi-byte integer fields are in network byte order (big-endian) unless othe
 - `0x07`: POWERUP_WEAPON
 - `0x08`: POWERUP_SHIELD
 - `0x09`: POWERUP_SCORE
+- `0x0A`: ENEMY_FAST
+- `0x0B`: ENEMY_TANK
+- `0x0C`: POWERUP_HEALTH
+- `0x0D`: POWERUP_SPEED
 
 **Entity State Flags**:
 - Bit 0: INVULNERABLE
@@ -600,22 +604,26 @@ All multi-byte integer fields are in network byte order (big-endian) unless othe
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
    |  Spawn X      |              Spawn Y (float)                  |
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |  Spawn Y      |                                               |
-   +-+-+-+-+-+-+-+-+                                               +
-   |                   Spawn Parameters (variable)                 |
-   |                             ...                               |
+   |  Spawn Y      |   Subtype     |            Health             |
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ```
 
-| Field            | Size     | Description                          |
-|------------------|----------|--------------------------------------|
-| Entity ID        | 4 bytes  | Unique entity identifier             |
-| Entity Type      | 1 byte   | Entity type code (see 5.4.1)         |
-| Spawn X          | 4 bytes  | X spawn position (IEEE 754 float)    |
-| Spawn Y          | 4 bytes  | Y spawn position (IEEE 754 float)    |
-| Spawn Parameters | Variable | Type-specific parameters             |
+| Field       | Size    | Description                                 |
+|-------------|---------|---------------------------------------------|
+| Entity ID   | 4 bytes | Unique entity identifier                    |
+| Entity Type | 1 byte  | Entity type code (see 5.4.1)                |
+| Spawn X     | 4 bytes | X spawn position (IEEE 754 float)           |
+| Spawn Y     | 4 bytes | Y spawn position (IEEE 754 float)           |
+| Subtype     | 1 byte  | Entity subtype (0=Basic, 1=Fast, 2=Tank, 3=Boss) |
+| Health      | 2 bytes | Initial health points                       |
 
-**Total Size**: 13 + Spawn Parameters size (typically 13-50 bytes)
+**Enemy Subtype Codes**:
+- `0x00`: BASIC - Standard enemy
+- `0x01`: FAST - Fast-moving enemy
+- `0x02`: TANK - High-health enemy
+- `0x03`: BOSS - Boss enemy
+
+**Total Size**: 16 bytes
 
 #### 5.5.2 SERVER_ENTITY_DESTROY (0xB1)
 
@@ -713,6 +721,7 @@ All multi-byte integer fields are in network byte order (big-endian) unless othe
 - `0x02`: SHIELD - Shield/invulnerability
 - `0x03`: SPEED - Movement speed boost
 - `0x04`: SCORE - Score bonus
+- `0x05`: HEALTH - Health restoration (+20 HP)
 
 **Total Size**: 6 bytes
 
@@ -741,7 +750,65 @@ All multi-byte integer fields are in network byte order (big-endian) unless othe
 
 **Total Size**: 13 bytes
 
-#### 5.6.3 SERVER_PLAYER_RESPAWN (0xC5)
+#### 5.6.3 SERVER_WAVE_START (0xC2)
+
+```
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                         Wave Number                           |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |         Total Waves           |      Scroll Distance (float)  |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   | Scroll Distance               |      Expected Enemies         |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                                                               |
+   +                    Wave Name (32 bytes)                       +
+   |                             ...                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```
+
+| Field             | Size     | Description                                  |
+|-------------------|----------|----------------------------------------------|
+| Wave Number       | 4 bytes  | Current wave number (from JSON config)       |
+| Total Waves       | 2 bytes  | Total number of waves in configuration       |
+| Scroll Distance   | 4 bytes  | Scroll distance at which wave triggered (float) |
+| Expected Enemies  | 2 bytes  | Number of enemies that will spawn this wave  |
+| Wave Name         | 32 bytes | Optional wave name/description (UTF-8)       |
+
+**Total Size**: 44 bytes
+
+**Rationale**: This packet notifies clients when a new wave begins, allowing them to display wave progress UI and prepare for incoming enemies. The scroll distance enables deterministic wave triggering validation.
+
+#### 5.6.4 SERVER_WAVE_COMPLETE (0xC3)
+
+```
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                         Wave Number                           |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                      Completion Time                          |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |       Enemies Killed          |         Bonus Points          |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |All Waves Done |
+   +-+-+-+-+-+-+-+-+
+```
+
+| Field               | Size    | Description                                    |
+|---------------------|---------|------------------------------------------------|
+| Wave Number         | 4 bytes | Completed wave number                          |
+| Completion Time     | 4 bytes | Time taken to complete wave (milliseconds)     |
+| Enemies Killed      | 2 bytes | Number of enemies destroyed in this wave       |
+| Bonus Points        | 2 bytes | Bonus points awarded for wave completion       |
+| All Waves Complete  | 1 byte  | 1 if this was the final wave, 0 otherwise      |
+
+**Total Size**: 13 bytes
+
+**Rationale**: Notifies clients of wave completion, allowing them to display completion statistics, award bonus points, and potentially trigger victory conditions if all waves are complete.
+
+#### 5.6.5 SERVER_PLAYER_RESPAWN (0xC5)
 
 ```
     0                   1                   2                   3
@@ -767,7 +834,7 @@ All multi-byte integer fields are in network byte order (big-endian) unless othe
 
 **Total Size**: 15 bytes
 
-#### 5.6.4 SERVER_GAME_OVER (0xC6)
+#### 5.6.6 SERVER_GAME_OVER (0xC6)
 
 ```
     0                   1                   2                   3
@@ -1069,6 +1136,8 @@ Implementations SHOULD provide encoder/decoder functions that:
 | 0xB3 | SERVER_PROJECTILE_SPAWN   |     | ✓   | High freq    |
 | 0xC0 | SERVER_POWERUP_COLLECTED  |     | ✓   | Event        |
 | 0xC1 | SERVER_SCORE_UPDATE       |     | ✓   | Event        |
+| 0xC2 | SERVER_WAVE_START         |     | ✓   | Event        |
+| 0xC3 | SERVER_WAVE_COMPLETE      |     | ✓   | Event        |
 | 0xC5 | SERVER_PLAYER_RESPAWN     |     | ✓   | Event        |
 | 0xC6 | SERVER_GAME_OVER          |     | ✓   | Once         |
 
