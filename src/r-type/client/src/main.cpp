@@ -48,8 +48,16 @@ constexpr float PROJECTILE_DESPAWN_MARGIN = 250.0f;
 constexpr uint8_t ENTITY_STALE_THRESHOLD = 6; // ~0.1s before removing missing entities
 }
 
+enum class GameScreen {
+    WAITING,
+    PLAYING,
+    VICTORY,
+    DEFEAT
+};
+
 struct TexturePack {
     engine::TextureHandle background = engine::INVALID_HANDLE;
+    engine::TextureHandle menuBackground = engine::INVALID_HANDLE;
     std::array<engine::TextureHandle, 4> playerFrames{};
     engine::TextureHandle enemy = engine::INVALID_HANDLE;
     engine::TextureHandle projectile = engine::INVALID_HANDLE;
@@ -338,6 +346,11 @@ int main(int argc, char* argv[])
 
     TexturePack textures;
     textures.background = graphicsPlugin->load_texture("assets/sprite/symmetry.png");
+    textures.menuBackground = graphicsPlugin->load_texture("assets/sprite/background_rtype_menu.png");
+    if (textures.menuBackground == engine::INVALID_HANDLE) {
+        // Fallback to regular background if menu background not found
+        textures.menuBackground = textures.background;
+    }
     textures.playerFrames[0] = graphicsPlugin->load_texture("assets/sprite/ship1.png");
     textures.playerFrames[1] = graphicsPlugin->load_texture("assets/sprite/ship2.png");
     textures.playerFrames[2] = graphicsPlugin->load_texture("assets/sprite/ship3.png");
@@ -386,6 +399,61 @@ int main(int argc, char* argv[])
     registry.add_component(statusEntity, Position{30.0f, 30.0f});
     registry.add_component(statusEntity, UIText{"Connecting...", engine::Color::White,
         engine::Color{0, 0, 0, 180}, 22, true, 2.0f, 2.0f, true, 102});
+
+    // Screen overlay entities
+    GameScreen currentScreen = GameScreen::WAITING;
+
+    // Waiting screen background
+    Entity waitingScreenBg = registry.spawn_entity();
+    registry.add_component(waitingScreenBg, Position{0.0f, 0.0f});
+    registry.add_component(waitingScreenBg, Sprite{textures.menuBackground,
+        static_cast<float>(SCREEN_WIDTH), static_cast<float>(SCREEN_HEIGHT),
+        0.0f, engine::Color::White, 0.0f, 0.0f, 200});
+
+    // Waiting screen text
+    Entity waitingScreenText = registry.spawn_entity();
+    registry.add_component(waitingScreenText, Position{static_cast<float>(SCREEN_WIDTH) / 2.0f - 200.0f,
+        static_cast<float>(SCREEN_HEIGHT) / 2.0f - 50.0f});
+    registry.add_component(waitingScreenText, UIText{"En attente de joueurs...", engine::Color::White,
+        engine::Color{0, 0, 0, 200}, 36, true, 4.0f, 4.0f, true, 201});
+
+    // Result screen background (hidden initially)
+    Entity resultScreenBg = registry.spawn_entity();
+    registry.add_component(resultScreenBg, Position{0.0f, 0.0f});
+    registry.add_component(resultScreenBg, Sprite{textures.menuBackground,
+        static_cast<float>(SCREEN_WIDTH), static_cast<float>(SCREEN_HEIGHT),
+        0.0f, engine::Color{255, 255, 255, 0}, 0.0f, 0.0f, 200});
+
+    // Result screen text (hidden initially)
+    Entity resultScreenText = registry.spawn_entity();
+    registry.add_component(resultScreenText, Position{static_cast<float>(SCREEN_WIDTH) / 2.0f - 150.0f,
+        static_cast<float>(SCREEN_HEIGHT) / 2.0f - 50.0f});
+    registry.add_component(resultScreenText, UIText{"", engine::Color::White,
+        engine::Color{0, 0, 0, 200}, 48, true, 4.0f, 4.0f, false, 201});
+
+    auto hideWaitingScreen = [&]() {
+        auto& sprites = registry.get_components<Sprite>();
+        auto& texts = registry.get_components<UIText>();
+        if (sprites.has_entity(waitingScreenBg))
+            sprites[waitingScreenBg].tint = engine::Color{255, 255, 255, 0};
+        if (texts.has_entity(waitingScreenText)) {
+            texts[waitingScreenText].active = false;
+        }
+    };
+
+    auto showResultScreen = [&](bool victory) {
+        auto& sprites = registry.get_components<Sprite>();
+        auto& texts = registry.get_components<UIText>();
+        if (sprites.has_entity(resultScreenBg))
+            sprites[resultScreenBg].tint = engine::Color::White;
+        if (texts.has_entity(resultScreenText)) {
+            texts[resultScreenText].text = victory ? "VICTOIRE !" : "DEFAITE...";
+            texts[resultScreenText].color = victory 
+                ? engine::Color{100, 255, 100, 255} 
+                : engine::Color{255, 100, 100, 255};
+            texts[resultScreenText].active = true;
+        }
+    };
 
     RemoteWorldState remoteWorld;
     StatusOverlay overlay;
@@ -612,6 +680,8 @@ int main(int argc, char* argv[])
         overlay.session = "In game (session " + std::to_string(sessionId) + ")";
         refreshOverlay(overlay);
         clear_remote_world();
+        currentScreen = GameScreen::PLAYING;
+        hideWaitingScreen();
         auto& waveControllers = registry.get_components<WaveController>();
         if (waveControllers.has_entity(waveTracker)) {
             WaveController& ctrl = waveControllers[waveTracker];
@@ -765,8 +835,11 @@ int main(int argc, char* argv[])
     });
 
     client.set_on_game_over([&](const protocol::ServerGameOverPayload& result) {
-        overlay.session = result.result == protocol::GameResult::VICTORY ? "Victory" : "Defeat";
+        bool victory = result.result == protocol::GameResult::VICTORY;
+        overlay.session = victory ? "Victory" : "Defeat";
         refreshOverlay(overlay);
+        currentScreen = victory ? GameScreen::VICTORY : GameScreen::DEFEAT;
+        showResultScreen(victory);
     });
 
     bool running = true;

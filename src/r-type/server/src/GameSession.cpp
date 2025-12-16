@@ -176,9 +176,12 @@ void GameSession::update(float delta_time) {
 
     check_offscreen_enemies();
 
-    if (wave_manager_.all_waves_complete()) {
+    if (wave_manager_.all_waves_complete() && is_active_) {
         std::cout << "[GameSession " << session_id_ << "] All waves complete - game victory!\n";
         is_active_ = false;
+        if (game_over_callback_)
+            game_over_callback_(session_id_, get_player_ids());
+        return;
     }
     check_game_over();
 }
