@@ -28,6 +28,22 @@
       },
       "spawns": [
         {
+          "type": "wall",
+          "positionX": 1920,
+          "positionY": 100,
+          "count": 1,
+          "pattern": "single",
+          "spacing": 0
+        },
+        {
+          "type": "wall",
+          "positionX": 1920,
+          "positionY": 900,
+          "count": 1,
+          "pattern": "single",
+          "spacing": 0
+        },
+        {
           "type": "enemy",
           "enemyType": "fast",
           "positionX": 1920,
@@ -50,6 +66,68 @@
           "enemyType": "tank",
           "positionX": 1920,
           "positionY": 400,
+          "count": 1,
+          "pattern": "single",
+          "spacing": 0
+        },
+        {
+          "type": "powerup",
+          "bonusType": "health",
+          "positionX": 1920,
+          "positionY": 200,
+          "count": 1,
+          "pattern": "single",
+          "spacing": 0
+        }
+      ]
+    },
+    {
+      "waveNumber": 4,
+      "trigger": {
+        "scrollDistance": 900,
+        "timeDelay": 0
+      },
+      "spawns": [
+        {
+          "type": "wall",
+          "positionX": 1920,
+          "positionY": 300,
+          "count": 2,
+          "pattern": "line",
+          "spacing": 400
+        },
+        {
+          "type": "powerup",
+          "bonusType": "shield",
+          "positionX": 1920,
+          "positionY": 540,
+          "count": 1,
+          "pattern": "single",
+          "spacing": 0
+        }
+      ]
+    },
+    {
+      "waveNumber": 5,
+      "trigger": {
+        "scrollDistance": 1200,
+        "timeDelay": 0
+      },
+      "spawns": [
+        {
+          "type": "enemy",
+          "enemyType": "basic",
+          "positionX": 1920,
+          "positionY": 300,
+          "count": 3,
+          "pattern": "line",
+          "spacing": 80
+        },
+        {
+          "type": "powerup",
+          "bonusType": "speed",
+          "positionX": 1920,
+          "positionY": 700,
           "count": 1,
           "pattern": "single",
           "spacing": 0

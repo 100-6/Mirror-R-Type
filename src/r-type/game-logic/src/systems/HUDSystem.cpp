@@ -179,6 +179,53 @@ void HUDSystem::update(Registry& registry, float dt) {
     auto& uitexts = registry.get_components<UIText>();
     auto& waveControllers = registry.get_components<WaveController>();
     auto& uipanels = registry.get_components<UIPanel>();
+    auto& gameStates = registry.get_components<GameState>();
+
+    // Check if game is over or victory - hide HUD elements
+    bool hideHUD = false;
+    for (size_t i = 0; i < gameStates.size(); ++i) {
+        Entity entity = gameStates.get_entity_at(i);
+        const GameState& state = gameStates[entity];
+        if (state.currentState == GameStateType::GAME_OVER ||
+            state.currentState == GameStateType::VICTORY) {
+            hideHUD = true;
+            break;
+        }
+    }
+
+    // Set visibility of HUD elements
+    if (uipanels.has_entity(m_healthPanelEntity)) {
+        uipanels[m_healthPanelEntity].active = !hideHUD;
+    }
+    if (uibars.has_entity(m_healthBarEntity)) {
+        uibars[m_healthBarEntity].active = !hideHUD;
+    }
+    if (uitexts.has_entity(m_healthTextEntity)) {
+        uitexts[m_healthTextEntity].active = !hideHUD;
+    }
+    if (uitexts.has_entity(m_healthLabelEntity)) {
+        uitexts[m_healthLabelEntity].active = !hideHUD;
+    }
+    if (uipanels.has_entity(m_scorePanelEntity)) {
+        uipanels[m_scorePanelEntity].active = !hideHUD;
+    }
+    if (uitexts.has_entity(m_scoreTextEntity)) {
+        uitexts[m_scoreTextEntity].active = !hideHUD;
+    }
+    if (uitexts.has_entity(m_scoreLabelEntity)) {
+        uitexts[m_scoreLabelEntity].active = !hideHUD;
+    }
+    if (uipanels.has_entity(m_wavePanelEntity)) {
+        uipanels[m_wavePanelEntity].active = !hideHUD;
+    }
+    if (uitexts.has_entity(m_waveTextEntity)) {
+        uitexts[m_waveTextEntity].active = !hideHUD;
+    }
+
+    // If HUD is hidden, don't update values
+    if (hideHUD) {
+        return;
+    }
 
     // Find the player entity
     Entity playerEntity = 0;

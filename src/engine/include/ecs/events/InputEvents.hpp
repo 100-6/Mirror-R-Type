@@ -71,6 +71,22 @@ struct PlayerFireEvent : public core::Event {
 };
 
 /**
+ * @brief Event fired when a player starts holding the fire button
+ */
+struct PlayerStartFireEvent : public core::Event {
+    Entity player;
+    PlayerStartFireEvent(Entity p) : player(p) {}
+};
+
+/**
+ * @brief Event fired when a player releases the fire button
+ */
+struct PlayerStopFireEvent : public core::Event {
+    Entity player;
+    PlayerStopFireEvent(Entity p) : player(p) {}
+};
+
+/**
  * @brief Event fired when a player presses the special button
  */
 struct PlayerSpecialEvent : public core::Event {

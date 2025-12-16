@@ -66,6 +66,13 @@ struct SpriteAnimation {
     bool playing = true;                         // Animation en cours
 };
 
+// Attachement d'entité à une autre (pour effets visuels liés)
+struct Attached {
+    size_t parentEntity = 0;
+    float offsetX = 0.0f;
+    float offsetY = 0.0f;
+};
+
 // Tags Génériques
 
 struct Controllable {

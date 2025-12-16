@@ -26,8 +26,8 @@ if(GTest_FOUND)
     target_link_libraries(test_eventbus
         PRIVATE
             game_engine
-            ${GTEST_LIBRARIES}
-            ${GTEST_MAIN_LIBRARIES}
+            GTest::gtest
+            GTest::gtest_main
             Threads::Threads
     )
     add_test(NAME EventBusTest COMMAND test_eventbus)
@@ -42,8 +42,8 @@ if(GTest_FOUND)
     target_link_libraries(test_sparseset_gtest
         PRIVATE
             game_engine
-            ${GTEST_LIBRARIES}
-            ${GTEST_MAIN_LIBRARIES}
+            GTest::gtest
+            GTest::gtest_main
             Threads::Threads
     )
     add_test(NAME SparseSetGTestSuite COMMAND test_sparseset_gtest)
@@ -56,8 +56,8 @@ if(GTest_FOUND)
     target_link_libraries(test_registry
         PRIVATE
             game_engine
-            ${GTEST_LIBRARIES}
-            ${GTEST_MAIN_LIBRARIES}
+            GTest::gtest
+            GTest::gtest_main
             Threads::Threads
     )
     add_test(NAME RegistryGTestSuite COMMAND test_registry)
@@ -71,8 +71,8 @@ if(GTest_FOUND)
         PRIVATE
             game_engine
             rtype_logic
-            ${GTEST_LIBRARIES}
-            ${GTEST_MAIN_LIBRARIES}
+            GTest::gtest
+            GTest::gtest_main
             Threads::Threads
     )
     add_test(NAME CollisionSystemGTestSuite COMMAND test_collision_system)
@@ -85,8 +85,8 @@ if(GTest_FOUND)
     target_link_libraries(test_movement_system
         PRIVATE
             game_engine
-            ${GTEST_LIBRARIES}
-            ${GTEST_MAIN_LIBRARIES}
+            GTest::gtest
+            GTest::gtest_main
             Threads::Threads
     )
     add_test(NAME MovementSystemGTestSuite COMMAND test_movement_system)
@@ -99,8 +99,8 @@ if(GTest_FOUND)
     target_link_libraries(test_physique_system
         PRIVATE
             game_engine
-            ${GTEST_LIBRARIES}
-            ${GTEST_MAIN_LIBRARIES}
+            GTest::gtest
+            GTest::gtest_main
             Threads::Threads
     )
     add_test(NAME PhysiqueSystemGTestSuite COMMAND test_physique_system)
@@ -113,8 +113,8 @@ if(GTest_FOUND)
     target_link_libraries(test_destroy_system
         PRIVATE
             game_engine
-            ${GTEST_LIBRARIES}
-            ${GTEST_MAIN_LIBRARIES}
+            GTest::gtest
+            GTest::gtest_main
             Threads::Threads
     )
     add_test(NAME DestroySystemGTestSuite COMMAND test_destroy_system)
@@ -128,8 +128,8 @@ if(GTest_FOUND)
         PRIVATE
             game_engine
             rtype_logic
-            ${GTEST_LIBRARIES}
-            ${GTEST_MAIN_LIBRARIES}
+            GTest::gtest
+            GTest::gtest_main
             Threads::Threads
     )
     add_test(NAME ShootingSystemGTestSuite COMMAND test_shooting_system)
@@ -223,8 +223,8 @@ if(GTest_FOUND)
         PRIVATE
             game_engine
             rtype_logic
-            ${GTEST_LIBRARIES}
-            ${GTEST_MAIN_LIBRARIES}
+            GTest::gtest
+            GTest::gtest_main
             Threads::Threads
     )
     add_test(NAME CollisionSimpleTest COMMAND test_collision_simple_gtest)
@@ -237,8 +237,8 @@ if(GTest_FOUND)
     target_link_libraries(test_input_plugin_gtest
         PRIVATE
             game_engine
-            ${GTEST_LIBRARIES}
-            ${GTEST_MAIN_LIBRARIES}
+            GTest::gtest
+            GTest::gtest_main
             Threads::Threads
     )
     add_test(NAME InputPluginTest COMMAND test_input_plugin_gtest)
@@ -252,8 +252,8 @@ if(GTest_FOUND)
         PRIVATE
             game_engine
             rtype_logic
-            ${GTEST_LIBRARIES}
-            ${GTEST_MAIN_LIBRARIES}
+            GTest::gtest
+            GTest::gtest_main
             Threads::Threads
     )
     add_test(NAME ShootingCollisionTest COMMAND test_shooting_collision_gtest)
@@ -266,8 +266,8 @@ if(GTest_FOUND)
     target_link_libraries(test_render_system
         PRIVATE
             game_engine
-            ${GTEST_LIBRARIES}
-            ${GTEST_MAIN_LIBRARIES}
+            GTest::gtest
+            GTest::gtest_main
             Threads::Threads
     )
     add_test(NAME RenderSystemTest COMMAND test_render_system)

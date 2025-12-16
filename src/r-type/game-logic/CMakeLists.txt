@@ -14,6 +14,7 @@ add_library(rtype_logic
     src/systems/BonusSystem.cpp
     src/systems/HUDSystem.cpp
     src/systems/GameStateSystem.cpp
+    src/systems/AttachmentSystem.cpp
 )
 
 target_include_directories(rtype_logic
