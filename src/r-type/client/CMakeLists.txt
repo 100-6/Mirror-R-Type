@@ -1,9 +1,12 @@
 # client/CMakeLists.txt
 
-add_executable(r-type_client
+# Solo client (now network-aware gameplay)
+set(RTYPE_CLIENT_SOURCES
     src/main.cpp
     src/NetworkClient.cpp
 )
+
+add_executable(r-type_client ${RTYPE_CLIENT_SOURCES})
 
 target_include_directories(r-type_client
     PRIVATE
@@ -20,6 +23,32 @@ target_link_libraries(r-type_client
 
 # Ensure the client can find shared libraries at runtime
 set_target_properties(r-type_client PROPERTIES
+    INSTALL_RPATH "$ORIGIN"
+    BUILD_WITH_INSTALL_RPATH TRUE
+)
+
+# ============================================================
+# NETWORK CLIENT - Multiplayer graphical client (same entry as r-type_client)
+# ============================================================
+# This target exists for backward compatibility with build
+# scripts that still expect r-type_network_client.
+# ============================================================
+add_executable(r-type_network_client ${RTYPE_CLIENT_SOURCES})
+
+target_include_directories(r-type_network_client
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/src/engine/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/src/r-type/shared
+)
+
+target_link_libraries(r-type_network_client
+    PRIVATE
+        game_engine
+        rtype_logic
+)
+
+set_target_properties(r-type_network_client PROPERTIES
     INSTALL_RPATH "$ORIGIN"
     BUILD_WITH_INSTALL_RPATH TRUE
 )

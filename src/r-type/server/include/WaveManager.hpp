@@ -11,8 +11,9 @@
 namespace rtype::server {
 
 struct SpawnConfig {
-    std::string type;           // "enemy" or "bonus"
-    std::string enemy_type;     // "basic", "fast", "tank", "boss"
+    std::string type;           // "enemy", "wall", or "powerup"
+    std::string enemy_type;     // "basic", "fast", "tank", "boss" (for enemies)
+    std::string bonus_type;     // "health", "shield", "speed" (for powerups)
     float position_x;
     float position_y;
     uint32_t count;
@@ -47,8 +48,10 @@ struct WaveConfig {
 class WaveManager {
 public:
     using SpawnEnemyCallback = std::function<void(const std::string& enemy_type, float x, float y)>;
-    using WaveStartCallback = std::function<void(uint32_t wave_number, const std::string& wave_name)>;
-    using WaveCompleteCallback = std::function<void(uint32_t wave_number)>;
+    using SpawnWallCallback = std::function<void(float x, float y)>;
+    using SpawnPowerupCallback = std::function<void(const std::string& bonus_type, float x, float y)>;
+    using WaveStartCallback = std::function<void(const Wave& wave)>;
+    using WaveCompleteCallback = std::function<void(const Wave& wave)>;
 
     WaveManager();
     ~WaveManager() = default;
@@ -91,6 +94,20 @@ public:
     }
 
     /**
+     * @brief Set callback for wall spawns
+     */
+    void set_spawn_wall_callback(SpawnWallCallback callback) {
+        spawn_wall_callback_ = callback;
+    }
+
+    /**
+     * @brief Set callback for powerup spawns
+     */
+    void set_spawn_powerup_callback(SpawnPowerupCallback callback) {
+        spawn_powerup_callback_ = callback;
+    }
+
+    /**
      * @brief Set callback for wave start
      */
     void set_wave_start_callback(WaveStartCallback callback) {
@@ -115,6 +132,8 @@ private:
     float accumulated_time_;
 
     SpawnEnemyCallback spawn_enemy_callback_;
+    SpawnWallCallback spawn_wall_callback_;
+    SpawnPowerupCallback spawn_powerup_callback_;
     WaveStartCallback wave_start_callback_;
     WaveCompleteCallback wave_complete_callback_;
 

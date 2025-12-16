@@ -121,7 +121,10 @@ private:
     void on_state_snapshot(uint32_t session_id, const std::vector<uint8_t>& snapshot);
     void on_entity_spawn(uint32_t session_id, const std::vector<uint8_t>& spawn_data);
     void on_entity_destroy(uint32_t session_id, uint32_t entity_id);
+    void on_projectile_spawn(uint32_t session_id, const std::vector<uint8_t>& proj_data);
     void on_game_over(uint32_t session_id, const std::vector<uint32_t>& player_ids);
+    void on_wave_start(uint32_t session_id, const std::vector<uint8_t>& payload);
+    void on_wave_complete(uint32_t session_id, const std::vector<uint8_t>& payload);
 
     void update_game_sessions(float delta_time);
 

@@ -127,6 +127,10 @@ enum class EntityType : uint8_t {
     ENEMY_TANK = 0x0B,
     POWERUP_HEALTH = 0x0C,
     POWERUP_SPEED = 0x0D,
+    WALL = 0x0E,
+    BONUS_HEALTH = 0x0C,  // Alias for POWERUP_HEALTH
+    BONUS_SHIELD = 0x08,  // Alias for POWERUP_SHIELD
+    BONUS_SPEED = 0x0D,   // Alias for POWERUP_SPEED
 };
 
 /**

@@ -2,413 +2,910 @@
 ** EPITECH PROJECT, 2025
 ** Mirror-R-Type
 ** File description:
-** Main Client - Solo Game avec RenderSystem + Sprites
+** Multiplayer Network Client entry point
 */
 
 #include <iostream>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
+#include <array>
+#include <chrono>
+#include <sstream>
+#include <string>
+#include <algorithm>
+#include <limits>
+
 #include "ecs/Registry.hpp"
 #include "components/GameComponents.hpp"
-#include "components/CombatHelpers.hpp"
-#include "cmath"
-#include "ecs/systems/InputSystem.hpp"
+#include "ecs/CoreComponents.hpp"
 #include "ecs/systems/SpriteAnimationSystem.hpp"
-#include "systems/PlayerInputSystem.hpp"
-#include "ecs/systems/MovementSystem.hpp"
-#include "systems/ShootingSystem.hpp"
-#include "ecs/systems/PhysiqueSystem.hpp"
 #include "systems/ScrollingSystem.hpp"
-#include "systems/CollisionSystem.hpp"
-#include "ecs/systems/DestroySystem.hpp"
 #include "ecs/systems/RenderSystem.hpp"
-#include "systems/ScoreSystem.hpp"
-
-#include "ecs/systems/AudioSystem.hpp"
-#include "systems/HealthSystem.hpp"
-#include "systems/HitEffectSystem.hpp"
-#include "systems/AISystem.hpp"
-#include "systems/WaveSpawnerSystem.hpp"
-#include "systems/BonusSystem.hpp"
 #include "systems/HUDSystem.hpp"
-#include "systems/GameStateSystem.hpp"
-#include "systems/AttachmentSystem.hpp"
 #include "plugin_manager/PluginManager.hpp"
+#include "plugin_manager/IGraphicsPlugin.hpp"
 #include "plugin_manager/IInputPlugin.hpp"
 #include "plugin_manager/IAudioPlugin.hpp"
+#include "plugin_manager/INetworkPlugin.hpp"
+#include "NetworkClient.hpp"
+#include "protocol/NetworkConfig.hpp"
+#include "protocol/Payloads.hpp"
 
-int main() {
-    // Configuration de la fenêtre
+#ifdef _WIN32
+    #include <winsock2.h>
+    #define NETWORK_PLUGIN_PATH "plugins/" "asio_network.dll"
+#else
+    #include <arpa/inet.h>
+    #define NETWORK_PLUGIN_PATH "plugins/asio_network.so"
+#endif
+
+using namespace rtype;
+
+namespace {
+constexpr float NETWORK_WALL_WIDTH = 200.0f;
+constexpr float NETWORK_WALL_HEIGHT = 150.0f;
+constexpr float PROJECTILE_DESPAWN_MARGIN = 250.0f;
+constexpr uint8_t ENTITY_STALE_THRESHOLD = 6; // ~0.1s before removing missing entities
+}
+
+struct TexturePack {
+    engine::TextureHandle background = engine::INVALID_HANDLE;
+    std::array<engine::TextureHandle, 4> playerFrames{};
+    engine::TextureHandle enemy = engine::INVALID_HANDLE;
+    engine::TextureHandle projectile = engine::INVALID_HANDLE;
+    engine::TextureHandle wall = engine::INVALID_HANDLE;
+};
+
+struct DisplayMetrics {
+    float playerWidth = 0.0f;
+    float playerHeight = 0.0f;
+    float enemyWidth = 0.0f;
+    float enemyHeight = 0.0f;
+    float projectileWidth = 0.0f;
+    float projectileHeight = 0.0f;
+    float wallWidth = 0.0f;
+    float wallHeight = 0.0f;
+};
+
+struct RemoteWorldState {
+    std::unordered_map<uint32_t, Entity> serverToLocal;
+    std::unordered_map<uint32_t, protocol::EntityType> serverTypes;
+    std::unordered_map<uint32_t, uint8_t> staleCounters;
+    std::unordered_set<uint32_t> locallyIntegrated;
+    std::unordered_set<uint32_t> snapshotUpdated;
+};
+
+struct StatusOverlay {
+    std::string connection = "Disconnected";
+    std::string lobby = "Lobby: -";
+    std::string session = "Waiting";
+    int pingMs = -1;
+};
+
+static Sprite build_sprite(protocol::EntityType type,
+                           const TexturePack& textures,
+                           const DisplayMetrics& metrics,
+                           bool isLocalPlayer = false,
+                           uint8_t subtype = 0)
+{
+    Sprite sprite{};
+    sprite.texture = textures.enemy;
+    sprite.width = metrics.enemyWidth;
+    sprite.height = metrics.enemyHeight;
+    sprite.tint = engine::Color::White;
+    sprite.layer = 5;
+
+    switch (type) {
+        case protocol::EntityType::PLAYER:
+            sprite.texture = textures.playerFrames[0];
+            sprite.width = metrics.playerWidth;
+            sprite.height = metrics.playerHeight;
+            sprite.layer = 10;
+            sprite.tint = isLocalPlayer ? engine::Color::Cyan : engine::Color::White;
+            break;
+        case protocol::EntityType::ENEMY_FAST:
+            sprite.texture = textures.enemy;
+            sprite.width = metrics.enemyWidth * 0.8f;
+            sprite.height = metrics.enemyHeight * 0.8f;
+            sprite.tint = engine::Color{255, 180, 0, 255};
+            break;
+        case protocol::EntityType::ENEMY_TANK:
+            sprite.texture = textures.enemy;
+            sprite.width = metrics.enemyWidth * 1.3f;
+            sprite.height = metrics.enemyHeight * 1.3f;
+            sprite.tint = engine::Color{200, 80, 80, 255};
+            break;
+        case protocol::EntityType::ENEMY_BOSS:
+            sprite.texture = textures.enemy;
+            sprite.width = metrics.enemyWidth * 1.8f;
+            sprite.height = metrics.enemyHeight * 1.8f;
+            sprite.layer = 6;
+            sprite.tint = engine::Color{180, 0, 255, 255};
+            break;
+        case protocol::EntityType::WALL:
+            sprite.texture = textures.wall;
+            sprite.width = NETWORK_WALL_WIDTH;
+            sprite.height = NETWORK_WALL_HEIGHT;
+            sprite.layer = 2;
+            sprite.tint = engine::Color{180, 180, 255, 255};
+            break;
+        case protocol::EntityType::PROJECTILE_PLAYER:
+        case protocol::EntityType::PROJECTILE_ENEMY:
+            sprite.texture = textures.projectile;
+            sprite.width = metrics.projectileWidth;
+            sprite.height = metrics.projectileHeight;
+            sprite.layer = 20;
+            sprite.tint = type == protocol::EntityType::PROJECTILE_PLAYER
+                ? engine::Color::Cyan
+                : engine::Color::Red;
+            break;
+        case protocol::EntityType::POWERUP_HEALTH:
+        case protocol::EntityType::POWERUP_SHIELD:
+        case protocol::EntityType::POWERUP_SPEED:
+        case protocol::EntityType::POWERUP_SCORE:
+            sprite.texture = textures.projectile;
+            sprite.width = metrics.projectileWidth * 1.4f;
+            sprite.height = metrics.projectileHeight * 1.4f;
+            sprite.layer = 4;
+            sprite.tint = engine::Color{120, 255, 120, 255};
+            break;
+        default:
+            break;
+    }
+
+    if (type == protocol::EntityType::ENEMY_BASIC && subtype != 0) {
+        sprite.tint = engine::Color{200, 200, 255, 255};
+    }
+
+    return sprite;
+}
+
+static SpriteAnimation make_player_animation(const TexturePack& textures)
+{
+    SpriteAnimation anim{};
+    anim.frames.insert(anim.frames.end(), textures.playerFrames.begin(), textures.playerFrames.end());
+    anim.frameTime = 0.1f;
+    anim.loop = true;
+    anim.playing = true;
+    return anim;
+}
+
+static uint16_t gather_input(engine::IInputPlugin& inputPlugin)
+{
+    uint16_t flags = 0;
+    auto pressed = [&](engine::Key key) {
+        return inputPlugin.is_key_pressed(key);
+    };
+
+    if (pressed(engine::Key::W) || pressed(engine::Key::Up))
+        flags |= static_cast<uint16_t>(protocol::InputFlags::INPUT_UP);
+    if (pressed(engine::Key::S) || pressed(engine::Key::Down))
+        flags |= static_cast<uint16_t>(protocol::InputFlags::INPUT_DOWN);
+    if (pressed(engine::Key::A) || pressed(engine::Key::Left))
+        flags |= static_cast<uint16_t>(protocol::InputFlags::INPUT_LEFT);
+    if (pressed(engine::Key::D) || pressed(engine::Key::Right))
+        flags |= static_cast<uint16_t>(protocol::InputFlags::INPUT_RIGHT);
+    if (pressed(engine::Key::Space))
+        flags |= static_cast<uint16_t>(protocol::InputFlags::INPUT_SHOOT);
+    if (pressed(engine::Key::LShift) || pressed(engine::Key::RShift))
+        flags |= static_cast<uint16_t>(protocol::InputFlags::INPUT_CHARGE);
+    if (pressed(engine::Key::LControl) || pressed(engine::Key::RControl))
+        flags |= static_cast<uint16_t>(protocol::InputFlags::INPUT_SPECIAL);
+
+    return flags;
+}
+
+static void update_overlay_text(Registry& registry, Entity uiEntity, const StatusOverlay& status)
+{
+    auto& texts = registry.get_components<UIText>();
+    if (!texts.has_entity(uiEntity))
+        return;
+
+    std::ostringstream oss;
+    oss << status.connection;
+    if (!status.lobby.empty())
+        oss << " | " << status.lobby;
+    if (!status.session.empty())
+        oss << " | " << status.session;
+    if (status.pingMs >= 0)
+        oss << " | Ping: " << status.pingMs << "ms";
+
+    UIText& text = texts[uiEntity];
+    text.text = oss.str();
+}
+
+int main(int argc, char* argv[])
+{
     const int SCREEN_WIDTH = 1920;
     const int SCREEN_HEIGHT = 1080;
 
-    std::cout << "=== R-Type Client - Solo Game ===" << std::endl;
-    std::cout << std::endl;
+    std::string host = "127.0.0.1";
+    uint16_t tcpPort = protocol::config::DEFAULT_TCP_PORT;
+    std::string playerName = "Pilot";
 
-    // ==
-    // CHARGEMENT DES PLUGINS
-    // ==
+    if (argc > 1)
+        host = argv[1];
+    if (argc > 2) {
+        try {
+            tcpPort = static_cast<uint16_t>(std::stoi(argv[2]));
+        } catch (const std::exception& e) {
+            std::cerr << "Invalid TCP port: " << e.what() << '\n';
+            return 1;
+        }
+    }
+    if (argc > 3)
+        playerName = argv[3];
+
+    std::cout << "=== R-Type Network Client ===\n";
+    std::cout << "Server: " << host << ":" << tcpPort << '\n';
+
     engine::PluginManager pluginManager;
     engine::IGraphicsPlugin* graphicsPlugin = nullptr;
     engine::IInputPlugin* inputPlugin = nullptr;
     engine::IAudioPlugin* audioPlugin = nullptr;
+    engine::INetworkPlugin* networkPlugin = nullptr;
 
-    std::cout << "Chargement du plugin graphique..." << std::endl;
     try {
         graphicsPlugin = pluginManager.load_plugin<engine::IGraphicsPlugin>(
-            "plugins/raylib_graphics.so",
-            "create_graphics_plugin"
-        );
+            "plugins/raylib_graphics.so", "create_graphics_plugin");
     } catch (const engine::PluginException& e) {
-        std::cerr << "❌ Erreur lors du chargement du plugin graphique: " << e.what() << std::endl;
+        std::cerr << "Failed to load graphics plugin: " << e.what() << '\n';
         return 1;
     }
 
-    if (!graphicsPlugin) {
-        std::cerr << "❌ Plugin graphique non disponible" << std::endl;
+    if (!graphicsPlugin || !graphicsPlugin->create_window(SCREEN_WIDTH, SCREEN_HEIGHT, "R-Type - Multiplayer")) {
+        std::cerr << "Unable to initialize graphics plugin" << '\n';
         return 1;
     }
+    graphicsPlugin->set_vsync(true);
 
-    std::cout << "✓ Plugin graphique chargé: " << graphicsPlugin->get_name()
-              << " v" << graphicsPlugin->get_version() << std::endl;
-
-    std::cout << "Chargement du plugin d'input..." << std::endl;
     try {
         inputPlugin = pluginManager.load_plugin<engine::IInputPlugin>(
-            "plugins/raylib_input.so",
-            "create_input_plugin"
-        );
+            "plugins/raylib_input.so", "create_input_plugin");
     } catch (const engine::PluginException& e) {
-        std::cerr << "❌ Erreur lors du chargement du plugin d'input: " << e.what() << std::endl;
+        std::cerr << "Failed to load input plugin: " << e.what() << '\n';
         graphicsPlugin->shutdown();
         return 1;
     }
 
-    if (!inputPlugin) {
-        std::cerr << "❌ Plugin d'input non disponible" << std::endl;
-        graphicsPlugin->shutdown();
-        return 1;
-    }
-
-    std::cout << "✓ Plugin d'input chargé: " << inputPlugin->get_name()
-              << " v" << inputPlugin->get_version() << std::endl;
-
-    std::cout << "Chargement du plugin audio..." << std::endl;
     try {
         audioPlugin = pluginManager.load_plugin<engine::IAudioPlugin>(
-            "plugins/miniaudio_audio.so",
-            "create_audio_plugin"
-        );
+            "plugins/miniaudio_audio.so", "create_audio_plugin");
     } catch (const engine::PluginException& e) {
-        std::cerr << "⚠️ Erreur lors du chargement du plugin audio (sons désactivés): " << e.what() << std::endl;
-        // On continue sans audio
+        std::cerr << "Audio plugin unavailable: " << e.what() << '\n';
     }
 
-    if (audioPlugin) {
-        std::cout << "✓ Plugin audio chargé: " << audioPlugin->get_name()
-                  << " v" << audioPlugin->get_version() << std::endl;
-    } else {
-        std::cout << "⚠️ Plugin audio non disponible." << std::endl;
-    }
-
-    // Créer la fenêtre via le plugin
-    if (!graphicsPlugin->create_window(SCREEN_WIDTH, SCREEN_HEIGHT, "R-Type Client - Solo Game")) {
-        std::cerr << "❌ Erreur lors de la création de la fenêtre" << std::endl;
-        return 1;
-    }
-
-    graphicsPlugin->set_vsync(true);
-    std::cout << "✓ Fenêtre créée: " << SCREEN_WIDTH << "x" << SCREEN_HEIGHT << std::endl;
-    std::cout << std::endl;
-
-    // ==
-    // CHARGEMENT DES TEXTURES VIA LE PLUGIN
-    // ==
-    std::cout << "Chargement des textures depuis assets/sprite/..." << std::endl;
-
-    engine::TextureHandle backgroundTex = graphicsPlugin->load_texture("assets/sprite/symmetry.png");
-    engine::TextureHandle playerTex1 = graphicsPlugin->load_texture("assets/sprite/ship1.png");
-    engine::TextureHandle playerTex2 = graphicsPlugin->load_texture("assets/sprite/ship2.png");
-    engine::TextureHandle playerTex3 = graphicsPlugin->load_texture("assets/sprite/ship3.png");
-    engine::TextureHandle playerTex4 = graphicsPlugin->load_texture("assets/sprite/ship4.png");
-    engine::TextureHandle bulletTex = graphicsPlugin->load_texture("assets/sprite/bullet.png");
-
-    if (backgroundTex == 0 || playerTex1 == 0 || playerTex2 == 0 || playerTex3 == 0 || playerTex4 == 0 || bulletTex == 0) {
-        std::cerr << "❌ Erreur lors du chargement des textures" << std::endl;
+    try {
+        networkPlugin = pluginManager.load_plugin<engine::INetworkPlugin>(
+            NETWORK_PLUGIN_PATH, "create_network_plugin");
+    } catch (const engine::PluginException& e) {
+        std::cerr << "Failed to load network plugin: " << e.what() << '\n';
         graphicsPlugin->shutdown();
-        if (audioPlugin) audioPlugin->shutdown();
+        if (audioPlugin)
+            audioPlugin->shutdown();
         return 1;
     }
 
-    // Récupérer les tailles des textures
-    engine::Vector2f playerSize = graphicsPlugin->get_texture_size(playerTex1);
-    engine::Vector2f bulletSize = graphicsPlugin->get_texture_size(bulletTex);
+    if (!networkPlugin->initialize()) {
+        std::cerr << "Network plugin initialization failed" << '\n';
+        graphicsPlugin->shutdown();
+        if (audioPlugin)
+            audioPlugin->shutdown();
+        return 1;
+    }
 
-    // Calculer les échelles pour des tailles de jeu raisonnables
-    const float PLAYER_SCALE = 0.20f;  // Réduction pour taille de jeu raisonnable
-    const float BULLET_SCALE = 1.00f;   // 93x10 -> 74x8 pixels
-
-    float playerWidth = playerSize.x * PLAYER_SCALE;
-    float playerHeight = playerSize.y * PLAYER_SCALE;
-    float bulletWidth = bulletSize.x * BULLET_SCALE;
-    float bulletHeight = bulletSize.y * BULLET_SCALE;
-
-    std::cout << "✓ Textures chargées:" << std::endl;
-    std::cout << "  Player: " << playerWidth << "x" << playerHeight << std::endl;
-    std::cout << "  Bullet: " << bulletWidth << "x" << bulletHeight << std::endl;
-    std::cout << std::endl;
-
-    // ==
-    // CREATION DU REGISTRY ET DES COMPOSANTS
-    // ==
     Registry registry;
     registry.register_component<Position>();
     registry.register_component<Velocity>();
-    registry.register_component<Input>();
-    registry.register_component<Collider>();
     registry.register_component<Sprite>();
-    registry.register_component<Controllable>();
-    registry.register_component<Enemy>();
-    registry.register_component<Projectile>();
-    registry.register_component<Wall>();
+    registry.register_component<SpriteAnimation>();
+    registry.register_component<Collider>();
     registry.register_component<Health>();
-    registry.register_component<HitFlash>();
-    registry.register_component<Damage>();
-    registry.register_component<ToDestroy>();
-    registry.register_component<Weapon>();
     registry.register_component<Score>();
+    registry.register_component<Controllable>();
     registry.register_component<Background>();
-    registry.register_component<Invulnerability>();
-    registry.register_component<AI>();
     registry.register_component<Scrollable>();
-    registry.register_component<NoFriction>();
+    registry.register_component<NetworkId>();
+    registry.register_component<UIText>();
+    registry.register_component<GameState>();
     registry.register_component<WaveController>();
-    registry.register_component<Bonus>();
     registry.register_component<Shield>();
     registry.register_component<SpeedBoost>();
     registry.register_component<CircleEffect>();
     registry.register_component<TextEffect>();
-    registry.register_component<SpriteAnimation>();
-    registry.register_component<Attached>();
+    registry.register_component<Bonus>();
+    registry.register_component<Invulnerability>();
 
-    std::cout << "✓ Composants enregistres" << std::endl;
-
-    // ==
-    // CREATION ET ENREGISTREMENT DES SYSTEMES
-    // ==
-
-    // Enregistrer les systèmes dans l'ordre d'exécution
-    registry.register_system<InputSystem>(*inputPlugin);        // 1. Read raw keys from plugin
-    registry.register_system<PlayerInputSystem>();              // 2. Interpret keys for R-Type
-    registry.register_system<MovementSystem>();
-    registry.register_system<ShootingSystem>();
-    registry.register_system<PhysiqueSystem>();
     registry.register_system<ScrollingSystem>(-100.0f, static_cast<float>(SCREEN_WIDTH));
-    registry.register_system<CollisionSystem>();
-    registry.register_system<HealthSystem>();
-    registry.register_system<HitEffectSystem>();
-    registry.register_system<ScoreSystem>();
-    registry.register_system<AttachmentSystem>();
-
-    // AI System - gere le comportement des ennemis (mouvement, tir)
-    registry.register_system<AISystem>(*graphicsPlugin);
-
-    // Wave Spawner System - charge la configuration et spawn les ennemis/murs
-    // Note: init() sera appelé automatiquement par register_system
-    registry.register_system<WaveSpawnerSystem>(*graphicsPlugin);
-
-    // Bonus System - spawn et collecte des bonus (HP, Bouclier, Vitesse)
-    registry.register_system<BonusSystem>(*graphicsPlugin, SCREEN_WIDTH, SCREEN_HEIGHT);
-
-    // Sprite Animation System - gere les animations de sprites
     registry.register_system<SpriteAnimationSystem>();
-
-    if (audioPlugin) {
-        registry.register_system<AudioSystem>(*audioPlugin);
-    }
-    registry.register_system<DestroySystem>();
     registry.register_system<RenderSystem>(*graphicsPlugin);
-
-    // HUD System - modern UI rendering (health bar, score, wave, etc.)
     registry.register_system<HUDSystem>(*graphicsPlugin, SCREEN_WIDTH, SCREEN_HEIGHT);
 
-    // GameState System - manages game over/victory screens using UI components
-    registry.register_system<GameStateSystem>(*graphicsPlugin, SCREEN_WIDTH, SCREEN_HEIGHT);
+    TexturePack textures;
+    textures.background = graphicsPlugin->load_texture("assets/sprite/symmetry.png");
+    textures.playerFrames[0] = graphicsPlugin->load_texture("assets/sprite/ship1.png");
+    textures.playerFrames[1] = graphicsPlugin->load_texture("assets/sprite/ship2.png");
+    textures.playerFrames[2] = graphicsPlugin->load_texture("assets/sprite/ship3.png");
+    textures.playerFrames[3] = graphicsPlugin->load_texture("assets/sprite/ship4.png");
+    textures.enemy = graphicsPlugin->load_texture("assets/sprite/enemy.png");
+    textures.projectile = graphicsPlugin->load_texture("assets/sprite/bullet.png");
+    textures.wall = graphicsPlugin->load_texture("assets/sprite/lock.png");
 
-    std::cout << "✓ Systemes enregistres :" << std::endl;
-    std::cout << "  1. InputSystem         - Capture raw key states from plugin" << std::endl;
-    std::cout << "  2. PlayerInputSystem   - Interpret keys for R-Type actions" << std::endl;
-    std::cout << "  3. MovementSystem      - Listen to movement events and update velocity" << std::endl;
-    std::cout << "  4. ShootingSystem      - Ecoute les evenements de tir et cree des projectiles" << std::endl;
-    std::cout << "  5. PhysiqueSystem      - Applique la velocite, friction, limites d'ecran" << std::endl;
-    std::cout << "  6. ScrollingSystem     - Gere le scrolling automatique" << std::endl;
-    std::cout << "  7. CollisionSystem     - Gere les collisions et marque les entites a detruire" << std::endl;
-    std::cout << "  8. HealthSystem        - Gere les degats et la vie" << std::endl;
-    std::cout << "  9. HitEffectSystem     - Effets visuels lors des impacts" << std::endl;
-    std::cout << "  10. ScoreSystem        - Met a jour le score" << std::endl;
-    std::cout << "  11. AISystem           - Comportement IA (mouvement, tir des ennemis)" << std::endl;
-    std::cout << "  12. WaveSpawnerSystem  - Spawn automatique base sur le scrolling (JSON)" << std::endl;
-    std::cout << "  13. BonusSystem        - Spawn et collecte des bonus (HP, Bouclier, Vitesse)" << std::endl;
-    if (audioPlugin) {
-        std::cout << "  14. AudioSystem        - Joue des sons sur evenements" << std::endl;
+    if (textures.background == engine::INVALID_HANDLE ||
+        textures.playerFrames[0] == engine::INVALID_HANDLE ||
+        textures.enemy == engine::INVALID_HANDLE ||
+        textures.projectile == engine::INVALID_HANDLE) {
+        std::cerr << "Failed to load textures" << '\n';
+        graphicsPlugin->shutdown();
+        if (audioPlugin)
+            audioPlugin->shutdown();
+        return 1;
     }
-    std::cout << "  15. DestroySystem      - Detruit les entites marquees pour destruction" << std::endl;
-    std::cout << "  16. RenderSystem       - Rendu des sprites via plugin graphique" << std::endl;
-    std::cout << "  17. HUDSystem          - Modern UI rendering (health bar, score, wave)" << std::endl;
-    std::cout << "  18. GameStateSystem    - Game Over/Victory screens (uses UI components)" << std::endl;
-    std::cout << std::endl;
 
-    // ==
-    // CREATION DU BACKGROUND (Défilement infini avec 2 images)
-    // ==
-    // Premier background
+    DisplayMetrics metrics;
+    engine::Vector2f playerSize = graphicsPlugin->get_texture_size(textures.playerFrames[0]);
+    engine::Vector2f enemySize = graphicsPlugin->get_texture_size(textures.enemy);
+    engine::Vector2f projectileSize = graphicsPlugin->get_texture_size(textures.projectile);
+    engine::Vector2f wallSize = graphicsPlugin->get_texture_size(textures.wall);
+
+    metrics.playerWidth = playerSize.x * 0.20f;
+    metrics.playerHeight = playerSize.y * 0.20f;
+    metrics.enemyWidth = enemySize.x * 0.20f;
+    metrics.enemyHeight = enemySize.y * 0.20f;
+    metrics.projectileWidth = projectileSize.x * 0.80f;
+    metrics.projectileHeight = projectileSize.y * 0.80f;
+    metrics.wallWidth = wallSize.x * 0.5f;
+    metrics.wallHeight = wallSize.y * 0.5f;
+
     Entity background1 = registry.spawn_entity();
     registry.add_component(background1, Position{0.0f, 0.0f});
-    registry.add_component(background1, Background{});  // Tag pour identifier le background
-    registry.add_component(background1, Scrollable{
-        1.0f,   // speedMultiplier: vitesse normale (100%)
-        true,   // wrap: boucle infinie
-        false   // destroyOffscreen: ne pas détruire
-    });
-    registry.add_component(background1, Sprite{
-        backgroundTex,
-        static_cast<float>(SCREEN_WIDTH),
-        static_cast<float>(SCREEN_HEIGHT),
-        0.0f,
-        engine::Color::White,
-        0.0f,
-        0.0f,
-        -100  // Layer très bas pour être en arrière-plan
-    });
+    registry.add_component(background1, Background{});
+    registry.add_component(background1, Scrollable{1.0f, true, false});
+    registry.add_component(background1, Sprite{textures.background,
+        static_cast<float>(SCREEN_WIDTH), static_cast<float>(SCREEN_HEIGHT),
+        0.0f, engine::Color::White, 0.0f, 0.0f, -100});
 
-    // Deuxième background (juste à droite du premier pour seamless scrolling)
     Entity background2 = registry.spawn_entity();
     registry.add_component(background2, Position{static_cast<float>(SCREEN_WIDTH), 0.0f});
-    registry.add_component(background2, Background{});  // Tag pour identifier le background
-    registry.add_component(background2, Scrollable{
-        1.0f,   // speedMultiplier: vitesse normale (100%)
-        true,   // wrap: boucle infinie
-        false   // destroyOffscreen: ne pas détruire
+    registry.add_component(background2, Background{});
+    registry.add_component(background2, Scrollable{1.0f, true, false});
+    registry.add_component(background2, Sprite{textures.background,
+        static_cast<float>(SCREEN_WIDTH), static_cast<float>(SCREEN_HEIGHT),
+        0.0f, engine::Color::White, 0.0f, 0.0f, -100});
+
+    Entity waveTracker = registry.spawn_entity();
+    WaveController waveCtrl;
+    waveCtrl.totalWaveCount = 0;
+    waveCtrl.currentWaveNumber = 0;
+    waveCtrl.currentWaveIndex = 0;
+    waveCtrl.totalScrollDistance = 0.0f;
+    waveCtrl.allWavesCompleted = false;
+    registry.add_component(waveTracker, waveCtrl);
+
+    Entity statusEntity = registry.spawn_entity();
+    registry.add_component(statusEntity, Position{30.0f, 30.0f});
+    registry.add_component(statusEntity, UIText{"Connecting...", engine::Color::White,
+        engine::Color{0, 0, 0, 180}, 22, true, 2.0f, 2.0f, true, 102});
+
+    RemoteWorldState remoteWorld;
+    StatusOverlay overlay;
+    uint32_t localPlayerEntityId = std::numeric_limits<uint32_t>::max();
+    std::unordered_map<uint32_t, std::string> playerNames;
+    std::unordered_map<uint32_t, Entity> playerNameTags;
+
+    auto refreshOverlay = [&registry, statusEntity](const StatusOverlay& info) {
+        update_overlay_text(registry, statusEntity, info);
+    };
+
+    auto get_player_label = [&](uint32_t serverId) {
+        auto it = playerNames.find(serverId);
+        if (it != playerNames.end() && !it->second.empty())
+            return it->second;
+        return std::string("Player ") + std::to_string(serverId);
+    };
+
+    auto ensure_player_name_tag = [&](uint32_t serverId, float x, float y) {
+        auto& texts = registry.get_components<UIText>();
+        auto& positions = registry.get_components<Position>();
+        auto it = playerNameTags.find(serverId);
+        Entity textEntity;
+        if (it == playerNameTags.end()) {
+            textEntity = registry.spawn_entity();
+            playerNameTags[serverId] = textEntity;
+            registry.add_component(textEntity, Position{x, y - 30.0f});
+            registry.add_component(textEntity, UIText{
+                get_player_label(serverId),
+                engine::Color::White,
+                engine::Color{0, 0, 0, 180},
+                20,
+                true,
+                1.5f,
+                1.5f,
+                true,
+                105
+            });
+        } else {
+            textEntity = it->second;
+            if (texts.has_entity(textEntity)) {
+                texts[textEntity].text = get_player_label(serverId);
+            }
+        }
+    };
+
+    auto remove_remote_entity = [&](uint32_t serverId) {
+        auto it = remoteWorld.serverToLocal.find(serverId);
+        if (it == remoteWorld.serverToLocal.end())
+            return;
+        registry.kill_entity(it->second);
+        remoteWorld.serverTypes.erase(serverId);
+        remoteWorld.staleCounters.erase(serverId);
+        remoteWorld.locallyIntegrated.erase(serverId);
+        remoteWorld.snapshotUpdated.erase(serverId);
+        remoteWorld.serverToLocal.erase(it);
+        if (localPlayerEntityId == serverId)
+            localPlayerEntityId = std::numeric_limits<uint32_t>::max();
+        auto tagIt = playerNameTags.find(serverId);
+        if (tagIt != playerNameTags.end()) {
+            registry.kill_entity(tagIt->second);
+            playerNameTags.erase(tagIt);
+        }
+    };
+
+    auto clear_remote_world = [&]() {
+        for (const auto& pair : remoteWorld.serverToLocal)
+            registry.kill_entity(pair.second);
+        remoteWorld.serverToLocal.clear();
+        remoteWorld.serverTypes.clear();
+        remoteWorld.staleCounters.clear();
+        remoteWorld.locallyIntegrated.clear();
+        remoteWorld.snapshotUpdated.clear();
+        localPlayerEntityId = std::numeric_limits<uint32_t>::max();
+        for (const auto& tagPair : playerNameTags)
+            registry.kill_entity(tagPair.second);
+        playerNameTags.clear();
+    };
+
+    uint32_t localPlayerId = 0;
+    SpriteAnimation playerAnimation = make_player_animation(textures);
+
+    auto spawn_or_update_entity = [&](uint32_t serverId,
+                                      protocol::EntityType type,
+                                      float x, float y,
+                                      uint16_t health,
+                                      uint8_t subtype) {
+        Entity entity;
+        const bool isNew = remoteWorld.serverToLocal.find(serverId) == remoteWorld.serverToLocal.end();
+        if (isNew) {
+            entity = registry.spawn_entity();
+            remoteWorld.serverToLocal[serverId] = entity;
+            registry.add_component(entity, NetworkId{serverId});
+        } else {
+            entity = remoteWorld.serverToLocal[serverId];
+        }
+
+        remoteWorld.serverTypes[serverId] = type;
+        remoteWorld.staleCounters[serverId] = 0;
+        if (type == protocol::EntityType::PROJECTILE_PLAYER || type == protocol::EntityType::PROJECTILE_ENEMY) {
+            remoteWorld.locallyIntegrated.insert(serverId);
+        } else {
+            remoteWorld.locallyIntegrated.erase(serverId);
+        }
+
+        bool localSubtypeMatch = false;
+        if (type == protocol::EntityType::PLAYER && localPlayerId != 0) {
+            uint8_t localIdByte = static_cast<uint8_t>(localPlayerId & 0xFFu);
+            if (subtype == localIdByte) {
+                localPlayerEntityId = serverId;
+                localSubtypeMatch = true;
+            }
+        }
+        bool highlightAsLocal = (serverId == localPlayerEntityId) || localSubtypeMatch;
+
+        auto& positions = registry.get_components<Position>();
+        if (positions.has_entity(entity)) {
+            positions[entity].x = x;
+            positions[entity].y = y;
+        } else {
+            registry.add_component(entity, Position{x, y});
+        }
+
+        Sprite sprite = build_sprite(type, textures, metrics, highlightAsLocal, subtype);
+        auto& sprites = registry.get_components<Sprite>();
+        if (sprites.has_entity(entity)) {
+            Sprite& existing = sprites[entity];
+            existing = sprite;
+        } else {
+            registry.add_component(entity, sprite);
+        }
+
+        auto& colliders = registry.get_components<Collider>();
+        if (colliders.has_entity(entity)) {
+            colliders[entity].width = sprite.width;
+            colliders[entity].height = sprite.height;
+        } else {
+            registry.add_component(entity, Collider{sprite.width, sprite.height});
+        }
+
+        auto& healths = registry.get_components<Health>();
+        auto& scores = registry.get_components<Score>();
+        auto& controllables = registry.get_components<Controllable>();
+        int hp = static_cast<int>(health);
+        if (healths.has_entity(entity)) {
+            healths[entity].current = hp;
+            healths[entity].max = std::max(healths[entity].max, hp);
+        } else {
+            Health comp;
+            comp.current = hp;
+            comp.max = hp;
+            registry.add_component(entity, comp);
+        }
+
+        if (!scores.has_entity(entity)) {
+            registry.add_component(entity, Score{0});
+        }
+
+        if (highlightAsLocal) {
+            if (!controllables.has_entity(entity)) {
+                registry.add_component(entity, Controllable{300.0f});
+            }
+        } else if (controllables.has_entity(entity) && serverId != localPlayerEntityId) {
+            registry.remove_component<Controllable>(entity);
+        }
+
+        if (type == protocol::EntityType::PLAYER) {
+            auto& animations = registry.get_components<SpriteAnimation>();
+            if (!animations.has_entity(entity)) {
+                registry.add_component(entity, playerAnimation);
+            }
+            ensure_player_name_tag(serverId, x, y);
+        }
+
+        return entity;
+    };
+
+    rtype::client::NetworkClient client(*networkPlugin);
+
+    overlay.connection = "Connecting to " + host + ":" + std::to_string(tcpPort);
+    refreshOverlay(overlay);
+
+    client.set_on_accepted([&](uint32_t playerId) {
+        localPlayerId = playerId;
+        overlay.connection = "Connected (Player " + std::to_string(playerId) + ")";
+        refreshOverlay(overlay);
+        client.send_join_lobby(protocol::GameMode::SQUAD, protocol::Difficulty::NORMAL);
     });
-    registry.add_component(background2, Sprite{
-        backgroundTex,
-        static_cast<float>(SCREEN_WIDTH),
-        static_cast<float>(SCREEN_HEIGHT),
-        0.0f,
-        engine::Color::White,
-        0.0f,
-        0.0f,
-        -100
+
+    client.set_on_rejected([&](uint8_t reason, const std::string& message) {
+        overlay.connection = "Rejected: " + message;
+        refreshOverlay(overlay);
     });
 
-    std::cout << "✓ Background defilant cree (2 images en boucle infinie via ScrollingSystem)" << std::endl;
-    std::cout << "  Vitesse: -100 px/s (definie dans ScrollingSystem)" << std::endl;
-    std::cout << std::endl;
+    client.set_on_lobby_state([&](const protocol::ServerLobbyStatePayload& state,
+                                  const std::vector<protocol::PlayerLobbyEntry>& playersInfo) {
+        int current = static_cast<int>(state.current_player_count);
+        int required = static_cast<int>(state.required_player_count);
+        overlay.lobby = "Lobby " + std::to_string(state.lobby_id) + ": " +
+                        std::to_string(current) + "/" + std::to_string(required);
+        refreshOverlay(overlay);
 
-    // ==
-    // CREATION DU JOUEUR
-    // ==
-    Entity player = registry.spawn_entity();
-    registry.add_component(player, Position{200.0f, SCREEN_HEIGHT / 2.0f});
-    registry.add_component(player, Velocity{0.0f, 0.0f});
-    registry.add_component(player, Input{});  // Component pour capturer les inputs
-    registry.add_component(player, Collider{playerWidth, playerHeight});
-    registry.add_component(player, Controllable{300.0f}); // Vitesse de 300 pixels/s
-    registry.add_component(player, Sprite{
-        playerTex1,          // texture (starts with frame 1)
-        playerWidth,         // width
-        playerHeight,        // height
-        0.0f,               // rotation
-        engine::Color::White, // tint
-        0.0f,               // origin_x
-        0.0f,               // origin_y
-        1                   // layer
+        auto& texts = registry.get_components<UIText>();
+        for (const auto& entry : playersInfo) {
+            std::string name(entry.player_name);
+            if (name.empty())
+                name = "Player " + std::to_string(entry.player_id);
+            playerNames[entry.player_id] = name;
+            auto tagIt = playerNameTags.find(entry.player_id);
+            if (tagIt != playerNameTags.end() && texts.has_entity(tagIt->second)) {
+                texts[tagIt->second].text = name;
+            }
+        }
     });
 
-    // Animation du vaisseau (4 frames de flamme du réacteur)
-    registry.add_component(player, SpriteAnimation{
-        {playerTex1, playerTex2, playerTex3, playerTex4},  // 4 frames d'animation
-        0.10f,                              // frameTime: 100ms par frame
-        0.0f,                               // elapsedTime
-        0,                                  // currentFrame
-        true,                               // loop
-        true                                // playing
+    client.set_on_countdown([&](uint8_t seconds) {
+        overlay.session = "Starting in " + std::to_string(seconds) + "s";
+        refreshOverlay(overlay);
     });
 
-    // ARME - Les stats sont dans CombatConfig.hpp (defines)
-    registry.add_component(player, create_weapon(WeaponType::CHARGE, bulletTex));
+    client.set_on_game_start([&](uint32_t sessionId, uint16_t udpPort) {
+        (void)udpPort;
+        overlay.session = "In game (session " + std::to_string(sessionId) + ")";
+        refreshOverlay(overlay);
+        clear_remote_world();
+        auto& waveControllers = registry.get_components<WaveController>();
+        if (waveControllers.has_entity(waveTracker)) {
+            WaveController& ctrl = waveControllers[waveTracker];
+            ctrl.currentWaveNumber = 0;
+            ctrl.currentWaveIndex = 0;
+            ctrl.allWavesCompleted = false;
+            ctrl.totalScrollDistance = 0.0f;
+        }
+    });
 
-    registry.add_component(player, Health{100, 100});
-    registry.add_component(player, Score{0});
-    registry.add_component(player, Invulnerability{0.0f});
+    client.set_on_entity_spawn([&](const protocol::ServerEntitySpawnPayload& spawn) {
+        uint32_t serverId = ntohl(spawn.entity_id);
+        uint16_t health = ntohs(spawn.health);
+        spawn_or_update_entity(serverId, spawn.entity_type, spawn.spawn_x, spawn.spawn_y, health, spawn.subtype);
+    });
 
-    std::cout << "✓ Joueur cree avec sprite anime et arme BASIC" << std::endl;
-    std::cout << "  Position: (200, " << SCREEN_HEIGHT / 2.0f << ")" << std::endl;
-    std::cout << "  Taille: " << playerWidth << "x" << playerHeight << std::endl;
-    std::cout << "  Vitesse max: 300 pixels/s" << std::endl;
-    std::cout << "  Animation: 4 frames de flamme (100ms par frame)" << std::endl;
-    std::cout << "  Arme: BASIC" << std::endl;
-    std::cout << std::endl;
+    client.set_on_entity_destroy([&](const protocol::ServerEntityDestroyPayload& destroy) {
+        uint32_t serverId = ntohl(destroy.entity_id);
+        remove_remote_entity(serverId);
+    });
 
-    std::cout << "✓ Murs et ennemis seront spawnes par le WaveSpawnerSystem" << std::endl;
-    std::cout << std::endl;
+    client.set_on_wave_start([&](const protocol::ServerWaveStartPayload& wave) {
+        auto& waveControllers = registry.get_components<WaveController>();
+        if (!waveControllers.has_entity(waveTracker))
+            return;
+        WaveController& ctrl = waveControllers[waveTracker];
+        ctrl.currentWaveNumber = static_cast<int>(ntohl(wave.wave_number));
+        ctrl.currentWaveIndex = ctrl.currentWaveNumber;
+        ctrl.totalWaveCount = ntohs(wave.total_waves);
+        ctrl.totalScrollDistance = wave.scroll_distance;
+        ctrl.allWavesCompleted = false;
+    });
 
-    // ==
-    // INSTRUCTIONS
-    // ==
-    std::cout << "=== CONTROLES ===" << std::endl;
-    std::cout << "  WASD ou Fleches  : Deplacer le joueur" << std::endl;
-    std::cout << "  ESPACE           : Tirer" << std::endl;
-    std::cout << "  ESC              : Quitter" << std::endl;
-    std::cout << std::endl;
-    std::cout << "=== FONCTIONNALITES ACTIVES ===" << std::endl;
-    std::cout << "  ✓ Input        : Capture clavier/souris" << std::endl;
-    std::cout << "  ✓ Movement     : Calcul velocite + normalisation diagonales" << std::endl;
-    std::cout << "  ✓ Physique     : Application velocite + friction (0.98)" << std::endl;
-    std::cout << "  ✓ Collision    : Detection et repulsion murs" << std::endl;
-    std::cout << "  ✓ Limites      : Joueur reste dans l'ecran (1920x1080)" << std::endl;
-    std::cout << "  ✓ Bonus        : HP (vert), Bouclier (violet), Vitesse (bleu)" << std::endl;
-    std::cout << std::endl;
-    std::cout << "Demarrage de la boucle de jeu..." << std::endl;
-    std::cout << std::endl;
+    client.set_on_wave_complete([&](const protocol::ServerWaveCompletePayload& wave) {
+        auto& waveControllers = registry.get_components<WaveController>();
+        if (!waveControllers.has_entity(waveTracker))
+            return;
+        WaveController& ctrl = waveControllers[waveTracker];
+        ctrl.currentWaveNumber = static_cast<int>(ntohl(wave.wave_number));
+        if (wave.all_waves_complete)
+            ctrl.currentWaveNumber = static_cast<int>(ctrl.totalWaveCount);
+        ctrl.allWavesCompleted = wave.all_waves_complete != 0;
+    });
 
-    // ==
-    // VARIABLES DE JEU
-    // ==
-    auto& positions = registry.get_components<Position>();
-    auto& velocities = registry.get_components<Velocity>();
-    auto& colliders = registry.get_components<Collider>();
-    auto& scores = registry.get_components<Score>();
-    auto& weapons = registry.get_components<Weapon>();
-    auto& healths = registry.get_components<Health>();
-    auto& waveControllers = registry.get_components<WaveController>();
+    client.set_on_projectile_spawn([&](const protocol::ServerProjectileSpawnPayload& proj) {
+        uint32_t projId = ntohl(proj.projectile_id);
+        uint32_t ownerId = ntohl(proj.owner_id);
+        protocol::EntityType projType = protocol::EntityType::PROJECTILE_PLAYER;
+        auto ownerIt = remoteWorld.serverTypes.find(ownerId);
+        if (ownerIt != remoteWorld.serverTypes.end() && ownerIt->second != protocol::EntityType::PLAYER)
+            projType = protocol::EntityType::PROJECTILE_ENEMY;
 
-    int frameCount = 0;
-    float debugTimer = 0.0f;
+        Entity entity = spawn_or_update_entity(projId, projType, proj.spawn_x, proj.spawn_y, 1, 0);
+        auto& velocities = registry.get_components<Velocity>();
+        float velX = static_cast<float>(proj.velocity_x);
+        float velY = static_cast<float>(proj.velocity_y);
+        if (velocities.has_entity(entity)) {
+            velocities[entity].x = velX;
+            velocities[entity].y = velY;
+        } else {
+            registry.add_component(entity, Velocity{velX, velY});
+        }
+    });
 
-    // ==
-    // BOUCLE DE JEU PRINCIPALE
-    // ==
-    while (graphicsPlugin->is_window_open()) {
-        float dt = 1.0f / 60.0f;  // Fixed timestep
-        frameCount++;
-        debugTimer += dt;
+    client.set_on_snapshot([&](const protocol::ServerSnapshotPayload& header,
+                               const std::vector<protocol::EntityState>& entities) {
+        (void)header;
+        auto& positions = registry.get_components<Position>();
+        auto& velocities = registry.get_components<Velocity>();
+        auto& healths = registry.get_components<Health>();
+        std::unordered_set<uint32_t> updatedIds;
+        updatedIds.reserve(entities.size());
 
-        // === UPDATE ===
-        registry.run_systems(dt);
+        std::vector<uint32_t> zeroHealthRemovals;
+        for (const auto& state : entities) {
+            uint32_t serverId = ntohl(state.entity_id);
+            updatedIds.insert(serverId);
 
-        // All HUD rendering is now handled by HUDSystem
-        // Display the complete frame (sprites + UI)
-        graphicsPlugin->display();
+            auto it = remoteWorld.serverToLocal.find(serverId);
+            if (it == remoteWorld.serverToLocal.end())
+                continue;
+
+            Entity entity = it->second;
+            remoteWorld.staleCounters[serverId] = 0;
+            remoteWorld.snapshotUpdated.insert(serverId);
+            if (positions.has_entity(entity)) {
+                positions[entity].x = state.position_x;
+                positions[entity].y = state.position_y;
+            } else {
+                registry.add_component(entity, Position{state.position_x, state.position_y});
+            }
+
+            float velX = static_cast<float>(state.velocity_x) / 10.0f;
+            float velY = static_cast<float>(state.velocity_y) / 10.0f;
+            if (velocities.has_entity(entity)) {
+                velocities[entity].x = velX;
+                velocities[entity].y = velY;
+            } else {
+                registry.add_component(entity, Velocity{velX, velY});
+            }
+
+            uint16_t hp = ntohs(state.health);
+            if (healths.has_entity(entity)) {
+                healths[entity].current = static_cast<int>(hp);
+                healths[entity].max = std::max(healths[entity].max, static_cast<int>(hp));
+            } else {
+                Health comp;
+                comp.current = static_cast<int>(hp);
+                comp.max = static_cast<int>(hp);
+                registry.add_component(entity, comp);
+            }
+
+            auto typeIt = remoteWorld.serverTypes.find(serverId);
+            protocol::EntityType entityType = typeIt != remoteWorld.serverTypes.end()
+                ? typeIt->second
+                : protocol::EntityType::PLAYER;
+            if (hp == 0 && entityType != protocol::EntityType::PLAYER &&
+                entityType != protocol::EntityType::WALL &&
+                entityType != protocol::EntityType::POWERUP_HEALTH &&
+                entityType != protocol::EntityType::POWERUP_SHIELD &&
+                entityType != protocol::EntityType::POWERUP_SPEED &&
+                entityType != protocol::EntityType::POWERUP_SCORE &&
+                entityType != protocol::EntityType::BONUS_HEALTH &&
+                entityType != protocol::EntityType::BONUS_SHIELD &&
+                entityType != protocol::EntityType::BONUS_SPEED) {
+                zeroHealthRemovals.push_back(serverId);
+            }
+        }
+
+        std::vector<uint32_t> staleRemovals;
+        for (const auto& pair : remoteWorld.serverToLocal) {
+            uint32_t serverId = pair.first;
+            if (updatedIds.count(serverId))
+                continue;
+            auto counterIt = remoteWorld.staleCounters.find(serverId);
+            if (counterIt == remoteWorld.staleCounters.end()) {
+                counterIt = remoteWorld.staleCounters.emplace(serverId, 0).first;
+            }
+            uint8_t& counter = counterIt->second;
+            if (counter < 250)
+                counter++;
+            if (counter > ENTITY_STALE_THRESHOLD) {
+                staleRemovals.push_back(serverId);
+            }
+        }
+
+        for (uint32_t id : staleRemovals) {
+            remove_remote_entity(id);
+        }
+        for (uint32_t id : zeroHealthRemovals) {
+            remove_remote_entity(id);
+        }
+    });
+
+    client.set_on_game_over([&](const protocol::ServerGameOverPayload& result) {
+        overlay.session = result.result == protocol::GameResult::VICTORY ? "Victory" : "Defeat";
+        refreshOverlay(overlay);
+    });
+
+    bool running = true;
+    client.set_on_disconnected([&]() {
+        overlay.connection = "Disconnected";
+        refreshOverlay(overlay);
+        running = false;
+    });
+
+    if (!client.connect(host, tcpPort)) {
+        std::cerr << "Failed to connect to server" << '\n';
+        networkPlugin->shutdown();
+        graphicsPlugin->shutdown();
+        if (audioPlugin)
+            audioPlugin->shutdown();
+        return 1;
     }
 
-    // ==
-    // NETTOYAGE
-    // ==
+    client.send_connect(playerName);
+
+    auto lastFrame = std::chrono::steady_clock::now();
+    auto lastInputSend = lastFrame;
+    auto lastPing = lastFrame;
+    auto lastOverlayUpdate = lastFrame;
+    uint32_t clientTick = 0;
+
+    while (running && graphicsPlugin->is_window_open()) {
+        auto now = std::chrono::steady_clock::now();
+        float dt = std::chrono::duration<float>(now - lastFrame).count();
+        lastFrame = now;
+
+        networkPlugin->update(dt);
+        client.update();
+
+        bool escapePressed = inputPlugin->is_key_pressed(engine::Key::Escape);
+
+        if (client.is_in_game() &&
+            std::chrono::duration_cast<std::chrono::milliseconds>(now - lastInputSend).count() >= 30) {
+            uint16_t inputFlags = gather_input(*inputPlugin);
+            client.send_input(inputFlags, clientTick++);
+            lastInputSend = now;
+        }
+
+        if (std::chrono::duration_cast<std::chrono::seconds>(now - lastPing).count() >= 5) {
+            client.send_ping();
+            lastPing = now;
+        }
+
+        if (std::chrono::duration_cast<std::chrono::milliseconds>(now - lastOverlayUpdate).count() >= 500) {
+            overlay.pingMs = networkPlugin->get_server_ping();
+            refreshOverlay(overlay);
+            lastOverlayUpdate = now;
+        }
+
+        if (!remoteWorld.locallyIntegrated.empty()) {
+            std::vector<uint32_t> despawnList;
+            despawnList.reserve(remoteWorld.locallyIntegrated.size());
+            auto& positions = registry.get_components<Position>();
+            auto& velocities = registry.get_components<Velocity>();
+
+            for (uint32_t serverId : remoteWorld.locallyIntegrated) {
+                if (remoteWorld.snapshotUpdated.count(serverId))
+                    continue;
+                auto it = remoteWorld.serverToLocal.find(serverId);
+                if (it == remoteWorld.serverToLocal.end())
+                    continue;
+                Entity entity = it->second;
+                if (!positions.has_entity(entity) || !velocities.has_entity(entity))
+                    continue;
+
+                Position& pos = positions[entity];
+                Velocity& vel = velocities[entity];
+                pos.x += vel.x * dt;
+                pos.y += vel.y * dt;
+
+                if (pos.x < -PROJECTILE_DESPAWN_MARGIN ||
+                    pos.x > SCREEN_WIDTH + PROJECTILE_DESPAWN_MARGIN ||
+                    pos.y < -PROJECTILE_DESPAWN_MARGIN ||
+                    pos.y > SCREEN_HEIGHT + PROJECTILE_DESPAWN_MARGIN) {
+                    despawnList.push_back(serverId);
+                }
+            }
+
+            for (uint32_t id : despawnList) {
+                remove_remote_entity(id);
+            }
+        }
+
+        remoteWorld.snapshotUpdated.clear();
+
+        auto& positions = registry.get_components<Position>();
+        auto& sprites = registry.get_components<Sprite>();
+        auto& texts = registry.get_components<UIText>();
+        std::vector<uint32_t> orphanTags;
+        for (const auto& [serverId, textEntity] : playerNameTags) {
+            auto entIt = remoteWorld.serverToLocal.find(serverId);
+            if (entIt == remoteWorld.serverToLocal.end()) {
+                orphanTags.push_back(serverId);
+                continue;
+            }
+            Entity playerEntity = entIt->second;
+            if (!positions.has_entity(playerEntity) || !positions.has_entity(textEntity) || !texts.has_entity(textEntity))
+                continue;
+            const Position& playerPos = positions[playerEntity];
+            float spriteHeight = 0.0f;
+            if (sprites.has_entity(playerEntity))
+                spriteHeight = sprites[playerEntity].height;
+            Position& tagPos = positions[textEntity];
+            tagPos.x = playerPos.x;
+            tagPos.y = playerPos.y - (spriteHeight * 0.2f + 30.0f);
+        }
+        for (uint32_t serverId : orphanTags) {
+            auto it = playerNameTags.find(serverId);
+            if (it != playerNameTags.end()) {
+                registry.kill_entity(it->second);
+                playerNameTags.erase(it);
+            }
+        }
+
+        registry.run_systems(dt);
+
+        graphicsPlugin->display();
+        inputPlugin->update();
+
+        if (escapePressed)
+            running = false;
+    }
+
+    clear_remote_world();
+    client.disconnect();
+
+    networkPlugin->shutdown();
+    if (audioPlugin)
+        audioPlugin->shutdown();
     inputPlugin->shutdown();
     graphicsPlugin->shutdown();
-    if (audioPlugin) audioPlugin->shutdown();
 
-    std::cout << "=== Fin de la demo ===" << std::endl;
-    std::cout << "Total frames: " << frameCount << std::endl;
-
+    std::cout << "Client terminated." << std::endl;
     return 0;
 }

@@ -48,19 +48,36 @@ constexpr float GAME_SCROLL_SPEED = 50.0f;                                   // 
 constexpr float PLAYER_MOVEMENT_SPEED = 200.0f;                              // pixels per second
 constexpr uint16_t PLAYER_MAX_HEALTH = 100;
 constexpr uint8_t PLAYER_LIVES = 3;
+constexpr float PLAYER_WIDTH = 64.0f;                                        // Player hitbox width
+constexpr float PLAYER_HEIGHT = 64.0f;                                       // Player hitbox height
+
+// === Projectile Configuration ===
+constexpr float PROJECTILE_SPEED = 500.0f;                                   // pixels per second
+constexpr float PROJECTILE_WIDTH = 20.0f;
+constexpr float PROJECTILE_HEIGHT = 8.0f;
+constexpr float PROJECTILE_LIFETIME = 5.0f;                                  // seconds
+constexpr int PROJECTILE_DAMAGE = 25;
 
 // === Enemy Configuration ===
 constexpr float ENEMY_BASIC_SPEED = 100.0f;                                  // pixels per second
 constexpr uint16_t ENEMY_BASIC_HEALTH = 50;
+constexpr float ENEMY_BASIC_WIDTH = 48.0f;
+constexpr float ENEMY_BASIC_HEIGHT = 48.0f;
 
 constexpr float ENEMY_FAST_SPEED = 200.0f;
 constexpr uint16_t ENEMY_FAST_HEALTH = 30;
+constexpr float ENEMY_FAST_WIDTH = 40.0f;
+constexpr float ENEMY_FAST_HEIGHT = 40.0f;
 
 constexpr float ENEMY_TANK_SPEED = 50.0f;
 constexpr uint16_t ENEMY_TANK_HEALTH = 150;
+constexpr float ENEMY_TANK_WIDTH = 72.0f;
+constexpr float ENEMY_TANK_HEIGHT = 72.0f;
 
 constexpr float ENEMY_BOSS_SPEED = 30.0f;
 constexpr uint16_t ENEMY_BOSS_HEALTH = 500;
+constexpr float ENEMY_BOSS_WIDTH = 128.0f;
+constexpr float ENEMY_BOSS_HEIGHT = 128.0f;
 
 // === Screen/World Configuration ===
 constexpr float WORLD_WIDTH = 1920.0f;
@@ -79,6 +96,13 @@ constexpr float ENTITY_OFFSCREEN_RIGHT = 2000.0f;
 constexpr float DEFAULT_SPAWN_INTERVAL = 2.0f;                               // seconds between spawns
 constexpr float DEFAULT_ENEMY_SPAWN_X = 1920.0f;                             // Right edge of screen
 constexpr float DEFAULT_ENEMY_SPAWN_Y = 300.0f;
+
+// === Wall Configuration ===
+constexpr float WALL_WIDTH = 200.0f;
+constexpr float WALL_HEIGHT = 150.0f;
+
+// === Powerup/Bonus Configuration ===
+constexpr float BONUS_SIZE = 40.0f;
 
 } // namespace config
 

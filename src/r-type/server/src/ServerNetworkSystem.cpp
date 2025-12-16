@@ -31,10 +31,26 @@ void ServerNetworkSystem::init(Registry& registry)
 
 void ServerNetworkSystem::update(Registry& registry, float dt)
 {
+    // Update shoot cooldowns
+    for (auto& [player_id, cooldown] : shoot_cooldowns_) {
+        cooldown += dt;
+    }
+
     // 1. Process pending inputs from clients
     process_pending_inputs(registry);
 
-    // 2. Send snapshot if interval reached
+    // 2. Update projectile lifetimes
+    auto& projectiles = registry.get_components<Projectile>();
+    for (size_t i = 0; i < projectiles.size(); ++i) {
+        Entity entity = projectiles.get_entity_at(i);
+        Projectile& proj = projectiles.get_data_at(i);
+        proj.time_alive += dt;
+        if (proj.time_alive >= proj.lifetime) {
+            registry.add_component(entity, ToDestroy{});
+        }
+    }
+
+    // 3. Send snapshot if interval reached
     snapshot_timer_ += dt;
     if (snapshot_timer_ >= snapshot_interval_) {
         send_state_snapshot(registry);
@@ -42,9 +58,10 @@ void ServerNetworkSystem::update(Registry& registry, float dt)
         tick_count_++;
     }
 
-    // 3. Broadcast pending spawn/destroy events
+    // 4. Broadcast pending spawn/destroy/projectile events
     broadcast_pending_spawns();
     broadcast_pending_destroys();
+    broadcast_pending_projectiles();
 }
 
 void ServerNetworkSystem::shutdown()
@@ -86,15 +103,37 @@ void ServerNetworkSystem::process_pending_inputs(Registry& registry)
         auto [player_id, input] = pending_inputs_.front();
         pending_inputs_.pop();
 
+        // DEBUG: Log input flags every 60 frames
+        static int input_debug_counter = 0;
+        if (++input_debug_counter % 60 == 0) {
+            std::cout << "[ServerNetworkSystem " << session_id_ << "] Player " << player_id
+                      << " input_flags=0x" << std::hex << (int)input.input_flags << std::dec
+                      << " up=" << input.is_up_pressed()
+                      << " down=" << input.is_down_pressed()
+                      << " left=" << input.is_left_pressed()
+                      << " right=" << input.is_right_pressed()
+                      << " shoot=" << input.is_shoot_pressed() << "\n";
+        }
+
         // Find the entity for this player
         auto it = player_entities_->find(player_id);
-        if (it == player_entities_->end())
+        if (it == player_entities_->end()) {
+            static int entity_not_found_counter = 0;
+            if (++entity_not_found_counter % 60 == 0) {
+                std::cout << "[ServerNetworkSystem " << session_id_ << "] WARNING: Player " << player_id << " entity not found in map!\n";
+            }
             continue;
+        }
 
         Entity player_entity = it->second;
 
-        if (!velocities.has_entity(player_entity))
+        if (!velocities.has_entity(player_entity)) {
+            static int no_velocity_counter = 0;
+            if (++no_velocity_counter % 60 == 0) {
+                std::cout << "[ServerNetworkSystem " << session_id_ << "] WARNING: Player " << player_id << " entity " << player_entity << " has no velocity component!\n";
+            }
             continue;
+        }
 
         Velocity& vel = velocities[player_entity];
 
@@ -111,9 +150,33 @@ void ServerNetworkSystem::process_pending_inputs(Registry& registry)
         if (input.is_right_pressed())
             vel.x = config::PLAYER_MOVEMENT_SPEED;
 
-        // TODO: Handle shooting
+        static int vel_log_counter = 0;
+        if (++vel_log_counter % 60 == 0) {
+            std::cout << "[ServerNetworkSystem " << session_id_ << "] Player " << player_id
+                      << " vel=(" << vel.x << "," << vel.y << ")"
+                      << " after processing flags=0x" << std::hex << (int)input.input_flags << std::dec << "\n";
+        }
+
+        // Handle shooting
         if (input.is_shoot_pressed()) {
-            // Spawn projectile entity
+            // Check cooldown
+            if (shoot_cooldowns_.find(player_id) == shoot_cooldowns_.end()) {
+                shoot_cooldowns_[player_id] = SHOOT_COOLDOWN;  // Allow first shot
+            }
+
+            if (shoot_cooldowns_[player_id] >= SHOOT_COOLDOWN) {
+                auto& positions = registry.get_components<Position>();
+                auto& colliders = registry.get_components<Collider>();
+                if (positions.has_entity(player_entity) && colliders.has_entity(player_entity)) {
+                    Position& pos = positions[player_entity];
+                    Collider& col = colliders[player_entity];
+                    // Spawn projectile at the right edge of player, centered vertically
+                    float spawn_x = pos.x + col.width;
+                    float spawn_y = pos.y + col.height / 2.0f - config::PROJECTILE_HEIGHT / 2.0f;
+                    spawn_projectile(registry, player_entity, spawn_x, spawn_y);
+                    shoot_cooldowns_[player_id] = 0.0f;
+                }
+            }
         }
     }
 }
@@ -139,12 +202,20 @@ std::vector<uint8_t> ServerNetworkSystem::serialize_snapshot(Registry& registry)
     auto& positions = registry.get_components<Position>();
     auto& velocities = registry.get_components<Velocity>();
     auto& healths = registry.get_components<Health>();
+    auto& to_destroy = registry.get_components<ToDestroy>();
 
     uint16_t entity_count = 0;
     std::vector<protocol::EntityState> entity_states;
 
     for (size_t i = 0; i < positions.size(); ++i) {
         Entity entity = positions.get_entity_at(i);
+
+        // CRITICAL FIX: Skip entities marked for destruction!
+        // These entities are being destroyed and should not appear in snapshots
+        if (to_destroy.has_entity(entity)) {
+            continue;
+        }
+
         Position& pos = positions.get_data_at(i);
 
         protocol::EntityState state;
@@ -189,13 +260,21 @@ std::vector<uint8_t> ServerNetworkSystem::serialize_snapshot(Registry& registry)
 
 void ServerNetworkSystem::broadcast_pending_spawns()
 {
-    if (!entity_spawn_callback_)
+    if (!entity_spawn_callback_) {
+        std::cout << "[ServerNetworkSystem " << session_id_ << "] WARNING: No spawn callback set!\n";
         return;
+    }
 
+    int spawn_count = 0;
     while (!pending_spawns_.empty()) {
         const auto& spawn = pending_spawns_.front();
         entity_spawn_callback_(session_id_, serialize(spawn));
         pending_spawns_.pop();
+        spawn_count++;
+    }
+
+    if (spawn_count > 0) {
+        std::cout << "[ServerNetworkSystem " << session_id_ << "] Broadcasted " << spawn_count << " spawns\n";
     }
 }
 
@@ -204,11 +283,64 @@ void ServerNetworkSystem::broadcast_pending_destroys()
     if (!entity_destroy_callback_)
         return;
 
+    int destroy_count = 0;
     while (!pending_destroys_.empty()) {
         uint32_t entity_id = pending_destroys_.front();
         entity_destroy_callback_(session_id_, entity_id);
         pending_destroys_.pop();
+        destroy_count++;
     }
+
+    if (destroy_count > 0) {
+        std::cout << "[ServerNetworkSystem " << session_id_ << "] Broadcasted " << destroy_count << " entity destroys\n";
+    }
+}
+
+void ServerNetworkSystem::broadcast_pending_projectiles()
+{
+    if (!projectile_spawn_callback_) {
+        std::cout << "[ServerNetworkSystem " << session_id_ << "] WARNING: No projectile_spawn_callback set!\n";
+        return;
+    }
+
+    int proj_count = 0;
+    while (!pending_projectiles_.empty()) {
+        const auto& proj = pending_projectiles_.front();
+        projectile_spawn_callback_(session_id_, serialize(proj));
+        pending_projectiles_.pop();
+        proj_count++;
+    }
+
+    if (proj_count > 0) {
+        std::cout << "[ServerNetworkSystem " << session_id_ << "] Broadcasted " << proj_count << " projectiles\n";
+    }
+}
+
+void ServerNetworkSystem::spawn_projectile(Registry& registry, Entity owner, float x, float y)
+{
+    Entity projectile = registry.spawn_entity();
+
+    // Add ECS components
+    registry.add_component(projectile, Position{x, y});
+    registry.add_component(projectile, Velocity{config::PROJECTILE_SPEED, 0.0f});
+    registry.add_component(projectile, Collider{config::PROJECTILE_WIDTH, config::PROJECTILE_HEIGHT});
+    registry.add_component(projectile, Damage{config::PROJECTILE_DAMAGE});
+    registry.add_component(projectile, Projectile{0.0f, config::PROJECTILE_LIFETIME, 0.0f, ProjectileFaction::Player});
+    registry.add_component(projectile, NoFriction{});
+
+    // Queue for network broadcast
+    protocol::ServerProjectileSpawnPayload spawn;
+    spawn.projectile_id = htonl(projectile);
+    spawn.owner_id = htonl(owner);
+    spawn.projectile_type = protocol::ProjectileType::BULLET;
+    spawn.spawn_x = x;
+    spawn.spawn_y = y;
+    spawn.velocity_x = static_cast<int16_t>(config::PROJECTILE_SPEED);
+    spawn.velocity_y = 0;
+    pending_projectiles_.push(spawn);
+
+    std::cout << "[ServerNetworkSystem " << session_id_ << "] Spawned projectile " << projectile
+              << " from entity " << owner << " at (" << x << ", " << y << ")\n";
 }
 
 } // namespace rtype::server

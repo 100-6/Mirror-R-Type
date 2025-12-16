@@ -202,8 +202,10 @@ void Server::route_packet(uint32_t client_id, const protocol::PacketHeader& head
         // UDP packets: gameplay, inputs
         switch (packet_type) {
             case protocol::PacketType::CLIENT_UDP_HANDSHAKE: {
+                std::cout << "[Server] Processing UDP handshake from client " << client_id << "\n";
                 if (payload.size() != sizeof(protocol::ClientUdpHandshakePayload)) {
-                    std::cerr << "[Server] Invalid CLIENT_UDP_HANDSHAKE payload size\n";
+                    std::cerr << "[Server] Invalid CLIENT_UDP_HANDSHAKE payload size: "
+                              << payload.size() << " expected " << sizeof(protocol::ClientUdpHandshakePayload) << "\n";
                     return;
                 }
                 protocol::ClientUdpHandshakePayload handshake_payload;
@@ -218,6 +220,12 @@ void Server::route_packet(uint32_t client_id, const protocol::PacketHeader& head
                 }
                 protocol::ClientInputPayload input_payload;
                 std::memcpy(&input_payload, payload.data(), sizeof(input_payload));
+
+                // Convert from network byte order
+                input_payload.player_id = ntohl(input_payload.player_id);
+                input_payload.input_flags = ntohs(input_payload.input_flags);
+                input_payload.client_tick = ntohl(input_payload.client_tick);
+
                 handle_client_input(client_id, input_payload);
                 break;
             }
@@ -313,6 +321,16 @@ void Server::handle_udp_handshake(uint32_t udp_client_id,
 
             std::cout << "[Server] UDP associated: TCP client " << tcp_client_id
                       << " <-> UDP client " << udp_client_id << "\n";
+
+            // CRITICAL: Send all existing entity spawns to this client
+            // This handles the race condition where spawns were sent before UDP was ready
+            auto session_it = game_sessions_.find(session_id);
+            if (session_it != game_sessions_.end()) {
+                std::cout << "[Server] Resynchronizing player " << player_id
+                          << " with existing entities\n";
+                session_it->second->resync_client(player_id, tcp_client_id);
+            }
+
             return;
         }
     }
@@ -526,8 +544,17 @@ void Server::on_game_start(uint32_t lobby_id, const std::vector<uint32_t>& playe
     session->set_entity_destroy_callback([this](uint32_t sid, uint32_t entity_id) {
         on_entity_destroy(sid, entity_id);
     });
+    session->set_projectile_spawn_callback([this](uint32_t sid, const std::vector<uint8_t>& proj_data) {
+        on_projectile_spawn(sid, proj_data);
+    });
     session->set_game_over_callback([this](uint32_t sid, const std::vector<uint32_t>& pids) {
         on_game_over(sid, pids);
+    });
+    session->set_wave_start_network_callback([this](uint32_t sid, const std::vector<uint8_t>& payload) {
+        on_wave_start(sid, payload);
+    });
+    session->set_wave_complete_network_callback([this](uint32_t sid, const std::vector<uint8_t>& payload) {
+        on_wave_complete(sid, payload);
     });
 
     for (uint32_t player_id : player_ids) {
@@ -547,6 +574,7 @@ void Server::on_game_start(uint32_t lobby_id, const std::vector<uint32_t>& playe
         game_start.difficulty = difficulty;
         game_start.server_tick = htonl(0);
         game_start.level_seed = htonl(0);
+        game_start.udp_port = htons(udp_port_);  // CRITICAL: Tell client which UDP port to connect to
         send_tcp_packet(client_id, protocol::PacketType::SERVER_GAME_START, serialize(game_start));
     }
     game_sessions_[session_id] = std::move(session);
@@ -565,10 +593,20 @@ void Server::handle_client_input(uint32_t client_id, const protocol::ClientInput
     }
 
     auto it = connected_clients_.find(tcp_client_id);
-    if (it == connected_clients_.end())
+    if (it == connected_clients_.end()) {
+        static int not_found_counter = 0;
+        if (++not_found_counter % 60 == 0) {
+            std::cerr << "[Server] TCP client " << tcp_client_id << " not found for UDP client " << client_id << "\n";
+        }
         return;
-    if (!it->second.in_game)
+    }
+    if (!it->second.in_game) {
+        static int not_in_game_counter = 0;
+        if (++not_in_game_counter % 60 == 0) {
+            std::cerr << "[Server] Client " << tcp_client_id << " not in game\n";
+        }
         return;
+    }
 
     uint32_t session_id = it->second.session_id;
     auto session_it = game_sessions_.find(session_id);
@@ -595,6 +633,18 @@ void Server::on_entity_destroy(uint32_t session_id, uint32_t entity_id) {
 
     broadcast_udp_to_session(session_id, protocol::PacketType::SERVER_ENTITY_DESTROY,
                              serialize(destroy));
+}
+
+void Server::on_projectile_spawn(uint32_t session_id, const std::vector<uint8_t>& proj_data) {
+    broadcast_udp_to_session(session_id, protocol::PacketType::SERVER_PROJECTILE_SPAWN, proj_data);
+}
+
+void Server::on_wave_start(uint32_t session_id, const std::vector<uint8_t>& payload) {
+    broadcast_udp_to_session(session_id, protocol::PacketType::SERVER_WAVE_START, payload);
+}
+
+void Server::on_wave_complete(uint32_t session_id, const std::vector<uint8_t>& payload) {
+    broadcast_udp_to_session(session_id, protocol::PacketType::SERVER_WAVE_COMPLETE, payload);
 }
 
 void Server::on_game_over(uint32_t session_id, const std::vector<uint32_t>& player_ids) {

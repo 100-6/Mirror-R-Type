@@ -36,6 +36,7 @@ bool WaveManager::load_from_file(const std::string& filepath) {
                         SpawnConfig spawn;
                         spawn.type = spawn_json.value("type", "enemy");
                         spawn.enemy_type = spawn_json.value("enemyType", "basic");
+                        spawn.bonus_type = spawn_json.value("bonusType", "health");
                         spawn.position_x = spawn_json.value("positionX", 1920.0f);
                         spawn.position_y = spawn_json.value("positionY", 300.0f);
                         spawn.count = spawn_json.value("count", 1);
@@ -96,17 +97,33 @@ std::string WaveManager::get_map_file(protocol::GameMode mode, protocol::Difficu
     }
     // For now, use the simple wave file as fallback
     // In production, you would have files like: waves_duo_easy.json, waves_squad_hard.json, etc.
-    return "src/r-type/assets/waves_simple.json";
+    // The path is relative to the build directory where the server executable runs
+    return "assets/waves_simple.json";
 }
 
 void WaveManager::check_wave_triggers(float current_scroll) {
+    static bool first_check = true;
+    if (first_check) {
+        std::cout << "[WaveManager] First check: " << config_.waves.size() << " waves loaded\n";
+        first_check = false;
+    }
+
     for (size_t i = current_wave_index_; i < config_.waves.size(); ++i) {
         Wave& wave = config_.waves[i];
 
         if (wave.triggered || wave.completed)
             continue;
+
         bool scroll_triggered = (current_scroll >= wave.trigger.scroll_distance);
         bool time_triggered = (accumulated_time_ >= wave.trigger.time_delay);
+
+        static int debug_counter = 0;
+        if (++debug_counter % 300 == 0 && i == current_wave_index_) {
+            std::cout << "[WaveManager] Wave " << wave.wave_number
+                      << " scroll=" << current_scroll << "/" << wave.trigger.scroll_distance
+                      << " time=" << accumulated_time_ << "/" << wave.trigger.time_delay << "\n";
+        }
+
         if (scroll_triggered && time_triggered) {
             trigger_wave(wave);
             wave.triggered = true;
@@ -119,39 +136,85 @@ void WaveManager::trigger_wave(Wave& wave) {
     std::cout << "[WaveManager] Triggering wave " << wave.wave_number << "\n";
 
     if (wave_start_callback_)
-        wave_start_callback_(wave.wave_number, "Wave " + std::to_string(wave.wave_number));
+        wave_start_callback_(wave);
     for (const auto& spawn : wave.spawns)
         spawn_from_config(spawn);
     // Mark wave as completed immediately for now
     // In a real implementation, we need to track enemy kills
     wave.completed = true;
     if (wave_complete_callback_)
-        wave_complete_callback_(wave.wave_number);
+        wave_complete_callback_(wave);
 }
 
 void WaveManager::spawn_from_config(const SpawnConfig& spawn) {
-    if (!spawn_enemy_callback_)
-        return;
-    if (spawn.pattern == "single")
-        spawn_enemy_callback_(spawn.enemy_type, spawn.position_x, spawn.position_y);
-    else if (spawn.pattern == "line") {
-        for (uint32_t i = 0; i < spawn.count; ++i) {
-            float y = spawn.position_y + (i * spawn.spacing);
-            spawn_enemy_callback_(spawn.enemy_type, spawn.position_x, y);
+    if (spawn.type == "enemy") {
+        if (!spawn_enemy_callback_) {
+            std::cout << "[WaveManager] ERROR: No spawn_enemy_callback set!\n";
+            return;
         }
-    }
-    else if (spawn.pattern == "formation") {
-        uint32_t cols = static_cast<uint32_t>(std::sqrt(spawn.count));
-        uint32_t rows = (spawn.count + cols - 1) / cols;
-        for (uint32_t r = 0; r < rows; ++r) {
-            for (uint32_t c = 0; c < cols; ++c) {
-                if (r * cols + c >= spawn.count) break;
 
-                float x = spawn.position_x + (c * spawn.spacing);
-                float y = spawn.position_y + (r * spawn.spacing);
-                spawn_enemy_callback_(spawn.enemy_type, x, y);
+        std::cout << "[WaveManager] Spawning enemy: type=" << spawn.enemy_type
+                  << " pattern=" << spawn.pattern << " count=" << spawn.count << "\n";
+
+        if (spawn.pattern == "single")
+            spawn_enemy_callback_(spawn.enemy_type, spawn.position_x, spawn.position_y);
+        else if (spawn.pattern == "line") {
+            for (uint32_t i = 0; i < spawn.count; ++i) {
+                float y = spawn.position_y + (i * spawn.spacing);
+                spawn_enemy_callback_(spawn.enemy_type, spawn.position_x, y);
             }
         }
+        else if (spawn.pattern == "formation") {
+            uint32_t cols = static_cast<uint32_t>(std::sqrt(spawn.count));
+            uint32_t rows = (spawn.count + cols - 1) / cols;
+            for (uint32_t r = 0; r < rows; ++r) {
+                for (uint32_t c = 0; c < cols; ++c) {
+                    if (r * cols + c >= spawn.count) break;
+
+                    float x = spawn.position_x + (c * spawn.spacing);
+                    float y = spawn.position_y + (r * spawn.spacing);
+                    spawn_enemy_callback_(spawn.enemy_type, x, y);
+                }
+            }
+        }
+    }
+    else if (spawn.type == "wall") {
+        if (!spawn_wall_callback_) {
+            std::cout << "[WaveManager] WARNING: No spawn_wall_callback set!\n";
+            return;
+        }
+
+        std::cout << "[WaveManager] Spawning wall: pattern=" << spawn.pattern << " count=" << spawn.count << "\n";
+
+        if (spawn.pattern == "single")
+            spawn_wall_callback_(spawn.position_x, spawn.position_y);
+        else if (spawn.pattern == "line") {
+            for (uint32_t i = 0; i < spawn.count; ++i) {
+                float y = spawn.position_y + (i * spawn.spacing);
+                spawn_wall_callback_(spawn.position_x, y);
+            }
+        }
+    }
+    else if (spawn.type == "powerup") {
+        if (!spawn_powerup_callback_) {
+            std::cout << "[WaveManager] WARNING: No spawn_powerup_callback set!\n";
+            return;
+        }
+
+        std::cout << "[WaveManager] Spawning powerup: type=" << spawn.bonus_type
+                  << " pattern=" << spawn.pattern << " count=" << spawn.count << "\n";
+
+        if (spawn.pattern == "single")
+            spawn_powerup_callback_(spawn.bonus_type, spawn.position_x, spawn.position_y);
+        else if (spawn.pattern == "line") {
+            for (uint32_t i = 0; i < spawn.count; ++i) {
+                float y = spawn.position_y + (i * spawn.spacing);
+                spawn_powerup_callback_(spawn.bonus_type, spawn.position_x, y);
+            }
+        }
+    }
+    else {
+        std::cout << "[WaveManager] WARNING: Unknown spawn type: " << spawn.type << "\n";
     }
 }
 

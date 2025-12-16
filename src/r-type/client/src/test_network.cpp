@@ -101,10 +101,13 @@ int main(int argc, char* argv[]) {
                   << " - " << message << "\n";
     });
 
-    client.set_on_lobby_state([](const ServerLobbyStatePayload& state) {
+    client.set_on_lobby_state([](const ServerLobbyStatePayload& state, const std::vector<PlayerLobbyEntry>& players) {
         std::cout << "[TestClient] LOBBY STATE: "
                   << (int)state.current_player_count << "/" << (int)state.required_player_count
                   << " players\n";
+        for (const auto& entry : players) {
+            std::cout << "    - Player " << entry.player_id << " (" << entry.player_name << ")\n";
+        }
     });
 
     client.set_on_countdown([](uint8_t seconds) {

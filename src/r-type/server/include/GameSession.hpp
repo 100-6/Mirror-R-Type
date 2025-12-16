@@ -12,6 +12,8 @@
 #include "ecs/systems/MovementSystem.hpp"
 #include "ecs/systems/PhysiqueSystem.hpp"
 #include "ecs/systems/DestroySystem.hpp"
+#include "systems/CollisionSystem.hpp"
+#include "systems/HealthSystem.hpp"
 #include "Entity.hpp"
 #include "protocol/PacketTypes.hpp"
 #include "protocol/Payloads.hpp"
@@ -57,7 +59,9 @@ public:
     using StateSnapshotCallback = std::function<void(uint32_t session_id, const std::vector<uint8_t>& snapshot)>;
     using EntitySpawnCallback = std::function<void(uint32_t session_id, const std::vector<uint8_t>& spawn_data)>;
     using EntityDestroyCallback = std::function<void(uint32_t session_id, uint32_t entity_id)>;
+    using ProjectileSpawnCallback = std::function<void(uint32_t session_id, const std::vector<uint8_t>& spawn_data)>;
     using GameOverCallback = std::function<void(uint32_t session_id, const std::vector<uint32_t>& player_ids)>;
+    using WaveEventCallback = std::function<void(uint32_t session_id, const std::vector<uint8_t>& payload)>;
 
     GameSession(uint32_t session_id, protocol::GameMode game_mode, protocol::Difficulty difficulty, uint16_t map_id);
     ~GameSession() = default;
@@ -122,16 +126,38 @@ public:
     }
 
     /**
+     * @brief Set callback for projectile spawns (forwarded to NetworkSystem)
+     */
+    void set_projectile_spawn_callback(ProjectileSpawnCallback callback) {
+        if (network_system_)
+            network_system_->set_projectile_spawn_callback(callback);
+    }
+
+    /**
      * @brief Set callback for game over
      */
     void set_game_over_callback(GameOverCallback callback) {
         game_over_callback_ = callback;
     }
 
+    void set_wave_start_network_callback(WaveEventCallback callback) {
+        wave_start_network_callback_ = std::move(callback);
+    }
+
+    void set_wave_complete_network_callback(WaveEventCallback callback) {
+        wave_complete_network_callback_ = std::move(callback);
+    }
+
     /**
      * @brief Get the ECS registry for this session
      */
     Registry& get_registry() { return registry_; }
+
+    /**
+     * @brief Resynchronize a client with all existing entities
+     * Used when a client completes UDP handshake after initial spawns
+     */
+    void resync_client(uint32_t player_id, uint32_t tcp_client_id);
 
 private:
     uint32_t session_id_;
@@ -151,14 +177,24 @@ private:
 
     // Callbacks (forwarded to ServerNetworkSystem)
     GameOverCallback game_over_callback_;
+    WaveEventCallback wave_start_network_callback_;
+    WaveEventCallback wave_complete_network_callback_;
 
     // Pointer to network system for direct access
     ServerNetworkSystem* network_system_ = nullptr;
 
     void spawn_player_entity(GamePlayer& player);
     void spawn_enemy(const std::string& enemy_type, float x, float y);
+    void spawn_wall(float x, float y);
+    void spawn_powerup(const std::string& bonus_type, float x, float y);
     void check_game_over();
+    void process_destroyed_entities();
     void check_offscreen_enemies();
+
+    protocol::ServerWaveStartPayload last_wave_start_payload_;
+    protocol::ServerWaveCompletePayload last_wave_complete_payload_;
+    bool has_wave_started_ = false;
+    bool has_wave_complete_ = false;
 };
 
 }
