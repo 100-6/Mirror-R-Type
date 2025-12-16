@@ -18,6 +18,11 @@ target_link_libraries(r-type_client
         rtype_logic
 )
 
+# Link Winsock on Windows
+if(WIN32)
+    target_link_libraries(r-type_client PRIVATE ws2_32)
+endif()
+
 # Ensure the client can find shared libraries at runtime
 set_target_properties(r-type_client PROPERTIES
     INSTALL_RPATH "$ORIGIN"
@@ -47,6 +52,11 @@ target_link_libraries(r-type_test_client
     PRIVATE
         game_engine
 )
+
+# Link Winsock on Windows
+if(WIN32)
+    target_link_libraries(r-type_test_client PRIVATE ws2_32)
+endif()
 
 set_target_properties(r-type_test_client PROPERTIES
     INSTALL_RPATH "$ORIGIN"

@@ -32,6 +32,7 @@
 #include "systems/GameStateSystem.hpp"
 #include "systems/AttachmentSystem.hpp"
 #include "plugin_manager/PluginManager.hpp"
+#include "plugin_manager/PluginPaths.hpp"
 #include "plugin_manager/IInputPlugin.hpp"
 #include "plugin_manager/IAudioPlugin.hpp"
 
@@ -51,10 +52,14 @@ int main() {
     engine::IInputPlugin* inputPlugin = nullptr;
     engine::IAudioPlugin* audioPlugin = nullptr;
 
+    // Charger le plugin graphique
     std::cout << "Chargement du plugin graphique..." << std::endl;
+    auto graphics_path = engine::PluginPaths::get_plugin_path(
+            engine::PluginPaths::RAYLIB_GRAPHICS
+    );
     try {
         graphicsPlugin = pluginManager.load_plugin<engine::IGraphicsPlugin>(
-            "plugins/raylib_graphics.so",
+            graphics_path,
             "create_graphics_plugin"
         );
     } catch (const engine::PluginException& e) {
@@ -70,10 +75,14 @@ int main() {
     std::cout << "✓ Plugin graphique chargé: " << graphicsPlugin->get_name()
               << " v" << graphicsPlugin->get_version() << std::endl;
 
+    // Charger le plugin d'input
     std::cout << "Chargement du plugin d'input..." << std::endl;
+    auto input_path = engine::PluginPaths::get_plugin_path(
+            engine::PluginPaths::RAYLIB_INPUT
+    );
     try {
         inputPlugin = pluginManager.load_plugin<engine::IInputPlugin>(
-            "plugins/raylib_input.so",
+            input_path,
             "create_input_plugin"
         );
     } catch (const engine::PluginException& e) {
@@ -91,10 +100,14 @@ int main() {
     std::cout << "✓ Plugin d'input chargé: " << inputPlugin->get_name()
               << " v" << inputPlugin->get_version() << std::endl;
 
+    // Charger le plugin audio
     std::cout << "Chargement du plugin audio..." << std::endl;
+    auto audio_path = engine::PluginPaths::get_plugin_path(
+            engine::PluginPaths::MINIAUDIO_AUDIO
+    );
     try {
         audioPlugin = pluginManager.load_plugin<engine::IAudioPlugin>(
-            "plugins/miniaudio_audio.so",
+            audio_path,
             "create_audio_plugin"
         );
     } catch (const engine::PluginException& e) {
