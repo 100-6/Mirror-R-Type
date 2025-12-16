@@ -736,7 +736,9 @@ int main(int argc, char* argv[])
                 entityType != protocol::EntityType::POWERUP_SCORE &&
                 entityType != protocol::EntityType::BONUS_HEALTH &&
                 entityType != protocol::EntityType::BONUS_SHIELD &&
-                entityType != protocol::EntityType::BONUS_SPEED) {
+                entityType != protocol::EntityType::BONUS_SPEED &&
+                entityType != protocol::EntityType::PROJECTILE_PLAYER &&
+                entityType != protocol::EntityType::PROJECTILE_ENEMY) {
                 zeroHealthRemovals.push_back(serverId);
             }
         }
