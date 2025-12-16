@@ -6,6 +6,7 @@
 */
 
 #include "Server.hpp"
+#include "ServerConfig.hpp"
 #include <iostream>
 #include <csignal>
 #include <memory>
@@ -25,7 +26,7 @@ void signal_handler(int signal) {
 
 int main(int argc, char* argv[]) {
     // Parse command line arguments
-    uint16_t port = 4242; // Default port
+    uint16_t port = rtype::server::config::DEFAULT_SERVER_PORT;
     if (argc > 1) {
         try {
             port = static_cast<uint16_t>(std::stoi(argv[1]));

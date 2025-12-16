@@ -16,7 +16,6 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode, prot
     , map_id_(map_id)
     , is_active_(true)
     , tick_count_(0)
-    , accumulated_time_(0.0f)
     , current_scroll_(0.0f)
     , session_start_time_(std::chrono::steady_clock::now())
     , snapshot_timer_(0.0f) {
@@ -67,9 +66,7 @@ void GameSession::add_player(uint32_t player_id, const std::string& player_name)
         spawn.spawn_y = config::PLAYER_SPAWN_Y_BASE + ((players_.size() - 1) * config::PLAYER_SPAWN_Y_OFFSET);
         spawn.subtype = 0;
         spawn.health = htons(config::PLAYER_MAX_HEALTH);
-        const uint8_t* bytes = reinterpret_cast<const uint8_t*>(&spawn);
-        std::vector<uint8_t> payload(bytes, bytes + sizeof(spawn));
-        entity_spawn_callback_(session_id_, payload);
+        entity_spawn_callback_(session_id_, serialize(spawn));
     }
 }
 
@@ -116,7 +113,6 @@ void GameSession::handle_input(uint32_t player_id, const protocol::ClientInputPa
 void GameSession::update(float delta_time) {
     if (!is_active_)
         return;
-    accumulated_time_ += delta_time;
     tick_count_++;
     snapshot_timer_ += delta_time;
     current_scroll_ += config::GAME_SCROLL_SPEED * delta_time;
@@ -201,9 +197,7 @@ void GameSession::spawn_enemy(const std::string& enemy_type, float x, float y) {
         spawn.spawn_y = y;  // Use exact Y from wave config
         spawn.subtype = static_cast<uint8_t>(subtype);
         spawn.health = htons(health);
-        const uint8_t* bytes = reinterpret_cast<const uint8_t*>(&spawn);
-        std::vector<uint8_t> payload(bytes, bytes + sizeof(spawn));
-        entity_spawn_callback_(session_id_, payload);
+        entity_spawn_callback_(session_id_, serialize(spawn));
     }
 }
 

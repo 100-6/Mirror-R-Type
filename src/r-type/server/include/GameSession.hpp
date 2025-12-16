@@ -137,7 +137,6 @@ private:
     WaveManager wave_manager_;
 
     uint32_t tick_count_;
-    float accumulated_time_;
     float current_scroll_;
     std::chrono::steady_clock::time_point session_start_time_;
 

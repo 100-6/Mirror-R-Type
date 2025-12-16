@@ -73,6 +73,7 @@ private:
     std::atomic<bool> running_;
 
     std::unordered_map<uint32_t, PlayerInfo> connected_clients_;
+    std::unordered_map<uint32_t, uint32_t> player_to_client_;  // player_id -> client_id (O(1) lookup)
     uint32_t next_player_id_;
 
     LobbyManager lobby_manager_;
@@ -108,7 +109,6 @@ private:
 
     uint32_t generate_player_id();
     uint32_t generate_session_id();
-    std::vector<uint8_t> serialize_payload(const void* payload, size_t size);
 };
 
 }
