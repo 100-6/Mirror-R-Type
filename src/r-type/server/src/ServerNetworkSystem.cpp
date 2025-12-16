@@ -11,6 +11,7 @@
 #include <iostream>
 #include <arpa/inet.h>
 #include <cstring>
+#include <cmath>
 
 namespace rtype::server {
 
@@ -36,10 +37,18 @@ void ServerNetworkSystem::update(Registry& registry, float dt)
         cooldown += dt;
     }
 
+    // Update enemy shoot cooldowns
+    for (auto& [enemy_id, cooldown] : enemy_shoot_cooldowns_) {
+        cooldown += dt;
+    }
+
     // 1. Process pending inputs from clients
     process_pending_inputs(registry);
 
-    // 2. Update projectile lifetimes
+    // 2. Update enemy shooting logic
+    update_enemy_shooting(registry, dt);
+
+    // 3. Update projectile lifetimes
     auto& projectiles = registry.get_components<Projectile>();
     for (size_t i = 0; i < projectiles.size(); ++i) {
         Entity entity = projectiles.get_entity_at(i);
@@ -349,6 +358,94 @@ void ServerNetworkSystem::spawn_projectile(Registry& registry, Entity owner, flo
 
     std::cout << "[ServerNetworkSystem " << session_id_ << "] Spawned projectile " << projectile
               << " from entity " << owner << " at (" << x << ", " << y << ")\n";
+}
+
+void ServerNetworkSystem::spawn_enemy_projectile(Registry& registry, Entity owner, float x, float y)
+{
+    Entity projectile = registry.spawn_entity();
+
+    // Add ECS components - projectile goes LEFT (negative velocity)
+    registry.add_component(projectile, Position{x, y});
+    registry.add_component(projectile, Velocity{-config::PROJECTILE_SPEED, 0.0f});  // ← Negative = left
+    registry.add_component(projectile, Collider{config::PROJECTILE_WIDTH, config::PROJECTILE_HEIGHT});
+    registry.add_component(projectile, Damage{config::PROJECTILE_DAMAGE});
+    registry.add_component(projectile, Projectile{0.0f, config::PROJECTILE_LIFETIME, 0.0f, ProjectileFaction::Enemy});  // ← Enemy faction!
+    registry.add_component(projectile, NoFriction{});
+
+    // Queue for network broadcast
+    protocol::ServerProjectileSpawnPayload spawn;
+    spawn.projectile_id = htonl(projectile);
+    spawn.owner_id = htonl(owner);
+    spawn.projectile_type = protocol::ProjectileType::BULLET;
+    spawn.spawn_x = x;
+    spawn.spawn_y = y;
+    spawn.velocity_x = static_cast<int16_t>(-config::PROJECTILE_SPEED);  // ← Negative!
+    spawn.velocity_y = 0;
+    pending_projectiles_.push(spawn);
+
+    std::cout << "[ServerNetworkSystem " << session_id_ << "] Enemy " << owner
+              << " spawned projectile " << projectile << " at (" << x << ", " << y << ")\n";
+}
+
+void ServerNetworkSystem::update_enemy_shooting(Registry& registry, float dt)
+{
+    if (!player_entities_)
+        return;
+
+    auto& enemies = registry.get_components<Enemy>();
+    auto& enemy_positions = registry.get_components<Position>();
+    auto& enemy_colliders = registry.get_components<Collider>();
+    auto& player_positions = registry.get_components<Position>();
+
+    // For each enemy
+    for (size_t i = 0; i < enemies.size(); ++i) {
+        Entity enemy = enemies.get_entity_at(i);
+
+        if (!enemy_positions.has_entity(enemy) || !enemy_colliders.has_entity(enemy))
+            continue;
+
+        Position& enemy_pos = enemy_positions[enemy];
+        Collider& enemy_col = enemy_colliders[enemy];
+
+        // Initialize cooldown if first time
+        if (enemy_shoot_cooldowns_.find(enemy) == enemy_shoot_cooldowns_.end()) {
+            enemy_shoot_cooldowns_[enemy] = ENEMY_SHOOT_COOLDOWN;  // Ready to shoot
+        }
+
+        // Check cooldown
+        if (enemy_shoot_cooldowns_[enemy] < ENEMY_SHOOT_COOLDOWN)
+            continue;
+
+        // Find nearest player
+        bool player_in_range = false;
+        for (const auto& [player_id, player_entity] : *player_entities_) {
+            if (!player_positions.has_entity(player_entity))
+                continue;
+
+            Position& player_pos = player_positions[player_entity];
+
+            // Calculate distance
+            float dx = player_pos.x - enemy_pos.x;
+            float dy = player_pos.y - enemy_pos.y;
+            float distance = std::sqrt(dx * dx + dy * dy);
+
+            // Check if player is in range and to the LEFT of enemy (dx < 0)
+            if (distance <= ENEMY_SHOOT_RANGE && dx < 0) {
+                player_in_range = true;
+                break;
+            }
+        }
+
+        // Shoot if player in range
+        if (player_in_range) {
+            // Spawn projectile at left edge of enemy, centered vertically
+            float spawn_x = enemy_pos.x;  // Left edge
+            float spawn_y = enemy_pos.y + enemy_col.height / 2.0f - config::PROJECTILE_HEIGHT / 2.0f;
+
+            spawn_enemy_projectile(registry, enemy, spawn_x, spawn_y);
+            enemy_shoot_cooldowns_[enemy] = 0.0f;  // Reset cooldown
+        }
+    }
 }
 
 } // namespace rtype::server
