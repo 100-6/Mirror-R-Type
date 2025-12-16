@@ -28,6 +28,9 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode, prot
     registry_.register_component<Health>();
     registry_.register_component<Controllable>();
     registry_.register_component<Enemy>();
+    registry_.register_component<Projectile>();
+    registry_.register_component<AI>();
+    registry_.register_component<Damage>();
     registry_.register_component<NoFriction>();
     registry_.register_component<ToDestroy>();
 
