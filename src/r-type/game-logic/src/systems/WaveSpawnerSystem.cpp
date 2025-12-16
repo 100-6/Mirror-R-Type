@@ -24,7 +24,7 @@ void WaveSpawnerSystem::init(Registry& registry)
     // Create a WaveController entity to track wave state
     Entity waveController = registry.spawn_entity();
     registry.add_component(waveController, WaveController{
-        "assets/waves_simple.json",
+        "assets/waves_hard_maze.json",
         0.0f,  // totalScrollDistance
         0,     // currentWaveIndex
         0,     // currentWaveNumber
@@ -33,7 +33,7 @@ void WaveSpawnerSystem::init(Registry& registry)
     });
 
     // Try to load default wave configuration
-    if (loadWaveConfiguration("assets/waves_simple.json")) {
+    if (loadWaveConfiguration("assets/waves_hard_maze.json")) {
         std::cout << "WaveSpawnerSystem: Loaded wave configuration with walls" << std::endl;
         // Update total wave count in the component
         auto& waveControllers = registry.get_components<WaveController>();

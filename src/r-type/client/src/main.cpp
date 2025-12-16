@@ -34,6 +34,12 @@
 #include "plugin_manager/PluginManager.hpp"
 #include "plugin_manager/IInputPlugin.hpp"
 #include "plugin_manager/IAudioPlugin.hpp"
+#include "plugin_manager/INetworkPlugin.hpp"
+#include "NetworkClient.hpp"
+#include "systems/ClientNetworkSystem.hpp"
+#include "protocol/PacketTypes.hpp"
+#include <thread>
+#include <chrono>
 
 int main() {
     // Configuration de la fenêtre
@@ -107,6 +113,71 @@ int main() {
                   << " v" << audioPlugin->get_version() << std::endl;
     } else {
         std::cout << "⚠️ Plugin audio non disponible." << std::endl;
+    }
+
+    // ==
+    // CHARGEMENT DU PLUGIN RESEAU (OPTIONNEL)
+    // ==
+    engine::INetworkPlugin* networkPlugin = nullptr;
+    std::cout << "Chargement du plugin réseau..." << std::endl;
+    try {
+#ifdef _WIN32
+        networkPlugin = pluginManager.load_plugin<engine::INetworkPlugin>(
+            "plugins/asio_network.dll",
+            "create_network_plugin"
+        );
+#else
+        networkPlugin = pluginManager.load_plugin<engine::INetworkPlugin>(
+            "plugins/asio_network.so",
+            "create_network_plugin"
+        );
+#endif
+    } catch (const engine::PluginException& e) {
+        std::cerr << "⚠️ Erreur plugin réseau (mode solo seulement): " << e.what() << std::endl;
+        networkPlugin = nullptr;
+    }
+
+    if (networkPlugin) {
+        std::cout << "✓ Plugin réseau chargé: " << networkPlugin->get_name()
+                  << " v" << networkPlugin->get_version() << std::endl;
+    } else {
+        std::cout << "⚠️ Plugin réseau non disponible - mode solo seulement." << std::endl;
+    }
+
+    // ==
+    // SELECTION DU MODE DE JEU
+    // ==
+    bool multiplayer_mode = false;
+    std::string server_host;
+    uint16_t server_port = 4242;
+    std::string player_name;
+
+    if (networkPlugin) {
+        std::cout << "\n=== MODE DE JEU ===" << std::endl;
+        std::cout << "1. Solo (local)" << std::endl;
+        std::cout << "2. Multijoueur (en ligne)" << std::endl;
+        std::cout << "Choix: ";
+
+        int choice;
+        std::cin >> choice;
+
+        if (choice == 2) {
+            multiplayer_mode = true;
+
+            std::cout << "\n=== CONNEXION MULTIJOUEUR ===" << std::endl;
+            std::cout << "Adresse serveur (default: localhost): ";
+            std::cin.ignore();
+            std::getline(std::cin, server_host);
+            if (server_host.empty()) server_host = "localhost";
+
+            std::cout << "Nom du joueur: ";
+            std::getline(std::cin, player_name);
+            if (player_name.empty()) player_name = "Player";
+
+            std::cout << "Connexion à " << server_host << ":" << server_port << "..." << std::endl;
+        } else {
+            std::cout << "Mode solo sélectionné." << std::endl;
+        }
     }
 
     // Créer la fenêtre via le plugin
@@ -213,7 +284,10 @@ int main() {
 
     // Wave Spawner System - charge la configuration et spawn les ennemis/murs
     // Note: init() sera appelé automatiquement par register_system
-    registry.register_system<WaveSpawnerSystem>(*graphicsPlugin);
+    // ONLY in solo mode (multiplayer uses server-side spawning)
+    if (!multiplayer_mode) {
+        registry.register_system<WaveSpawnerSystem>(*graphicsPlugin);
+    }
 
     // Bonus System - spawn et collecte des bonus (HP, Bouclier, Vitesse)
     registry.register_system<BonusSystem>(*graphicsPlugin, SCREEN_WIDTH, SCREEN_HEIGHT);
@@ -255,6 +329,101 @@ int main() {
     std::cout << "  17. HUDSystem          - Modern UI rendering (health bar, score, wave)" << std::endl;
     std::cout << "  18. GameStateSystem    - Game Over/Victory screens (uses UI components)" << std::endl;
     std::cout << std::endl;
+
+    // ==
+    // MULTIPLAYER SETUP (before systems registration)
+    // ==
+    std::unique_ptr<rtype::client::NetworkClient> networkClient;
+    uint32_t local_player_id = 0;
+    bool waiting_for_game = false;
+    Entity multiplayer_player_entity = 0;
+
+    if (multiplayer_mode && networkPlugin) {
+        networkClient = std::make_unique<rtype::client::NetworkClient>(*networkPlugin);
+
+        // Setup callbacks
+        networkClient->set_on_accepted([&](uint32_t player_id) {
+            local_player_id = player_id;
+            std::cout << "✓ Connecté au serveur! Player ID: " << player_id << std::endl;
+
+            // Auto-join DUO NORMAL lobby
+            std::cout << "Rejoindre le lobby DUO NORMAL..." << std::endl;
+            networkClient->send_join_lobby(
+                rtype::protocol::GameMode::DUO,
+                rtype::protocol::Difficulty::NORMAL);
+        });
+
+        networkClient->set_on_rejected([](uint8_t reason, const std::string& message) {
+            std::cerr << "❌ Connexion refusée: " << message << std::endl;
+        });
+
+        networkClient->set_on_lobby_state([](const rtype::protocol::ServerLobbyStatePayload& state) {
+            std::cout << "📋 Lobby: " << (int)state.current_player_count
+                      << "/" << (int)state.required_player_count << " joueurs" << std::endl;
+        });
+
+        networkClient->set_on_countdown([](uint8_t seconds) {
+            std::cout << "⏱️  Début dans " << (int)seconds << "s..." << std::endl;
+        });
+
+        networkClient->set_on_game_start([&](uint32_t session_id, uint16_t udp_port) {
+            std::cout << "🎮 GAME START! Session: " << session_id << std::endl;
+            waiting_for_game = false;
+        });
+
+        networkClient->set_on_disconnected([&]() {
+            std::cout << "❌ Déconnecté du serveur" << std::endl;
+        });
+
+        // Connect to server
+        if (!networkClient->connect(server_host, server_port)) {
+            std::cerr << "❌ Connexion échouée" << std::endl;
+            graphicsPlugin->shutdown();
+            if (audioPlugin) audioPlugin->shutdown();
+            return 1;
+        }
+
+        networkClient->send_connect(player_name);
+        waiting_for_game = true;
+
+        std::cout << "✓ NetworkClient initialisé" << std::endl;
+    }
+
+    // ClientNetworkSystem will be created after waiting for game start
+    std::shared_ptr<rtype::client::ClientNetworkSystem> clientNetworkSystem;
+
+    // ==
+    // WAITING LOBBY (MULTIPLAYER ONLY)
+    // ==
+    if (waiting_for_game) {
+        std::cout << "\n⏳ En attente d'autres joueurs...\n" << std::endl;
+
+        while (waiting_for_game && graphicsPlugin->is_window_open()) {
+            networkClient->update();
+
+            // Simple console-based waiting (no GUI in lobby for now)
+            // The window is created but we just wait
+
+            // Check for Escape to cancel
+            if (inputPlugin->is_key_pressed(engine::Key::Escape)) {
+                std::cout << "Annulation de la connexion..." << std::endl;
+                networkClient->disconnect();
+                graphicsPlugin->shutdown();
+                if (audioPlugin) audioPlugin->shutdown();
+                return 0;
+            }
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+
+        std::cout << "✓ Jeu démarré! UDP connecté." << std::endl;
+
+        // Now create ClientNetworkSystem
+        clientNetworkSystem = std::make_shared<rtype::client::ClientNetworkSystem>(
+            *networkClient, local_player_id, *inputPlugin);
+        clientNetworkSystem->init(registry);
+        std::cout << "✓ ClientNetworkSystem créé et initialisé" << std::endl;
+    }
 
     // ==
     // CREATION DU BACKGROUND (Défilement infini avec 2 images)
@@ -304,9 +473,13 @@ int main() {
     std::cout << std::endl;
 
     // ==
-    // CREATION DU JOUEUR
+    // CREATION DU JOUEUR (SOLO MODE ONLY)
     // ==
-    Entity player = registry.spawn_entity();
+    Entity player = 0;
+
+    if (!multiplayer_mode) {
+        // Solo mode: create local player
+        player = registry.spawn_entity();
     registry.add_component(player, Position{200.0f, SCREEN_HEIGHT / 2.0f});
     registry.add_component(player, Velocity{0.0f, 0.0f});
     registry.add_component(player, Input{});  // Component pour capturer les inputs
@@ -340,16 +513,21 @@ int main() {
     registry.add_component(player, Score{0});
     registry.add_component(player, Invulnerability{0.0f});
 
-    std::cout << "✓ Joueur cree avec sprite anime et arme BASIC" << std::endl;
-    std::cout << "  Position: (200, " << SCREEN_HEIGHT / 2.0f << ")" << std::endl;
-    std::cout << "  Taille: " << playerWidth << "x" << playerHeight << std::endl;
-    std::cout << "  Vitesse max: 300 pixels/s" << std::endl;
-    std::cout << "  Animation: 4 frames de flamme (100ms par frame)" << std::endl;
-    std::cout << "  Arme: BASIC" << std::endl;
-    std::cout << std::endl;
+        std::cout << "✓ Joueur cree avec sprite anime et arme CHARGE" << std::endl;
+        std::cout << "  Position: (200, " << SCREEN_HEIGHT / 2.0f << ")" << std::endl;
+        std::cout << "  Taille: " << playerWidth << "x" << playerHeight << std::endl;
+        std::cout << "  Vitesse max: 300 pixels/s" << std::endl;
+        std::cout << "  Animation: 4 frames de flamme (100ms par frame)" << std::endl;
+        std::cout << "  Arme: CHARGE" << std::endl;
+        std::cout << std::endl;
 
-    std::cout << "✓ Murs et ennemis seront spawnes par le WaveSpawnerSystem" << std::endl;
-    std::cout << std::endl;
+        std::cout << "✓ Murs et ennemis seront spawnes par le WaveSpawnerSystem" << std::endl;
+        std::cout << std::endl;
+    } else {
+        // Multiplayer mode: player will be spawned by server
+        std::cout << "✓ Mode multijoueur: le joueur sera créé par le serveur" << std::endl;
+        std::cout << std::endl;
+    }
 
     // ==
     // INSTRUCTIONS
@@ -393,6 +571,11 @@ int main() {
         debugTimer += dt;
 
         // === UPDATE ===
+        // Update ClientNetworkSystem first (if in multiplayer)
+        if (clientNetworkSystem) {
+            clientNetworkSystem->update(registry, dt);
+        }
+
         registry.run_systems(dt);
 
         // All HUD rendering is now handled by HUDSystem

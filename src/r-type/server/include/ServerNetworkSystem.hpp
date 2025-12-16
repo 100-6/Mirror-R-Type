@@ -105,6 +105,14 @@ private:
     void process_pending_inputs(Registry& registry);
 
     /**
+     * @brief Spawn a projectile from player
+     * @param registry ECS registry
+     * @param player_entity Player entity ID
+     * @param player_id Player network ID
+     */
+    void spawn_projectile(Registry& registry, Entity player_entity, uint32_t player_id);
+
+    /**
      * @brief Serialize and send state snapshot to clients
      */
     void send_state_snapshot(Registry& registry);

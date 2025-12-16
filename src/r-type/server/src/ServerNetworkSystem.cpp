@@ -81,6 +81,7 @@ void ServerNetworkSystem::process_pending_inputs(Registry& registry)
         return;
 
     auto& velocities = registry.get_components<Velocity>();
+    auto& weapons = registry.get_components<Weapon>();
 
     while (!pending_inputs_.empty()) {
         auto [player_id, input] = pending_inputs_.front();
@@ -111,11 +112,69 @@ void ServerNetworkSystem::process_pending_inputs(Registry& registry)
         if (input.is_right_pressed())
             vel.x = config::PLAYER_MOVEMENT_SPEED;
 
-        // TODO: Handle shooting
+        // Handle shooting with cooldown
         if (input.is_shoot_pressed()) {
-            // Spawn projectile entity
+            if (!weapons.has_entity(player_entity)) {
+                // Add weapon component if missing
+                Weapon weapon;
+                weapon.type = WeaponType::BASIC;
+                weapon.time_since_last_fire = 999.0f;
+                registry.add_component<Weapon>(player_entity, std::move(weapon));
+            }
+
+            Weapon& weapon = weapons[player_entity];
+
+            // Check cooldown (0.2 seconds for basic weapon)
+            if (weapon.time_since_last_fire >= 0.2f) {
+                spawn_projectile(registry, player_entity, player_id);
+                weapon.time_since_last_fire = 0.0f;
+            }
         }
     }
+}
+
+void ServerNetworkSystem::spawn_projectile(Registry& registry, Entity player_entity, uint32_t player_id)
+{
+    auto& positions = registry.get_components<Position>();
+
+    if (!positions.has_entity(player_entity)) {
+        return;
+    }
+
+    Position& player_pos = positions[player_entity];
+
+    // Create projectile entity
+    Entity projectile = registry.spawn_entity();
+
+    // Position: spawn in front of player
+    float spawn_x = player_pos.x + 40.0f;
+    float spawn_y = player_pos.y + 8.0f;
+    registry.add_component<Position>(projectile, Position{spawn_x, spawn_y});
+
+    // Velocity: fast horizontal
+    const float PROJECTILE_SPEED = 400.0f;
+    registry.add_component<Velocity>(projectile, Velocity{PROJECTILE_SPEED, 0.0f});
+
+    // Projectile component
+    Projectile proj;
+    proj.faction = ProjectileFaction::Player;
+    proj.angle = 0.0f;
+    proj.lifetime = 5.0f;
+    proj.time_alive = 0.0f;
+    registry.add_component<Projectile>(projectile, std::move(proj));
+
+    // Health (projectile can be destroyed on collision)
+    registry.add_component<Health>(projectile, Health{1, 1});
+
+    // Damage component
+    registry.add_component<Damage>(projectile, Damage{10});
+
+    // Queue spawn event for broadcast
+    queue_entity_spawn(projectile, protocol::EntityType::PROJECTILE_PLAYER,
+                      spawn_x, spawn_y, 1, 0);
+
+    std::cout << "[ServerNetworkSystem] Player " << player_id
+              << " spawned projectile at [" << spawn_x << ", " << spawn_y << "]\n";
 }
 
 void ServerNetworkSystem::send_state_snapshot(Registry& registry)
@@ -143,13 +202,60 @@ std::vector<uint8_t> ServerNetworkSystem::serialize_snapshot(Registry& registry)
     uint16_t entity_count = 0;
     std::vector<protocol::EntityState> entity_states;
 
+    auto& enemies = registry.get_components<Enemy>();
+    auto& projectiles = registry.get_components<Projectile>();
+    auto& controllables = registry.get_components<Controllable>();
+
     for (size_t i = 0; i < positions.size(); ++i) {
         Entity entity = positions.get_entity_at(i);
         Position& pos = positions.get_data_at(i);
 
         protocol::EntityState state;
         state.entity_id = htonl(entity);
-        state.entity_type = protocol::EntityType::PLAYER; // TODO: Distinguish entity types
+
+        // Determine entity type from components
+        if (controllables.has_entity(entity)) {
+            // Player entity
+            state.entity_type = protocol::EntityType::PLAYER;
+        } else if (projectiles.has_entity(entity)) {
+            // Projectile entity - check faction
+            Projectile& proj = projectiles[entity];
+            if (proj.faction == ProjectileFaction::Player) {
+                state.entity_type = protocol::EntityType::PROJECTILE_PLAYER;
+            } else {
+                state.entity_type = protocol::EntityType::PROJECTILE_ENEMY;
+            }
+        } else if (enemies.has_entity(entity)) {
+            // Enemy entity - check AI type if available
+            auto& ais = registry.get_components<AI>();
+            if (ais.has_entity(entity)) {
+                AI& ai = ais[entity];
+                switch (ai.type) {
+                    case EnemyType::Basic:
+                        state.entity_type = protocol::EntityType::ENEMY_BASIC;
+                        break;
+                    case EnemyType::Fast:
+                        state.entity_type = protocol::EntityType::ENEMY_FAST;
+                        break;
+                    case EnemyType::Tank:
+                        state.entity_type = protocol::EntityType::ENEMY_TANK;
+                        break;
+                    case EnemyType::Boss:
+                        state.entity_type = protocol::EntityType::ENEMY_BOSS;
+                        break;
+                    default:
+                        state.entity_type = protocol::EntityType::ENEMY_BASIC;
+                        break;
+                }
+            } else {
+                // Default to ENEMY_BASIC if no AI component
+                state.entity_type = protocol::EntityType::ENEMY_BASIC;
+            }
+        } else {
+            // Unknown entity type - default to PLAYER to avoid issues
+            state.entity_type = protocol::EntityType::PLAYER;
+        }
+
         state.position_x = pos.x;
         state.position_y = pos.y;
 

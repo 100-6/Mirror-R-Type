@@ -200,11 +200,7 @@ void NetworkClient::handle_packet(const engine::NetworkPacket& packet) {
             break;
         case protocol::PacketType::SERVER_SNAPSHOT:
         case protocol::PacketType::SERVER_DELTA_SNAPSHOT:
-            // TODO: Handle game state snapshots when in game
-            // For now, silently ignore if not in game
-            if (in_game_) {
-                // Process snapshot
-            }
+            handle_snapshot(payload);
             break;
         default:
             std::cout << "[NetworkClient] Unhandled packet type: 0x" << std::hex
@@ -365,6 +361,58 @@ void NetworkClient::handle_game_over(const std::vector<uint8_t>& payload) {
         on_game_over_(game_over);
 }
 
+void NetworkClient::handle_snapshot(const std::vector<uint8_t>& payload) {
+    if (!in_game_) {
+        return; // Ignore snapshots if not in game
+    }
+
+    if (payload.size() < sizeof(protocol::ServerSnapshotPayload)) {
+        return; // Invalid packet
+    }
+
+    // Decode snapshot header
+    protocol::ServerSnapshotPayload header;
+    std::memcpy(&header, payload.data(), sizeof(header));
+
+    // Convert from network byte order
+    uint32_t server_tick = ntohl(header.server_tick);
+    uint16_t entity_count = ntohs(header.entity_count);
+
+    // Extract entity states
+    std::vector<protocol::EntityState> entities;
+    entities.reserve(entity_count);
+
+    size_t offset = sizeof(protocol::ServerSnapshotPayload);
+
+    for (uint16_t i = 0; i < entity_count; ++i) {
+        if (offset + sizeof(protocol::EntityState) > payload.size()) {
+            std::cerr << "[NetworkClient] Malformed snapshot packet (expected "
+                      << entity_count << " entities, got " << i << ")\n";
+            break; // Malformed packet
+        }
+
+        protocol::EntityState state;
+        std::memcpy(&state, payload.data() + offset, sizeof(state));
+
+        // Convert from network byte order
+        state.entity_id = ntohl(state.entity_id);
+        state.velocity_x = ntohs(state.velocity_x);
+        state.velocity_y = ntohs(state.velocity_y);
+        state.health = ntohs(state.health);
+        state.flags = ntohs(state.flags);
+        // Note: floats (position_x, position_y) are already in correct byte order
+        // as they are transmitted as raw bytes (IEEE 754 is platform-independent for x86/x64)
+
+        entities.push_back(state);
+        offset += sizeof(protocol::EntityState);
+    }
+
+    // Fire callback with parsed entities
+    if (on_snapshot_) {
+        on_snapshot_(server_tick, entities);
+    }
+}
+
 // ============== UDP Connection ==============
 
 void NetworkClient::connect_udp(uint16_t udp_port) {
@@ -476,6 +524,10 @@ void NetworkClient::set_on_game_over(std::function<void(const protocol::ServerGa
 
 void NetworkClient::set_on_disconnected(std::function<void()> callback) {
     on_disconnected_ = callback;
+}
+
+void NetworkClient::set_on_snapshot(std::function<void(uint32_t, const std::vector<protocol::EntityState>&)> callback) {
+    on_snapshot_ = callback;
 }
 
 }
