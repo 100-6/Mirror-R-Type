@@ -206,6 +206,8 @@ static uint16_t gather_input(engine::IInputPlugin& inputPlugin)
         flags |= static_cast<uint16_t>(protocol::InputFlags::INPUT_CHARGE);
     if (pressed(engine::Key::LControl) || pressed(engine::Key::RControl))
         flags |= static_cast<uint16_t>(protocol::InputFlags::INPUT_SPECIAL);
+    if (pressed(engine::Key::E))
+        flags |= static_cast<uint16_t>(protocol::InputFlags::INPUT_SWITCH_WEAPON);
 
     return flags;
 }
@@ -659,12 +661,15 @@ int main(int argc, char* argv[])
     client.set_on_projectile_spawn([&](const protocol::ServerProjectileSpawnPayload& proj) {
         uint32_t projId = ntohl(proj.projectile_id);
         uint32_t ownerId = ntohl(proj.owner_id);
+        std::cout << "[Client] Received projectile spawn: id=" << projId << " owner=" << ownerId << " pos=(" << proj.spawn_x << "," << proj.spawn_y << ")\n";
+
         protocol::EntityType projType = protocol::EntityType::PROJECTILE_PLAYER;
         auto ownerIt = remoteWorld.serverTypes.find(ownerId);
         if (ownerIt != remoteWorld.serverTypes.end() && ownerIt->second != protocol::EntityType::PLAYER)
             projType = protocol::EntityType::PROJECTILE_ENEMY;
 
         Entity entity = spawn_or_update_entity(projId, projType, proj.spawn_x, proj.spawn_y, 1, 0);
+        std::cout << "[Client] Created projectile entity: " << entity << " type=" << (int)projType << "\n";
         auto& velocities = registry.get_components<Velocity>();
         float velX = static_cast<float>(proj.velocity_x);
         float velY = static_cast<float>(proj.velocity_y);

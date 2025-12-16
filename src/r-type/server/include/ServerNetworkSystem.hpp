@@ -13,6 +13,7 @@
 #include "protocol/PacketTypes.hpp"
 #include "protocol/Payloads.hpp"
 #include "ServerConfig.hpp"
+#include "core/event/EventBus.hpp"
 
 #include <functional>
 #include <queue>
@@ -150,6 +151,13 @@ private:
     // Cooldown tracking for shooting (player_id -> time since last shot)
     std::unordered_map<uint32_t, float> shoot_cooldowns_;
     static constexpr float SHOOT_COOLDOWN = 0.2f;  // 200ms between shots
+    
+    // Switch cooldown tracking
+    std::unordered_map<uint32_t, float> switch_cooldowns_;
+    static constexpr float SWITCH_COOLDOWN = 0.5f;
+
+    // Event subscription
+    core::EventBus::SubscriptionId shotFiredSubId_;
 
     // Callbacks to Server for actual network send
     SnapshotCallback snapshot_callback_;

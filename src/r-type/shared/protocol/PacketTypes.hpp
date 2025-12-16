@@ -185,6 +185,8 @@ enum class GameResult : uint8_t {
  * - Bit 5: CHARGE
  * - Bit 6: SPECIAL
  * - Bits 7-15: Reserved (must be 0)
+ * - Bit 7: SWITCH_WEAPON
+ * - Bits 8-15: Reserved (must be 0)
  */
 enum InputFlags : uint16_t {
     INPUT_UP = 1 << 0,
@@ -194,6 +196,7 @@ enum InputFlags : uint16_t {
     INPUT_SHOOT = 1 << 4,
     INPUT_CHARGE = 1 << 5,
     INPUT_SPECIAL = 1 << 6,
+    INPUT_SWITCH_WEAPON = 1 << 7,
 };
 
 /**

@@ -282,6 +282,7 @@ struct __attribute__((packed)) ClientInputPayload {
     bool is_shoot_pressed() const { return (input_flags & INPUT_SHOOT) != 0; }
     bool is_charge_pressed() const { return (input_flags & INPUT_CHARGE) != 0; }
     bool is_special_pressed() const { return (input_flags & INPUT_SPECIAL) != 0; }
+    bool is_switch_weapon_pressed() const { return (input_flags & INPUT_SWITCH_WEAPON) != 0; }
 };
 
 static_assert(sizeof(ClientInputPayload) == 10, "ClientInputPayload must be 10 bytes");

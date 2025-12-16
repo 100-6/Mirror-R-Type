@@ -12,11 +12,12 @@
 #include "ecs/Registry.hpp"
 #include "components/GameComponents.hpp"
 #include "plugin_manager/IGraphicsPlugin.hpp"
+#include <optional>
 #include <random>
 
 class BonusSystem : public ISystem {
 public:
-    BonusSystem(engine::IGraphicsPlugin& graphics, int screenWidth, int screenHeight);
+    BonusSystem(engine::IGraphicsPlugin* graphics = nullptr, int screenWidth = 1920, int screenHeight = 1080);
     ~BonusSystem() override = default;
 
     void init(Registry& registry) override;
@@ -24,7 +25,7 @@ public:
     void shutdown() override;
 
 private:
-    engine::IGraphicsPlugin& graphicsPlugin_;
+    engine::IGraphicsPlugin* graphicsPlugin_;
     int screenWidth_;
     int screenHeight_;
 

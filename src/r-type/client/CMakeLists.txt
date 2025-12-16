@@ -1,6 +1,6 @@
 # client/CMakeLists.txt
 
-# Solo client (now network-aware gameplay)
+# R-Type Network Client - Multiplayer graphical client
 set(RTYPE_CLIENT_SOURCES
     src/main.cpp
     src/NetworkClient.cpp
@@ -23,61 +23,6 @@ target_link_libraries(r-type_client
 
 # Ensure the client can find shared libraries at runtime
 set_target_properties(r-type_client PROPERTIES
-    INSTALL_RPATH "$ORIGIN"
-    BUILD_WITH_INSTALL_RPATH TRUE
-)
-
-# ============================================================
-# NETWORK CLIENT - Multiplayer graphical client (same entry as r-type_client)
-# ============================================================
-# This target exists for backward compatibility with build
-# scripts that still expect r-type_network_client.
-# ============================================================
-add_executable(r-type_network_client ${RTYPE_CLIENT_SOURCES})
-
-target_include_directories(r-type_network_client
-    PRIVATE
-        ${CMAKE_SOURCE_DIR}/src/engine/include
-        ${CMAKE_CURRENT_SOURCE_DIR}/include
-        ${CMAKE_SOURCE_DIR}/src/r-type/shared
-)
-
-target_link_libraries(r-type_network_client
-    PRIVATE
-        game_engine
-        rtype_logic
-)
-
-set_target_properties(r-type_network_client PROPERTIES
-    INSTALL_RPATH "$ORIGIN"
-    BUILD_WITH_INSTALL_RPATH TRUE
-)
-
-# ============================================================
-# TEST CLIENT - Network testing only
-# ============================================================
-# This is a separate executable for testing the TCP/UDP
-# networking implementation without the game graphics.
-# Usage: ./r-type_test_client [host] [port]
-# ============================================================
-add_executable(r-type_test_client
-    src/test_network.cpp
-    src/NetworkClient.cpp
-)
-
-target_include_directories(r-type_test_client
-    PRIVATE
-        ${CMAKE_SOURCE_DIR}/src/engine/include
-        ${CMAKE_CURRENT_SOURCE_DIR}/include
-        ${CMAKE_SOURCE_DIR}/src/r-type/shared
-)
-
-target_link_libraries(r-type_test_client
-    PRIVATE
-        game_engine
-)
-
-set_target_properties(r-type_test_client PROPERTIES
     INSTALL_RPATH "$ORIGIN"
     BUILD_WITH_INSTALL_RPATH TRUE
 )
