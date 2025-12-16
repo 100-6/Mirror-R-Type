@@ -71,8 +71,8 @@ if(GTest_FOUND)
         PRIVATE
             game_engine
             rtype_logic
-            ${GTEST_LIBRARIES}
-            ${GTEST_MAIN_LIBRARIES}
+            GTest::gtest
+            GTest::gtest_main
             Threads::Threads
     )
     add_test(NAME CollisionSystemGTestSuite COMMAND test_collision_system)
@@ -85,8 +85,8 @@ if(GTest_FOUND)
     target_link_libraries(test_movement_system
         PRIVATE
             game_engine
-            ${GTEST_LIBRARIES}
-            ${GTEST_MAIN_LIBRARIES}
+            GTest::gtest
+            GTest::gtest_main
             Threads::Threads
     )
     add_test(NAME MovementSystemGTestSuite COMMAND test_movement_system)
