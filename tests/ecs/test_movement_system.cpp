@@ -7,8 +7,10 @@
 
 #include <gtest/gtest.h>
 #include "ecs/Registry.hpp"
-#include "components/GameComponents.hpp"
+#include "ecs/CoreComponents.hpp"
 #include "ecs/systems/MovementSystem.hpp"
+#include "ecs/events/InputEvents.hpp"
+#include "core/event/EventBus.hpp"
 #include <cmath>
 
 // Helper function to compare floats with tolerance
@@ -29,12 +31,20 @@ protected:
         // Register all necessary components
         registry.register_component<Position>();
         registry.register_component<Velocity>();
-        registry.register_component<Input>();
         registry.register_component<Controllable>();
+
+        // Initialize the movement system (subscribes to events)
+        movementSystem.init(registry);
     }
 
     void TearDown() override {
-        // Cleanup if needed
+        movementSystem.shutdown();
+    }
+
+    // Helper to publish a move event and process it
+    void publishMoveEvent(Entity entity, float dirX, float dirY) {
+        auto& eventBus = registry.get_event_bus();
+        eventBus.publish(ecs::PlayerMoveEvent(entity, dirX, dirY));
     }
 };
 
@@ -42,19 +52,18 @@ protected:
 // BASIC MOVEMENT TESTS
 // ============================================================================
 
-TEST_F(MovementSystemTest, NoMovementWhenNoInput) {
-    // Create entity with all components but no input
+TEST_F(MovementSystemTest, NoMovementWhenNoDirection) {
+    // Create entity with all components but no direction
     Entity entity = registry.spawn_entity();
     registry.add_component(entity, Position{100.0f, 100.0f});
     registry.add_component(entity, Velocity{0.0f, 0.0f});
-    registry.add_component(entity, Input{false, false, false, false});
     registry.add_component(entity, Controllable{200.0f});
 
-    movementSystem.update(registry, 0.016f);
+    publishMoveEvent(entity, 0.0f, 0.0f);
 
     auto& velocity = registry.get_components<Velocity>()[entity];
 
-    // Velocity should be zero with no input
+    // Velocity should be zero with no direction
     EXPECT_FLOAT_EQ(velocity.x, 0.0f);
     EXPECT_FLOAT_EQ(velocity.y, 0.0f);
 }
@@ -64,10 +73,9 @@ TEST_F(MovementSystemTest, MoveUpOnly) {
     Entity entity = registry.spawn_entity();
     registry.add_component(entity, Position{100.0f, 100.0f});
     registry.add_component(entity, Velocity{0.0f, 0.0f});
-    registry.add_component(entity, Input{true, false, false, false});
     registry.add_component(entity, Controllable{200.0f});
 
-    movementSystem.update(registry, 0.016f);
+    publishMoveEvent(entity, 0.0f, -1.0f);
 
     auto& velocity = registry.get_components<Velocity>()[entity];
 
@@ -81,10 +89,9 @@ TEST_F(MovementSystemTest, MoveDownOnly) {
     Entity entity = registry.spawn_entity();
     registry.add_component(entity, Position{100.0f, 100.0f});
     registry.add_component(entity, Velocity{0.0f, 0.0f});
-    registry.add_component(entity, Input{false, true, false, false});
     registry.add_component(entity, Controllable{200.0f});
 
-    movementSystem.update(registry, 0.016f);
+    publishMoveEvent(entity, 0.0f, 1.0f);
 
     auto& velocity = registry.get_components<Velocity>()[entity];
 
@@ -98,10 +105,9 @@ TEST_F(MovementSystemTest, MoveLeftOnly) {
     Entity entity = registry.spawn_entity();
     registry.add_component(entity, Position{100.0f, 100.0f});
     registry.add_component(entity, Velocity{0.0f, 0.0f});
-    registry.add_component(entity, Input{false, false, true, false});
     registry.add_component(entity, Controllable{200.0f});
 
-    movementSystem.update(registry, 0.016f);
+    publishMoveEvent(entity, -1.0f, 0.0f);
 
     auto& velocity = registry.get_components<Velocity>()[entity];
 
@@ -115,10 +121,9 @@ TEST_F(MovementSystemTest, MoveRightOnly) {
     Entity entity = registry.spawn_entity();
     registry.add_component(entity, Position{100.0f, 100.0f});
     registry.add_component(entity, Velocity{0.0f, 0.0f});
-    registry.add_component(entity, Input{false, false, false, true});
     registry.add_component(entity, Controllable{200.0f});
 
-    movementSystem.update(registry, 0.016f);
+    publishMoveEvent(entity, 1.0f, 0.0f);
 
     auto& velocity = registry.get_components<Velocity>()[entity];
 
@@ -136,10 +141,9 @@ TEST_F(MovementSystemTest, DiagonalMovementIsNormalized_UpRight) {
     Entity entity = registry.spawn_entity();
     registry.add_component(entity, Position{100.0f, 100.0f});
     registry.add_component(entity, Velocity{0.0f, 0.0f});
-    registry.add_component(entity, Input{true, false, false, true});
     registry.add_component(entity, Controllable{200.0f});
 
-    movementSystem.update(registry, 0.016f);
+    publishMoveEvent(entity, 1.0f, -1.0f);
 
     auto& velocity = registry.get_components<Velocity>()[entity];
 
@@ -163,10 +167,9 @@ TEST_F(MovementSystemTest, DiagonalMovementIsNormalized_DownLeft) {
     Entity entity = registry.spawn_entity();
     registry.add_component(entity, Position{100.0f, 100.0f});
     registry.add_component(entity, Velocity{0.0f, 0.0f});
-    registry.add_component(entity, Input{false, true, true, false});
     registry.add_component(entity, Controllable{200.0f});
 
-    movementSystem.update(registry, 0.016f);
+    publishMoveEvent(entity, -1.0f, 1.0f);
 
     auto& velocity = registry.get_components<Velocity>()[entity];
 
@@ -189,10 +192,9 @@ TEST_F(MovementSystemTest, DiagonalMovementIsNormalized_UpLeft) {
     Entity entity = registry.spawn_entity();
     registry.add_component(entity, Position{100.0f, 100.0f});
     registry.add_component(entity, Velocity{0.0f, 0.0f});
-    registry.add_component(entity, Input{true, false, true, false});
     registry.add_component(entity, Controllable{150.0f});
 
-    movementSystem.update(registry, 0.016f);
+    publishMoveEvent(entity, -1.0f, -1.0f);
 
     auto& velocity = registry.get_components<Velocity>()[entity];
 
@@ -212,10 +214,9 @@ TEST_F(MovementSystemTest, DiagonalMovementIsNormalized_DownRight) {
     Entity entity = registry.spawn_entity();
     registry.add_component(entity, Position{100.0f, 100.0f});
     registry.add_component(entity, Velocity{0.0f, 0.0f});
-    registry.add_component(entity, Input{false, true, false, true});
     registry.add_component(entity, Controllable{300.0f});
 
-    movementSystem.update(registry, 0.016f);
+    publishMoveEvent(entity, 1.0f, 1.0f);
 
     auto& velocity = registry.get_components<Velocity>()[entity];
 
@@ -231,61 +232,6 @@ TEST_F(MovementSystemTest, DiagonalMovementIsNormalized_DownRight) {
 }
 
 // ============================================================================
-// OPPOSITE DIRECTIONS CANCEL OUT
-// ============================================================================
-
-TEST_F(MovementSystemTest, OppositeDirectionsCancel_UpDown) {
-    // Create entity with opposite vertical inputs
-    Entity entity = registry.spawn_entity();
-    registry.add_component(entity, Position{100.0f, 100.0f});
-    registry.add_component(entity, Velocity{0.0f, 0.0f});
-    registry.add_component(entity, Input{true, true, false, false});
-    registry.add_component(entity, Controllable{200.0f});
-
-    movementSystem.update(registry, 0.016f);
-
-    auto& velocity = registry.get_components<Velocity>()[entity];
-
-    // Opposite directions should cancel out
-    EXPECT_FLOAT_EQ(velocity.x, 0.0f);
-    EXPECT_FLOAT_EQ(velocity.y, 0.0f);
-}
-
-TEST_F(MovementSystemTest, OppositeDirectionsCancel_LeftRight) {
-    // Create entity with opposite horizontal inputs
-    Entity entity = registry.spawn_entity();
-    registry.add_component(entity, Position{100.0f, 100.0f});
-    registry.add_component(entity, Velocity{0.0f, 0.0f});
-    registry.add_component(entity, Input{false, false, true, true});
-    registry.add_component(entity, Controllable{200.0f});
-
-    movementSystem.update(registry, 0.016f);
-
-    auto& velocity = registry.get_components<Velocity>()[entity];
-
-    // Opposite directions should cancel out
-    EXPECT_FLOAT_EQ(velocity.x, 0.0f);
-    EXPECT_FLOAT_EQ(velocity.y, 0.0f);
-}
-
-TEST_F(MovementSystemTest, AllDirectionsCancelOut) {
-    // Create entity with all inputs pressed
-    Entity entity = registry.spawn_entity();
-    registry.add_component(entity, Position{100.0f, 100.0f});
-    registry.add_component(entity, Velocity{0.0f, 0.0f});
-    registry.add_component(entity, Input{true, true, true, true});
-    registry.add_component(entity, Controllable{200.0f});
-
-    movementSystem.update(registry, 0.016f);
-
-    auto& velocity = registry.get_components<Velocity>()[entity];
-
-    // All directions should cancel out
-    EXPECT_FLOAT_EQ(velocity.x, 0.0f);
-    EXPECT_FLOAT_EQ(velocity.y, 0.0f);
-}
-
-// ============================================================================
 // DIFFERENT SPEED TESTS
 // ============================================================================
 
@@ -294,17 +240,16 @@ TEST_F(MovementSystemTest, DifferentSpeedValues) {
     Entity entity1 = registry.spawn_entity();
     registry.add_component(entity1, Position{100.0f, 100.0f});
     registry.add_component(entity1, Velocity{0.0f, 0.0f});
-    registry.add_component(entity1, Input{false, false, false, true});
     registry.add_component(entity1, Controllable{100.0f});
 
     // Test with speed = 500
     Entity entity2 = registry.spawn_entity();
     registry.add_component(entity2, Position{200.0f, 200.0f});
     registry.add_component(entity2, Velocity{0.0f, 0.0f});
-    registry.add_component(entity2, Input{false, false, false, true});
     registry.add_component(entity2, Controllable{500.0f});
 
-    movementSystem.update(registry, 0.016f);
+    publishMoveEvent(entity1, 1.0f, 0.0f);
+    publishMoveEvent(entity2, 1.0f, 0.0f);
 
     auto& velocities = registry.get_components<Velocity>();
 
@@ -325,22 +270,10 @@ TEST_F(MovementSystemTest, EntityWithoutVelocityIsIgnored) {
     // Create entity without Velocity component
     Entity entity = registry.spawn_entity();
     registry.add_component(entity, Position{100.0f, 100.0f});
-    registry.add_component(entity, Input{false, false, false, true});
     registry.add_component(entity, Controllable{200.0f});
 
     // Should not crash
-    EXPECT_NO_THROW(movementSystem.update(registry, 0.016f));
-}
-
-TEST_F(MovementSystemTest, EntityWithoutInputIsIgnored) {
-    // Create entity without Input component
-    Entity entity = registry.spawn_entity();
-    registry.add_component(entity, Position{100.0f, 100.0f});
-    registry.add_component(entity, Velocity{0.0f, 0.0f});
-    registry.add_component(entity, Controllable{200.0f});
-
-    // Should not crash
-    EXPECT_NO_THROW(movementSystem.update(registry, 0.016f));
+    EXPECT_NO_THROW(publishMoveEvent(entity, 1.0f, 0.0f));
 }
 
 TEST_F(MovementSystemTest, EntityWithoutControllableIsIgnored) {
@@ -348,7 +281,6 @@ TEST_F(MovementSystemTest, EntityWithoutControllableIsIgnored) {
     Entity entity = registry.spawn_entity();
     registry.add_component(entity, Position{100.0f, 100.0f});
     registry.add_component(entity, Velocity{0.0f, 0.0f});
-    registry.add_component(entity, Input{false, false, false, true});
 
     auto& velocity = registry.get_components<Velocity>()[entity];
 
@@ -356,7 +288,7 @@ TEST_F(MovementSystemTest, EntityWithoutControllableIsIgnored) {
     float initialVelX = velocity.x;
     float initialVelY = velocity.y;
 
-    movementSystem.update(registry, 0.016f);
+    publishMoveEvent(entity, 1.0f, 0.0f);
 
     // Velocity should not change (entity is ignored)
     EXPECT_FLOAT_EQ(velocity.x, initialVelX);
@@ -367,29 +299,28 @@ TEST_F(MovementSystemTest, EntityWithoutControllableIsIgnored) {
 // MULTIPLE ENTITIES TEST
 // ============================================================================
 
-TEST_F(MovementSystemTest, MultipleEntitiesWithDifferentInputs) {
+TEST_F(MovementSystemTest, MultipleEntitiesWithDifferentDirections) {
     // Entity 1: moving right
     Entity entity1 = registry.spawn_entity();
     registry.add_component(entity1, Position{100.0f, 100.0f});
     registry.add_component(entity1, Velocity{0.0f, 0.0f});
-    registry.add_component(entity1, Input{false, false, false, true});
     registry.add_component(entity1, Controllable{200.0f});
 
     // Entity 2: moving up
     Entity entity2 = registry.spawn_entity();
     registry.add_component(entity2, Position{200.0f, 200.0f});
     registry.add_component(entity2, Velocity{0.0f, 0.0f});
-    registry.add_component(entity2, Input{true, false, false, false});
     registry.add_component(entity2, Controllable{150.0f});
 
     // Entity 3: moving diagonally down-left
     Entity entity3 = registry.spawn_entity();
     registry.add_component(entity3, Position{300.0f, 300.0f});
     registry.add_component(entity3, Velocity{0.0f, 0.0f});
-    registry.add_component(entity3, Input{false, true, true, false});
     registry.add_component(entity3, Controllable{100.0f});
 
-    movementSystem.update(registry, 0.016f);
+    publishMoveEvent(entity1, 1.0f, 0.0f);
+    publishMoveEvent(entity2, 0.0f, -1.0f);
+    publishMoveEvent(entity3, -1.0f, 1.0f);
 
     auto& velocities = registry.get_components<Velocity>();
 
@@ -411,21 +342,19 @@ TEST_F(MovementSystemTest, MultipleEntitiesWithDifferentInputs) {
 // SYSTEM LIFECYCLE TESTS
 // ============================================================================
 
-TEST_F(MovementSystemTest, InitAndShutdownDoNotCrash) {
-    // Test that init and shutdown work correctly
-    EXPECT_NO_THROW(movementSystem.init(registry));
-    EXPECT_NO_THROW(movementSystem.shutdown());
-}
-
 TEST_F(MovementSystemTest, UpdateWithEmptyRegistryDoesNotCrash) {
     // Test that update works with no entities
     Registry emptyRegistry;
     emptyRegistry.register_component<Position>();
     emptyRegistry.register_component<Velocity>();
-    emptyRegistry.register_component<Input>();
     emptyRegistry.register_component<Controllable>();
 
-    EXPECT_NO_THROW(movementSystem.update(emptyRegistry, 0.016f));
+    MovementSystem emptyMovementSystem;
+    emptyMovementSystem.init(emptyRegistry);
+
+    EXPECT_NO_THROW(emptyMovementSystem.update(emptyRegistry, 0.016f));
+
+    emptyMovementSystem.shutdown();
 }
 
 // ============================================================================
