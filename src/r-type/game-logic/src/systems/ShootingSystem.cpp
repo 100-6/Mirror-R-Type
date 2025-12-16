@@ -299,6 +299,7 @@ void ShootingSystem::createProjectiles(Registry& registry, Entity shooter, Weapo
 
         Entity projectile = registry.spawn_entity();
 
+        // Positionner le projectile à l'extrémité droite du vaisseau
         float bulletOffsetX = shooterWidth + 5.0f;
         float bulletOffsetY = (shooterHeight / 2.0f) - (actual_height / 2.0f);
 

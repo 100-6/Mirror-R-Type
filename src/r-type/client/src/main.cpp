@@ -11,6 +11,7 @@
 #include "components/CombatHelpers.hpp"
 #include "cmath"
 #include "ecs/systems/InputSystem.hpp"
+#include "ecs/systems/SpriteAnimationSystem.hpp"
 #include "systems/PlayerInputSystem.hpp"
 #include "ecs/systems/MovementSystem.hpp"
 #include "systems/ShootingSystem.hpp"
@@ -27,6 +28,8 @@
 #include "systems/AISystem.hpp"
 #include "systems/WaveSpawnerSystem.hpp"
 #include "systems/BonusSystem.hpp"
+#include "systems/HUDSystem.hpp"
+#include "systems/GameStateSystem.hpp"
 #include "systems/AttachmentSystem.hpp"
 #include "plugin_manager/PluginManager.hpp"
 #include "plugin_manager/IInputPlugin.hpp"
@@ -122,10 +125,13 @@ int main() {
     std::cout << "Chargement des textures depuis assets/sprite/..." << std::endl;
 
     engine::TextureHandle backgroundTex = graphicsPlugin->load_texture("assets/sprite/symmetry.png");
-    engine::TextureHandle playerTex = graphicsPlugin->load_texture("assets/sprite/player.png");
+    engine::TextureHandle playerTex1 = graphicsPlugin->load_texture("assets/sprite/ship1.png");
+    engine::TextureHandle playerTex2 = graphicsPlugin->load_texture("assets/sprite/ship2.png");
+    engine::TextureHandle playerTex3 = graphicsPlugin->load_texture("assets/sprite/ship3.png");
+    engine::TextureHandle playerTex4 = graphicsPlugin->load_texture("assets/sprite/ship4.png");
     engine::TextureHandle bulletTex = graphicsPlugin->load_texture("assets/sprite/bullet.png");
 
-    if (backgroundTex == 0 || playerTex == 0 || bulletTex == 0) {
+    if (backgroundTex == 0 || playerTex1 == 0 || playerTex2 == 0 || playerTex3 == 0 || playerTex4 == 0 || bulletTex == 0) {
         std::cerr << "❌ Erreur lors du chargement des textures" << std::endl;
         graphicsPlugin->shutdown();
         if (audioPlugin) audioPlugin->shutdown();
@@ -133,11 +139,11 @@ int main() {
     }
 
     // Récupérer les tailles des textures
-    engine::Vector2f playerSize = graphicsPlugin->get_texture_size(playerTex);
+    engine::Vector2f playerSize = graphicsPlugin->get_texture_size(playerTex1);
     engine::Vector2f bulletSize = graphicsPlugin->get_texture_size(bulletTex);
 
     // Calculer les échelles pour des tailles de jeu raisonnables
-    const float PLAYER_SCALE = 1.00f;  // 256x128 -> 64x32 pixels
+    const float PLAYER_SCALE = 0.20f;  // Réduction pour taille de jeu raisonnable
     const float BULLET_SCALE = 1.00f;   // 93x10 -> 74x8 pixels
 
     float playerWidth = playerSize.x * PLAYER_SCALE;
@@ -180,6 +186,7 @@ int main() {
     registry.register_component<SpeedBoost>();
     registry.register_component<CircleEffect>();
     registry.register_component<TextEffect>();
+    registry.register_component<SpriteAnimation>();
     registry.register_component<Attached>();
 
     std::cout << "✓ Composants enregistres" << std::endl;
@@ -211,11 +218,20 @@ int main() {
     // Bonus System - spawn et collecte des bonus (HP, Bouclier, Vitesse)
     registry.register_system<BonusSystem>(*graphicsPlugin, SCREEN_WIDTH, SCREEN_HEIGHT);
 
+    // Sprite Animation System - gere les animations de sprites
+    registry.register_system<SpriteAnimationSystem>();
+
     if (audioPlugin) {
         registry.register_system<AudioSystem>(*audioPlugin);
     }
     registry.register_system<DestroySystem>();
     registry.register_system<RenderSystem>(*graphicsPlugin);
+
+    // HUD System - modern UI rendering (health bar, score, wave, etc.)
+    registry.register_system<HUDSystem>(*graphicsPlugin, SCREEN_WIDTH, SCREEN_HEIGHT);
+
+    // GameState System - manages game over/victory screens using UI components
+    registry.register_system<GameStateSystem>(*graphicsPlugin, SCREEN_WIDTH, SCREEN_HEIGHT);
 
     std::cout << "✓ Systemes enregistres :" << std::endl;
     std::cout << "  1. InputSystem         - Capture raw key states from plugin" << std::endl;
@@ -236,6 +252,8 @@ int main() {
     }
     std::cout << "  15. DestroySystem      - Detruit les entites marquees pour destruction" << std::endl;
     std::cout << "  16. RenderSystem       - Rendu des sprites via plugin graphique" << std::endl;
+    std::cout << "  17. HUDSystem          - Modern UI rendering (health bar, score, wave)" << std::endl;
+    std::cout << "  18. GameStateSystem    - Game Over/Victory screens (uses UI components)" << std::endl;
     std::cout << std::endl;
 
     // ==
@@ -295,7 +313,7 @@ int main() {
     registry.add_component(player, Collider{playerWidth, playerHeight});
     registry.add_component(player, Controllable{300.0f}); // Vitesse de 300 pixels/s
     registry.add_component(player, Sprite{
-        playerTex,           // texture
+        playerTex1,          // texture (starts with frame 1)
         playerWidth,         // width
         playerHeight,        // height
         0.0f,               // rotation
@@ -305,6 +323,16 @@ int main() {
         1                   // layer
     });
 
+    // Animation du vaisseau (4 frames de flamme du réacteur)
+    registry.add_component(player, SpriteAnimation{
+        {playerTex1, playerTex2, playerTex3, playerTex4},  // 4 frames d'animation
+        0.10f,                              // frameTime: 100ms par frame
+        0.0f,                               // elapsedTime
+        0,                                  // currentFrame
+        true,                               // loop
+        true                                // playing
+    });
+
     // ARME - Les stats sont dans CombatConfig.hpp (defines)
     registry.add_component(player, create_weapon(WeaponType::CHARGE, bulletTex));
 
@@ -312,11 +340,12 @@ int main() {
     registry.add_component(player, Score{0});
     registry.add_component(player, Invulnerability{0.0f});
 
-    std::cout << "✓ Joueur cree avec sprite et arme SPREAD" << std::endl;
+    std::cout << "✓ Joueur cree avec sprite anime et arme BASIC" << std::endl;
     std::cout << "  Position: (200, " << SCREEN_HEIGHT / 2.0f << ")" << std::endl;
     std::cout << "  Taille: " << playerWidth << "x" << playerHeight << std::endl;
     std::cout << "  Vitesse max: 300 pixels/s" << std::endl;
-    std::cout << "  Arme: SPREAD (5 projectiles, 40° d'éventail)" << std::endl;
+    std::cout << "  Animation: 4 frames de flamme (100ms par frame)" << std::endl;
+    std::cout << "  Arme: BASIC" << std::endl;
     std::cout << std::endl;
 
     std::cout << "✓ Murs et ennemis seront spawnes par le WaveSpawnerSystem" << std::endl;
@@ -366,90 +395,8 @@ int main() {
         // === UPDATE ===
         registry.run_systems(dt);
 
-        // === AFFICHAGE DES STATS À L'ÉCRAN ===
-        if (positions.has_entity(player) && velocities.has_entity(player)) {
-            const Position& playerPos = positions[player];
-            const Velocity& playerVel = velocities[player];
-
-            int yOffset = 10;
-            int lineHeight = 25;
-
-            // Position
-            std::string posText = "Position: (" + std::to_string(static_cast<int>(playerPos.x)) + ", " +
-                                  std::to_string(static_cast<int>(playerPos.y)) + ")";
-            graphicsPlugin->draw_text(posText, engine::Vector2f(10.0f, yOffset),
-                                     engine::Color{255, 255, 0, 255}, engine::INVALID_HANDLE, 20);
-            yOffset += lineHeight;
-
-            // Vélocité
-            std::string velText = "Velocity: (" + std::to_string(static_cast<int>(playerVel.x)) + ", " +
-                                  std::to_string(static_cast<int>(playerVel.y)) + ")";
-            graphicsPlugin->draw_text(velText, engine::Vector2f(10.0f, yOffset),
-                                     engine::Color{255, 255, 0, 255}, engine::INVALID_HANDLE, 20);
-            yOffset += lineHeight;
-
-            // FPS / Frame count
-            std::string fpsText = "Frame: " + std::to_string(frameCount) + " (60 FPS)";
-            graphicsPlugin->draw_text(fpsText, engine::Vector2f(10.0f, yOffset),
-                                     engine::Color{0, 255, 0, 255}, engine::INVALID_HANDLE, 20);
-            yOffset += lineHeight;
-
-            // Score (dans le debug)
-            if (scores.has_entity(player)) {
-                std::string scoreText = "Score: " + std::to_string(scores[player].value);
-                graphicsPlugin->draw_text(scoreText, engine::Vector2f(10.0f, yOffset),
-                                         engine::Color{255, 0, 255, 255}, engine::INVALID_HANDLE, 20);
-            }
-        }
-
-        // Score affiché en grand en haut à droite (toujours visible)
-        if (scores.has_entity(player)) {
-            std::string scoreText = "SCORE: " + std::to_string(scores[player].value);
-            graphicsPlugin->draw_text(scoreText, engine::Vector2f(SCREEN_WIDTH - 300.0f, 30.0f),
-                                     engine::Color{255, 255, 0, 255}, engine::INVALID_HANDLE, 40);
-        }
-
-        // Vie du joueur affichée en haut à gauche (toujours visible)
-        if (healths.has_entity(player)) {
-            int hp = healths[player].current;
-            int maxHp = healths[player].max;
-            std::string healthText = "HP: " + std::to_string(hp) + " / " + std::to_string(maxHp);
-
-            // Couleur selon la vie restante
-            engine::Color healthColor;
-            float hpPercent = static_cast<float>(hp) / static_cast<float>(maxHp);
-            if (hpPercent > 0.6f)
-                healthColor = engine::Color{0, 255, 0, 255};     // Vert
-            else if (hpPercent > 0.3f)
-                healthColor = engine::Color{255, 165, 0, 255};   // Orange
-            else
-                healthColor = engine::Color{255, 0, 0, 255};     // Rouge
-
-            graphicsPlugin->draw_text(healthText, engine::Vector2f(30.0f, 30.0f),
-                                     healthColor, engine::INVALID_HANDLE, 40);
-        }
-
-        // Wave number displayed in the center-top of the screen
-        // Find the WaveController component
-        for (size_t i = 0; i < waveControllers.size(); ++i) {
-            if (waveControllers.has_entity(i)) {
-                const auto& waveCtrl = waveControllers[i];
-
-                if (waveCtrl.currentWaveNumber > 0) {
-                    std::string waveText = "WAVE " + std::to_string(waveCtrl.currentWaveNumber) +
-                                           " / " + std::to_string(waveCtrl.totalWaveCount);
-                    graphicsPlugin->draw_text(waveText, engine::Vector2f(SCREEN_WIDTH / 2.0f - 100.0f, 30.0f),
-                                             engine::Color{255, 255, 255, 255}, engine::INVALID_HANDLE, 40);
-                } else if (waveCtrl.allWavesCompleted) {
-                    std::string waveText = "ALL WAVES COMPLETE!";
-                    graphicsPlugin->draw_text(waveText, engine::Vector2f(SCREEN_WIDTH / 2.0f - 200.0f, 30.0f),
-                                             engine::Color{0, 255, 0, 255}, engine::INVALID_HANDLE, 40);
-                }
-                break; // Only one WaveController should exist
-            }
-        }
-
-        // Afficher le frame complet (sprites + UI)
+        // All HUD rendering is now handled by HUDSystem
+        // Display the complete frame (sprites + UI)
         graphicsPlugin->display();
     }
 

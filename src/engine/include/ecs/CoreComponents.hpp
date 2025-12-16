@@ -12,6 +12,7 @@
 #include "plugin_manager/IInputPlugin.hpp"
 #include <unordered_map>
 #include <string>
+#include <vector>
 
 // Physique et Mouvement 
 
@@ -55,6 +56,17 @@ struct Sprite {
     int layer = 0;
 };
 
+// Animation de sprite (alternance entre plusieurs textures)
+struct SpriteAnimation {
+    std::vector<engine::TextureHandle> frames;  // Liste des textures
+    float frameTime = 0.1f;                      // Temps par frame en secondes
+    float elapsedTime = 0.0f;                    // Temps écoulé depuis le dernier changement
+    size_t currentFrame = 0;                     // Index de la frame actuelle
+    bool loop = true;                            // Boucler l'animation
+    bool playing = true;                         // Animation en cours
+};
+
+// Attachement d'entité à une autre (pour effets visuels liés)
 struct Attached {
     size_t parentEntity = 0;
     float offsetX = 0.0f;
@@ -96,6 +108,46 @@ struct TextEffect {
     engine::Color color = engine::Color::SpeedBlue;
     int fontSize = DEFAULT_FONT_SIZE;
     bool active = true;
+};
+
+// UI Components for HUD elements
+
+// Panneau rectangulaire avec bordure
+struct UIPanel {
+    float width = 100.0f;
+    float height = 50.0f;
+    engine::Color backgroundColor = engine::Color{20, 20, 30, 200};
+    engine::Color borderColor = engine::Color{100, 100, 120, 255};
+    float borderThickness = 2.0f;
+    bool active = true;
+    int layer = 100;  // HUD elements on top layer
+};
+
+// Barre de progression (santé, mana, etc.)
+struct UIBar {
+    float width = 200.0f;
+    float height = 30.0f;
+    float currentValue = 100.0f;
+    float maxValue = 100.0f;
+    engine::Color backgroundColor = engine::Color{40, 40, 50, 255};
+    engine::Color fillColor = engine::Color{0, 255, 0, 255};
+    engine::Color borderColor = engine::Color{150, 150, 180, 255};
+    float borderThickness = 2.0f;
+    bool active = true;
+    int layer = 101;  // Slightly above panels
+};
+
+// Texte UI (différent de TextEffect qui est pour les effets temporaires)
+struct UIText {
+    std::string text = "";
+    engine::Color color = engine::Color::White;
+    engine::Color shadowColor = engine::Color{0, 0, 0, 180};
+    int fontSize = 20;
+    bool hasShadow = true;
+    float shadowOffsetX = 2.0f;
+    float shadowOffsetY = 2.0f;
+    bool active = true;
+    int layer = 102;  // Text on top of everything
 };
 
 #endif /* !CORE_COMPONENTS_HPP_ */
