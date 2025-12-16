@@ -31,6 +31,7 @@
 #include "NetworkClient.hpp"
 #include "protocol/NetworkConfig.hpp"
 #include "protocol/Payloads.hpp"
+#include "GameDimensions.hpp"
 
 #ifdef _WIN32
     #include <winsock2.h>
@@ -43,8 +44,6 @@
 using namespace rtype;
 
 namespace {
-constexpr float NETWORK_WALL_WIDTH = 200.0f;
-constexpr float NETWORK_WALL_HEIGHT = 150.0f;
 constexpr float PROJECTILE_DESPAWN_MARGIN = 250.0f;
 constexpr uint8_t ENTITY_STALE_THRESHOLD = 6; // ~0.1s before removing missing entities
 }
@@ -83,6 +82,76 @@ struct StatusOverlay {
     int pingMs = -1;
 };
 
+struct EntityDimensions {
+    float width;
+    float height;
+};
+
+static EntityDimensions get_collider_dimensions(protocol::EntityType type)
+{
+    using namespace rtype::shared::dimensions;
+
+    if (type == protocol::EntityType::BONUS_HEALTH)
+        type = protocol::EntityType::POWERUP_HEALTH;
+    else if (type == protocol::EntityType::BONUS_SHIELD)
+        type = protocol::EntityType::POWERUP_SHIELD;
+    else if (type == protocol::EntityType::BONUS_SPEED)
+        type = protocol::EntityType::POWERUP_SPEED;
+
+    switch (type) {
+        case protocol::EntityType::PLAYER:
+            return {PLAYER_WIDTH, PLAYER_HEIGHT};
+        case protocol::EntityType::ENEMY_BASIC:
+            return {ENEMY_BASIC_WIDTH, ENEMY_BASIC_HEIGHT};
+        case protocol::EntityType::ENEMY_FAST:
+            return {ENEMY_FAST_WIDTH, ENEMY_FAST_HEIGHT};
+        case protocol::EntityType::ENEMY_TANK:
+            return {ENEMY_TANK_WIDTH, ENEMY_TANK_HEIGHT};
+        case protocol::EntityType::ENEMY_BOSS:
+            return {ENEMY_BOSS_WIDTH, ENEMY_BOSS_HEIGHT};
+        case protocol::EntityType::PROJECTILE_PLAYER:
+        case protocol::EntityType::PROJECTILE_ENEMY:
+            return {PROJECTILE_WIDTH, PROJECTILE_HEIGHT};
+        case protocol::EntityType::WALL:
+            return {WALL_WIDTH, WALL_HEIGHT};
+        case protocol::EntityType::POWERUP_HEALTH:
+        case protocol::EntityType::POWERUP_SHIELD:
+        case protocol::EntityType::POWERUP_SPEED:
+        case protocol::EntityType::POWERUP_SCORE:
+            return {BONUS_SIZE * 2.0f, BONUS_SIZE * 2.0f};
+        default:
+            return {rtype::shared::dimensions::ENEMY_BASIC_WIDTH,
+                    rtype::shared::dimensions::ENEMY_BASIC_HEIGHT};
+    }
+}
+
+static EntityDimensions get_visual_dimensions(protocol::EntityType type,
+                                              const DisplayMetrics& metrics)
+{
+    switch (type) {
+        case protocol::EntityType::PLAYER:
+            return {metrics.playerWidth, metrics.playerHeight};
+        case protocol::EntityType::ENEMY_FAST:
+            return {metrics.enemyWidth * 0.8f, metrics.enemyHeight * 0.8f};
+        case protocol::EntityType::ENEMY_TANK:
+            return {metrics.enemyWidth * 1.3f, metrics.enemyHeight * 1.3f};
+        case protocol::EntityType::ENEMY_BOSS:
+            return {metrics.enemyWidth * 1.8f, metrics.enemyHeight * 1.8f};
+        case protocol::EntityType::WALL:
+            return {metrics.wallWidth, metrics.wallHeight};
+        case protocol::EntityType::PROJECTILE_PLAYER:
+        case protocol::EntityType::PROJECTILE_ENEMY:
+            return {metrics.projectileWidth, metrics.projectileHeight};
+        case protocol::EntityType::POWERUP_HEALTH:
+        case protocol::EntityType::POWERUP_SHIELD:
+        case protocol::EntityType::POWERUP_SPEED:
+        case protocol::EntityType::POWERUP_SCORE:
+            return {metrics.projectileWidth * 1.4f, metrics.projectileHeight * 1.4f};
+        default:
+            return {metrics.enemyWidth, metrics.enemyHeight};
+    }
+}
+
 static Sprite build_sprite(protocol::EntityType type,
                            const TexturePack& textures,
                            const DisplayMetrics& metrics,
@@ -91,50 +160,51 @@ static Sprite build_sprite(protocol::EntityType type,
 {
     Sprite sprite{};
     sprite.texture = textures.enemy;
-    sprite.width = metrics.enemyWidth;
-    sprite.height = metrics.enemyHeight;
+    auto visual = get_visual_dimensions(type, metrics);
+    sprite.width = visual.width;
+    sprite.height = visual.height;
     sprite.tint = engine::Color::White;
     sprite.layer = 5;
 
     switch (type) {
         case protocol::EntityType::PLAYER:
             sprite.texture = textures.playerFrames[0];
-            sprite.width = metrics.playerWidth;
-            sprite.height = metrics.playerHeight;
+            sprite.width = visual.width;
+            sprite.height = visual.height;
             sprite.layer = 10;
             sprite.tint = isLocalPlayer ? engine::Color::Cyan : engine::Color::White;
             break;
         case protocol::EntityType::ENEMY_FAST:
             sprite.texture = textures.enemy;
-            sprite.width = metrics.enemyWidth * 0.8f;
-            sprite.height = metrics.enemyHeight * 0.8f;
+            sprite.width = visual.width;
+            sprite.height = visual.height;
             sprite.tint = engine::Color{255, 180, 0, 255};
             break;
         case protocol::EntityType::ENEMY_TANK:
             sprite.texture = textures.enemy;
-            sprite.width = metrics.enemyWidth * 1.3f;
-            sprite.height = metrics.enemyHeight * 1.3f;
+            sprite.width = visual.width;
+            sprite.height = visual.height;
             sprite.tint = engine::Color{200, 80, 80, 255};
             break;
         case protocol::EntityType::ENEMY_BOSS:
             sprite.texture = textures.enemy;
-            sprite.width = metrics.enemyWidth * 1.8f;
-            sprite.height = metrics.enemyHeight * 1.8f;
+            sprite.width = visual.width;
+            sprite.height = visual.height;
             sprite.layer = 6;
             sprite.tint = engine::Color{180, 0, 255, 255};
             break;
         case protocol::EntityType::WALL:
             sprite.texture = textures.wall;
-            sprite.width = NETWORK_WALL_WIDTH;
-            sprite.height = NETWORK_WALL_HEIGHT;
+            sprite.width = visual.width;
+            sprite.height = visual.height;
             sprite.layer = 2;
             sprite.tint = engine::Color{180, 180, 255, 255};
             break;
         case protocol::EntityType::PROJECTILE_PLAYER:
         case protocol::EntityType::PROJECTILE_ENEMY:
             sprite.texture = textures.projectile;
-            sprite.width = metrics.projectileWidth;
-            sprite.height = metrics.projectileHeight;
+            sprite.width = visual.width;
+            sprite.height = visual.height;
             sprite.layer = 20;
             sprite.tint = type == protocol::EntityType::PROJECTILE_PLAYER
                 ? engine::Color::Cyan
@@ -145,8 +215,8 @@ static Sprite build_sprite(protocol::EntityType type,
         case protocol::EntityType::POWERUP_SPEED:
         case protocol::EntityType::POWERUP_SCORE:
             sprite.texture = textures.projectile;
-            sprite.width = metrics.projectileWidth * 1.4f;
-            sprite.height = metrics.projectileHeight * 1.4f;
+            sprite.width = visual.width;
+            sprite.height = visual.height;
             sprite.layer = 4;
             sprite.tint = engine::Color{120, 255, 120, 255};
             break;
@@ -351,12 +421,12 @@ int main(int argc, char* argv[])
 
     metrics.playerWidth = playerSize.x * 0.20f;
     metrics.playerHeight = playerSize.y * 0.20f;
-    metrics.enemyWidth = enemySize.x * 0.20f;
-    metrics.enemyHeight = enemySize.y * 0.20f;
+    metrics.enemyWidth = enemySize.x;
+    metrics.enemyHeight = enemySize.y;
     metrics.projectileWidth = projectileSize.x * 0.80f;
     metrics.projectileHeight = projectileSize.y * 0.80f;
-    metrics.wallWidth = wallSize.x * 0.5f;
-    metrics.wallHeight = wallSize.y * 0.5f;
+    metrics.wallWidth = 50.0f;
+    metrics.wallHeight = 100.0f;
 
     Entity background1 = registry.spawn_entity();
     registry.add_component(background1, Position{0.0f, 0.0f});
@@ -520,11 +590,12 @@ int main(int argc, char* argv[])
         }
 
         auto& colliders = registry.get_components<Collider>();
+        EntityDimensions colliderDims = get_collider_dimensions(type);
         if (colliders.has_entity(entity)) {
-            colliders[entity].width = sprite.width;
-            colliders[entity].height = sprite.height;
+            colliders[entity].width = colliderDims.width;
+            colliders[entity].height = colliderDims.height;
         } else {
-            registry.add_component(entity, Collider{sprite.width, sprite.height});
+            registry.add_component(entity, Collider{colliderDims.width, colliderDims.height});
         }
 
         auto& healths = registry.get_components<Health>();
@@ -573,7 +644,7 @@ int main(int argc, char* argv[])
         localPlayerId = playerId;
         overlay.connection = "Connected (Player " + std::to_string(playerId) + ")";
         refreshOverlay(overlay);
-        client.send_join_lobby(protocol::GameMode::SQUAD, protocol::Difficulty::NORMAL);
+        client.send_join_lobby(protocol::GameMode::DUO, protocol::Difficulty::NORMAL);
     });
 
     client.set_on_rejected([&](uint8_t reason, const std::string& message) {
@@ -685,7 +756,6 @@ int main(int argc, char* argv[])
         std::unordered_set<uint32_t> updatedIds;
         updatedIds.reserve(entities.size());
 
-        std::vector<uint32_t> zeroHealthRemovals;
         for (const auto& state : entities) {
             uint32_t serverId = ntohl(state.entity_id);
             updatedIds.insert(serverId);
@@ -739,7 +809,7 @@ int main(int argc, char* argv[])
                 entityType != protocol::EntityType::BONUS_SPEED &&
                 entityType != protocol::EntityType::PROJECTILE_PLAYER &&
                 entityType != protocol::EntityType::PROJECTILE_ENEMY) {
-                zeroHealthRemovals.push_back(serverId);
+                remove_remote_entity(serverId);
             }
         }
 
@@ -761,9 +831,6 @@ int main(int argc, char* argv[])
         }
 
         for (uint32_t id : staleRemovals) {
-            remove_remote_entity(id);
-        }
-        for (uint32_t id : zeroHealthRemovals) {
             remove_remote_entity(id);
         }
     });
