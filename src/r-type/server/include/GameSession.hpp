@@ -8,6 +8,10 @@
 #include <functional>
 
 #include "ecs/Registry.hpp"
+#include "ecs/CoreComponents.hpp"
+#include "ecs/systems/MovementSystem.hpp"
+#include "ecs/systems/PhysiqueSystem.hpp"
+#include "ecs/systems/DestroySystem.hpp"
 #include "Entity.hpp"
 #include "protocol/PacketTypes.hpp"
 #include "protocol/Payloads.hpp"
@@ -154,7 +158,7 @@ private:
     void spawn_player_entity(GamePlayer& player);
     void spawn_enemy(const std::string& enemy_type, float x, float y);
     void check_game_over();
-    void update_ecs_systems(float delta_time);
+    void check_offscreen_enemies();
 };
 
 }

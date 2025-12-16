@@ -28,8 +28,15 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode, prot
     registry_.register_component<Health>();
     registry_.register_component<Controllable>();
     registry_.register_component<Enemy>();
+    registry_.register_component<NoFriction>();
+    registry_.register_component<ToDestroy>();
 
-    // Register ServerNetworkSystem
+    // Register game engine systems
+    registry_.register_system<MovementSystem>();
+    registry_.register_system<PhysiqueSystem>();
+    registry_.register_system<DestroySystem>();
+
+    // Register ServerNetworkSystem (must be after other systems for proper snapshot timing)
     registry_.register_system<ServerNetworkSystem>(session_id_, config::SNAPSHOT_INTERVAL);
     network_system_ = &registry_.get_system<ServerNetworkSystem>();
     network_system_->set_player_entities(&player_entities_);
@@ -112,10 +119,10 @@ void GameSession::update(float delta_time) {
     current_scroll_ += config::GAME_SCROLL_SPEED * delta_time;
 
     wave_manager_.update(delta_time, current_scroll_);
-    update_ecs_systems(delta_time);
 
-    // Run all registered systems (including ServerNetworkSystem for snapshots)
     registry_.run_systems(delta_time);
+
+    check_offscreen_enemies();
 
     if (wave_manager_.all_waves_complete()) {
         std::cout << "[GameSession " << session_id_ << "] All waves complete - game victory!\n";
@@ -178,6 +185,7 @@ void GameSession::spawn_enemy(const std::string& enemy_type, float x, float y) {
     registry_.add_component(enemy, Velocity{velocity_x, 0.0f});
     registry_.add_component(enemy, Health{static_cast<int>(health), static_cast<int>(health)});
     registry_.add_component(enemy, Enemy{});
+    registry_.add_component(enemy, NoFriction{});  // Enemies keep constant velocity
 
     std::cout << "[GameSession " << session_id_ << "] Spawned " << enemy_type << " enemy " << enemy
               << " at (" << x << ", " << y << ")\n";
@@ -204,31 +212,10 @@ void GameSession::check_game_over() {
     }
 }
 
-void GameSession::update_ecs_systems(float delta_time) {
+void GameSession::check_offscreen_enemies() {
     auto& positions = registry_.get_components<Position>();
-    auto& velocities = registry_.get_components<Velocity>();
 
-    // Update positions based on velocities
-    for (size_t i = 0; i < positions.size(); ++i) {
-        Entity entity = positions.get_entity_at(i);
-        Position& pos = positions.get_data_at(i);
-        if (velocities.has_entity(entity)) {
-            Velocity& vel = velocities[entity];
-            pos.x += vel.x * delta_time;
-            pos.y += vel.y * delta_time;
-            // Clamp to screen bounds
-            if (pos.x < 0.0f)
-                pos.x = 0.0f;
-            if (pos.x > config::SCREEN_WIDTH)
-                pos.x = config::SCREEN_WIDTH;
-            if (pos.y < 0.0f)
-                pos.y = 0.0f;
-            if (pos.y > config::SCREEN_HEIGHT)
-                pos.y = config::SCREEN_HEIGHT;
-        }
-    }
-
-    // Find entities to despawn
+    // Find entities to despawn (enemies that went off screen)
     std::vector<Entity> entities_to_kill;
     for (size_t i = 0; i < positions.size(); ++i) {
         Entity entity = positions.get_entity_at(i);
