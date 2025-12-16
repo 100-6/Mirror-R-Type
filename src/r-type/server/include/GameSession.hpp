@@ -13,6 +13,7 @@
 #include "protocol/Payloads.hpp"
 #include "WaveManager.hpp"
 #include "ServerConfig.hpp"
+#include "ServerNetworkSystem.hpp"
 
 namespace rtype::server {
 
@@ -93,24 +94,27 @@ public:
     bool is_active() const { return is_active_; }
 
     /**
-     * @brief Set callback for state snapshots
+     * @brief Set callback for state snapshots (forwarded to NetworkSystem)
      */
     void set_state_snapshot_callback(StateSnapshotCallback callback) {
-        state_snapshot_callback_ = callback;
+        if (network_system_)
+            network_system_->set_snapshot_callback(callback);
     }
 
     /**
-     * @brief Set callback for entity spawns
+     * @brief Set callback for entity spawns (forwarded to NetworkSystem)
      */
     void set_entity_spawn_callback(EntitySpawnCallback callback) {
-        entity_spawn_callback_ = callback;
+        if (network_system_)
+            network_system_->set_entity_spawn_callback(callback);
     }
 
     /**
-     * @brief Set callback for entity destroys
+     * @brief Set callback for entity destroys (forwarded to NetworkSystem)
      */
     void set_entity_destroy_callback(EntityDestroyCallback callback) {
-        entity_destroy_callback_ = callback;
+        if (network_system_)
+            network_system_->set_entity_destroy_callback(callback);
     }
 
     /**
@@ -134,22 +138,21 @@ private:
 
     Registry registry_;
     std::unordered_map<uint32_t, GamePlayer> players_;
+    std::unordered_map<uint32_t, Entity> player_entities_; // player_id -> Entity mapping for NetworkSystem
     WaveManager wave_manager_;
 
     uint32_t tick_count_;
     float current_scroll_;
     std::chrono::steady_clock::time_point session_start_time_;
 
-    StateSnapshotCallback state_snapshot_callback_;
-    EntitySpawnCallback entity_spawn_callback_;
-    EntityDestroyCallback entity_destroy_callback_;
+    // Callbacks (forwarded to ServerNetworkSystem)
     GameOverCallback game_over_callback_;
 
-    float snapshot_timer_;
+    // Pointer to network system for direct access
+    ServerNetworkSystem* network_system_ = nullptr;
 
     void spawn_player_entity(GamePlayer& player);
     void spawn_enemy(const std::string& enemy_type, float x, float y);
-    void send_state_snapshot();
     void check_game_over();
     void update_ecs_systems(float delta_time);
 };

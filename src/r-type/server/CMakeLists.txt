@@ -6,6 +6,7 @@ add_executable(r-type_server
     src/LobbyManager.cpp
     src/GameSession.cpp
     src/WaveManager.cpp
+    src/ServerNetworkSystem.cpp
 )
 
 target_include_directories(r-type_server

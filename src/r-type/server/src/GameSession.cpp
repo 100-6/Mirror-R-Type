@@ -17,16 +17,24 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode, prot
     , is_active_(true)
     , tick_count_(0)
     , current_scroll_(0.0f)
-    , session_start_time_(std::chrono::steady_clock::now())
-    , snapshot_timer_(0.0f) {
+    , session_start_time_(std::chrono::steady_clock::now()) {
 
     std::cout << "[GameSession " << session_id_ << "] Created (mode: " << static_cast<int>(game_mode)
               << ", difficulty: " << static_cast<int>(difficulty) << ", map: " << map_id << ")\n";
+
+    // Register ECS components
     registry_.register_component<Position>();
     registry_.register_component<Velocity>();
     registry_.register_component<Health>();
     registry_.register_component<Controllable>();
     registry_.register_component<Enemy>();
+
+    // Register ServerNetworkSystem
+    registry_.register_system<ServerNetworkSystem>(session_id_, config::SNAPSHOT_INTERVAL);
+    network_system_ = &registry_.get_system<ServerNetworkSystem>();
+    network_system_->set_player_entities(&player_entities_);
+
+    // Load wave configuration
     std::string wave_file = WaveManager::get_map_file(game_mode, difficulty);
     if (wave_manager_.load_from_file(wave_file)) {
         std::cout << "[GameSession " << session_id_ << "] Loaded " << wave_manager_.get_total_waves() << " waves\n";
@@ -55,18 +63,22 @@ void GameSession::add_player(uint32_t player_id, const std::string& player_name)
     GamePlayer player(player_id, player_name);
     spawn_player_entity(player);
     players_[player_id] = player;
+    player_entities_[player_id] = player.entity; // Update mapping for NetworkSystem
 
     std::cout << "[GameSession " << session_id_ << "] Player " << player_id << " (" << player_name
               << ") added (entity ID: " << player.entity << ")\n";
-    if (entity_spawn_callback_) {
-        protocol::ServerEntitySpawnPayload spawn;
-        spawn.entity_id = htonl(player.entity);
-        spawn.entity_type = protocol::EntityType::PLAYER;
-        spawn.spawn_x = config::PLAYER_SPAWN_X;
-        spawn.spawn_y = config::PLAYER_SPAWN_Y_BASE + ((players_.size() - 1) * config::PLAYER_SPAWN_Y_OFFSET);
-        spawn.subtype = 0;
-        spawn.health = htons(config::PLAYER_MAX_HEALTH);
-        entity_spawn_callback_(session_id_, serialize(spawn));
+
+    // Queue spawn for broadcast via NetworkSystem
+    if (network_system_) {
+        float spawn_y = config::PLAYER_SPAWN_Y_BASE + ((players_.size() - 1) * config::PLAYER_SPAWN_Y_OFFSET);
+        network_system_->queue_entity_spawn(
+            player.entity,
+            protocol::EntityType::PLAYER,
+            config::PLAYER_SPAWN_X,
+            spawn_y,
+            config::PLAYER_MAX_HEALTH,
+            0
+        );
     }
 }
 
@@ -77,52 +89,34 @@ void GameSession::remove_player(uint32_t player_id) {
         return;
     Entity player_entity = it->second.entity;
     players_.erase(it);
+    player_entities_.erase(player_id); // Remove from mapping
     registry_.kill_entity(player_entity);
     std::cout << "[GameSession " << session_id_ << "] Player " << player_id << " removed\n";
-    if (entity_destroy_callback_)
-        entity_destroy_callback_(session_id_, player_entity);
+
+    // Queue destroy for broadcast via NetworkSystem
+    if (network_system_)
+        network_system_->queue_entity_destroy(player_entity);
     check_game_over();
 }
 
 void GameSession::handle_input(uint32_t player_id, const protocol::ClientInputPayload& input) {
-    auto it = players_.find(player_id);
-
-    if (it == players_.end())
-        return;
-    Entity player_entity = it->second.entity;
-    auto& velocities = registry_.get_components<Velocity>();
-    if (velocities.has_entity(player_entity)) {
-        Velocity& vel = velocities[player_entity];
-        vel.x = 0.0f;
-        vel.y = 0.0f;
-        if (input.is_up_pressed())
-            vel.y = -config::PLAYER_MOVEMENT_SPEED;
-        if (input.is_down_pressed())
-            vel.y = config::PLAYER_MOVEMENT_SPEED;
-        if (input.is_left_pressed())
-            vel.x = -config::PLAYER_MOVEMENT_SPEED;
-        if (input.is_right_pressed())
-            vel.x = config::PLAYER_MOVEMENT_SPEED;
-    }
-    if (input.is_shoot_pressed()) {
-        // TODO: Spawn projectile entity
-        // std::cout << "[GameSession " << session_id_ << "] Player " << player_id << " shooting\n";
-    }
+    // Delegate input processing to NetworkSystem
+    if (network_system_)
+        network_system_->queue_input(player_id, input);
 }
 
 void GameSession::update(float delta_time) {
     if (!is_active_)
         return;
     tick_count_++;
-    snapshot_timer_ += delta_time;
     current_scroll_ += config::GAME_SCROLL_SPEED * delta_time;
 
     wave_manager_.update(delta_time, current_scroll_);
     update_ecs_systems(delta_time);
-    if (snapshot_timer_ >= config::SNAPSHOT_INTERVAL) {
-        send_state_snapshot();
-        snapshot_timer_ = 0.0f;
-    }
+
+    // Run all registered systems (including ServerNetworkSystem for snapshots)
+    registry_.run_systems(delta_time);
+
     if (wave_manager_.all_waves_complete()) {
         std::cout << "[GameSession " << session_id_ << "] All waves complete - game victory!\n";
         is_active_ = false;
@@ -159,96 +153,46 @@ void GameSession::spawn_enemy(const std::string& enemy_type, float x, float y) {
     uint16_t health = config::ENEMY_BASIC_HEALTH;
     protocol::EntityType entity_type = protocol::EntityType::ENEMY_BASIC;
     protocol::EnemySubtype subtype = protocol::EnemySubtype::BASIC;
-    std::string sprite_name = "enemy_basic.png";
 
     if (enemy_type == "fast") {
         velocity_x = -config::ENEMY_FAST_SPEED;
         health = config::ENEMY_FAST_HEALTH;
         entity_type = protocol::EntityType::ENEMY_FAST;
         subtype = protocol::EnemySubtype::FAST;
-        sprite_name = "enemy_fast.png";
     }
     else if (enemy_type == "tank") {
         velocity_x = -config::ENEMY_TANK_SPEED;
         health = config::ENEMY_TANK_HEALTH;
         entity_type = protocol::EntityType::ENEMY_TANK;
         subtype = protocol::EnemySubtype::TANK;
-        sprite_name = "enemy_tank.png";
     }
     else if (enemy_type == "boss") {
         velocity_x = -config::ENEMY_BOSS_SPEED;
         health = config::ENEMY_BOSS_HEALTH;
         entity_type = protocol::EntityType::ENEMY_BOSS;
         subtype = protocol::EnemySubtype::BOSS;
-        sprite_name = "enemy_boss.png";
     }
-    // Use exact coordinates from wave config
+
+    // Add components to entity
     registry_.add_component(enemy, Position{x, y});
     registry_.add_component(enemy, Velocity{velocity_x, 0.0f});
     registry_.add_component(enemy, Health{static_cast<int>(health), static_cast<int>(health)});
     registry_.add_component(enemy, Enemy{});
+
     std::cout << "[GameSession " << session_id_ << "] Spawned " << enemy_type << " enemy " << enemy
               << " at (" << x << ", " << y << ")\n";
-    if (entity_spawn_callback_) {
-        protocol::ServerEntitySpawnPayload spawn;
-        spawn.entity_id = htonl(enemy);
-        spawn.entity_type = entity_type;
-        spawn.spawn_x = x;  // Use exact X from wave config
-        spawn.spawn_y = y;  // Use exact Y from wave config
-        spawn.subtype = static_cast<uint8_t>(subtype);
-        spawn.health = htons(health);
-        entity_spawn_callback_(session_id_, serialize(spawn));
+
+    // Queue spawn for broadcast via NetworkSystem
+    if (network_system_) {
+        network_system_->queue_entity_spawn(
+            enemy,
+            entity_type,
+            x,
+            y,
+            health,
+            static_cast<uint8_t>(subtype)
+        );
     }
-}
-
-void GameSession::send_state_snapshot() {
-    if (!state_snapshot_callback_)
-        return;
-    protocol::ServerSnapshotPayload snapshot;
-    snapshot.server_tick = htonl(tick_count_);
-    std::vector<uint8_t> payload;
-    const uint8_t* header_bytes = reinterpret_cast<const uint8_t*>(&snapshot);
-
-    payload.insert(payload.end(), header_bytes, header_bytes + sizeof(snapshot));
-    auto& positions = registry_.get_components<Position>();
-    auto& velocities = registry_.get_components<Velocity>();
-    auto& healths = registry_.get_components<Health>();
-
-    uint16_t entity_count = 0;
-    std::vector<protocol::EntityState> entity_states;
-    for (size_t i = 0; i < positions.size(); ++i) {
-        Entity entity = positions.get_entity_at(i);
-        Position& pos = positions.get_data_at(i);
-        protocol::EntityState state;
-        state.entity_id = htonl(entity);
-        state.entity_type = protocol::EntityType::PLAYER; // TODO: Distinguish entity types
-        state.position_x = pos.x;
-        state.position_y = pos.y;
-
-        if (velocities.has_entity(entity)) {
-            Velocity& vel = velocities[entity];
-            state.velocity_x = static_cast<int16_t>(vel.x * 10.0f);
-            state.velocity_y = static_cast<int16_t>(vel.y * 10.0f);
-        } else {
-            state.velocity_x = 0;
-            state.velocity_y = 0;
-        }
-        if (healths.has_entity(entity)) {
-            Health& health = healths[entity];
-            state.health = htons(static_cast<uint16_t>(health.current));
-        } else
-            state.health = 0;
-        state.flags = 0;
-        entity_states.push_back(state);
-        entity_count++;
-    }
-    snapshot.entity_count = htons(entity_count);
-    std::memcpy(payload.data(), &snapshot, sizeof(snapshot));
-    for (const auto& state : entity_states) {
-        const uint8_t* state_bytes = reinterpret_cast<const uint8_t*>(&state);
-        payload.insert(payload.end(), state_bytes, state_bytes + sizeof(state));
-    }
-    state_snapshot_callback_(session_id_, payload);
 }
 
 void GameSession::check_game_over() {
@@ -264,6 +208,7 @@ void GameSession::update_ecs_systems(float delta_time) {
     auto& positions = registry_.get_components<Position>();
     auto& velocities = registry_.get_components<Velocity>();
 
+    // Update positions based on velocities
     for (size_t i = 0; i < positions.size(); ++i) {
         Entity entity = positions.get_entity_at(i);
         Position& pos = positions.get_data_at(i);
@@ -282,6 +227,8 @@ void GameSession::update_ecs_systems(float delta_time) {
                 pos.y = config::SCREEN_HEIGHT;
         }
     }
+
+    // Find entities to despawn
     std::vector<Entity> entities_to_kill;
     for (size_t i = 0; i < positions.size(); ++i) {
         Entity entity = positions.get_entity_at(i);
@@ -298,10 +245,12 @@ void GameSession::update_ecs_systems(float delta_time) {
         if (!is_player && pos.x < config::ENTITY_OFFSCREEN_LEFT)
             entities_to_kill.push_back(entity);
     }
+
+    // Kill entities and queue destroy for broadcast
     for (Entity entity : entities_to_kill) {
         registry_.kill_entity(entity);
-        if (entity_destroy_callback_)
-            entity_destroy_callback_(session_id_, entity);
+        if (network_system_)
+            network_system_->queue_entity_destroy(entity);
     }
 }
 
