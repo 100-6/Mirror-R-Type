@@ -7,6 +7,7 @@
 
 #include "LobbyManager.hpp"
 #include <iostream>
+#include <algorithm>
 #include <cstring>
 #include <arpa/inet.h>
 
