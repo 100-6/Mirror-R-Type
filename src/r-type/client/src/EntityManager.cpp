@@ -66,8 +66,11 @@ Sprite EntityManager::build_sprite(protocol::EntityType type, bool is_local_play
     Sprite sprite{};
     sprite.texture = textures_.get_enemy();
     auto dims = get_collider_dimensions(type);
+
+    // Initialize dimensions with collider size as fallback
     sprite.width = dims.width;
     sprite.height = dims.height;
+
     sprite.tint = engine::Color::White;
     sprite.layer = 5;
 
@@ -114,6 +117,25 @@ Sprite EntityManager::build_sprite(protocol::EntityType type, bool is_local_play
 
     if (type == protocol::EntityType::ENEMY_BASIC && subtype != 0) {
         sprite.tint = engine::Color{200, 200, 255, 255};
+    }
+
+    // Adjust sprite dimensions to preserve aspect ratio while fitting in collider box
+    engine::Vector2f tex_size = textures_.get_texture_size(sprite.texture);
+    if (tex_size.x > 0 && tex_size.y > 0) {
+        float scale_x = dims.width / tex_size.x;
+        float scale_y = dims.height / tex_size.y;
+        float scale = std::min(scale_x, scale_y);
+
+        // Apply x2 scaling only for enemies
+        if (type == protocol::EntityType::ENEMY_BASIC ||
+            type == protocol::EntityType::ENEMY_FAST ||
+            type == protocol::EntityType::ENEMY_TANK ||
+            type == protocol::EntityType::ENEMY_BOSS) {
+            scale *= 2.0f;
+        }
+
+        sprite.width = tex_size.x * scale;
+        sprite.height = tex_size.y * scale;
     }
 
     return sprite;
@@ -171,10 +193,18 @@ Entity EntityManager::spawn_or_update_entity(uint32_t server_id, protocol::Entit
     server_types_[server_id] = type;
     stale_counters_[server_id] = 0;
 
-    // Mark projectiles and players for local integration (smooth movement)
+    // Mark projectiles, players, and moving entities for local integration (smooth movement)
     if (type == protocol::EntityType::PROJECTILE_PLAYER || 
         type == protocol::EntityType::PROJECTILE_ENEMY ||
-        type == protocol::EntityType::PLAYER) {
+        type == protocol::EntityType::PLAYER ||
+        type == protocol::EntityType::ENEMY_BASIC ||
+        type == protocol::EntityType::ENEMY_FAST ||
+        type == protocol::EntityType::ENEMY_TANK ||
+        type == protocol::EntityType::ENEMY_BOSS ||
+        type == protocol::EntityType::POWERUP_HEALTH ||
+        type == protocol::EntityType::POWERUP_SHIELD ||
+        type == protocol::EntityType::POWERUP_SPEED ||
+        type == protocol::EntityType::POWERUP_SCORE) {
         locally_integrated_.insert(server_id);
     } else {
         locally_integrated_.erase(server_id);

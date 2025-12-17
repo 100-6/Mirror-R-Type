@@ -29,6 +29,8 @@ public:
 
     const std::array<engine::TextureHandle, 4>& get_player_frames() const { return player_frames_; }
 
+    engine::Vector2f get_texture_size(engine::TextureHandle handle) const;
+
 private:
     engine::IGraphicsPlugin& graphics_;
 

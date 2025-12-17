@@ -49,4 +49,10 @@ engine::TextureHandle TextureManager::get_player_frame(size_t index) const {
     return player_frames_[index];
 }
 
+engine::Vector2f TextureManager::get_texture_size(engine::TextureHandle handle) const {
+    if (handle == engine::INVALID_HANDLE)
+        return {0.0f, 0.0f};
+    return graphics_.get_texture_size(handle);
+}
+
 }
