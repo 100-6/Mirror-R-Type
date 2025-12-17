@@ -21,8 +21,13 @@
 #undef ENEMY_BOSS_HEALTH
 
 #include <iostream>
-#include <arpa/inet.h>
 #include <cstring>
+
+#ifdef _WIN32
+    #include <winsock2.h>
+#else
+    #include <arpa/inet.h>
+#endif
 
 #include "ecs/CoreComponents.hpp"
 #include "components/GameComponents.hpp"

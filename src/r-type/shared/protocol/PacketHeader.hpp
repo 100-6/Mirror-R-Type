@@ -2,6 +2,17 @@
 
 #include <cstdint>
 
+// Cross-platform packed struct support
+#ifdef _MSC_VER
+    #define PACK_START __pragma(pack(push, 1))
+    #define PACK_END __pragma(pack(pop))
+    #define PACKED
+#else
+    #define PACK_START
+    #define PACK_END
+    #define PACKED __attribute__((packed))
+#endif
+
 namespace rtype::protocol {
 
 /**
@@ -30,7 +41,7 @@ constexpr uint16_t MAX_PAYLOAD_SIZE = MAX_PACKET_SIZE - HEADER_SIZE; // (1392 by
  * @brief Packet header structure (8 bytes)
  *
  * All multi-byte fields are in network byte order (big-endian).
- * This structure uses __attribute__((packed)) to prevent compiler padding.
+ * This structure uses compiler-specific packing to prevent padding.
  *
  * Layout:
  * - Offset 0 (1 byte):  version
@@ -38,7 +49,8 @@ constexpr uint16_t MAX_PAYLOAD_SIZE = MAX_PACKET_SIZE - HEADER_SIZE; // (1392 by
  * - Offset 2 (2 bytes): payload_length (big-endian)
  * - Offset 4 (4 bytes): sequence_number (big-endian)
  */
-struct __attribute__((packed)) PacketHeader {
+PACK_START
+struct PACKED PacketHeader {
     /**
      * @brief Protocol version (must be 0x01)
      */
@@ -106,6 +118,7 @@ struct __attribute__((packed)) PacketHeader {
         return HEADER_SIZE + payload_length;
     }
 };
+PACK_END
 
 static_assert(sizeof(PacketHeader) == HEADER_SIZE, "PacketHeader size must be exactly 8 bytes");
 static_assert(alignof(PacketHeader) == 1, "PacketHeader must have no alignment requirements");

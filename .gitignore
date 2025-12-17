@@ -6,4 +6,3 @@ vcpkg/
 vcpkg_installed/
 .clangd
 vswhere.exe
-GEMINI.md

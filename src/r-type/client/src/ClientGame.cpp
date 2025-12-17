@@ -4,15 +4,14 @@
 #include "ecs/systems/RenderSystem.hpp"
 #include "systems/HUDSystem.hpp"
 #include "protocol/NetworkConfig.hpp"
+#include "plugin_manager/PluginPaths.hpp"
 #include <iostream>
 #include <chrono>
 
 #ifdef _WIN32
     #include <winsock2.h>
-    #define NETWORK_PLUGIN_PATH "plugins/asio_network.dll"
 #else
     #include <arpa/inet.h>
-    #define NETWORK_PLUGIN_PATH "plugins/asio_network.so"
 #endif
 
 namespace rtype::client {
@@ -91,7 +90,8 @@ bool ClientGame::initialize(const std::string& host, uint16_t tcp_port, const st
 bool ClientGame::load_plugins() {
     try {
         graphics_plugin_ = plugin_manager_.load_plugin<engine::IGraphicsPlugin>(
-            "plugins/raylib_graphics.so", "create_graphics_plugin");
+            engine::PluginPaths::get_plugin_path(engine::PluginPaths::RAYLIB_GRAPHICS),
+            "create_graphics_plugin");
     } catch (const engine::PluginException& e) {
         std::cerr << "[ClientGame] Failed to load graphics plugin: " << e.what() << '\n';
         return false;
@@ -105,7 +105,8 @@ bool ClientGame::load_plugins() {
 
     try {
         input_plugin_ = plugin_manager_.load_plugin<engine::IInputPlugin>(
-            "plugins/raylib_input.so", "create_input_plugin");
+            engine::PluginPaths::get_plugin_path(engine::PluginPaths::RAYLIB_INPUT),
+            "create_input_plugin");
     } catch (const engine::PluginException& e) {
         std::cerr << "[ClientGame] Failed to load input plugin: " << e.what() << '\n';
         graphics_plugin_->shutdown();
@@ -114,14 +115,16 @@ bool ClientGame::load_plugins() {
 
     try {
         audio_plugin_ = plugin_manager_.load_plugin<engine::IAudioPlugin>(
-            "plugins/miniaudio_audio.so", "create_audio_plugin");
+            engine::PluginPaths::get_plugin_path(engine::PluginPaths::MINIAUDIO_AUDIO),
+            "create_audio_plugin");
     } catch (const engine::PluginException& e) {
         std::cerr << "[ClientGame] Audio plugin unavailable: " << e.what() << '\n';
     }
 
     try {
         network_plugin_ = plugin_manager_.load_plugin<engine::INetworkPlugin>(
-            NETWORK_PLUGIN_PATH, "create_network_plugin");
+            engine::PluginPaths::get_plugin_path(engine::PluginPaths::ASIO_NETWORK),
+            "create_network_plugin");
     } catch (const engine::PluginException& e) {
         std::cerr << "[ClientGame] Failed to load network plugin: " << e.what() << '\n';
         graphics_plugin_->shutdown();

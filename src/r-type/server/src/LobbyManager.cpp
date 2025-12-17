@@ -9,7 +9,12 @@
 #include <iostream>
 #include <algorithm>
 #include <cstring>
-#include <arpa/inet.h>
+
+#ifdef _WIN32
+    #include <winsock2.h>
+#else
+    #include <arpa/inet.h>
+#endif
 
 namespace rtype::server {
 

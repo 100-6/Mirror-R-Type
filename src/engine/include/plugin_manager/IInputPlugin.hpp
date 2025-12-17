@@ -143,23 +143,3 @@ public:
 };
 
 }
-
-// Forward declaration for C linkage
-namespace engine {
-    class IInputPlugin;
-}
-
-// Plugin factory function signatures
-extern "C" {
-    /**
-     * @brief Factory function to create an input plugin instance
-     * @return Pointer to the created plugin
-     */
-    engine::IInputPlugin* create_input_plugin();
-
-    /**
-     * @brief Destroy an input plugin instance
-     * @param plugin Plugin to destroy
-     */
-    void destroy_input_plugin(engine::IInputPlugin* plugin);
-}

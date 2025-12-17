@@ -7,7 +7,7 @@ namespace engine {
 
 /**
  * @brief Lightweight entity identifier used throughout the ECS
- * 
+ *
  * Entities are represented as simple integer IDs for performance.
  * IDs are unique, stable, and can be reused after deletion.
  */

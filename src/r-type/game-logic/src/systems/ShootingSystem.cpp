@@ -13,6 +13,11 @@
 #include <cmath>
 #include <algorithm>
 
+// Define M_PI if not available (MSVC)
+#ifndef M_PI
+    #define M_PI 3.14159265358979323846
+#endif
+
 void ShootingSystem::init(Registry& registry)
 {
     std::cout << "ShootingSystem: Initialisation." << std::endl;

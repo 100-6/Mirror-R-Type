@@ -14,9 +14,14 @@
 #include "systems/ShootingSystem.hpp"
 
 #include <iostream>
-#include <arpa/inet.h>
 #include <cstring>
 #include <cmath>
+
+#ifdef _WIN32
+    #include <winsock2.h>
+#else
+    #include <arpa/inet.h>
+#endif
 
 namespace rtype::server {
 

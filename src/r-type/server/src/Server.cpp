@@ -8,6 +8,7 @@
 #include "Server.hpp"
 #include "ServerConfig.hpp"
 #include "protocol/ProtocolEncoder.hpp"
+#include "plugin_manager/PluginPaths.hpp"
 #include <iostream>
 #include <chrono>
 #include <thread>
@@ -40,7 +41,8 @@ bool Server::start()
 
     try {
         network_plugin_ = plugin_manager_.load_plugin<engine::INetworkPlugin>(
-            "plugins/asio_network.so", "create_network_plugin");
+            engine::PluginPaths::get_plugin_path(engine::PluginPaths::ASIO_NETWORK),
+            "create_network_plugin");
         if (!network_plugin_) {
             std::cerr << "[Server] Failed to load network plugin\n";
             return false;

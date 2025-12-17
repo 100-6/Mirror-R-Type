@@ -6,6 +6,7 @@
 */
 
 #include "plugins/input/raylib/RaylibInputPlugin.hpp"
+#include "plugin_manager/PluginExport.hpp"
 #include <iostream>
 
 RaylibInputPlugin::RaylibInputPlugin() {
@@ -191,11 +192,11 @@ void RaylibInputPlugin::update() {
 // ============== PLUGIN FACTORY ==============
 
 extern "C" {
-    engine::IInputPlugin* create_input_plugin() {
+    PLUGIN_API engine::IInputPlugin* create_input_plugin() {
         return new RaylibInputPlugin();
     }
 
-    void destroy_input_plugin(engine::IInputPlugin* plugin) {
+    PLUGIN_API void destroy_input_plugin(engine::IInputPlugin* plugin) {
         delete plugin;
     }
 }
