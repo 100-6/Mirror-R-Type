@@ -71,9 +71,10 @@ public:
     /**
      * @brief Called when game ends (victory or defeat)
      * @param session_id The game session
-     * @param player_ids Players in the session (empty = defeat)
+     * @param player_ids Players in the session
+     * @param is_victory True if players won, false if all players died
      */
-    virtual void on_game_over(uint32_t session_id, const std::vector<uint32_t>& player_ids) = 0;
+    virtual void on_game_over(uint32_t session_id, const std::vector<uint32_t>& player_ids, bool is_victory) = 0;
 };
 
 }

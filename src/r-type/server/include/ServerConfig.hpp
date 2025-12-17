@@ -57,7 +57,7 @@ constexpr float PROJECTILE_WIDTH = 28.0f;
 constexpr float PROJECTILE_HEIGHT = 12.0f;
 constexpr float PROJECTILE_LIFETIME = 10.0f;                                 // seconds (longer range)
 constexpr int PROJECTILE_DAMAGE = 25;                                        // player projectile damage
-constexpr int ENEMY_PROJECTILE_DAMAGE = 5;                                   // enemy projectile damage
+constexpr int ENEMY_PROJECTILE_DAMAGE = 20;                                  // enemy projectile damage
 
 // === Enemy Configuration ===
 constexpr float ENEMY_BASIC_SPEED = 100.0f;                                  // pixels per second

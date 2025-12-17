@@ -83,7 +83,7 @@ private:
     void on_projectile_spawn(uint32_t session_id, const std::vector<uint8_t>& projectile_data) override;
     void on_wave_start(uint32_t session_id, const std::vector<uint8_t>& wave_data) override;
     void on_wave_complete(uint32_t session_id, const std::vector<uint8_t>& wave_data) override;
-    void on_game_over(uint32_t session_id, const std::vector<uint32_t>& player_ids) override;
+    void on_game_over(uint32_t session_id, const std::vector<uint32_t>& player_ids, bool is_victory) override;
 
     // === Internal Methods ===
     void on_tcp_client_disconnected(uint32_t client_id);

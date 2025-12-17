@@ -195,7 +195,7 @@ void GameSession::update(float delta_time)
         std::cout << "[GameSession " << session_id_ << "] All waves complete - game victory!\n";
         is_active_ = false;
         if (listener_)
-            listener_->on_game_over(session_id_, get_player_ids());
+            listener_->on_game_over(session_id_, get_player_ids(), true);  // Victory
         return;
     }
 
@@ -416,7 +416,7 @@ void GameSession::check_game_over()
         is_active_ = false;
         std::cout << "[GameSession " << session_id_ << "] Game over - all players dead!\n";
         if (listener_)
-            listener_->on_game_over(session_id_, get_player_ids());
+            listener_->on_game_over(session_id_, get_player_ids(), false);  // Defeat
     }
 }
 

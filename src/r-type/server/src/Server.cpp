@@ -416,17 +416,15 @@ void Server::on_wave_complete(uint32_t session_id, const std::vector<uint8_t>& w
                                             wave_data, session->get_player_ids(), connected_clients_);
 }
 
-void Server::on_game_over(uint32_t session_id, const std::vector<uint32_t>& player_ids)
+void Server::on_game_over(uint32_t session_id, const std::vector<uint32_t>& player_ids, bool is_victory)
 {
-    std::cout << "[Server] Game over for session " << session_id << "\n";
-
-    protocol::GameResult result = player_ids.empty() ?
-        protocol::GameResult::DEFEAT : protocol::GameResult::VICTORY;
+    std::cout << "[Server] Game over for session " << session_id
+              << (is_victory ? " - VICTORY!" : " - DEFEAT!") << "\n";
 
     auto* session = session_manager_->get_session(session_id);
 
     protocol::ServerGameOverPayload game_over;
-    game_over.result = result;
+    game_over.result = is_victory ? protocol::GameResult::VICTORY : protocol::GameResult::DEFEAT;
 
     if (session) {
         packet_sender_->broadcast_udp_to_session(session_id, protocol::PacketType::SERVER_GAME_OVER,
