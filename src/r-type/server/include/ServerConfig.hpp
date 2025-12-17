@@ -29,10 +29,9 @@ constexpr uint32_t MAX_CLIENTS = 16;
 constexpr uint32_t MAX_PACKET_SIZE = 1400;
 
 // === Timing Configuration ===
-constexpr uint32_t SERVER_TICK_RATE = 32;                                    // 32 ticks per second
-constexpr float TICK_INTERVAL = 1.0f / SERVER_TICK_RATE;                     // ~31.25ms per tick
-constexpr uint32_t TICK_INTERVAL_MS = 1000 / SERVER_TICK_RATE;               // 31ms
-
+    constexpr uint32_t SERVER_TICK_RATE = 64;                                    // 64 ticks per second
+    constexpr float TICK_INTERVAL = 1.0f / SERVER_TICK_RATE;                     // ~15.625ms per tick
+    constexpr uint32_t TICK_INTERVAL_MS = 1000 / SERVER_TICK_RATE;               // 15ms
 constexpr uint32_t SNAPSHOT_RATE = 20;                                       // 20 snapshots per second
 constexpr float SNAPSHOT_INTERVAL = 1.0f / SNAPSHOT_RATE;                    // 0.05s = 50ms
 

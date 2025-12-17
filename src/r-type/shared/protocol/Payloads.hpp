@@ -64,7 +64,7 @@ struct __attribute__((packed)) ServerAcceptPayload {
     uint16_t map_id;
 
     ServerAcceptPayload()
-        : assigned_player_id(0), server_tick_rate(60), max_players(4), map_id(0) {}
+        : assigned_player_id(0), server_tick_rate(64), max_players(4), map_id(0) {}
 };
 
 static_assert(sizeof(ServerAcceptPayload) == 8, "ServerAcceptPayload must be 8 bytes");

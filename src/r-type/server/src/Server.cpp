@@ -146,7 +146,7 @@ void Server::on_client_connect(uint32_t client_id, const protocol::ClientConnect
 
     protocol::ServerAcceptPayload accept;
     accept.assigned_player_id = htonl(player_id);
-    accept.server_tick_rate = 60;
+    accept.server_tick_rate = config::SERVER_TICK_RATE;
     accept.max_players = 4;
     accept.map_id = htons(0);
 

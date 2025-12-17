@@ -410,7 +410,7 @@ void ClientGame::run() {
         }
 
         if (network_client_->is_in_game() &&
-            std::chrono::duration_cast<std::chrono::milliseconds>(now - last_input_send).count() >= 30) {
+            std::chrono::duration_cast<std::chrono::milliseconds>(now - last_input_send).count() >= 15) {
             uint16_t input_flags = input_handler_->gather_input();
             network_client_->send_input(input_flags, client_tick_++);
             last_input_send = now;

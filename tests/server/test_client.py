@@ -170,7 +170,8 @@ class RTypeTestClient:
         if not self.connected:
             print("[!] Not connected to server")
             return
-        tick = int(time.time() * 60) & 0xFFFFFFFF
+        # Client tick (monotonically increasing) - assuming 64 Hz client logic
+        tick = int(time.time() * 64) & 0xFFFFFFFF
         payload = struct.pack('!IHI', self.player_id, flags, tick)
 
         print(f"\n[*] Sending input (flags: 0x{flags:04X})...")

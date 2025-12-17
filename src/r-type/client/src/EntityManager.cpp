@@ -171,8 +171,10 @@ Entity EntityManager::spawn_or_update_entity(uint32_t server_id, protocol::Entit
     server_types_[server_id] = type;
     stale_counters_[server_id] = 0;
 
-    // Mark projectiles for local integration
-    if (type == protocol::EntityType::PROJECTILE_PLAYER || type == protocol::EntityType::PROJECTILE_ENEMY) {
+    // Mark projectiles and players for local integration (smooth movement)
+    if (type == protocol::EntityType::PROJECTILE_PLAYER || 
+        type == protocol::EntityType::PROJECTILE_ENEMY ||
+        type == protocol::EntityType::PLAYER) {
         locally_integrated_.insert(server_id);
     } else {
         locally_integrated_.erase(server_id);
@@ -357,10 +359,17 @@ void EntityManager::update_projectiles(float delta_time) {
         pos.x += vel.x * delta_time;
         pos.y += vel.y * delta_time;
 
-        if (pos.x < -PROJECTILE_DESPAWN_MARGIN ||
+        // Only despawn projectiles that go out of bounds
+        auto type_it = server_types_.find(server_id);
+        bool is_projectile = type_it != server_types_.end() && 
+                            (type_it->second == protocol::EntityType::PROJECTILE_PLAYER || 
+                             type_it->second == protocol::EntityType::PROJECTILE_ENEMY);
+
+        if (is_projectile && 
+            (pos.x < -PROJECTILE_DESPAWN_MARGIN ||
             pos.x > screen_width_ + PROJECTILE_DESPAWN_MARGIN ||
             pos.y < -PROJECTILE_DESPAWN_MARGIN ||
-            pos.y > screen_height_ + PROJECTILE_DESPAWN_MARGIN) {
+            pos.y > screen_height_ + PROJECTILE_DESPAWN_MARGIN)) {
             despawn_list.push_back(server_id);
         }
     }
