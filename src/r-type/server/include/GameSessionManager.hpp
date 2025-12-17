@@ -1,11 +1,18 @@
+/*
+** EPITECH PROJECT, 2025
+** Mirror-R-Type
+** File description:
+** GameSessionManager - Manages the lifecycle of game sessions
+*/
+
 #pragma once
 
 #include <memory>
 #include <unordered_map>
 #include <vector>
 #include <cstdint>
-#include <functional>
 #include "GameSession.hpp"
+#include "interfaces/IGameSessionListener.hpp"
 #include "protocol/PacketTypes.hpp"
 
 namespace rtype::server {
@@ -16,20 +23,16 @@ namespace rtype::server {
  * This class handles:
  * - Creating and destroying game sessions
  * - Updating active sessions
- * - Managing session callbacks for network events
+ * - Forwarding session events to listener
  */
 class GameSessionManager {
 public:
-    // Callback types for session events
-    using StateSnapshotCallback = std::function<void(uint32_t, const std::vector<uint8_t>&)>;
-    using EntitySpawnCallback = std::function<void(uint32_t, const std::vector<uint8_t>&)>;
-    using EntityDestroyCallback = std::function<void(uint32_t, uint32_t)>;
-    using ProjectileSpawnCallback = std::function<void(uint32_t, const std::vector<uint8_t>&)>;
-    using GameOverCallback = std::function<void(uint32_t, const std::vector<uint32_t>&)>;
-    using WaveStartCallback = std::function<void(uint32_t, const std::vector<uint8_t>&)>;
-    using WaveCompleteCallback = std::function<void(uint32_t, const std::vector<uint8_t>&)>;
-
     GameSessionManager();
+
+    /**
+     * @brief Set the listener for all session events
+     */
+    void set_listener(IGameSessionListener* listener) { listener_ = listener; }
 
     /**
      * @brief Create a new game session
@@ -71,51 +74,9 @@ public:
      */
     std::vector<uint32_t> get_active_session_ids() const;
 
-    // Setters for session event callbacks
-    void set_state_snapshot_callback(StateSnapshotCallback callback) {
-        on_state_snapshot_ = callback;
-    }
-
-    void set_entity_spawn_callback(EntitySpawnCallback callback) {
-        on_entity_spawn_ = callback;
-    }
-
-    void set_entity_destroy_callback(EntityDestroyCallback callback) {
-        on_entity_destroy_ = callback;
-    }
-
-    void set_projectile_spawn_callback(ProjectileSpawnCallback callback) {
-        on_projectile_spawn_ = callback;
-    }
-
-    void set_game_over_callback(GameOverCallback callback) {
-        on_game_over_ = callback;
-    }
-
-    void set_wave_start_callback(WaveStartCallback callback) {
-        on_wave_start_ = callback;
-    }
-
-    void set_wave_complete_callback(WaveCompleteCallback callback) {
-        on_wave_complete_ = callback;
-    }
-
 private:
     std::unordered_map<uint32_t, std::unique_ptr<GameSession>> sessions_;
-
-    // Session event callbacks
-    StateSnapshotCallback on_state_snapshot_;
-    EntitySpawnCallback on_entity_spawn_;
-    EntityDestroyCallback on_entity_destroy_;
-    ProjectileSpawnCallback on_projectile_spawn_;
-    GameOverCallback on_game_over_;
-    WaveStartCallback on_wave_start_;
-    WaveCompleteCallback on_wave_complete_;
-
-    /**
-     * @brief Setup callbacks for a newly created session
-     */
-    void setup_session_callbacks(GameSession* session);
+    IGameSessionListener* listener_ = nullptr;
 };
 
 }

@@ -1,3 +1,10 @@
+/*
+** EPITECH PROJECT, 2025
+** Mirror-R-Type
+** File description:
+** NetworkHandler implementation
+*/
+
 #include "NetworkHandler.hpp"
 #include "protocol/ProtocolEncoder.hpp"
 #include <iostream>
@@ -6,10 +13,12 @@
 namespace rtype::server {
 
 NetworkHandler::NetworkHandler(engine::INetworkPlugin* network_plugin)
-    : network_plugin_(network_plugin) {
+    : network_plugin_(network_plugin)
+{
 }
 
-void NetworkHandler::process_packets() {
+void NetworkHandler::process_packets()
+{
     auto packets = network_plugin_->receive();
 
     for (const auto& packet : packets) {
@@ -37,28 +46,31 @@ void NetworkHandler::process_packets() {
 }
 
 void NetworkHandler::route_packet(uint32_t client_id, const protocol::PacketHeader& header,
-                                  const std::vector<uint8_t>& payload, engine::NetworkProtocol protocol) {
+                                  const std::vector<uint8_t>& payload, engine::NetworkProtocol protocol)
+{
     auto packet_type = static_cast<protocol::PacketType>(header.type);
 
-    if (protocol == engine::NetworkProtocol::TCP) {
+    if (protocol == engine::NetworkProtocol::TCP)
         handle_tcp_packet(client_id, packet_type, payload);
-    } else if (protocol == engine::NetworkProtocol::UDP) {
+    else if (protocol == engine::NetworkProtocol::UDP)
         handle_udp_packet(client_id, packet_type, payload);
-    }
 }
 
 void NetworkHandler::handle_tcp_packet(uint32_t client_id, protocol::PacketType type,
-                                       const std::vector<uint8_t>& payload) {
+                                       const std::vector<uint8_t>& payload)
+{
+    if (!listener_)
+        return;
+
     switch (type) {
         case protocol::PacketType::CLIENT_CONNECT: {
             if (payload.size() != sizeof(protocol::ClientConnectPayload)) {
                 std::cerr << "[NetworkHandler] Invalid CLIENT_CONNECT payload size\n";
                 return;
             }
-            protocol::ClientConnectPayload connect_payload;
-            std::memcpy(&connect_payload, payload.data(), sizeof(connect_payload));
-            if (on_client_connect_)
-                on_client_connect_(client_id, connect_payload);
+            protocol::ClientConnectPayload data;
+            std::memcpy(&data, payload.data(), sizeof(data));
+            listener_->on_client_connect(client_id, data);
             break;
         }
         case protocol::PacketType::CLIENT_DISCONNECT: {
@@ -66,10 +78,9 @@ void NetworkHandler::handle_tcp_packet(uint32_t client_id, protocol::PacketType 
                 std::cerr << "[NetworkHandler] Invalid CLIENT_DISCONNECT payload size\n";
                 return;
             }
-            protocol::ClientDisconnectPayload disconnect_payload;
-            std::memcpy(&disconnect_payload, payload.data(), sizeof(disconnect_payload));
-            if (on_client_disconnect_)
-                on_client_disconnect_(client_id, disconnect_payload);
+            protocol::ClientDisconnectPayload data;
+            std::memcpy(&data, payload.data(), sizeof(data));
+            listener_->on_client_disconnect(client_id, data);
             break;
         }
         case protocol::PacketType::CLIENT_PING: {
@@ -77,10 +88,9 @@ void NetworkHandler::handle_tcp_packet(uint32_t client_id, protocol::PacketType 
                 std::cerr << "[NetworkHandler] Invalid CLIENT_PING payload size\n";
                 return;
             }
-            protocol::ClientPingPayload ping_payload;
-            std::memcpy(&ping_payload, payload.data(), sizeof(ping_payload));
-            if (on_client_ping_)
-                on_client_ping_(client_id, ping_payload);
+            protocol::ClientPingPayload data;
+            std::memcpy(&data, payload.data(), sizeof(data));
+            listener_->on_client_ping(client_id, data);
             break;
         }
         case protocol::PacketType::CLIENT_JOIN_LOBBY: {
@@ -88,10 +98,9 @@ void NetworkHandler::handle_tcp_packet(uint32_t client_id, protocol::PacketType 
                 std::cerr << "[NetworkHandler] Invalid CLIENT_JOIN_LOBBY payload size\n";
                 return;
             }
-            protocol::ClientJoinLobbyPayload join_payload;
-            std::memcpy(&join_payload, payload.data(), sizeof(join_payload));
-            if (on_client_join_lobby_)
-                on_client_join_lobby_(client_id, join_payload);
+            protocol::ClientJoinLobbyPayload data;
+            std::memcpy(&data, payload.data(), sizeof(data));
+            listener_->on_client_join_lobby(client_id, data);
             break;
         }
         case protocol::PacketType::CLIENT_LEAVE_LOBBY: {
@@ -99,10 +108,9 @@ void NetworkHandler::handle_tcp_packet(uint32_t client_id, protocol::PacketType 
                 std::cerr << "[NetworkHandler] Invalid CLIENT_LEAVE_LOBBY payload size\n";
                 return;
             }
-            protocol::ClientLeaveLobbyPayload leave_payload;
-            std::memcpy(&leave_payload, payload.data(), sizeof(leave_payload));
-            if (on_client_leave_lobby_)
-                on_client_leave_lobby_(client_id, leave_payload);
+            protocol::ClientLeaveLobbyPayload data;
+            std::memcpy(&data, payload.data(), sizeof(data));
+            listener_->on_client_leave_lobby(client_id, data);
             break;
         }
         default:
@@ -113,7 +121,11 @@ void NetworkHandler::handle_tcp_packet(uint32_t client_id, protocol::PacketType 
 }
 
 void NetworkHandler::handle_udp_packet(uint32_t client_id, protocol::PacketType type,
-                                       const std::vector<uint8_t>& payload) {
+                                       const std::vector<uint8_t>& payload)
+{
+    if (!listener_)
+        return;
+
     switch (type) {
         case protocol::PacketType::CLIENT_UDP_HANDSHAKE: {
             std::cout << "[NetworkHandler] Processing UDP handshake from client " << client_id << "\n";
@@ -122,10 +134,9 @@ void NetworkHandler::handle_udp_packet(uint32_t client_id, protocol::PacketType 
                           << payload.size() << " expected " << sizeof(protocol::ClientUdpHandshakePayload) << "\n";
                 return;
             }
-            protocol::ClientUdpHandshakePayload handshake_payload;
-            std::memcpy(&handshake_payload, payload.data(), sizeof(handshake_payload));
-            if (on_udp_handshake_)
-                on_udp_handshake_(client_id, handshake_payload);
+            protocol::ClientUdpHandshakePayload data;
+            std::memcpy(&data, payload.data(), sizeof(data));
+            listener_->on_udp_handshake(client_id, data);
             break;
         }
         case protocol::PacketType::CLIENT_INPUT: {
@@ -133,27 +144,23 @@ void NetworkHandler::handle_udp_packet(uint32_t client_id, protocol::PacketType 
                 std::cerr << "[NetworkHandler] Invalid CLIENT_INPUT payload size\n";
                 return;
             }
-            protocol::ClientInputPayload input_payload;
-            std::memcpy(&input_payload, payload.data(), sizeof(input_payload));
+            protocol::ClientInputPayload data;
+            std::memcpy(&data, payload.data(), sizeof(data));
 
             // Convert from network byte order
-            input_payload.player_id = ntohl(input_payload.player_id);
-            input_payload.input_flags = ntohs(input_payload.input_flags);
-            input_payload.client_tick = ntohl(input_payload.client_tick);
+            data.player_id = ntohl(data.player_id);
+            data.input_flags = ntohs(data.input_flags);
+            data.client_tick = ntohl(data.client_tick);
 
-            if (on_client_input_)
-                on_client_input_(client_id, input_payload);
+            listener_->on_client_input(client_id, data);
             break;
         }
         case protocol::PacketType::CLIENT_PING: {
-            // Ping can also come via UDP
-            if (payload.size() != sizeof(protocol::ClientPingPayload)) {
+            if (payload.size() != sizeof(protocol::ClientPingPayload))
                 return;
-            }
-            protocol::ClientPingPayload ping_payload;
-            std::memcpy(&ping_payload, payload.data(), sizeof(ping_payload));
-            if (on_client_ping_)
-                on_client_ping_(client_id, ping_payload);
+            protocol::ClientPingPayload data;
+            std::memcpy(&data, payload.data(), sizeof(data));
+            listener_->on_client_ping(client_id, data);
             break;
         }
         default:

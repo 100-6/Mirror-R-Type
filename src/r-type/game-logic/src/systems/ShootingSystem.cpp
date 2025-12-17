@@ -39,10 +39,13 @@ void ShootingSystem::init(Registry& registry)
             if (weapon.time_since_last_fire >= firerate) {
                 auto& positions = registry.get_components<Position>();
                 auto& sprites = registry.get_components<Sprite>();
+                auto& colliders = registry.get_components<Collider>();
 
                 if (positions.has_entity(event.player)) {
-                     float playerHeight = sprites.has_entity(event.player) ? sprites[event.player].height : 0.0f;
-                     float playerWidth = sprites.has_entity(event.player) ? sprites[event.player].width : 0.0f;
+                     float playerWidth = sprites.has_entity(event.player) ? sprites[event.player].width :
+                                         (colliders.has_entity(event.player) ? colliders[event.player].width : 0.0f);
+                     float playerHeight = sprites.has_entity(event.player) ? sprites[event.player].height :
+                                          (colliders.has_entity(event.player) ? colliders[event.player].height : 0.0f);
                      createProjectiles(registry, event.player, weapon, positions[event.player], playerWidth, playerHeight);
                 }
             }
@@ -65,13 +68,16 @@ void ShootingSystem::init(Registry& registry)
         if (weapon.type == WeaponType::CHARGE) {
             auto& positions = registry.get_components<Position>();
             auto& sprites = registry.get_components<Sprite>();
+            auto& colliders = registry.get_components<Collider>();
 
             if (positions.has_entity(event.player)) {
-                float playerHeight = sprites.has_entity(event.player) ? sprites[event.player].height : 0.0f;
-                float playerWidth = sprites.has_entity(event.player) ? sprites[event.player].width : 0.0f;
+                float playerWidth = sprites.has_entity(event.player) ? sprites[event.player].width :
+                                    (colliders.has_entity(event.player) ? colliders[event.player].width : 0.0f);
+                float playerHeight = sprites.has_entity(event.player) ? sprites[event.player].height :
+                                     (colliders.has_entity(event.player) ? colliders[event.player].height : 0.0f);
                 createProjectiles(registry, event.player, weapon, positions[event.player], playerWidth, playerHeight);
             }
-            
+
             // Note: L'effet visuel sera caché automatiquement par l'update
             weapon.is_charging = false;
             weapon.current_charge_duration = 0.0f;
@@ -176,8 +182,11 @@ void ShootingSystem::update(Registry& registry, float dt)
                     if (weapon.time_since_last_fire >= firerate) {
                         if (positions.has_entity(entity)) {
                             std::cout << "[SHOOT] Creating projectiles for entity " << entity << "\n";
-                            float h = sprites.has_entity(entity) ? sprites[entity].height : 0.0f;
-                            float w = sprites.has_entity(entity) ? sprites[entity].width : 0.0f;
+                            auto& colliders = registry.get_components<Collider>();
+                            float w = sprites.has_entity(entity) ? sprites[entity].width :
+                                      (colliders.has_entity(entity) ? colliders[entity].width : 0.0f);
+                            float h = sprites.has_entity(entity) ? sprites[entity].height :
+                                      (colliders.has_entity(entity) ? colliders[entity].height : 0.0f);
                             createProjectiles(registry, entity, weapon, positions[entity], w, h);
                         }
                     }
@@ -198,8 +207,11 @@ void ShootingSystem::update(Registry& registry, float dt)
                  
                  if (weapon.time_since_last_fire >= burst_delay) {
                      if (positions.has_entity(entity)) {
-                        float h = sprites.has_entity(entity) ? sprites[entity].height : 0.0f;
-                        float w = sprites.has_entity(entity) ? sprites[entity].width : 0.0f;
+                        auto& colliders = registry.get_components<Collider>();
+                        float w = sprites.has_entity(entity) ? sprites[entity].width :
+                                  (colliders.has_entity(entity) ? colliders[entity].width : 0.0f);
+                        float h = sprites.has_entity(entity) ? sprites[entity].height :
+                                  (colliders.has_entity(entity) ? colliders[entity].height : 0.0f);
                         createProjectiles(registry, entity, weapon, positions[entity], w, h);
                      }
                  }
