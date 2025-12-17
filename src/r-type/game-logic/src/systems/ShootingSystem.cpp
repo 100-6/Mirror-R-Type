@@ -27,10 +27,14 @@ void ShootingSystem::init(Registry& registry)
     // Trigger Pressed
     eventBus.subscribe<ecs::PlayerStartFireEvent>([this, &registry](const ecs::PlayerStartFireEvent& event) {
         auto& weapons = registry.get_components<Weapon>();
-        if (!weapons.has_entity(event.player)) return;
+        if (!weapons.has_entity(event.player)) {
+            std::cout << "[SHOOT] PlayerStartFireEvent: entity " << event.player << " has no Weapon!\n";
+            return;
+        }
 
         auto& weapon = weapons[event.player];
         weapon.trigger_held = true;
+        std::cout << "[SHOOT] PlayerStartFireEvent received for entity " << event.player << ", trigger_held now true\n";
 
         // Pour les armes automatiques, on tire immédiatement si le cooldown est prêt
         if (weapon.type != WeaponType::CHARGE) {
@@ -40,10 +44,13 @@ void ShootingSystem::init(Registry& registry)
             if (weapon.time_since_last_fire >= firerate) {
                 auto& positions = registry.get_components<Position>();
                 auto& sprites = registry.get_components<Sprite>();
+                auto& colliders = registry.get_components<Collider>();
 
                 if (positions.has_entity(event.player)) {
-                     float playerHeight = sprites.has_entity(event.player) ? sprites[event.player].height : 0.0f;
-                     float playerWidth = sprites.has_entity(event.player) ? sprites[event.player].width : 0.0f;
+                     float playerWidth = sprites.has_entity(event.player) ? sprites[event.player].width :
+                                         (colliders.has_entity(event.player) ? colliders[event.player].width : 0.0f);
+                     float playerHeight = sprites.has_entity(event.player) ? sprites[event.player].height :
+                                          (colliders.has_entity(event.player) ? colliders[event.player].height : 0.0f);
                      createProjectiles(registry, event.player, weapon, positions[event.player], playerWidth, playerHeight);
                 }
             }
@@ -53,22 +60,29 @@ void ShootingSystem::init(Registry& registry)
     // Trigger Released
     eventBus.subscribe<ecs::PlayerStopFireEvent>([this, &registry](const ecs::PlayerStopFireEvent& event) {
         auto& weapons = registry.get_components<Weapon>();
-        if (!weapons.has_entity(event.player)) return;
+        if (!weapons.has_entity(event.player)) {
+            std::cout << "[SHOOT] PlayerStopFireEvent: entity " << event.player << " has no Weapon!\n";
+            return;
+        }
 
         auto& weapon = weapons[event.player];
         weapon.trigger_held = false;
+        std::cout << "[SHOOT] PlayerStopFireEvent received for entity " << event.player << ", trigger_held now false\n";
 
         // Pour le tir chargé, on tire au relâchement
         if (weapon.type == WeaponType::CHARGE) {
             auto& positions = registry.get_components<Position>();
             auto& sprites = registry.get_components<Sprite>();
+            auto& colliders = registry.get_components<Collider>();
 
             if (positions.has_entity(event.player)) {
-                float playerHeight = sprites.has_entity(event.player) ? sprites[event.player].height : 0.0f;
-                float playerWidth = sprites.has_entity(event.player) ? sprites[event.player].width : 0.0f;
+                float playerWidth = sprites.has_entity(event.player) ? sprites[event.player].width :
+                                    (colliders.has_entity(event.player) ? colliders[event.player].width : 0.0f);
+                float playerHeight = sprites.has_entity(event.player) ? sprites[event.player].height :
+                                     (colliders.has_entity(event.player) ? colliders[event.player].height : 0.0f);
                 createProjectiles(registry, event.player, weapon, positions[event.player], playerWidth, playerHeight);
             }
-            
+
             // Note: L'effet visuel sera caché automatiquement par l'update
             weapon.is_charging = false;
             weapon.current_charge_duration = 0.0f;
@@ -102,6 +116,11 @@ void ShootingSystem::update(Registry& registry, float dt)
 
         // Logique Joueur
         if (!enemies.has_entity(entity)) {
+            static int trigger_check_counter = 0;
+            if (++trigger_check_counter % 60 == 0 && weapon.trigger_held) {
+                std::cout << "[SHOOT] Entity " << entity << " has trigger_held=true, type=" << (int)weapon.type << ", cooldown=" << weapon.time_since_last_fire << "\n";
+            }
+
             if (weapon.trigger_held) {
                 if (weapon.type == WeaponType::CHARGE) {
                     weapon.is_charging = true;
@@ -122,6 +141,10 @@ void ShootingSystem::update(Registry& registry, float dt)
                             weapon.projectile_sprite.texture,
                             0.0f, 0.0f, 0.0f, engine::Color{0, 150, 255, 150}, 0.0f, 0.0f, 2
                          });
+                         // Only set tint/texture if graphics are available or textures loaded
+                         if (!graphics_ && weapon.projectile_sprite.texture == engine::INVALID_HANDLE) {
+                             // Minimal server logic for effect? Server might not need this effect entity at all.
+                         }
                     }
 
                     // Animer l'effet de charge
@@ -163,8 +186,12 @@ void ShootingSystem::update(Registry& registry, float dt)
 
                     if (weapon.time_since_last_fire >= firerate) {
                         if (positions.has_entity(entity)) {
-                            float h = sprites.has_entity(entity) ? sprites[entity].height : 0.0f;
-                            float w = sprites.has_entity(entity) ? sprites[entity].width : 0.0f;
+                            std::cout << "[SHOOT] Creating projectiles for entity " << entity << "\n";
+                            auto& colliders = registry.get_components<Collider>();
+                            float w = sprites.has_entity(entity) ? sprites[entity].width :
+                                      (colliders.has_entity(entity) ? colliders[entity].width : 0.0f);
+                            float h = sprites.has_entity(entity) ? sprites[entity].height :
+                                      (colliders.has_entity(entity) ? colliders[entity].height : 0.0f);
                             createProjectiles(registry, entity, weapon, positions[entity], w, h);
                         }
                     }
@@ -185,8 +212,11 @@ void ShootingSystem::update(Registry& registry, float dt)
                  
                  if (weapon.time_since_last_fire >= burst_delay) {
                      if (positions.has_entity(entity)) {
-                        float h = sprites.has_entity(entity) ? sprites[entity].height : 0.0f;
-                        float w = sprites.has_entity(entity) ? sprites[entity].width : 0.0f;
+                        auto& colliders = registry.get_components<Collider>();
+                        float w = sprites.has_entity(entity) ? sprites[entity].width :
+                                  (colliders.has_entity(entity) ? colliders[entity].width : 0.0f);
+                        float h = sprites.has_entity(entity) ? sprites[entity].height :
+                                  (colliders.has_entity(entity) ? colliders[entity].height : 0.0f);
                         createProjectiles(registry, entity, weapon, positions[entity], w, h);
                      }
                  }
@@ -286,6 +316,12 @@ void ShootingSystem::createProjectiles(Registry& registry, Entity shooter, Weapo
              actual_color.g = static_cast<unsigned char>(150 + (t * 105)); // 150 -> 255
              actual_color.r = static_cast<unsigned char>(t * 200);         // 0 -> 200
         }
+    } else {
+        // Fallback dimensions if no sprite/graphics
+        if (!graphics_) {
+            actual_width = 20.0f; // Default projectile width
+            actual_height = 10.0f; // Default projectile height
+        }
     }
 
     // Pour SPREAD: calculer les angles d'éventail
@@ -334,7 +370,12 @@ void ShootingSystem::createProjectiles(Registry& registry, Entity shooter, Weapo
         registry.add_component(projectile, Projectile{angle, 5.0f, 0.0f, ProjectileFaction::Player});
         registry.add_component(projectile, NoFriction{});
 
+        // Event for ServerNetworkSystem to pick up - MUST be published AFTER all components are added
+        std::cout << "[SHOOT] Publishing ShotFiredEvent: shooter=" << shooter << " projectile=" << projectile << "\n";
         registry.get_event_bus().publish(ecs::ShotFiredEvent{shooter, projectile});
+
+        // Deprecated direct bus call if we use new event above, keeping it for now but ensuring payload is correct
+        // registry.get_event_bus().publish(ecs::ShotFiredEvent{shooter, projectile});
     }
 
     // Gérer la rafale (BURST)

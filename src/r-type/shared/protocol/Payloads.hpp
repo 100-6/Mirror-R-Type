@@ -82,7 +82,7 @@ struct PACKED ServerAcceptPayload {
     uint16_t map_id;
 
     ServerAcceptPayload()
-        : assigned_player_id(0), server_tick_rate(60), max_players(4), map_id(0) {}
+        : assigned_player_id(0), server_tick_rate(64), max_players(4), map_id(0) {}
 };
 PACK_END
 
@@ -324,6 +324,7 @@ struct PACKED ClientInputPayload {
     bool is_shoot_pressed() const { return (input_flags & INPUT_SHOOT) != 0; }
     bool is_charge_pressed() const { return (input_flags & INPUT_CHARGE) != 0; }
     bool is_special_pressed() const { return (input_flags & INPUT_SPECIAL) != 0; }
+    bool is_switch_weapon_pressed() const { return (input_flags & INPUT_SWITCH_WEAPON) != 0; }
 };
 PACK_END
 

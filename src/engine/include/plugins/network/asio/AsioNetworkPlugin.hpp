@@ -46,6 +46,7 @@ public:
 
     // Server operations
     bool start_server(uint16_t tcp_port, uint16_t udp_port) override;
+    bool start_server(uint16_t tcp_port, uint16_t udp_port, bool listen_on_all_interfaces);
     void stop_server() override;
     bool is_server_running() const override;
 

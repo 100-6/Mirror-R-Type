@@ -144,6 +144,16 @@ void NetworkClient::send_input(uint16_t input_flags, uint32_t client_tick) {
 void NetworkClient::update() {
     auto packets = network_plugin_.receive();
 
+    static int packet_count = 0;
+    static int log_counter = 0;
+    packet_count += packets.size();
+    log_counter++;
+
+    if (log_counter % 60 == 0 && packet_count > 0) {
+        std::cout << "[NetworkClient] Received " << packet_count << " packets in last 60 updates\n";
+        packet_count = 0;
+    }
+
     for (const auto& packet : packets) {
         handle_packet(packet);
     }
@@ -170,6 +180,12 @@ void NetworkClient::handle_packet(const engine::NetworkPacket& packet) {
 
     auto packet_type = static_cast<protocol::PacketType>(header.type);
 
+    // Log all non-snapshot packets to debug spawn issues
+    if (packet_type != protocol::PacketType::SERVER_SNAPSHOT &&
+        packet_type != protocol::PacketType::SERVER_DELTA_SNAPSHOT) {
+        std::cout << "[NetworkClient] Processing packet type: " << (int)packet_type << "\n";
+    }
+
     switch (packet_type) {
         case protocol::PacketType::SERVER_ACCEPT:
             handle_server_accept(payload);
@@ -195,15 +211,22 @@ void NetworkClient::handle_packet(const engine::NetworkPacket& packet) {
         case protocol::PacketType::SERVER_ENTITY_DESTROY:
             handle_entity_destroy(payload);
             break;
+        case protocol::PacketType::SERVER_PROJECTILE_SPAWN:
+            handle_projectile_spawn(payload);
+            break;
+        case protocol::PacketType::SERVER_WAVE_START:
+            handle_wave_start(payload);
+            break;
+        case protocol::PacketType::SERVER_WAVE_COMPLETE:
+            handle_wave_complete(payload);
+            break;
         case protocol::PacketType::SERVER_GAME_OVER:
             handle_game_over(payload);
             break;
         case protocol::PacketType::SERVER_SNAPSHOT:
         case protocol::PacketType::SERVER_DELTA_SNAPSHOT:
-            // TODO: Handle game state snapshots when in game
-            // For now, silently ignore if not in game
             if (in_game_) {
-                // Process snapshot
+                handle_snapshot(payload);
             }
             break;
         default:
@@ -275,16 +298,34 @@ void NetworkClient::handle_lobby_state(const std::vector<uint8_t>& payload) {
 
     protocol::ServerLobbyStatePayload state;
     std::memcpy(&state, payload.data(), sizeof(state));
+    state.lobby_id = ntohl(state.lobby_id);
 
-    lobby_id_ = ntohl(state.lobby_id);
+    lobby_id_ = state.lobby_id;
     in_lobby_ = true;
+
+    std::vector<protocol::PlayerLobbyEntry> players;
+    size_t offset = sizeof(protocol::ServerLobbyStatePayload);
+    size_t remaining = 0;
+    if (payload.size() > offset)
+        remaining = payload.size() - offset;
+    size_t max_entries = remaining / sizeof(protocol::PlayerLobbyEntry);
+    size_t expected = std::min(static_cast<size_t>(state.current_player_count), max_entries);
+
+    for (size_t i = 0; i < expected; ++i) {
+        protocol::PlayerLobbyEntry entry;
+        std::memcpy(&entry, payload.data() + offset + i * sizeof(protocol::PlayerLobbyEntry),
+                    sizeof(protocol::PlayerLobbyEntry));
+        entry.player_id = ntohl(entry.player_id);
+        entry.player_level = ntohs(entry.player_level);
+        players.push_back(entry);
+    }
 
     std::cout << "[NetworkClient] Lobby state - ID: " << lobby_id_
               << ", Players: " << static_cast<int>(state.current_player_count)
               << "/" << static_cast<int>(state.required_player_count) << "\n";
 
     if (on_lobby_state_)
-        on_lobby_state_(state);
+        on_lobby_state_(state, players);
 }
 
 void NetworkClient::handle_countdown(const std::vector<uint8_t>& payload) {
@@ -349,6 +390,46 @@ void NetworkClient::handle_entity_destroy(const std::vector<uint8_t>& payload) {
         on_entity_destroy_(destroy);
 }
 
+void NetworkClient::handle_projectile_spawn(const std::vector<uint8_t>& payload) {
+    if (payload.size() < sizeof(protocol::ServerProjectileSpawnPayload)) {
+        return;
+    }
+
+    protocol::ServerProjectileSpawnPayload proj_spawn;
+    std::memcpy(&proj_spawn, payload.data(), sizeof(proj_spawn));
+
+    if (on_projectile_spawn_)
+        on_projectile_spawn_(proj_spawn);
+}
+
+void NetworkClient::handle_snapshot(const std::vector<uint8_t>& payload) {
+    if (payload.size() < sizeof(protocol::ServerSnapshotPayload)) {
+        return;
+    }
+
+    protocol::ServerSnapshotPayload snapshot;
+    std::memcpy(&snapshot, payload.data(), sizeof(snapshot));
+
+    // Calculate how many entities are in this snapshot
+    size_t header_size = sizeof(protocol::ServerSnapshotPayload);
+    size_t remaining = payload.size() - header_size;
+    size_t entity_count = remaining / sizeof(protocol::EntityState);
+
+    // Extract entity states
+    std::vector<protocol::EntityState> entities;
+    entities.reserve(entity_count);
+
+    const uint8_t* entity_data = payload.data() + header_size;
+    for (size_t i = 0; i < entity_count; ++i) {
+        protocol::EntityState state;
+        std::memcpy(&state, entity_data + (i * sizeof(protocol::EntityState)), sizeof(protocol::EntityState));
+        entities.push_back(state);
+    }
+
+    if (on_snapshot_)
+        on_snapshot_(snapshot, entities);
+}
+
 void NetworkClient::handle_game_over(const std::vector<uint8_t>& payload) {
     if (payload.size() < sizeof(protocol::ServerGameOverPayload)) {
         return;
@@ -363,6 +444,30 @@ void NetworkClient::handle_game_over(const std::vector<uint8_t>& payload) {
 
     if (on_game_over_)
         on_game_over_(game_over);
+}
+
+void NetworkClient::handle_wave_start(const std::vector<uint8_t>& payload) {
+    if (payload.size() < sizeof(protocol::ServerWaveStartPayload)) {
+        return;
+    }
+
+    protocol::ServerWaveStartPayload wave_start;
+    std::memcpy(&wave_start, payload.data(), sizeof(wave_start));
+
+    if (on_wave_start_)
+        on_wave_start_(wave_start);
+}
+
+void NetworkClient::handle_wave_complete(const std::vector<uint8_t>& payload) {
+    if (payload.size() < sizeof(protocol::ServerWaveCompletePayload)) {
+        return;
+    }
+
+    protocol::ServerWaveCompletePayload wave_complete;
+    std::memcpy(&wave_complete, payload.data(), sizeof(wave_complete));
+
+    if (on_wave_complete_)
+        on_wave_complete_(wave_complete);
 }
 
 // ============== UDP Connection ==============
@@ -450,7 +555,8 @@ void NetworkClient::set_on_rejected(std::function<void(uint8_t, const std::strin
     on_rejected_ = callback;
 }
 
-void NetworkClient::set_on_lobby_state(std::function<void(const protocol::ServerLobbyStatePayload&)> callback) {
+void NetworkClient::set_on_lobby_state(std::function<void(const protocol::ServerLobbyStatePayload&,
+                                                         const std::vector<protocol::PlayerLobbyEntry>&)> callback) {
     on_lobby_state_ = callback;
 }
 
@@ -470,12 +576,28 @@ void NetworkClient::set_on_entity_destroy(std::function<void(const protocol::Ser
     on_entity_destroy_ = callback;
 }
 
+void NetworkClient::set_on_projectile_spawn(std::function<void(const protocol::ServerProjectileSpawnPayload&)> callback) {
+    on_projectile_spawn_ = callback;
+}
+
+void NetworkClient::set_on_snapshot(std::function<void(const protocol::ServerSnapshotPayload&, const std::vector<protocol::EntityState>&)> callback) {
+    on_snapshot_ = callback;
+}
+
 void NetworkClient::set_on_game_over(std::function<void(const protocol::ServerGameOverPayload&)> callback) {
     on_game_over_ = callback;
 }
 
 void NetworkClient::set_on_disconnected(std::function<void()> callback) {
     on_disconnected_ = callback;
+}
+
+void NetworkClient::set_on_wave_start(std::function<void(const protocol::ServerWaveStartPayload&)> callback) {
+    on_wave_start_ = callback;
+}
+
+void NetworkClient::set_on_wave_complete(std::function<void(const protocol::ServerWaveCompletePayload&)> callback) {
+    on_wave_complete_ = callback;
 }
 
 }

@@ -3,6 +3,9 @@
 add_executable(r-type_server
     src/main.cpp
     src/Server.cpp
+    src/NetworkHandler.cpp
+    src/PacketSender.cpp
+    src/GameSessionManager.cpp
     src/LobbyManager.cpp
     src/GameSession.cpp
     src/WaveManager.cpp

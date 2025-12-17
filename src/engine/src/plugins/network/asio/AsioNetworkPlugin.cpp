@@ -96,6 +96,12 @@ bool AsioNetworkPlugin::is_initialized() const
 
 bool AsioNetworkPlugin::start_server(uint16_t tcp_port, uint16_t udp_port)
 {
+    // Default behavior: listen on localhost only (127.0.0.1)
+    return start_server(tcp_port, udp_port, false);
+}
+
+bool AsioNetworkPlugin::start_server(uint16_t tcp_port, uint16_t udp_port, bool listen_on_all_interfaces)
+{
     if (!initialized_) {
         std::cerr << "[AsioNetworkPlugin] Cannot start server: not initialized" << std::endl;
         return false;
@@ -109,13 +115,18 @@ bool AsioNetworkPlugin::start_server(uint16_t tcp_port, uint16_t udp_port)
         tcp_port_ = tcp_port;
         udp_port_ = udp_port;
 
+        // Choose bind address based on configuration
+        boost::asio::ip::address bind_address = listen_on_all_interfaces
+            ? boost::asio::ip::address_v4::any()      // 0.0.0.0 - all interfaces
+            : boost::asio::ip::address_v4::loopback(); // 127.0.0.1 - localhost only
+
         // Start TCP acceptor
-        tcp::endpoint tcp_endpoint(tcp::v4(), tcp_port);
+        tcp::endpoint tcp_endpoint(bind_address, tcp_port);
         tcp_acceptor_ = std::make_unique<tcp::acceptor>(*io_context_, tcp_endpoint);
         tcp_acceptor_->set_option(tcp::acceptor::reuse_address(true));
 
         // Start UDP socket
-        udp::endpoint udp_endpoint(udp::v4(), udp_port);
+        udp::endpoint udp_endpoint(bind_address, udp_port);
         udp_socket_ = std::make_unique<udp::socket>(*io_context_, udp_endpoint);
         udp_recv_endpoint_ = std::make_unique<udp::endpoint>();
 
@@ -133,8 +144,8 @@ bool AsioNetworkPlugin::start_server(uint16_t tcp_port, uint16_t udp_port)
         // Start IO thread
         io_thread_ = std::make_unique<std::thread>([this]() { run_io_context(); });
 
-        std::cout << "[AsioNetworkPlugin] Server started - TCP:" << tcp_port
-                  << " UDP:" << udp_port << std::endl;
+        std::cout << "[AsioNetworkPlugin] Server started on " << bind_address.to_string()
+                  << " - TCP:" << tcp_port << " UDP:" << udp_port << std::endl;
         return true;
     } catch (const std::exception& e) {
         std::cerr << "[AsioNetworkPlugin] Failed to start server: " << e.what() << std::endl;

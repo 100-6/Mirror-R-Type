@@ -192,4 +192,10 @@ struct GameState {
     bool restartRequested = false;    // Player wants to restart
 };
 
+// Network
+
+struct NetworkId {
+    uint32_t server_entity_id = 0;  // Server-side entity ID for network sync
+};
+
 #endif /* !GAME_COMPONENTS_HPP_ */
