@@ -309,6 +309,17 @@ void ClientGame::setup_network_callbacks() {
         ctrl.allWavesCompleted = wave.all_waves_complete != 0;
     });
 
+    network_client_->set_on_score_update([this](const protocol::ServerScoreUpdatePayload& score) {
+        uint32_t local_server_id = entity_manager_->get_local_player_entity_id();
+        if (entity_manager_->has_entity(local_server_id)) {
+            Entity entity = entity_manager_->get_entity(local_server_id);
+            auto& scores = registry_->get_components<Score>();
+            if (scores.has_entity(entity)) {
+                scores[entity].value = score.new_total_score;
+            }
+        }
+    });
+
     network_client_->set_on_projectile_spawn([this](const protocol::ServerProjectileSpawnPayload& proj) {
         uint32_t proj_id = ntohl(proj.projectile_id);
         uint32_t owner_id = ntohl(proj.owner_id);

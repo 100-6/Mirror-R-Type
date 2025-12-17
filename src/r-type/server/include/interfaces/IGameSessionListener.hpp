@@ -75,6 +75,13 @@ public:
      * @param is_victory True if players won, false if all players died
      */
     virtual void on_game_over(uint32_t session_id, const std::vector<uint32_t>& player_ids, bool is_victory) = 0;
+
+    /**
+     * @brief Called when score is updated
+     * @param session_id The game session
+     * @param score_data Serialized score data
+     */
+    virtual void on_score_update(uint32_t session_id, const std::vector<uint8_t>& score_data) = 0;
 };
 
 }

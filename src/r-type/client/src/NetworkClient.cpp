@@ -220,6 +220,9 @@ void NetworkClient::handle_packet(const engine::NetworkPacket& packet) {
         case protocol::PacketType::SERVER_WAVE_COMPLETE:
             handle_wave_complete(payload);
             break;
+        case protocol::PacketType::SERVER_SCORE_UPDATE:
+            handle_score_update(payload);
+            break;
         case protocol::PacketType::SERVER_GAME_OVER:
             handle_game_over(payload);
             break;
@@ -470,6 +473,23 @@ void NetworkClient::handle_wave_complete(const std::vector<uint8_t>& payload) {
         on_wave_complete_(wave_complete);
 }
 
+void NetworkClient::handle_score_update(const std::vector<uint8_t>& payload) {
+    if (payload.size() < sizeof(protocol::ServerScoreUpdatePayload)) {
+        return;
+    }
+
+    protocol::ServerScoreUpdatePayload score_update;
+    std::memcpy(&score_update, payload.data(), sizeof(score_update));
+    score_update.score_delta = ntohl(score_update.score_delta);
+    score_update.new_total_score = ntohl(score_update.new_total_score);
+
+    std::cout << "[NetworkClient] Score update: +" << static_cast<int>(score_update.score_delta)
+              << " (Total: " << score_update.new_total_score << ")\n";
+
+    if (on_score_update_)
+        on_score_update_(score_update);
+}
+
 // ============== UDP Connection ==============
 
 void NetworkClient::connect_udp(uint16_t udp_port) {
@@ -598,6 +618,10 @@ void NetworkClient::set_on_wave_start(std::function<void(const protocol::ServerW
 
 void NetworkClient::set_on_wave_complete(std::function<void(const protocol::ServerWaveCompletePayload&)> callback) {
     on_wave_complete_ = callback;
+}
+
+void NetworkClient::set_on_score_update(std::function<void(const protocol::ServerScoreUpdatePayload&)> callback) {
+    on_score_update_ = callback;
 }
 
 }

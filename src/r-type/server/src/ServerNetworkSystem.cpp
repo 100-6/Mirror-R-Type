@@ -65,6 +65,30 @@ void ServerNetworkSystem::init(Registry& registry)
             std::cout << "[SHOOT] Queued projectile " << event.projectile
                       << " from shooter " << event.shooter << "\n";
         });
+
+    // Subscribe to EnemyKilledEvent for score updates
+    enemyKilledSubId_ = registry.get_event_bus().subscribe<ecs::EnemyKilledEvent>(
+        [this, &registry](const ecs::EnemyKilledEvent& event) {
+            auto& scores = registry.get_components<Score>();
+            
+            // Get current total score (from any player, as they are synced)
+            uint32_t current_total_score = 0;
+            if (player_entities_ && !player_entities_->empty()) {
+                Entity first_player = player_entities_->begin()->second;
+                if (scores.has_entity(first_player)) {
+                    current_total_score = scores[first_player].value;
+                }
+            }
+
+            protocol::ServerScoreUpdatePayload score_update;
+            score_update.score_delta = htonl(event.scoreValue);
+            // ScoreSystem has already updated the component, so current_total_score is the NEW score
+            score_update.new_total_score = htonl(current_total_score);
+            
+            pending_scores_.push(score_update);
+            std::cout << "[SCORE] Queued score update: +" << event.scoreValue 
+                      << " (Total: " << current_total_score << ")\n";
+        });
 }
 
 void ServerNetworkSystem::update(Registry& registry, float dt)
@@ -112,6 +136,7 @@ void ServerNetworkSystem::update(Registry& registry, float dt)
     broadcast_pending_spawns();
     broadcast_pending_destroys();
     broadcast_pending_projectiles();
+    broadcast_pending_scores();
 }
 
 void ServerNetworkSystem::shutdown()
@@ -315,6 +340,23 @@ void ServerNetworkSystem::broadcast_pending_projectiles()
         listener_->on_projectile_spawned(session_id_, serialize(proj));
         pending_projectiles_.pop();
         std::cout << "[SHOOT] Sent projectile " << ntohl(proj.projectile_id) << " to clients\n";
+    }
+}
+
+void ServerNetworkSystem::broadcast_pending_scores()
+{
+    if (!listener_)
+        return;
+
+    while (!pending_scores_.empty()) {
+        const auto& score = pending_scores_.front();
+        
+        std::vector<uint8_t> payload;
+        const uint8_t* bytes = reinterpret_cast<const uint8_t*>(&score);
+        payload.insert(payload.end(), bytes, bytes + sizeof(score));
+        
+        listener_->on_score_updated(session_id_, payload);
+        pending_scores_.pop();
     }
 }
 
