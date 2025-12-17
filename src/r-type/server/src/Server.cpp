@@ -15,10 +15,11 @@
 
 namespace rtype::server {
 
-Server::Server(uint16_t tcp_port, uint16_t udp_port)
+Server::Server(uint16_t tcp_port, uint16_t udp_port, bool listen_on_all_interfaces)
     : network_plugin_(nullptr)
     , tcp_port_(tcp_port)
     , udp_port_(udp_port)
+    , listen_on_all_interfaces_(listen_on_all_interfaces)
     , running_(false)
     , next_player_id_(1)
     , next_session_id_(1)
@@ -33,7 +34,9 @@ Server::~Server()
 bool Server::start()
 {
     std::cout << "[Server] Starting hybrid server - TCP:" << tcp_port_
-              << " UDP:" << udp_port_ << "...\n";
+              << " UDP:" << udp_port_ << " (listening on "
+              << (listen_on_all_interfaces_ ? "all interfaces (0.0.0.0)" : "localhost (127.0.0.1)")
+              << ")...\n";
 
     try {
         network_plugin_ = plugin_manager_.load_plugin<engine::INetworkPlugin>(
@@ -48,7 +51,7 @@ bool Server::start()
         return false;
     }
 
-    if (!network_plugin_->start_server(tcp_port_, udp_port_)) {
+    if (!network_plugin_->start_server(tcp_port_, udp_port_, listen_on_all_interfaces_)) {
         std::cerr << "[Server] Failed to start hybrid server\n";
         return false;
     }

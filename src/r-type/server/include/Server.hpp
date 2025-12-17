@@ -53,7 +53,8 @@ namespace rtype::server {
 class Server : public INetworkListener, public ILobbyListener, public IGameSessionListener {
 public:
     explicit Server(uint16_t tcp_port = config::DEFAULT_TCP_PORT,
-                    uint16_t udp_port = config::DEFAULT_UDP_PORT);
+                    uint16_t udp_port = config::DEFAULT_UDP_PORT,
+                    bool listen_on_all_interfaces = false);
     ~Server();
 
     bool start();
@@ -100,6 +101,7 @@ private:
     // === Configuration ===
     uint16_t tcp_port_;
     uint16_t udp_port_;
+    bool listen_on_all_interfaces_;
     std::atomic<bool> running_;
 
     // === State ===
