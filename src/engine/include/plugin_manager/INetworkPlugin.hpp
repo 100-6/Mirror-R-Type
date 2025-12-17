@@ -67,6 +67,20 @@ public:
     virtual bool start_server(uint16_t tcp_port, uint16_t udp_port) = 0;
 
     /**
+     * @brief Start a hybrid server with TCP and UDP with custom bind address
+     * @param tcp_port Port for TCP connections (lobby, auth)
+     * @param udp_port Port for UDP communication (gameplay)
+     * @param listen_on_all_interfaces If true, binds to 0.0.0.0 (all interfaces),
+     *                                  if false, binds to 127.0.0.1 (localhost only)
+     * @return true if server started successfully
+     * @note Default implementation delegates to start_server(tcp_port, udp_port)
+     */
+    virtual bool start_server(uint16_t tcp_port, uint16_t udp_port, bool listen_on_all_interfaces) {
+        (void)listen_on_all_interfaces;  // Unused in default implementation
+        return start_server(tcp_port, udp_port);
+    }
+
+    /**
      * @brief Stop the server (both TCP and UDP)
      */
     virtual void stop_server() = 0;

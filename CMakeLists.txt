@@ -32,6 +32,11 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# Disable Windows min/max macros that conflict with std::min/std::max
+if(WIN32)
+    add_compile_definitions(NOMINMAX)
+endif()
+
 # clang-tidy integration
 option(ENABLE_CLANG_TIDY "Enable clang-tidy analysis during build" OFF)
 if(ENABLE_CLANG_TIDY)

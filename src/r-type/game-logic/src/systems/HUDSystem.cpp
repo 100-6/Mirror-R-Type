@@ -181,7 +181,7 @@ void HUDSystem::update(Registry& registry, float dt) {
     auto& uipanels = registry.get_components<UIPanel>();
     auto& gameStates = registry.get_components<GameState>();
 
-    // Check if game is over or victory - hide HUD elements
+    // Check if game is over, victory, or not started - hide HUD elements
     bool hideHUD = false;
     for (size_t i = 0; i < gameStates.size(); ++i) {
         Entity entity = gameStates.get_entity_at(i);
@@ -191,6 +191,16 @@ void HUDSystem::update(Registry& registry, float dt) {
             hideHUD = true;
             break;
         }
+    }
+
+    // Also hide HUD if no player exists (game not started yet / waiting for players)
+    bool playerExists = false;
+    for (size_t i = 0; i < controllables.size(); ++i) {
+        playerExists = true;
+        break;
+    }
+    if (!playerExists) {
+        hideHUD = true;
     }
 
     // Set visibility of HUD elements

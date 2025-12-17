@@ -22,8 +22,16 @@
 
 ## Documentation
 
+### Getting Started
 - **[Setup Guide](docs/SETUP.md)** - Get started with building and running the project
 - **[Developer Guide](docs/DEVELOPER.md)** - Contributing guidelines and development workflow
+
+### Architecture
+- **[📚 Documentation Hub](docs/README.md)** - Point d'entrée de toute la documentation
+- **[Server Architecture](docs/SERVER_ARCHITECTURE.md)** - Architecture détaillée du serveur
+- **[Client Architecture](docs/CLIENT_ARCHITECTURE.md)** - Architecture détaillée du client
+
+### Game Systems
 - **[Wave System Guide](docs/WAVE_SYSTEM.md)** - JSON-based wave spawning system documentation
 
 ## Quick Start

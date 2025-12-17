@@ -125,7 +125,8 @@ public:
      * @brief Set callback for lobby state updates
      * @param callback Function receiving lobby info
      */
-    void set_on_lobby_state(std::function<void(const protocol::ServerLobbyStatePayload& state)> callback);
+    void set_on_lobby_state(std::function<void(const protocol::ServerLobbyStatePayload& state,
+                                               const std::vector<protocol::PlayerLobbyEntry>& players)> callback);
 
     /**
      * @brief Set callback for countdown updates
@@ -152,6 +153,18 @@ public:
     void set_on_entity_destroy(std::function<void(const protocol::ServerEntityDestroyPayload& destroy)> callback);
 
     /**
+     * @brief Set callback for projectile spawn
+     * @param callback Function receiving projectile spawn data
+     */
+    void set_on_projectile_spawn(std::function<void(const protocol::ServerProjectileSpawnPayload& spawn)> callback);
+
+    /**
+     * @brief Set callback for game snapshot
+     * @param callback Function receiving snapshot header and entity states
+     */
+    void set_on_snapshot(std::function<void(const protocol::ServerSnapshotPayload& snapshot, const std::vector<protocol::EntityState>& entities)> callback);
+
+    /**
      * @brief Set callback for game over
      * @param callback Function receiving game over data
      */
@@ -162,6 +175,21 @@ public:
      * @param callback Function to call on disconnect
      */
     void set_on_disconnected(std::function<void()> callback);
+
+    /**
+     * @brief Set callback for wave start events
+     */
+    void set_on_wave_start(std::function<void(const protocol::ServerWaveStartPayload&)> callback);
+
+    /**
+     * @brief Set callback for wave complete events
+     */
+    void set_on_wave_complete(std::function<void(const protocol::ServerWaveCompletePayload&)> callback);
+
+    /**
+     * @brief Set callback for score update events
+     */
+    void set_on_score_update(std::function<void(const protocol::ServerScoreUpdatePayload&)> callback);
 
     // ============== Getters ==============
 
@@ -183,7 +211,12 @@ private:
     void handle_game_start(const std::vector<uint8_t>& payload);
     void handle_entity_spawn(const std::vector<uint8_t>& payload);
     void handle_entity_destroy(const std::vector<uint8_t>& payload);
+    void handle_projectile_spawn(const std::vector<uint8_t>& payload);
+    void handle_snapshot(const std::vector<uint8_t>& payload);
     void handle_game_over(const std::vector<uint8_t>& payload);
+    void handle_wave_start(const std::vector<uint8_t>& payload);
+    void handle_wave_complete(const std::vector<uint8_t>& payload);
+    void handle_score_update(const std::vector<uint8_t>& payload);
 
     // UDP connection after game start
     void connect_udp(uint16_t udp_port);
@@ -213,13 +246,18 @@ private:
     // Callbacks
     std::function<void(uint32_t)> on_accepted_;
     std::function<void(uint8_t, const std::string&)> on_rejected_;
-    std::function<void(const protocol::ServerLobbyStatePayload&)> on_lobby_state_;
+    std::function<void(const protocol::ServerLobbyStatePayload&, const std::vector<protocol::PlayerLobbyEntry>&)> on_lobby_state_;
     std::function<void(uint8_t)> on_countdown_;
     std::function<void(uint32_t, uint16_t)> on_game_start_;
     std::function<void(const protocol::ServerEntitySpawnPayload&)> on_entity_spawn_;
     std::function<void(const protocol::ServerEntityDestroyPayload&)> on_entity_destroy_;
+    std::function<void(const protocol::ServerProjectileSpawnPayload&)> on_projectile_spawn_;
+    std::function<void(const protocol::ServerSnapshotPayload&, const std::vector<protocol::EntityState>&)> on_snapshot_;
     std::function<void(const protocol::ServerGameOverPayload&)> on_game_over_;
     std::function<void()> on_disconnected_;
+    std::function<void(const protocol::ServerWaveStartPayload&)> on_wave_start_;
+    std::function<void(const protocol::ServerWaveCompletePayload&)> on_wave_complete_;
+    std::function<void(const protocol::ServerScoreUpdatePayload&)> on_score_update_;
 };
 
 }

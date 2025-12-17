@@ -2,25 +2,14 @@
 ** EPITECH PROJECT, 2025
 ** Mirror-R-Type
 ** File description:
-** Main Client - Solo Game avec RenderSystem + Sprites
+** Multiplayer Network Client entry point
 */
 
+#include "ClientGame.hpp"
+#include "protocol/NetworkConfig.hpp"
 #include <iostream>
-#include "ecs/Registry.hpp"
-#include "components/GameComponents.hpp"
-#include "components/CombatHelpers.hpp"
-#include "cmath"
-#include "ecs/systems/InputSystem.hpp"
-#include "ecs/systems/SpriteAnimationSystem.hpp"
-#include "systems/PlayerInputSystem.hpp"
-#include "ecs/systems/MovementSystem.hpp"
-#include "systems/ShootingSystem.hpp"
-#include "ecs/systems/PhysiqueSystem.hpp"
-#include "systems/ScrollingSystem.hpp"
-#include "systems/CollisionSystem.hpp"
-#include "ecs/systems/DestroySystem.hpp"
-#include "ecs/systems/RenderSystem.hpp"
-#include "systems/ScoreSystem.hpp"
+#include <string>
+#include <cstring>
 
 #include "ecs/systems/AudioSystem.hpp"
 #include "systems/HealthSystem.hpp"
@@ -32,383 +21,75 @@
 #include "systems/GameStateSystem.hpp"
 #include "systems/AttachmentSystem.hpp"
 #include "plugin_manager/PluginManager.hpp"
+#include "plugin_manager/PluginPaths.hpp"
 #include "plugin_manager/IInputPlugin.hpp"
 #include "plugin_manager/IAudioPlugin.hpp"
 
-int main() {
-    // Configuration de la fenêtre
+void print_help(const char* program_name) {
+    std::cout << "=== R-Type Client ===\n\n";
+    std::cout << "USAGE:\n";
+    std::cout << "  " << program_name << " [OPTIONS] [HOST] [PORT] [PLAYER_NAME]\n\n";
+    std::cout << "OPTIONS:\n";
+    std::cout << "  -h, --help              Show this help message and exit\n\n";
+    std::cout << "ARGUMENTS:\n";
+    std::cout << "  HOST                    Server IP address or hostname\n";
+    std::cout << "                          Default: 127.0.0.1\n\n";
+    std::cout << "  PORT                    Server TCP port number\n";
+    std::cout << "                          Default: " << rtype::protocol::config::DEFAULT_TCP_PORT << "\n\n";
+    std::cout << "  PLAYER_NAME             Your player name (displayed in lobby)\n";
+    std::cout << "                          Default: Pilot\n\n";
+    std::cout << "EXAMPLES:\n";
+    std::cout << "  " << program_name << "\n";
+    std::cout << "      Connect to localhost:" << rtype::protocol::config::DEFAULT_TCP_PORT << " as 'Pilot'\n\n";
+    std::cout << "  " << program_name << " 192.168.1.100\n";
+    std::cout << "      Connect to 192.168.1.100:" << rtype::protocol::config::DEFAULT_TCP_PORT << " as 'Pilot'\n\n";
+    std::cout << "  " << program_name << " 192.168.1.100 4242 Alice\n";
+    std::cout << "      Connect to 192.168.1.100:4242 as 'Alice'\n\n";
+    std::cout << "CONTROLS:\n";
+    std::cout << "  Arrow Keys              Move spaceship\n";
+    std::cout << "  Space / Left Click      Fire weapon\n";
+    std::cout << "  ESC                     Quit game\n\n";
+}
+
+int main(int argc, char* argv[]) {
+    for (int i = 1; i < argc; ++i) {
+        if (std::strcmp(argv[i], "-h") == 0 || std::strcmp(argv[i], "--help") == 0) {
+            print_help(argv[0]);
+            return 0;
+        }
+    }
+
     const int SCREEN_WIDTH = 1920;
     const int SCREEN_HEIGHT = 1080;
+    std::string host = "127.0.0.1";
+    uint16_t tcp_port = rtype::protocol::config::DEFAULT_TCP_PORT;
+    std::string player_name = "Pilot";
 
-    std::cout << "=== R-Type Client - Solo Game ===" << std::endl;
-    std::cout << std::endl;
+    if (argc > 1)
+        host = argv[1];
+    if (argc > 2) {
+        try {
+            tcp_port = static_cast<uint16_t>(std::stoi(argv[2]));
+        } catch (const std::exception& e) {
+            std::cerr << "Error: Invalid TCP port: " << e.what() << '\n';
+            std::cerr << "Use --help for usage information\n";
+            return 1;
+        }
+    }
+    if (argc > 3)
+        player_name = argv[3];
 
-    // ==
-    // CHARGEMENT DES PLUGINS
-    // ==
-    engine::PluginManager pluginManager;
-    engine::IGraphicsPlugin* graphicsPlugin = nullptr;
-    engine::IInputPlugin* inputPlugin = nullptr;
-    engine::IAudioPlugin* audioPlugin = nullptr;
+    std::cout << "=== R-Type Network Client ===\n";
+    std::cout << "Server: " << host << ":" << tcp_port << "\n";
+    std::cout << "Player: " << player_name << "\n\n";
 
-    std::cout << "Chargement du plugin graphique..." << std::endl;
-    try {
-        graphicsPlugin = pluginManager.load_plugin<engine::IGraphicsPlugin>(
-            "plugins/raylib_graphics.so",
-            "create_graphics_plugin"
-        );
-    } catch (const engine::PluginException& e) {
-        std::cerr << "❌ Erreur lors du chargement du plugin graphique: " << e.what() << std::endl;
+    rtype::client::ClientGame game(SCREEN_WIDTH, SCREEN_HEIGHT);
+    if (!game.initialize(host, tcp_port, player_name)) {
+        std::cerr << "Failed to initialize game\n";
+        std::cerr << "Use --help for usage information\n";
         return 1;
     }
-
-    if (!graphicsPlugin) {
-        std::cerr << "❌ Plugin graphique non disponible" << std::endl;
-        return 1;
-    }
-
-    std::cout << "✓ Plugin graphique chargé: " << graphicsPlugin->get_name()
-              << " v" << graphicsPlugin->get_version() << std::endl;
-
-    std::cout << "Chargement du plugin d'input..." << std::endl;
-    try {
-        inputPlugin = pluginManager.load_plugin<engine::IInputPlugin>(
-            "plugins/raylib_input.so",
-            "create_input_plugin"
-        );
-    } catch (const engine::PluginException& e) {
-        std::cerr << "❌ Erreur lors du chargement du plugin d'input: " << e.what() << std::endl;
-        graphicsPlugin->shutdown();
-        return 1;
-    }
-
-    if (!inputPlugin) {
-        std::cerr << "❌ Plugin d'input non disponible" << std::endl;
-        graphicsPlugin->shutdown();
-        return 1;
-    }
-
-    std::cout << "✓ Plugin d'input chargé: " << inputPlugin->get_name()
-              << " v" << inputPlugin->get_version() << std::endl;
-
-    std::cout << "Chargement du plugin audio..." << std::endl;
-    try {
-        audioPlugin = pluginManager.load_plugin<engine::IAudioPlugin>(
-            "plugins/miniaudio_audio.so",
-            "create_audio_plugin"
-        );
-    } catch (const engine::PluginException& e) {
-        std::cerr << "⚠️ Erreur lors du chargement du plugin audio (sons désactivés): " << e.what() << std::endl;
-        // On continue sans audio
-    }
-
-    if (audioPlugin) {
-        std::cout << "✓ Plugin audio chargé: " << audioPlugin->get_name()
-                  << " v" << audioPlugin->get_version() << std::endl;
-    } else {
-        std::cout << "⚠️ Plugin audio non disponible." << std::endl;
-    }
-
-    // Créer la fenêtre via le plugin
-    if (!graphicsPlugin->create_window(SCREEN_WIDTH, SCREEN_HEIGHT, "R-Type Client - Solo Game")) {
-        std::cerr << "❌ Erreur lors de la création de la fenêtre" << std::endl;
-        return 1;
-    }
-
-    graphicsPlugin->set_vsync(true);
-    std::cout << "✓ Fenêtre créée: " << SCREEN_WIDTH << "x" << SCREEN_HEIGHT << std::endl;
-    std::cout << std::endl;
-
-    // ==
-    // CHARGEMENT DES TEXTURES VIA LE PLUGIN
-    // ==
-    std::cout << "Chargement des textures depuis assets/sprite/..." << std::endl;
-
-    engine::TextureHandle backgroundTex = graphicsPlugin->load_texture("assets/sprite/symmetry.png");
-    engine::TextureHandle playerTex1 = graphicsPlugin->load_texture("assets/sprite/ship1.png");
-    engine::TextureHandle playerTex2 = graphicsPlugin->load_texture("assets/sprite/ship2.png");
-    engine::TextureHandle playerTex3 = graphicsPlugin->load_texture("assets/sprite/ship3.png");
-    engine::TextureHandle playerTex4 = graphicsPlugin->load_texture("assets/sprite/ship4.png");
-    engine::TextureHandle bulletTex = graphicsPlugin->load_texture("assets/sprite/bullet.png");
-
-    if (backgroundTex == 0 || playerTex1 == 0 || playerTex2 == 0 || playerTex3 == 0 || playerTex4 == 0 || bulletTex == 0) {
-        std::cerr << "❌ Erreur lors du chargement des textures" << std::endl;
-        graphicsPlugin->shutdown();
-        if (audioPlugin) audioPlugin->shutdown();
-        return 1;
-    }
-
-    // Récupérer les tailles des textures
-    engine::Vector2f playerSize = graphicsPlugin->get_texture_size(playerTex1);
-    engine::Vector2f bulletSize = graphicsPlugin->get_texture_size(bulletTex);
-
-    // Calculer les échelles pour des tailles de jeu raisonnables
-    const float PLAYER_SCALE = 0.20f;  // Réduction pour taille de jeu raisonnable
-    const float BULLET_SCALE = 1.00f;   // 93x10 -> 74x8 pixels
-
-    float playerWidth = playerSize.x * PLAYER_SCALE;
-    float playerHeight = playerSize.y * PLAYER_SCALE;
-    float bulletWidth = bulletSize.x * BULLET_SCALE;
-    float bulletHeight = bulletSize.y * BULLET_SCALE;
-
-    std::cout << "✓ Textures chargées:" << std::endl;
-    std::cout << "  Player: " << playerWidth << "x" << playerHeight << std::endl;
-    std::cout << "  Bullet: " << bulletWidth << "x" << bulletHeight << std::endl;
-    std::cout << std::endl;
-
-    // ==
-    // CREATION DU REGISTRY ET DES COMPOSANTS
-    // ==
-    Registry registry;
-    registry.register_component<Position>();
-    registry.register_component<Velocity>();
-    registry.register_component<Input>();
-    registry.register_component<Collider>();
-    registry.register_component<Sprite>();
-    registry.register_component<Controllable>();
-    registry.register_component<Enemy>();
-    registry.register_component<Projectile>();
-    registry.register_component<Wall>();
-    registry.register_component<Health>();
-    registry.register_component<HitFlash>();
-    registry.register_component<Damage>();
-    registry.register_component<ToDestroy>();
-    registry.register_component<Weapon>();
-    registry.register_component<Score>();
-    registry.register_component<Background>();
-    registry.register_component<Invulnerability>();
-    registry.register_component<AI>();
-    registry.register_component<Scrollable>();
-    registry.register_component<NoFriction>();
-    registry.register_component<WaveController>();
-    registry.register_component<Bonus>();
-    registry.register_component<Shield>();
-    registry.register_component<SpeedBoost>();
-    registry.register_component<CircleEffect>();
-    registry.register_component<TextEffect>();
-    registry.register_component<SpriteAnimation>();
-    registry.register_component<Attached>();
-
-    std::cout << "✓ Composants enregistres" << std::endl;
-
-    // ==
-    // CREATION ET ENREGISTREMENT DES SYSTEMES
-    // ==
-
-    // Enregistrer les systèmes dans l'ordre d'exécution
-    registry.register_system<InputSystem>(*inputPlugin);        // 1. Read raw keys from plugin
-    registry.register_system<PlayerInputSystem>();              // 2. Interpret keys for R-Type
-    registry.register_system<MovementSystem>();
-    registry.register_system<ShootingSystem>();
-    registry.register_system<PhysiqueSystem>();
-    registry.register_system<ScrollingSystem>(-100.0f, static_cast<float>(SCREEN_WIDTH));
-    registry.register_system<CollisionSystem>();
-    registry.register_system<HealthSystem>();
-    registry.register_system<HitEffectSystem>();
-    registry.register_system<ScoreSystem>();
-    registry.register_system<AttachmentSystem>();
-
-    // AI System - gere le comportement des ennemis (mouvement, tir)
-    registry.register_system<AISystem>(*graphicsPlugin);
-
-    // Wave Spawner System - charge la configuration et spawn les ennemis/murs
-    // Note: init() sera appelé automatiquement par register_system
-    registry.register_system<WaveSpawnerSystem>(*graphicsPlugin);
-
-    // Bonus System - spawn et collecte des bonus (HP, Bouclier, Vitesse)
-    registry.register_system<BonusSystem>(*graphicsPlugin, SCREEN_WIDTH, SCREEN_HEIGHT);
-
-    // Sprite Animation System - gere les animations de sprites
-    registry.register_system<SpriteAnimationSystem>();
-
-    if (audioPlugin) {
-        registry.register_system<AudioSystem>(*audioPlugin);
-    }
-    registry.register_system<DestroySystem>();
-    registry.register_system<RenderSystem>(*graphicsPlugin);
-
-    // HUD System - modern UI rendering (health bar, score, wave, etc.)
-    registry.register_system<HUDSystem>(*graphicsPlugin, SCREEN_WIDTH, SCREEN_HEIGHT);
-
-    // GameState System - manages game over/victory screens using UI components
-    registry.register_system<GameStateSystem>(*graphicsPlugin, SCREEN_WIDTH, SCREEN_HEIGHT);
-
-    std::cout << "✓ Systemes enregistres :" << std::endl;
-    std::cout << "  1. InputSystem         - Capture raw key states from plugin" << std::endl;
-    std::cout << "  2. PlayerInputSystem   - Interpret keys for R-Type actions" << std::endl;
-    std::cout << "  3. MovementSystem      - Listen to movement events and update velocity" << std::endl;
-    std::cout << "  4. ShootingSystem      - Ecoute les evenements de tir et cree des projectiles" << std::endl;
-    std::cout << "  5. PhysiqueSystem      - Applique la velocite, friction, limites d'ecran" << std::endl;
-    std::cout << "  6. ScrollingSystem     - Gere le scrolling automatique" << std::endl;
-    std::cout << "  7. CollisionSystem     - Gere les collisions et marque les entites a detruire" << std::endl;
-    std::cout << "  8. HealthSystem        - Gere les degats et la vie" << std::endl;
-    std::cout << "  9. HitEffectSystem     - Effets visuels lors des impacts" << std::endl;
-    std::cout << "  10. ScoreSystem        - Met a jour le score" << std::endl;
-    std::cout << "  11. AISystem           - Comportement IA (mouvement, tir des ennemis)" << std::endl;
-    std::cout << "  12. WaveSpawnerSystem  - Spawn automatique base sur le scrolling (JSON)" << std::endl;
-    std::cout << "  13. BonusSystem        - Spawn et collecte des bonus (HP, Bouclier, Vitesse)" << std::endl;
-    if (audioPlugin) {
-        std::cout << "  14. AudioSystem        - Joue des sons sur evenements" << std::endl;
-    }
-    std::cout << "  15. DestroySystem      - Detruit les entites marquees pour destruction" << std::endl;
-    std::cout << "  16. RenderSystem       - Rendu des sprites via plugin graphique" << std::endl;
-    std::cout << "  17. HUDSystem          - Modern UI rendering (health bar, score, wave)" << std::endl;
-    std::cout << "  18. GameStateSystem    - Game Over/Victory screens (uses UI components)" << std::endl;
-    std::cout << std::endl;
-
-    // ==
-    // CREATION DU BACKGROUND (Défilement infini avec 2 images)
-    // ==
-    // Premier background
-    Entity background1 = registry.spawn_entity();
-    registry.add_component(background1, Position{0.0f, 0.0f});
-    registry.add_component(background1, Background{});  // Tag pour identifier le background
-    registry.add_component(background1, Scrollable{
-        1.0f,   // speedMultiplier: vitesse normale (100%)
-        true,   // wrap: boucle infinie
-        false   // destroyOffscreen: ne pas détruire
-    });
-    registry.add_component(background1, Sprite{
-        backgroundTex,
-        static_cast<float>(SCREEN_WIDTH),
-        static_cast<float>(SCREEN_HEIGHT),
-        0.0f,
-        engine::Color::White,
-        0.0f,
-        0.0f,
-        -100  // Layer très bas pour être en arrière-plan
-    });
-
-    // Deuxième background (juste à droite du premier pour seamless scrolling)
-    Entity background2 = registry.spawn_entity();
-    registry.add_component(background2, Position{static_cast<float>(SCREEN_WIDTH), 0.0f});
-    registry.add_component(background2, Background{});  // Tag pour identifier le background
-    registry.add_component(background2, Scrollable{
-        1.0f,   // speedMultiplier: vitesse normale (100%)
-        true,   // wrap: boucle infinie
-        false   // destroyOffscreen: ne pas détruire
-    });
-    registry.add_component(background2, Sprite{
-        backgroundTex,
-        static_cast<float>(SCREEN_WIDTH),
-        static_cast<float>(SCREEN_HEIGHT),
-        0.0f,
-        engine::Color::White,
-        0.0f,
-        0.0f,
-        -100
-    });
-
-    std::cout << "✓ Background defilant cree (2 images en boucle infinie via ScrollingSystem)" << std::endl;
-    std::cout << "  Vitesse: -100 px/s (definie dans ScrollingSystem)" << std::endl;
-    std::cout << std::endl;
-
-    // ==
-    // CREATION DU JOUEUR
-    // ==
-    Entity player = registry.spawn_entity();
-    registry.add_component(player, Position{200.0f, SCREEN_HEIGHT / 2.0f});
-    registry.add_component(player, Velocity{0.0f, 0.0f});
-    registry.add_component(player, Input{});  // Component pour capturer les inputs
-    registry.add_component(player, Collider{playerWidth, playerHeight});
-    registry.add_component(player, Controllable{300.0f}); // Vitesse de 300 pixels/s
-    registry.add_component(player, Sprite{
-        playerTex1,          // texture (starts with frame 1)
-        playerWidth,         // width
-        playerHeight,        // height
-        0.0f,               // rotation
-        engine::Color::White, // tint
-        0.0f,               // origin_x
-        0.0f,               // origin_y
-        1                   // layer
-    });
-
-    // Animation du vaisseau (4 frames de flamme du réacteur)
-    registry.add_component(player, SpriteAnimation{
-        {playerTex1, playerTex2, playerTex3, playerTex4},  // 4 frames d'animation
-        0.10f,                              // frameTime: 100ms par frame
-        0.0f,                               // elapsedTime
-        0,                                  // currentFrame
-        true,                               // loop
-        true                                // playing
-    });
-
-    // ARME - Les stats sont dans CombatConfig.hpp (defines)
-    registry.add_component(player, create_weapon(WeaponType::CHARGE, bulletTex));
-
-    registry.add_component(player, Health{100, 100});
-    registry.add_component(player, Score{0});
-    registry.add_component(player, Invulnerability{0.0f});
-
-    std::cout << "✓ Joueur cree avec sprite anime et arme BASIC" << std::endl;
-    std::cout << "  Position: (200, " << SCREEN_HEIGHT / 2.0f << ")" << std::endl;
-    std::cout << "  Taille: " << playerWidth << "x" << playerHeight << std::endl;
-    std::cout << "  Vitesse max: 300 pixels/s" << std::endl;
-    std::cout << "  Animation: 4 frames de flamme (100ms par frame)" << std::endl;
-    std::cout << "  Arme: BASIC" << std::endl;
-    std::cout << std::endl;
-
-    std::cout << "✓ Murs et ennemis seront spawnes par le WaveSpawnerSystem" << std::endl;
-    std::cout << std::endl;
-
-    // ==
-    // INSTRUCTIONS
-    // ==
-    std::cout << "=== CONTROLES ===" << std::endl;
-    std::cout << "  WASD ou Fleches  : Deplacer le joueur" << std::endl;
-    std::cout << "  ESPACE           : Tirer" << std::endl;
-    std::cout << "  ESC              : Quitter" << std::endl;
-    std::cout << std::endl;
-    std::cout << "=== FONCTIONNALITES ACTIVES ===" << std::endl;
-    std::cout << "  ✓ Input        : Capture clavier/souris" << std::endl;
-    std::cout << "  ✓ Movement     : Calcul velocite + normalisation diagonales" << std::endl;
-    std::cout << "  ✓ Physique     : Application velocite + friction (0.98)" << std::endl;
-    std::cout << "  ✓ Collision    : Detection et repulsion murs" << std::endl;
-    std::cout << "  ✓ Limites      : Joueur reste dans l'ecran (1920x1080)" << std::endl;
-    std::cout << "  ✓ Bonus        : HP (vert), Bouclier (violet), Vitesse (bleu)" << std::endl;
-    std::cout << std::endl;
-    std::cout << "Demarrage de la boucle de jeu..." << std::endl;
-    std::cout << std::endl;
-
-    // ==
-    // VARIABLES DE JEU
-    // ==
-    auto& positions = registry.get_components<Position>();
-    auto& velocities = registry.get_components<Velocity>();
-    auto& colliders = registry.get_components<Collider>();
-    auto& scores = registry.get_components<Score>();
-    auto& weapons = registry.get_components<Weapon>();
-    auto& healths = registry.get_components<Health>();
-    auto& waveControllers = registry.get_components<WaveController>();
-
-    int frameCount = 0;
-    float debugTimer = 0.0f;
-
-    // ==
-    // BOUCLE DE JEU PRINCIPALE
-    // ==
-    while (graphicsPlugin->is_window_open()) {
-        float dt = 1.0f / 60.0f;  // Fixed timestep
-        frameCount++;
-        debugTimer += dt;
-
-        // === UPDATE ===
-        registry.run_systems(dt);
-
-        // All HUD rendering is now handled by HUDSystem
-        // Display the complete frame (sprites + UI)
-        graphicsPlugin->display();
-    }
-
-    // ==
-    // NETTOYAGE
-    // ==
-    inputPlugin->shutdown();
-    graphicsPlugin->shutdown();
-    if (audioPlugin) audioPlugin->shutdown();
-
-    std::cout << "=== Fin de la demo ===" << std::endl;
-    std::cout << "Total frames: " << frameCount << std::endl;
-
+    game.run();
+    game.shutdown();
     return 0;
 }

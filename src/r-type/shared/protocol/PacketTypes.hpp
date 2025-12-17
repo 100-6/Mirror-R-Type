@@ -127,6 +127,10 @@ enum class EntityType : uint8_t {
     ENEMY_TANK = 0x0B,
     POWERUP_HEALTH = 0x0C,
     POWERUP_SPEED = 0x0D,
+    WALL = 0x0E,
+    BONUS_HEALTH = 0x0C,  // Alias for POWERUP_HEALTH
+    BONUS_SHIELD = 0x08,  // Alias for POWERUP_SHIELD
+    BONUS_SPEED = 0x0D,   // Alias for POWERUP_SPEED
 };
 
 /**
@@ -181,6 +185,8 @@ enum class GameResult : uint8_t {
  * - Bit 5: CHARGE
  * - Bit 6: SPECIAL
  * - Bits 7-15: Reserved (must be 0)
+ * - Bit 7: SWITCH_WEAPON
+ * - Bits 8-15: Reserved (must be 0)
  */
 enum InputFlags : uint16_t {
     INPUT_UP = 1 << 0,
@@ -190,6 +196,7 @@ enum InputFlags : uint16_t {
     INPUT_SHOOT = 1 << 4,
     INPUT_CHARGE = 1 << 5,
     INPUT_SPECIAL = 1 << 6,
+    INPUT_SWITCH_WEAPON = 1 << 7,
 };
 
 /**

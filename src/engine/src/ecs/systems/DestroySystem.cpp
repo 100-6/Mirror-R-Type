@@ -32,6 +32,7 @@ void DestroySystem::update(Registry& registry, float dt)
     }
 
     // Détruit toutes les entités collectées
-    for (Entity entity : entities_to_kill)
+    for (Entity entity : entities_to_kill) {
         registry.kill_entity(entity);
+    }
 }

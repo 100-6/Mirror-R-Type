@@ -33,6 +33,7 @@
 #include "NetworkClient.hpp"
 #include "plugin_manager/PluginManager.hpp"
 #include "plugin_manager/INetworkPlugin.hpp"
+#include "plugin_manager/PluginPaths.hpp"
 #include "protocol/Payloads.hpp"
 #include "protocol/PacketTypes.hpp"
 #include "protocol/NetworkConfig.hpp"
@@ -74,7 +75,8 @@ int main(int argc, char* argv[]) {
     // ============================================================
     engine::PluginManager plugin_manager;
     auto* network_plugin = plugin_manager.load_plugin<engine::INetworkPlugin>(
-        "./plugins/asio_network.so", "create_network_plugin");
+        engine::PluginPaths::get_plugin_path(engine::PluginPaths::ASIO_NETWORK),
+        "create_network_plugin");
 
     if (!network_plugin) {
         std::cerr << "[TestClient] Failed to load network plugin\n";
@@ -101,10 +103,13 @@ int main(int argc, char* argv[]) {
                   << " - " << message << "\n";
     });
 
-    client.set_on_lobby_state([](const ServerLobbyStatePayload& state) {
+    client.set_on_lobby_state([](const ServerLobbyStatePayload& state, const std::vector<PlayerLobbyEntry>& players) {
         std::cout << "[TestClient] LOBBY STATE: "
                   << (int)state.current_player_count << "/" << (int)state.required_player_count
                   << " players\n";
+        for (const auto& entry : players) {
+            std::cout << "    - Player " << entry.player_id << " (" << entry.player_name << ")\n";
+        }
     });
 
     client.set_on_countdown([](uint8_t seconds) {

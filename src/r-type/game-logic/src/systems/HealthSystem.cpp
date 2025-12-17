@@ -36,6 +36,7 @@ void HealthSystem::init(Registry& registry)
 
             if (health.current <= 0) {
                 health.current = 0;
+                std::cout << "[HealthSystem] Entity " << event.target << " HP reached 0, marking for destruction" << std::endl;
 
                 bool isPlayer = controllables.has_entity(event.target);
                 bool isEnemy = enemies.has_entity(event.target);
@@ -46,6 +47,7 @@ void HealthSystem::init(Registry& registry)
                     registry.get_event_bus().publish(ecs::EnemyKilledEvent{event.target, 100});
 
                 registry.add_component(event.target, ToDestroy{});
+                std::cout << "[HealthSystem] ToDestroy component added to entity " << event.target << std::endl;
 
                 if (isPlayer)
                     std::cout << "GAME OVER! Player died!" << std::endl;

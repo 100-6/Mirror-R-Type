@@ -1,3 +1,10 @@
+/*
+** EPITECH PROJECT, 2025
+** Mirror-R-Type
+** File description:
+** LobbyManager - Manages game lobbies and matchmaking
+*/
+
 #pragma once
 
 #include <memory>
@@ -5,10 +12,10 @@
 #include <vector>
 #include <cstdint>
 #include <chrono>
-#include <functional>
 
 #include "protocol/PacketTypes.hpp"
 #include "protocol/Payloads.hpp"
+#include "interfaces/ILobbyListener.hpp"
 
 namespace rtype::server {
 
@@ -33,17 +40,9 @@ struct Lobby {
         , countdown_active(false)
         , map_id(0) {}
 
-    bool is_full() const {
-        return player_ids.size() >= max_players;
-    }
-
-    bool has_space() const {
-        return player_ids.size() < max_players;
-    }
-
-    bool is_empty() const {
-        return player_ids.empty();
-    }
+    bool is_full() const { return player_ids.size() >= max_players; }
+    bool has_space() const { return player_ids.size() < max_players; }
+    bool is_empty() const { return player_ids.empty(); }
 
 private:
     static uint8_t get_max_players_for_mode(protocol::GameMode mode) {
@@ -58,95 +57,68 @@ private:
 
 /**
  * @brief Manages all game lobbies and matchmaking
+ *
+ * Simple class that:
+ * - Creates/destroys lobbies
+ * - Adds/removes players from lobbies
+ * - Handles countdown when lobby is full
+ * - Notifies listener when events happen
  */
 class LobbyManager {
 public:
-    using LobbyStateCallback = std::function<void(uint32_t lobby_id, const std::vector<uint8_t>& payload)>;
-    using CountdownCallback = std::function<void(uint32_t lobby_id, uint8_t seconds_remaining)>;
-    using GameStartCallback = std::function<void(uint32_t lobby_id, const std::vector<uint32_t>& player_ids)>;
-
     LobbyManager();
     ~LobbyManager() = default;
 
+    // === Configuration ===
+
     /**
-     * @brief Find or create a lobby for a player
-     * @param player_id The player requesting to join
+     * @brief Set the listener for lobby events
+     * @param listener Pointer to listener (must outlive LobbyManager)
+     */
+    void set_listener(ILobbyListener* listener) { listener_ = listener; }
+
+    // === Player Actions ===
+
+    /**
+     * @brief Add a player to a lobby (finds or creates one)
+     * @param player_id The player
      * @param game_mode Desired game mode
      * @param difficulty Desired difficulty
-     * @return Lobby ID, or 0 if no lobby could be created
+     * @return Lobby ID, or 0 if failed
      */
     uint32_t join_lobby(uint32_t player_id, protocol::GameMode game_mode, protocol::Difficulty difficulty);
 
     /**
-     * @brief Remove a player from their current lobby
-     * @param player_id The player leaving
-     * @return true if player was in a lobby and was removed
+     * @brief Remove a player from their lobby
+     * @param player_id The player
+     * @return true if player was removed
      */
     bool leave_lobby(uint32_t player_id);
 
-    /**
-     * @brief Get the lobby ID for a player
-     * @param player_id The player to check
-     * @return Lobby ID, or 0 if player is not in a lobby
-     */
+    // === Queries ===
+
     uint32_t get_player_lobby(uint32_t player_id) const;
-
-    /**
-     * @brief Get all player IDs in a specific lobby
-     * @param lobby_id The lobby to check
-     * @return Vector of player IDs
-     */
     std::vector<uint32_t> get_lobby_players(uint32_t lobby_id) const;
-
-    /**
-     * @brief Get lobby by ID
-     * @param lobby_id The lobby to get
-     * @return Pointer to lobby, or nullptr if not found
-     */
     const Lobby* get_lobby(uint32_t lobby_id) const;
 
+    // === Update ===
+
     /**
-     * @brief Update lobby timers and check for countdown completion
-     * Should be called from main server loop
+     * @brief Update lobbies (check countdowns)
+     * Call this every server tick
      */
     void update();
 
     /**
-     * @brief Build SERVER_LOBBY_STATE payload for a lobby
-     * @param lobby_id The lobby to serialize
-     * @return Serialized payload
+     * @brief Build lobby state payload for network
      */
     std::vector<uint8_t> build_lobby_state_payload(uint32_t lobby_id) const;
-
-    /**
-     * @brief Set callback for when lobby state changes (player joins/leaves)
-     */
-    void set_lobby_state_callback(LobbyStateCallback callback) {
-        lobby_state_callback_ = callback;
-    }
-
-    /**
-     * @brief Set callback for countdown updates
-     */
-    void set_countdown_callback(CountdownCallback callback) {
-        countdown_callback_ = callback;
-    }
-
-    /**
-     * @brief Set callback for when countdown completes and game should start
-     */
-    void set_game_start_callback(GameStartCallback callback) {
-        game_start_callback_ = callback;
-    }
 
 private:
     std::unordered_map<uint32_t, std::unique_ptr<Lobby>> lobbies_;
     std::unordered_map<uint32_t, uint32_t> player_to_lobby_;
     uint32_t next_lobby_id_;
-
-    LobbyStateCallback lobby_state_callback_;
-    CountdownCallback countdown_callback_;
-    GameStartCallback game_start_callback_;
+    ILobbyListener* listener_ = nullptr;
 
     static constexpr int COUNTDOWN_DURATION_SECONDS = 5;
 

@@ -13,15 +13,17 @@
 #include "ecs/Registry.hpp"
 #include "core/event/EventBus.hpp"
 #include "plugin_manager/IGraphicsPlugin.hpp"
+#include <optional>
 
 class ShootingSystem : public ISystem {
     private:
+        engine::IGraphicsPlugin* graphics_;
         core::EventBus::SubscriptionId fireSubId_;
 
         void createProjectiles(Registry& registry, Entity shooter, Weapon& weapon, const Position& shooterPos, float shooterWidth, float shooterHeight);
 
     public:
-        ShootingSystem() = default;
+        ShootingSystem(engine::IGraphicsPlugin* graphics = nullptr) : graphics_(graphics) {}
         virtual ~ShootingSystem() = default;
 
         void init(Registry& registry) override;

@@ -11,7 +11,7 @@
 #include <iostream>
 #include <cmath>
 
-BonusSystem::BonusSystem(engine::IGraphicsPlugin& graphics, int screenWidth, int screenHeight)
+BonusSystem::BonusSystem(engine::IGraphicsPlugin* graphics, int screenWidth, int screenHeight)
     : graphicsPlugin_(graphics)
     , screenWidth_(screenWidth)
     , screenHeight_(screenHeight)
@@ -27,9 +27,11 @@ void BonusSystem::init(Registry& registry)
     std::cout << "  - Bonus Vitesse (bleu): toutes les " << SPEED_SPAWN_INTERVAL << "s" << std::endl;
 
     // Charger la texture pour les bonus
-    bonusTex_ = graphicsPlugin_.load_texture("assets/sprite/bullet.png");
-    if (bonusTex_ == engine::INVALID_HANDLE) {
-        std::cerr << "BonusSystem: Failed to load bonus texture!" << std::endl;
+    if (graphicsPlugin_) {
+        bonusTex_ = graphicsPlugin_->load_texture("assets/sprite/bullet.png");
+        if (bonusTex_ == engine::INVALID_HANDLE) {
+            std::cerr << "BonusSystem: Failed to load bonus texture!" << std::endl;
+        }
     }
 }
 
@@ -69,7 +71,12 @@ void BonusSystem::spawnBonus(Registry& registry, BonusType type)
     }
 
     // Récupérer la taille du sprite
-    engine::Vector2f texSize = graphicsPlugin_.get_texture_size(bonusTex_);
+    engine::Vector2f texSize = {0.0f, 0.0f};
+    if (graphicsPlugin_) {
+        texSize = graphicsPlugin_->get_texture_size(bonusTex_);
+    } else {
+        texSize = {BONUS_RADIUS * 2, BONUS_RADIUS * 2}; // Default size
+    }
 
     Entity bonus = registry.spawn_entity();
     registry.add_component(bonus, Position{x, y});

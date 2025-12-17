@@ -1,9 +1,18 @@
 # client/CMakeLists.txt
 
-add_executable(r-type_client
+# R-Type Network Client - Multiplayer graphical client
+set(RTYPE_CLIENT_SOURCES
     src/main.cpp
     src/NetworkClient.cpp
+    src/ClientGame.cpp
+    src/TextureManager.cpp
+    src/InputHandler.cpp
+    src/ScreenManager.cpp
+    src/EntityManager.cpp
+    src/StatusOverlay.cpp
 )
+
+add_executable(r-type_client ${RTYPE_CLIENT_SOURCES})
 
 target_include_directories(r-type_client
     PRIVATE
@@ -17,6 +26,11 @@ target_link_libraries(r-type_client
         game_engine
         rtype_logic
 )
+
+# Link Winsock on Windows
+if(WIN32)
+    target_link_libraries(r-type_client PRIVATE ws2_32)
+endif()
 
 # Ensure the client can find shared libraries at runtime
 set_target_properties(r-type_client PROPERTIES
@@ -47,6 +61,11 @@ target_link_libraries(r-type_test_client
     PRIVATE
         game_engine
 )
+
+# Link Winsock on Windows
+if(WIN32)
+    target_link_libraries(r-type_test_client PRIVATE ws2_32)
+endif()
 
 set_target_properties(r-type_test_client PROPERTIES
     INSTALL_RPATH "$ORIGIN"
