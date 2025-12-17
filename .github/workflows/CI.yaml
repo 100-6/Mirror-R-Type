@@ -2,7 +2,7 @@ name: CI
 
 on:
   pull_request:
-    branches: [ main ]
+    branches: [ main, dev ]
 
 jobs:
   build:
@@ -18,8 +18,129 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4
 
-      - name: Configure CMake
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+      - name: Cache build and vcpkg artifacts (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/cache@v4
+        with:
+          path: |
+            build
+            vcpkg_installed
+            ~/.cache/ccache
+          key: ${{ runner.os }}-build-${{ hashFiles('CMakeLists.txt', 'src/**', 'tests/**', 'vcpkg.json') }}
+          restore-keys: |
+            ${{ runner.os }}-build-
+
+      - name: Cache build and vcpkg artifacts (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: actions/cache@v4
+        with:
+          path: |
+            build
+            vcpkg_installed
+          key: ${{ runner.os }}-build-${{ hashFiles('CMakeLists.txt', 'src/**', 'tests/**', 'vcpkg.json') }}
+          restore-keys: |
+            ${{ runner.os }}-build-
+
+      - name: Install system dependencies (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            cmake \
+            ninja-build \
+            pkg-config \
+            libx11-dev \
+            libxrandr-dev \
+            libxinerama-dev \
+            libxcursor-dev \
+            libxi-dev \
+            libgl1-mesa-dev \
+            ccache
+
+      - name: Setup vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgGitCommitId: 'bd52fac7114fdaa2208de8dd1227212a6683e562'
+
+      - name: Configure CMake (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: cmake -S . -B build -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+
+      - name: Configure CMake (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        run: cmake -S . -B build 
 
       - name: Build
-        run: cmake --build build --config Release
+        shell: bash
+        run: |
+          cmake --build build
+          if [ $? -ne 0 ]; then
+            echo "Build failed!"
+            exit 1
+          fi
+
+  lint:
+    name: Code Linting with clang-tidy
+    runs-on: ubuntu-latest
+    continue-on-error: true  # none blocking
+    if: github.base_ref == 'main'
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Cache lint build artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            build
+            vcpkg_installed
+            ~/.cache/ccache
+          key: lint-${{ hashFiles('CMakeLists.txt', 'src/**', 'tests/**', 'vcpkg.json') }}
+          restore-keys: |
+            lint-
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang-tidy \
+            build-essential \
+            cmake \
+            pkg-config \
+            libx11-dev \
+            libxrandr-dev \
+            libxinerama-dev \
+            libxcursor-dev \
+            libxi-dev \
+            libgl1-mesa-dev \
+            ccache
+
+      - name: Setup vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgGitCommitId: 'bd52fac7114fdaa2208de8dd1227212a6683e562'
+
+      - name: Configure CMake with clang-tidy
+        run: cmake -S . -B build \
+          -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+          -DCMAKE_TOOLCHAIN_FILE=${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake \
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+
+      - name: Run clang-tidy
+        run: |
+          echo "Running clang-tidy analysis..."
+          run-clang-tidy -p build -j $(nproc) 2>&1 | tee clang-tidy-report.txt || true
+          echo "Clang-tidy analysis completed (non-blocking)"
+
+      - name: Upload clang-tidy report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: clang-tidy-report
+          path: clang-tidy-report.txt
+          retention-days: 30

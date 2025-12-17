@@ -1,1 +1,8 @@
 build/
+.vscode
+doc/
+
+vcpkg/
+vcpkg_installed/
+.clangd
+vswhere.exe
