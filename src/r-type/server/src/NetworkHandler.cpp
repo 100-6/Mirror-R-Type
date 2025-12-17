@@ -7,8 +7,8 @@
 
 #include "NetworkHandler.hpp"
 #include "protocol/ProtocolEncoder.hpp"
+#include "NetworkUtils.hpp"
 #include <iostream>
-#include <cstring>
 
 namespace rtype::server {
 
@@ -59,6 +59,8 @@ void NetworkHandler::route_packet(uint32_t client_id, const protocol::PacketHead
 void NetworkHandler::handle_tcp_packet(uint32_t client_id, protocol::PacketType type,
                                        const std::vector<uint8_t>& payload)
 {
+    using rtype::server::netutils::Memory;
+
     if (!listener_)
         return;
 
@@ -69,7 +71,7 @@ void NetworkHandler::handle_tcp_packet(uint32_t client_id, protocol::PacketType 
                 return;
             }
             protocol::ClientConnectPayload data;
-            std::memcpy(&data, payload.data(), sizeof(data));
+            Memory::copy_to_struct(data, payload.data());
             listener_->on_client_connect(client_id, data);
             break;
         }
@@ -79,7 +81,7 @@ void NetworkHandler::handle_tcp_packet(uint32_t client_id, protocol::PacketType 
                 return;
             }
             protocol::ClientDisconnectPayload data;
-            std::memcpy(&data, payload.data(), sizeof(data));
+            Memory::copy_to_struct(data, payload.data());
             listener_->on_client_disconnect(client_id, data);
             break;
         }
@@ -89,7 +91,7 @@ void NetworkHandler::handle_tcp_packet(uint32_t client_id, protocol::PacketType 
                 return;
             }
             protocol::ClientPingPayload data;
-            std::memcpy(&data, payload.data(), sizeof(data));
+            Memory::copy_to_struct(data, payload.data());
             listener_->on_client_ping(client_id, data);
             break;
         }
@@ -99,7 +101,7 @@ void NetworkHandler::handle_tcp_packet(uint32_t client_id, protocol::PacketType 
                 return;
             }
             protocol::ClientJoinLobbyPayload data;
-            std::memcpy(&data, payload.data(), sizeof(data));
+            Memory::copy_to_struct(data, payload.data());
             listener_->on_client_join_lobby(client_id, data);
             break;
         }
@@ -109,7 +111,7 @@ void NetworkHandler::handle_tcp_packet(uint32_t client_id, protocol::PacketType 
                 return;
             }
             protocol::ClientLeaveLobbyPayload data;
-            std::memcpy(&data, payload.data(), sizeof(data));
+            Memory::copy_to_struct(data, payload.data());
             listener_->on_client_leave_lobby(client_id, data);
             break;
         }
@@ -123,6 +125,9 @@ void NetworkHandler::handle_tcp_packet(uint32_t client_id, protocol::PacketType 
 void NetworkHandler::handle_udp_packet(uint32_t client_id, protocol::PacketType type,
                                        const std::vector<uint8_t>& payload)
 {
+    using rtype::server::netutils::Memory;
+    using rtype::server::netutils::ByteOrder;
+
     if (!listener_)
         return;
 
@@ -135,7 +140,7 @@ void NetworkHandler::handle_udp_packet(uint32_t client_id, protocol::PacketType 
                 return;
             }
             protocol::ClientUdpHandshakePayload data;
-            std::memcpy(&data, payload.data(), sizeof(data));
+            Memory::copy_to_struct(data, payload.data());
             listener_->on_udp_handshake(client_id, data);
             break;
         }
@@ -145,12 +150,12 @@ void NetworkHandler::handle_udp_packet(uint32_t client_id, protocol::PacketType 
                 return;
             }
             protocol::ClientInputPayload data;
-            std::memcpy(&data, payload.data(), sizeof(data));
+            Memory::copy_to_struct(data, payload.data());
 
             // Convert from network byte order
-            data.player_id = ntohl(data.player_id);
-            data.input_flags = ntohs(data.input_flags);
-            data.client_tick = ntohl(data.client_tick);
+            data.player_id = ByteOrder::net_to_host32(data.player_id);
+            data.input_flags = ByteOrder::net_to_host16(data.input_flags);
+            data.client_tick = ByteOrder::net_to_host32(data.client_tick);
 
             listener_->on_client_input(client_id, data);
             break;
@@ -159,7 +164,7 @@ void NetworkHandler::handle_udp_packet(uint32_t client_id, protocol::PacketType 
             if (payload.size() != sizeof(protocol::ClientPingPayload))
                 return;
             protocol::ClientPingPayload data;
-            std::memcpy(&data, payload.data(), sizeof(data));
+            Memory::copy_to_struct(data, payload.data());
             listener_->on_client_ping(client_id, data);
             break;
         }

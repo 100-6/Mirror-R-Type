@@ -6,17 +6,13 @@
 */
 
 #include "LobbyManager.hpp"
+#include "NetworkUtils.hpp"
 #include <iostream>
 #include <algorithm>
-#include <cstring>
-
-#ifdef _WIN32
-    #include <winsock2.h>
-#else
-    #include <arpa/inet.h>
-#endif
 
 namespace rtype::server {
+
+using netutils::ByteOrder;
 
 LobbyManager::LobbyManager()
     : next_lobby_id_(1)
@@ -162,7 +158,7 @@ std::vector<uint8_t> LobbyManager::build_lobby_state_payload(uint32_t lobby_id) 
 
     const auto& lobby = it->second;
     protocol::ServerLobbyStatePayload payload;
-    payload.lobby_id = htonl(lobby_id);
+    payload.lobby_id = ByteOrder::host_to_net32(lobby_id);
     payload.game_mode = lobby->game_mode;
     payload.difficulty = lobby->difficulty;
     payload.current_player_count = static_cast<uint8_t>(lobby->player_ids.size());

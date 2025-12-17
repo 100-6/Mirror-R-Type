@@ -21,20 +21,15 @@
 #undef ENEMY_BOSS_SPEED
 #undef ENEMY_BOSS_HEALTH
 
+#include "NetworkUtils.hpp"
 #include <iostream>
-#include <cstring>
-
-#ifdef _WIN32
-    #include <winsock2.h>
-#else
-    #include <arpa/inet.h>
-#endif
 
 #include "ecs/CoreComponents.hpp"
 #include "components/GameComponents.hpp"
 #include "ecs/events/InputEvents.hpp"
 
 namespace rtype::server {
+using netutils::ByteOrder;
 
 GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
                          protocol::Difficulty difficulty, uint16_t map_id)
@@ -252,8 +247,8 @@ void GameSession::on_wave_started(const Wave& wave)
         return;
 
     protocol::ServerWaveStartPayload payload;
-    payload.wave_number = htonl(wave.wave_number);
-    payload.total_waves = htons(static_cast<uint16_t>(wave_manager_.get_total_waves()));
+    payload.wave_number = ByteOrder::host_to_net32(wave.wave_number);
+    payload.total_waves = ByteOrder::host_to_net16(static_cast<uint16_t>(wave_manager_.get_total_waves()));
     payload.scroll_distance = wave.trigger.scroll_distance;
 
     uint16_t enemy_count = 0;
@@ -261,7 +256,7 @@ void GameSession::on_wave_started(const Wave& wave)
         if (spawn.type == "enemy")
             enemy_count += static_cast<uint16_t>(spawn.count);
     }
-    payload.expected_enemies = htons(enemy_count);
+    payload.expected_enemies = ByteOrder::host_to_net16(enemy_count);
     payload.set_wave_name("Wave " + std::to_string(wave.wave_number));
 
     last_wave_start_payload_ = payload;
@@ -278,10 +273,10 @@ void GameSession::on_wave_completed(const Wave& wave)
         return;
 
     protocol::ServerWaveCompletePayload payload;
-    payload.wave_number = htonl(wave.wave_number);
-    payload.completion_time = htonl(0);
-    payload.enemies_killed = htons(0);
-    payload.bonus_points = htons(0);
+    payload.wave_number = ByteOrder::host_to_net32(wave.wave_number);
+    payload.completion_time = ByteOrder::host_to_net32(0);
+    payload.enemies_killed = ByteOrder::host_to_net16(0);
+    payload.bonus_points = ByteOrder::host_to_net16(0);
     payload.all_waves_complete = wave_manager_.all_waves_complete() ? 1 : 0;
 
     last_wave_complete_payload_ = payload;

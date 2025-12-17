@@ -10,7 +10,7 @@
 #include <iostream>
 #include <csignal>
 #include <memory>
-#include <cstring>
+#include <string>
 
 // Global server instance for signal handling
 static std::unique_ptr<rtype::server::Server> g_server;
@@ -61,7 +61,8 @@ void print_help(const char* program_name) {
 int main(int argc, char* argv[]) {
     // Check for help flag first
     for (int i = 1; i < argc; ++i) {
-        if (std::strcmp(argv[i], "-h") == 0 || std::strcmp(argv[i], "--help") == 0) {
+        std::string arg(argv[i]);
+        if (arg == "-h" || arg == "--help") {
             print_help(argv[0]);
             return 0;
         }

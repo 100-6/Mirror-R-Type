@@ -9,12 +9,14 @@
 #include "ServerConfig.hpp"
 #include "protocol/ProtocolEncoder.hpp"
 #include "plugin_manager/PluginPaths.hpp"
+#include "NetworkUtils.hpp"
 #include <iostream>
 #include <chrono>
 #include <thread>
-#include <cstring>
 
 namespace rtype::server {
+
+using netutils::ByteOrder;
 
 Server::Server(uint16_t tcp_port, uint16_t udp_port, bool listen_on_all_interfaces)
     : network_plugin_(nullptr)
@@ -150,10 +152,10 @@ void Server::on_client_connect(uint32_t client_id, const protocol::ClientConnect
     player_to_client_[player_id] = client_id;
 
     protocol::ServerAcceptPayload accept;
-    accept.assigned_player_id = htonl(player_id);
+    accept.assigned_player_id = ByteOrder::host_to_net32(player_id);
     accept.server_tick_rate = config::SERVER_TICK_RATE;
     accept.max_players = 4;
-    accept.map_id = htons(0);
+    accept.map_id = ByteOrder::host_to_net16(0);
 
     packet_sender_->send_tcp_packet(client_id, protocol::PacketType::SERVER_ACCEPT,
                                     serialize(accept));
@@ -182,7 +184,7 @@ void Server::on_client_ping(uint32_t client_id, const protocol::ClientPingPayloa
 
     protocol::ServerPongPayload pong;
     pong.client_timestamp = payload.client_timestamp;
-    pong.server_timestamp = htonl(static_cast<uint32_t>(
+    pong.server_timestamp = ByteOrder::host_to_net32(static_cast<uint32_t>(
         std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::steady_clock::now().time_since_epoch()
         ).count()
@@ -198,7 +200,7 @@ void Server::on_client_join_lobby(uint32_t client_id, const protocol::ClientJoin
         return;
     }
 
-    uint32_t player_id = ntohl(payload.player_id);
+    uint32_t player_id = ByteOrder::net_to_host32(payload.player_id);
     if (player_id != it->second.player_id) {
         std::cerr << "[Server] Player ID mismatch in JOIN_LOBBY\n";
         return;
@@ -229,7 +231,7 @@ void Server::on_client_leave_lobby(uint32_t client_id, const protocol::ClientLea
         return;
     }
 
-    uint32_t player_id = ntohl(payload.player_id);
+    uint32_t player_id = ByteOrder::net_to_host32(payload.player_id);
     if (player_id != it->second.player_id) {
         std::cerr << "[Server] Player ID mismatch in LEAVE_LOBBY\n";
         return;
@@ -246,8 +248,8 @@ void Server::on_client_leave_lobby(uint32_t client_id, const protocol::ClientLea
 
 void Server::on_udp_handshake(uint32_t udp_client_id, const protocol::ClientUdpHandshakePayload& payload)
 {
-    uint32_t player_id = ntohl(payload.player_id);
-    uint32_t session_id = ntohl(payload.session_id);
+    uint32_t player_id = ByteOrder::net_to_host32(payload.player_id);
+    uint32_t session_id = ByteOrder::net_to_host32(payload.session_id);
 
     std::cout << "[Server] UDP handshake from player " << player_id
               << " for session " << session_id << "\n";
@@ -305,7 +307,7 @@ void Server::on_lobby_state_changed(uint32_t lobby_id, const std::vector<uint8_t
 void Server::on_countdown_tick(uint32_t lobby_id, uint8_t seconds_remaining)
 {
     protocol::ServerGameStartCountdownPayload countdown;
-    countdown.lobby_id = htonl(lobby_id);
+    countdown.lobby_id = ByteOrder::host_to_net32(lobby_id);
     countdown.countdown_value = seconds_remaining;
 
     std::cout << "[Server] Countdown tick for lobby " << lobby_id << ": "
@@ -345,12 +347,12 @@ void Server::on_game_start(uint32_t lobby_id, const std::vector<uint32_t>& playe
         session->add_player(player_id, player_info.player_name);
 
         protocol::ServerGameStartPayload game_start;
-        game_start.game_session_id = htonl(session_id);
+        game_start.game_session_id = ByteOrder::host_to_net32(session_id);
         game_start.game_mode = game_mode;
         game_start.difficulty = difficulty;
-        game_start.server_tick = htonl(0);
-        game_start.level_seed = htonl(0);
-        game_start.udp_port = htons(udp_port_);
+        game_start.server_tick = ByteOrder::host_to_net32(0);
+        game_start.level_seed = ByteOrder::host_to_net32(0);
+        game_start.udp_port = ByteOrder::host_to_net16(udp_port_);
 
         packet_sender_->send_tcp_packet(client_id, protocol::PacketType::SERVER_GAME_START,
                                        serialize(game_start));
@@ -382,7 +384,7 @@ void Server::on_entity_spawn(uint32_t session_id, const std::vector<uint8_t>& sp
 void Server::on_entity_destroy(uint32_t session_id, uint32_t entity_id)
 {
     protocol::ServerEntityDestroyPayload destroy;
-    destroy.entity_id = htonl(entity_id);
+    destroy.entity_id = ByteOrder::host_to_net32(entity_id);
     destroy.reason = protocol::DestroyReason::KILLED;
     destroy.position_x = 0.0f;
     destroy.position_y = 0.0f;

@@ -6,6 +6,7 @@
 */
 
 #include "ServerNetworkSystem.hpp"
+#include "NetworkUtils.hpp"
 #include "ecs/CoreComponents.hpp"
 #include "components/GameComponents.hpp"
 #include "ecs/events/GameEvents.hpp"
@@ -14,16 +15,12 @@
 #include "systems/ShootingSystem.hpp"
 
 #include <iostream>
-#include <cstring>
 #include <cmath>
 
-#ifdef _WIN32
-    #include <winsock2.h>
-#else
-    #include <arpa/inet.h>
-#endif
 
 namespace rtype::server {
+using netutils::ByteOrder;
+using netutils::Memory;
 
 ServerNetworkSystem::ServerNetworkSystem(uint32_t session_id, float snapshot_interval)
     : session_id_(session_id)
@@ -53,8 +50,8 @@ void ServerNetworkSystem::init(Registry& registry)
             const auto& pos = positions[event.projectile];
 
             protocol::ServerProjectileSpawnPayload spawn;
-            spawn.projectile_id = htonl(event.projectile);
-            spawn.owner_id = htonl(event.shooter);
+            spawn.projectile_id = ByteOrder::host_to_net32(event.projectile);
+            spawn.owner_id = ByteOrder::host_to_net32(event.shooter);
             spawn.projectile_type = protocol::ProjectileType::BULLET;
             spawn.spawn_x = pos.x;
             spawn.spawn_y = pos.y;
@@ -81,9 +78,9 @@ void ServerNetworkSystem::init(Registry& registry)
             }
 
             protocol::ServerScoreUpdatePayload score_update;
-            score_update.score_delta = htonl(event.scoreValue);
+            score_update.score_delta = ByteOrder::host_to_net32(event.scoreValue);
             // ScoreSystem has already updated the component, so current_total_score is the NEW score
-            score_update.new_total_score = htonl(current_total_score);
+            score_update.new_total_score = ByteOrder::host_to_net32(current_total_score);
             
             pending_scores_.push(score_update);
             std::cout << "[SCORE] Queued score update: +" << event.scoreValue 
@@ -153,12 +150,12 @@ void ServerNetworkSystem::queue_entity_spawn(Entity entity, protocol::EntityType
                                               float x, float y, uint16_t health, uint8_t subtype)
 {
     protocol::ServerEntitySpawnPayload spawn;
-    spawn.entity_id = htonl(entity);
+    spawn.entity_id = ByteOrder::host_to_net32(entity);
     spawn.entity_type = type;
     spawn.spawn_x = x;
     spawn.spawn_y = y;
     spawn.subtype = subtype;
-    spawn.health = htons(health);
+    spawn.health = ByteOrder::host_to_net16(health);
     pending_spawns_.push(spawn);
 }
 
@@ -245,7 +242,7 @@ void ServerNetworkSystem::send_state_snapshot(Registry& registry)
 std::vector<uint8_t> ServerNetworkSystem::serialize_snapshot(Registry& registry)
 {
     protocol::ServerSnapshotPayload snapshot;
-    snapshot.server_tick = htonl(tick_count_);
+    snapshot.server_tick = ByteOrder::host_to_net32(tick_count_);
 
     std::vector<uint8_t> payload;
     const uint8_t* header_bytes = reinterpret_cast<const uint8_t*>(&snapshot);
@@ -269,7 +266,7 @@ std::vector<uint8_t> ServerNetworkSystem::serialize_snapshot(Registry& registry)
         Position& pos = positions.get_data_at(i);
 
         protocol::EntityState state;
-        state.entity_id = htonl(entity);
+        state.entity_id = ByteOrder::host_to_net32(entity);
         state.entity_type = protocol::EntityType::PLAYER;
         state.position_x = pos.x;
         state.position_y = pos.y;
@@ -285,7 +282,7 @@ std::vector<uint8_t> ServerNetworkSystem::serialize_snapshot(Registry& registry)
 
         if (healths.has_entity(entity)) {
             Health& health = healths[entity];
-            state.health = htons(static_cast<uint16_t>(health.current));
+            state.health = ByteOrder::host_to_net16(static_cast<uint16_t>(health.current));
         } else {
             state.health = 0;
         }
@@ -295,8 +292,8 @@ std::vector<uint8_t> ServerNetworkSystem::serialize_snapshot(Registry& registry)
         entity_count++;
     }
 
-    snapshot.entity_count = htons(entity_count);
-    std::memcpy(payload.data(), &snapshot, sizeof(snapshot));
+    snapshot.entity_count = ByteOrder::host_to_net16(entity_count);
+    Memory::copy(payload.data(), &snapshot, sizeof(snapshot));
 
     for (const auto& state : entity_states) {
         const uint8_t* state_bytes = reinterpret_cast<const uint8_t*>(&state);
@@ -339,7 +336,7 @@ void ServerNetworkSystem::broadcast_pending_projectiles()
         const auto& proj = pending_projectiles_.front();
         listener_->on_projectile_spawned(session_id_, serialize(proj));
         pending_projectiles_.pop();
-        std::cout << "[SHOOT] Sent projectile " << ntohl(proj.projectile_id) << " to clients\n";
+        std::cout << "[SHOOT] Sent projectile " << ByteOrder::net_to_host32(proj.projectile_id) << " to clients\n";
     }
 }
 
@@ -372,8 +369,8 @@ void ServerNetworkSystem::spawn_projectile(Registry& registry, Entity owner, flo
     registry.add_component(projectile, NoFriction{});
 
     protocol::ServerProjectileSpawnPayload spawn;
-    spawn.projectile_id = htonl(projectile);
-    spawn.owner_id = htonl(owner);
+    spawn.projectile_id = ByteOrder::host_to_net32(projectile);
+    spawn.owner_id = ByteOrder::host_to_net32(owner);
     spawn.projectile_type = protocol::ProjectileType::BULLET;
     spawn.spawn_x = x;
     spawn.spawn_y = y;
@@ -397,8 +394,8 @@ void ServerNetworkSystem::spawn_enemy_projectile(Registry& registry, Entity owne
     registry.add_component(projectile, NoFriction{});
 
     protocol::ServerProjectileSpawnPayload spawn;
-    spawn.projectile_id = htonl(projectile);
-    spawn.owner_id = htonl(owner);
+    spawn.projectile_id = ByteOrder::host_to_net32(projectile);
+    spawn.owner_id = ByteOrder::host_to_net32(owner);
     spawn.projectile_type = protocol::ProjectileType::BULLET;
     spawn.spawn_x = x;
     spawn.spawn_y = y;

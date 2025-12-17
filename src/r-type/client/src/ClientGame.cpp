@@ -264,6 +264,11 @@ void ClientGame::setup_network_callbacks() {
         entity_manager_->clear_all();
         screen_manager_->set_screen(GameScreen::PLAYING);
 
+        auto& texts = registry_->get_components<UIText>();
+        Entity status_entity = screen_manager_->get_status_entity();
+        if (texts.has_entity(status_entity))
+            texts[status_entity].active = false;
+
         auto& wave_controllers = registry_->get_components<WaveController>();
         if (wave_controllers.has_entity(wave_tracker_)) {
             WaveController& ctrl = wave_controllers[wave_tracker_];
