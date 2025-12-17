@@ -110,6 +110,7 @@ private:
     void on_entity_spawned(uint32_t session_id, const std::vector<uint8_t>& spawn_data) override;
     void on_entity_destroyed(uint32_t session_id, uint32_t entity_id) override;
     void on_projectile_spawned(uint32_t session_id, const std::vector<uint8_t>& projectile_data) override;
+    void on_score_updated(uint32_t session_id, const std::vector<uint8_t>& score_data) override;
 
     // Internal helpers
     void spawn_player_entity(GamePlayer& player);

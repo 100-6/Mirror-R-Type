@@ -44,6 +44,11 @@ public:
      * @brief Called when a projectile spawns
      */
     virtual void on_projectile_spawned(uint32_t session_id, const std::vector<uint8_t>& projectile_data) = 0;
+
+    /**
+     * @brief Called when score is updated
+     */
+    virtual void on_score_updated(uint32_t session_id, const std::vector<uint8_t>& score_data) = 0;
 };
 
 }

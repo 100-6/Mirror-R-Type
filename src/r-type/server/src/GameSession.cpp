@@ -9,6 +9,7 @@
 #include "ServerConfig.hpp"
 #include "systems/ShootingSystem.hpp"
 #include "systems/BonusSystem.hpp"
+#include "systems/ScoreSystem.hpp"
 #include "components/CombatHelpers.hpp"
 
 #undef ENEMY_BASIC_SPEED
@@ -80,9 +81,11 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
     registry_.register_system<HealthSystem>();
     registry_.register_system<ShootingSystem>();
     registry_.register_system<BonusSystem>();
+    registry_.register_system<ScoreSystem>();
 
     registry_.get_system<ShootingSystem>().init(registry_);
     registry_.get_system<BonusSystem>().init(registry_);
+    registry_.get_system<ScoreSystem>().init(registry_);
 
     // Register ServerNetworkSystem BEFORE DestroySystem
     registry_.register_system<ServerNetworkSystem>(session_id_, config::SNAPSHOT_INTERVAL);
@@ -399,6 +402,12 @@ void GameSession::on_projectile_spawned(uint32_t session_id, const std::vector<u
 {
     if (listener_)
         listener_->on_projectile_spawn(session_id, projectile_data);
+}
+
+void GameSession::on_score_updated(uint32_t session_id, const std::vector<uint8_t>& score_data)
+{
+    if (listener_)
+        listener_->on_score_update(session_id, score_data);
 }
 
 // === Internal Helpers ===

@@ -186,6 +186,11 @@ public:
      */
     void set_on_wave_complete(std::function<void(const protocol::ServerWaveCompletePayload&)> callback);
 
+    /**
+     * @brief Set callback for score update events
+     */
+    void set_on_score_update(std::function<void(const protocol::ServerScoreUpdatePayload&)> callback);
+
     // ============== Getters ==============
 
     uint32_t get_player_id() const { return player_id_; }
@@ -211,6 +216,7 @@ private:
     void handle_game_over(const std::vector<uint8_t>& payload);
     void handle_wave_start(const std::vector<uint8_t>& payload);
     void handle_wave_complete(const std::vector<uint8_t>& payload);
+    void handle_score_update(const std::vector<uint8_t>& payload);
 
     // UDP connection after game start
     void connect_udp(uint16_t udp_port);
@@ -251,6 +257,7 @@ private:
     std::function<void()> on_disconnected_;
     std::function<void(const protocol::ServerWaveStartPayload&)> on_wave_start_;
     std::function<void(const protocol::ServerWaveCompletePayload&)> on_wave_complete_;
+    std::function<void(const protocol::ServerScoreUpdatePayload&)> on_score_update_;
 };
 
 }
