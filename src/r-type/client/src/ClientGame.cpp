@@ -398,8 +398,7 @@ void ClientGame::setup_network_callbacks() {
     });
 
     network_client_->set_on_disconnected([this]() {
-        status_overlay_->set_connection("Disconnected");
-        status_overlay_->refresh();
+        // Only set running flag, don't touch registry from background thread
         running_ = false;
     });
 }
@@ -453,8 +452,9 @@ void ClientGame::run() {
 
 void ClientGame::shutdown() {
     if (network_client_) {
-        entity_manager_->clear_all();
         network_client_->disconnect();
+        entity_manager_->clear_all();
+        network_client_.reset();
     }
 
     if (network_plugin_)

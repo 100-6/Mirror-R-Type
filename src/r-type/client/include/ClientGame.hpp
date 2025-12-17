@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <string>
+#include <atomic>
 #include "ecs/Registry.hpp"
 #include "plugin_manager/PluginManager.hpp"
 #include "plugin_manager/IGraphicsPlugin.hpp"
@@ -75,7 +76,7 @@ private:
     std::unique_ptr<rtype::client::NetworkClient> network_client_;
 
     // Game state
-    bool running_;
+    std::atomic<bool> running_;
     uint32_t client_tick_;
     Entity wave_tracker_;
 
