@@ -11,7 +11,10 @@ TextureManager::TextureManager(engine::IGraphicsPlugin& graphics)
     , menu_background_(engine::INVALID_HANDLE)
     , enemy_(engine::INVALID_HANDLE)
     , projectile_(engine::INVALID_HANDLE)
-    , wall_(engine::INVALID_HANDLE) {
+    , wall_(engine::INVALID_HANDLE)
+    , shot_frame_1_(engine::INVALID_HANDLE)
+    , shot_frame_2_(engine::INVALID_HANDLE)
+    , bullet_animation_(engine::INVALID_HANDLE) {
     player_frames_.fill(engine::INVALID_HANDLE);
 }
 
@@ -42,6 +45,14 @@ bool TextureManager::load_all() {
     enemy_ = graphics_.load_texture("assets/sprite/enemy.png");
     projectile_ = graphics_.load_texture("assets/sprite/bullet.png");
     wall_ = graphics_.load_texture("assets/sprite/lock.png");
+    
+    // Load shot animation spritesheet
+    engine::TextureHandle shot_spritesheet = graphics_.load_texture("assets/sprite/ShotAnimation.png");
+    shot_frame_1_ = shot_spritesheet;
+    shot_frame_2_ = shot_spritesheet;
+    
+    // Load bullet animation spritesheet (48x16, 3 frames of 16x16)
+    bullet_animation_ = graphics_.load_texture("assets/sprite/BulletAnimation.png");
 
     // Check critical textures
     if (background_ == engine::INVALID_HANDLE ||

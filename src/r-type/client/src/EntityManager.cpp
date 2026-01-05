@@ -77,7 +77,7 @@ Sprite EntityManager::build_sprite(protocol::EntityType type, bool is_local_play
     switch (type) {
         case protocol::EntityType::PLAYER: {
             // Utiliser le SpaceshipManager pour obtenir un vaisseau aléatoire avec source_rect
-            engine::Sprite ship_sprite = textures_.get_random_ship_sprite(2.0f);
+            engine::Sprite ship_sprite = textures_.get_random_ship_sprite(4.0f);
             sprite.texture = ship_sprite.texture_handle;
             
             // Copier le source_rect pour le découpage de la spritesheet
@@ -115,11 +115,21 @@ Sprite EntityManager::build_sprite(protocol::EntityType type, bool is_local_play
             break;
         case protocol::EntityType::PROJECTILE_PLAYER:
         case protocol::EntityType::PROJECTILE_ENEMY:
-            sprite.texture = textures_.get_projectile();
+            sprite.texture = (type == protocol::EntityType::PROJECTILE_PLAYER)
+                ? textures_.get_bullet_animation()
+                : textures_.get_projectile();
             sprite.layer = 20;
             sprite.tint = type == protocol::EntityType::PROJECTILE_PLAYER
-                ? engine::Color::Cyan
+                ? engine::Color::White
                 : engine::Color::Red;
+            
+            // Configurer source_rect pour projectiles joueur (première frame)
+            if (type == protocol::EntityType::PROJECTILE_PLAYER) {
+                sprite.source_rect.x = 0.0f;
+                sprite.source_rect.y = 0.0f;
+                sprite.source_rect.width = 16.0f;
+                sprite.source_rect.height = 16.0f;
+            }
             break;
         case protocol::EntityType::POWERUP_HEALTH:
         case protocol::EntityType::POWERUP_SHIELD:
@@ -146,11 +156,12 @@ Sprite EntityManager::build_sprite(protocol::EntityType type, bool is_local_play
             float scale_y = dims.height / tex_size.y;
             float scale = std::min(scale_x, scale_y);
 
-            // Apply x2 scaling only for enemies
+            // Apply x2 scaling for enemies and player projectiles
             if (type == protocol::EntityType::ENEMY_BASIC ||
                 type == protocol::EntityType::ENEMY_FAST ||
                 type == protocol::EntityType::ENEMY_TANK ||
-                type == protocol::EntityType::ENEMY_BOSS) {
+                type == protocol::EntityType::ENEMY_BOSS ||
+                type == protocol::EntityType::PROJECTILE_PLAYER) {
                 scale *= 2.0f;
             }
 
@@ -312,6 +323,85 @@ Entity EntityManager::spawn_or_update_entity(uint32_t server_id, protocol::Entit
             registry_.add_component(entity, anim);
         }
         ensure_player_name_tag(server_id, x, y);
+    }
+    
+    // Créer un effet de feu pour les nouveaux projectiles joueur
+    if (type == protocol::EntityType::PROJECTILE_PLAYER && is_new) {
+        // Ajouter l'animation de balle au projectile
+        auto& bulletAnims = registry_.get_components<BulletAnimation>();
+        if (!bulletAnims.has_entity(entity)) {
+            registry_.add_component(entity, BulletAnimation{0.0f, 0.1f, 0});
+        }
+        
+        // Trouver le joueur le plus proche (celui qui a tiré)
+        Entity closestPlayer = 0;
+        float closestDistance = 1000000.0f;
+        auto& positions = registry_.get_components<Position>();
+        
+        for (const auto& [srv_id, local_ent] : server_to_local_) {
+            if (server_types_[srv_id] == protocol::EntityType::PLAYER && positions.has_entity(local_ent)) {
+                float dx = positions[local_ent].x - x;
+                float dy = positions[local_ent].y - y;
+                float dist = dx*dx + dy*dy;
+                if (dist < closestDistance) {
+                    closestDistance = dist;
+                    closestPlayer = local_ent;
+                }
+            }
+        }
+        
+        // Vérifier si ce joueur a déjà un effet de feu en cours
+        bool hasActiveFlash = false;
+        if (closestPlayer != 0) {
+            auto& shotAnims = registry_.get_components<ShotAnimation>();
+            auto& attacheds = registry_.get_components<Attached>();
+            
+            for (size_t i = 0; i < shotAnims.size(); i++) {
+                Entity flashEntity = shotAnims.get_entity_at(i);
+                if (attacheds.has_entity(flashEntity) && 
+                    attacheds[flashEntity].parentEntity == closestPlayer) {
+                    hasActiveFlash = true;
+                    break;
+                }
+            }
+        }
+        
+        // Créer l'effet seulement si pas déjà actif
+        if (closestPlayer != 0 && !hasActiveFlash) {
+            std::cout << "[MUZZLE FLASH] Creating muzzle flash for player " << closestPlayer << " at projectile pos (" << x << ", " << y << ")" << std::endl;
+            
+            Entity muzzleFlash = registry_.spawn_entity();
+            
+            // Calculer l'offset devant le vaisseau (ajusté pour vaisseau x2)
+            float flashOffsetX = 80.0f;  // x2 (était 40.0f)
+            float flashOffsetY = 0.0f;    // Centré verticalement
+            
+            // Attacher l'effet au vaisseau
+            registry_.add_component(muzzleFlash, Position{0.0f, 0.0f});
+            registry_.add_component(muzzleFlash, Attached{closestPlayer, flashOffsetX, flashOffsetY});
+            
+            // Créer le sprite avec la texture d'animation de feu
+            Sprite flashSprite;
+            flashSprite.texture = textures_.get_shot_frame_1();
+            flashSprite.width = 40.0f;   // x2
+            flashSprite.height = 40.0f;  // x2
+            flashSprite.rotation = 0.0f;
+            flashSprite.tint = engine::Color::White;
+            flashSprite.origin_x = 20.0f;  // x2
+            flashSprite.origin_y = 20.0f;  // x2
+            flashSprite.layer = 15;
+            flashSprite.source_rect.x = 0.0f;
+            flashSprite.source_rect.y = 0.0f;
+            flashSprite.source_rect.width = 16.0f;
+            flashSprite.source_rect.height = 16.0f;
+            
+            std::cout << "[MUZZLE FLASH] Texture handle: " << flashSprite.texture << std::endl;
+            
+            registry_.add_component(muzzleFlash, flashSprite);
+            registry_.add_component(muzzleFlash, ShotAnimation{0.0f, 0.1f, false});
+        } else if (hasActiveFlash) {
+            std::cout << "[MUZZLE FLASH] Already has active flash, skipping" << std::endl;
+        }
     }
 
     return entity;

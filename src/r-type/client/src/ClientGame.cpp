@@ -1,5 +1,6 @@
 #include "ClientGame.hpp"
 #include "ecs/systems/SpriteAnimationSystem.hpp"
+#include "systems/AttachmentSystem.hpp"
 #include "systems/ScrollingSystem.hpp"
 #include "ecs/systems/RenderSystem.hpp"
 #include "systems/HUDSystem.hpp"
@@ -173,10 +174,14 @@ void ClientGame::setup_registry() {
     registry_->register_component<TextEffect>();
     registry_->register_component<Bonus>();
     registry_->register_component<Invulnerability>();
+    registry_->register_component<ShotAnimation>();
+    registry_->register_component<BulletAnimation>();
+    registry_->register_component<Attached>();
 }
 
 void ClientGame::setup_systems() {
     registry_->register_system<ScrollingSystem>(-100.0f, static_cast<float>(screen_width_));
+    registry_->register_system<AttachmentSystem>();
     registry_->register_system<SpriteAnimationSystem>();
     registry_->register_system<RenderSystem>(*graphics_plugin_);
     registry_->register_system<HUDSystem>(*graphics_plugin_, screen_width_, screen_height_);
@@ -447,6 +452,69 @@ void ClientGame::run() {
 
         entity_manager_->update_projectiles(dt);
         entity_manager_->update_name_tags();
+        
+        // Update bullet animations (cycle through 3 frames)
+        auto& bulletAnimations = registry_->get_components<BulletAnimation>();
+        auto& sprites = registry_->get_components<Sprite>();
+        
+        for (size_t i = 0; i < bulletAnimations.size(); i++) {
+            Entity entity = bulletAnimations.get_entity_at(i);
+
+            if (!bulletAnimations.has_entity(entity))
+                continue;
+
+            auto& bulletAnim = bulletAnimations[entity];
+            bulletAnim.timer += dt;
+
+            // Switch frame every 0.1 seconds
+            if (bulletAnim.timer >= bulletAnim.frameDuration) {
+                bulletAnim.timer -= bulletAnim.frameDuration;
+                bulletAnim.currentFrame = (bulletAnim.currentFrame + 1) % 3;  // Cycle 0->1->2->0
+                
+                // Update sprite source_rect
+                if (sprites.has_entity(entity)) {
+                    auto& sprite = sprites[entity];
+                    // Frame 0 at x=0, Frame 1 at x=16, Frame 2 at x=32 (each 16x16 in 48x16 image)
+                    sprite.source_rect.x = bulletAnim.currentFrame * 16.0f;
+                    sprite.source_rect.y = 0.0f;
+                    sprite.source_rect.width = 16.0f;
+                    sprite.source_rect.height = 16.0f;
+                }
+            }
+        }
+        
+        // Update shot animations (alternate between sprites)
+        auto& shotAnimations = registry_->get_components<ShotAnimation>();
+        
+        for (size_t i = 0; i < shotAnimations.size(); i++) {
+            Entity entity = shotAnimations.get_entity_at(i);
+
+            if (!shotAnimations.has_entity(entity))
+                continue;
+
+            auto& shotAnim = shotAnimations[entity];
+            shotAnim.timer += dt;
+
+            // Switch frame every 0.5 seconds
+            if (shotAnim.timer >= shotAnim.frameDuration && shotAnim.timer - dt < shotAnim.frameDuration) {
+                shotAnim.currentFrame = !shotAnim.currentFrame;
+                
+                // Update sprite source_rect
+                if (sprites.has_entity(entity)) {
+                    auto& sprite = sprites[entity];
+                    // Frame 1 at x=0, Frame 2 at x=16 (each frame is 16x16 in a 32x16 image)
+                    sprite.source_rect.x = shotAnim.currentFrame ? 16.0f : 0.0f;
+                    sprite.source_rect.y = 0.0f;
+                    sprite.source_rect.width = 16.0f;
+                    sprite.source_rect.height = 16.0f;
+                }
+            }
+            
+            // Destroy the muzzle flash effect after 0.3 second
+            if (shotAnim.timer >= 0.3f) {
+                registry_->kill_entity(entity);
+            }
+        }
 
         registry_->run_systems(dt);
 
