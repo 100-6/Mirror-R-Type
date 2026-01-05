@@ -10,6 +10,7 @@ set(RTYPE_CLIENT_SOURCES
     src/ScreenManager.cpp
     src/EntityManager.cpp
     src/StatusOverlay.cpp
+    src/SpaceshipManager.cpp
 )
 
 add_executable(r-type_client ${RTYPE_CLIENT_SOURCES})
@@ -71,3 +72,4 @@ set_target_properties(r-type_test_client PROPERTIES
     INSTALL_RPATH "$ORIGIN"
     BUILD_WITH_INSTALL_RPATH TRUE
 )
+

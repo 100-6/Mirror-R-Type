@@ -75,11 +75,29 @@ Sprite EntityManager::build_sprite(protocol::EntityType type, bool is_local_play
     sprite.layer = 5;
 
     switch (type) {
-        case protocol::EntityType::PLAYER:
-            sprite.texture = textures_.get_player_frame(0);
+        case protocol::EntityType::PLAYER: {
+            // Utiliser le SpaceshipManager pour obtenir un vaisseau aléatoire avec source_rect
+            engine::Sprite ship_sprite = textures_.get_random_ship_sprite(2.0f);
+            sprite.texture = ship_sprite.texture_handle;
+            
+            // Copier le source_rect pour le découpage de la spritesheet
+            sprite.source_rect.x = ship_sprite.source_rect.x;
+            sprite.source_rect.y = ship_sprite.source_rect.y;
+            sprite.source_rect.width = ship_sprite.source_rect.width;
+            sprite.source_rect.height = ship_sprite.source_rect.height;
+            
+            // Utiliser les dimensions du sprite retourné (déjà avec le scale appliqué)
+            sprite.width = ship_sprite.size.x;
+            sprite.height = ship_sprite.size.y;
+            
+            // Copier l'origine (centrée)
+            sprite.origin_x = ship_sprite.origin.x;
+            sprite.origin_y = ship_sprite.origin.y;
+            
             sprite.layer = 10;
-            sprite.tint = is_local_player ? engine::Color::Cyan : engine::Color::White;
+            sprite.tint = engine::Color::White;
             break;
+        }
         case protocol::EntityType::ENEMY_FAST:
             sprite.tint = engine::Color{255, 180, 0, 255};
             break;
@@ -120,22 +138,25 @@ Sprite EntityManager::build_sprite(protocol::EntityType type, bool is_local_play
     }
 
     // Adjust sprite dimensions to preserve aspect ratio while fitting in collider box
-    engine::Vector2f tex_size = textures_.get_texture_size(sprite.texture);
-    if (tex_size.x > 0 && tex_size.y > 0) {
-        float scale_x = dims.width / tex_size.x;
-        float scale_y = dims.height / tex_size.y;
-        float scale = std::min(scale_x, scale_y);
+    // SAUF pour les joueurs qui ont déjà leurs dimensions définies par le SpaceshipManager
+    if (type != protocol::EntityType::PLAYER) {
+        engine::Vector2f tex_size = textures_.get_texture_size(sprite.texture);
+        if (tex_size.x > 0 && tex_size.y > 0) {
+            float scale_x = dims.width / tex_size.x;
+            float scale_y = dims.height / tex_size.y;
+            float scale = std::min(scale_x, scale_y);
 
-        // Apply x2 scaling only for enemies
-        if (type == protocol::EntityType::ENEMY_BASIC ||
-            type == protocol::EntityType::ENEMY_FAST ||
-            type == protocol::EntityType::ENEMY_TANK ||
-            type == protocol::EntityType::ENEMY_BOSS) {
-            scale *= 2.0f;
+            // Apply x2 scaling only for enemies
+            if (type == protocol::EntityType::ENEMY_BASIC ||
+                type == protocol::EntityType::ENEMY_FAST ||
+                type == protocol::EntityType::ENEMY_TANK ||
+                type == protocol::EntityType::ENEMY_BOSS) {
+                scale *= 2.0f;
+            }
+
+            sprite.width = tex_size.x * scale;
+            sprite.height = tex_size.y * scale;
         }
-
-        sprite.width = tex_size.x * scale;
-        sprite.height = tex_size.y * scale;
     }
 
     return sprite;

@@ -23,6 +23,17 @@ struct Sprite {
     Vector2f origin{0.0f, 0.0f};
     float rotation = 0.0f;
     Color tint = Color::White;
+    
+    // Rectangle source pour découper une partie de la texture (spritesheet)
+    // Si non défini (x=0, y=0, width=0, height=0), utilise la texture complète
+    struct SourceRect {
+        float x = 0.0f;
+        float y = 0.0f;
+        float width = 0.0f;
+        float height = 0.0f;
+        
+        bool is_valid() const { return width > 0.0f && height > 0.0f; }
+    } source_rect;
 };
 
 /**

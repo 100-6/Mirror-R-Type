@@ -84,6 +84,12 @@ void RenderSystem::update(Registry& registry, float dt)
         temp_sprite.origin = engine::Vector2f(sprite.origin_x, sprite.origin_y);
         temp_sprite.rotation = sprite.rotation;
         temp_sprite.tint = sprite.tint;
+        
+        // Transmettre le rectangle source pour le découpage (spritesheet)
+        temp_sprite.source_rect.x = sprite.source_rect.x;
+        temp_sprite.source_rect.y = sprite.source_rect.y;
+        temp_sprite.source_rect.width = sprite.source_rect.width;
+        temp_sprite.source_rect.height = sprite.source_rect.height;
 
         // Dessiner le sprite à la position de l'entité
         graphics_plugin.draw_sprite(temp_sprite, engine::Vector2f(pos.x, pos.y));
