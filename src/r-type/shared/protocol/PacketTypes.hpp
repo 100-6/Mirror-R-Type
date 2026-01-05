@@ -12,8 +12,10 @@ namespace rtype::protocol {
  * - 0x01-0x04: Connection Management (Client → Server)
  * - 0x05-0x09: Lobby & Matchmaking (Client → Server)
  * - 0x10-0x1F: Player Input (Client → Server)
- * - 0x20-0x3F: Reserved for future client-to-server use
+ * - 0x20-0x29: Room Management (Client → Server)
+ * - 0x30-0x3F: Reserved for future client-to-server use
  * - 0x81-0x8A: Connection & Lobby (Server → Client)
+ * - 0x90-0x9F: Room Management (Server → Client)
  * - 0xA0-0xAF: World State (Server → Client)
  * - 0xB0-0xBF: Entity Events (Server → Client)
  * - 0xC0-0xCF: Game Mechanics (Server → Client)
@@ -34,6 +36,13 @@ enum class PacketType : uint8_t {
     // Player Input (0x10-0x1F)
     CLIENT_INPUT = 0x10,
 
+    // Room Management (0x20-0x29)
+    CLIENT_CREATE_ROOM = 0x20,
+    CLIENT_JOIN_ROOM = 0x21,
+    CLIENT_LEAVE_ROOM = 0x22,
+    CLIENT_REQUEST_ROOM_LIST = 0x23,
+    CLIENT_START_GAME = 0x24,
+
     // ========== Server → Client ==========
     // Connection & Lobby (0x81-0x8A)
     SERVER_ACCEPT = 0x81,
@@ -45,6 +54,14 @@ enum class PacketType : uint8_t {
     SERVER_GAME_START_COUNTDOWN = 0x88,
     SERVER_COUNTDOWN_CANCELLED = 0x89,
     SERVER_GAME_START = 0x8A,
+
+    // Room Management (0x90-0x9F)
+    SERVER_ROOM_CREATED = 0x90,
+    SERVER_ROOM_LIST = 0x91,
+    SERVER_ROOM_JOINED = 0x92,
+    SERVER_ROOM_LEFT = 0x93,
+    SERVER_ROOM_STATE_UPDATE = 0x94,
+    SERVER_ROOM_ERROR = 0x95,
 
     // World State (0xA0-0xAF)
     SERVER_SNAPSHOT = 0xA0,
@@ -81,6 +98,28 @@ enum class Difficulty : uint8_t {
     EASY = 0x01,
     NORMAL = 0x02,
     HARD = 0x03,
+};
+
+/**
+ * @brief Room status codes
+ */
+enum class RoomStatus : uint8_t {
+    WAITING = 0x01,
+    IN_PROGRESS = 0x02,
+    FINISHED = 0x03,
+};
+
+/**
+ * @brief Room error codes
+ */
+enum class RoomError : uint8_t {
+    ROOM_NOT_FOUND = 0x01,
+    ROOM_FULL = 0x02,
+    WRONG_PASSWORD = 0x03,
+    ALREADY_STARTED = 0x04,
+    NOT_HOST = 0x05,
+    INVALID_CONFIGURATION = 0x06,
+    ALREADY_IN_ROOM = 0x07,
 };
 
 /**
@@ -292,6 +331,16 @@ inline std::string packet_type_to_string(PacketType type) {
         return "CLIENT_UDP_HANDSHAKE";
     case PacketType::CLIENT_INPUT:
         return "CLIENT_INPUT";
+    case PacketType::CLIENT_CREATE_ROOM:
+        return "CLIENT_CREATE_ROOM";
+    case PacketType::CLIENT_JOIN_ROOM:
+        return "CLIENT_JOIN_ROOM";
+    case PacketType::CLIENT_LEAVE_ROOM:
+        return "CLIENT_LEAVE_ROOM";
+    case PacketType::CLIENT_REQUEST_ROOM_LIST:
+        return "CLIENT_REQUEST_ROOM_LIST";
+    case PacketType::CLIENT_START_GAME:
+        return "CLIENT_START_GAME";
     case PacketType::SERVER_ACCEPT:
         return "SERVER_ACCEPT";
     case PacketType::SERVER_REJECT:
@@ -310,6 +359,18 @@ inline std::string packet_type_to_string(PacketType type) {
         return "SERVER_COUNTDOWN_CANCELLED";
     case PacketType::SERVER_GAME_START:
         return "SERVER_GAME_START";
+    case PacketType::SERVER_ROOM_CREATED:
+        return "SERVER_ROOM_CREATED";
+    case PacketType::SERVER_ROOM_LIST:
+        return "SERVER_ROOM_LIST";
+    case PacketType::SERVER_ROOM_JOINED:
+        return "SERVER_ROOM_JOINED";
+    case PacketType::SERVER_ROOM_LEFT:
+        return "SERVER_ROOM_LEFT";
+    case PacketType::SERVER_ROOM_STATE_UPDATE:
+        return "SERVER_ROOM_STATE_UPDATE";
+    case PacketType::SERVER_ROOM_ERROR:
+        return "SERVER_ROOM_ERROR";
     case PacketType::SERVER_SNAPSHOT:
         return "SERVER_SNAPSHOT";
     case PacketType::SERVER_DELTA_SNAPSHOT:

@@ -115,6 +115,51 @@ void NetworkHandler::handle_tcp_packet(uint32_t client_id, protocol::PacketType 
             listener_->on_client_leave_lobby(client_id, data);
             break;
         }
+        case protocol::PacketType::CLIENT_CREATE_ROOM: {
+            if (payload.size() != sizeof(protocol::ClientCreateRoomPayload)) {
+                std::cerr << "[NetworkHandler] Invalid CLIENT_CREATE_ROOM payload size\n";
+                return;
+            }
+            protocol::ClientCreateRoomPayload data;
+            Memory::copy_to_struct(data, payload.data());
+            listener_->on_client_create_room(client_id, data);
+            break;
+        }
+        case protocol::PacketType::CLIENT_JOIN_ROOM: {
+            if (payload.size() != sizeof(protocol::ClientJoinRoomPayload)) {
+                std::cerr << "[NetworkHandler] Invalid CLIENT_JOIN_ROOM payload size\n";
+                return;
+            }
+            protocol::ClientJoinRoomPayload data;
+            Memory::copy_to_struct(data, payload.data());
+            listener_->on_client_join_room(client_id, data);
+            break;
+        }
+        case protocol::PacketType::CLIENT_LEAVE_ROOM: {
+            if (payload.size() != sizeof(protocol::ClientLeaveRoomPayload)) {
+                std::cerr << "[NetworkHandler] Invalid CLIENT_LEAVE_ROOM payload size\n";
+                return;
+            }
+            protocol::ClientLeaveRoomPayload data;
+            Memory::copy_to_struct(data, payload.data());
+            listener_->on_client_leave_room(client_id, data);
+            break;
+        }
+        case protocol::PacketType::CLIENT_REQUEST_ROOM_LIST: {
+            // No payload for room list request
+            listener_->on_client_request_room_list(client_id);
+            break;
+        }
+        case protocol::PacketType::CLIENT_START_GAME: {
+            if (payload.size() != sizeof(protocol::ClientStartGamePayload)) {
+                std::cerr << "[NetworkHandler] Invalid CLIENT_START_GAME payload size\n";
+                return;
+            }
+            protocol::ClientStartGamePayload data;
+            Memory::copy_to_struct(data, payload.data());
+            listener_->on_client_start_game(client_id, data);
+            break;
+        }
         default:
             std::cerr << "[NetworkHandler] Unexpected TCP packet type: 0x" << std::hex
                       << static_cast<int>(type) << std::dec << "\n";
