@@ -80,6 +80,18 @@ struct Projectile {
     ProjectileFaction faction = ProjectileFaction::Player;
 };
 
+struct ShotAnimation {
+    float timer = 0.0f;
+    float frameDuration = 0.5f;  // Switch frame every 0.5 seconds
+    bool currentFrame = false;    // false = frame 1, true = frame 2
+};
+
+struct BulletAnimation {
+    float timer = 0.0f;
+    float frameDuration = 0.1f;  // Switch frame every 0.1 seconds
+    int currentFrame = 0;         // 0, 1, or 2 (3 frames total)
+};
+
 struct Wall {};
 struct Background {};
 

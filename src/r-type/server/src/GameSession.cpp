@@ -67,6 +67,7 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
     registry_.register_component<Attached>();
     registry_.register_component<Sprite>();
     registry_.register_component<TextEffect>();
+    registry_.register_component<ShotAnimation>();
     registry_.register_component<CircleEffect>();
 
     // Register systems
