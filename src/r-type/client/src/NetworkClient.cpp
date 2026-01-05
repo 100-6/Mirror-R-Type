@@ -60,8 +60,10 @@ void NetworkClient::disconnect() {
     player_id_ = 0;
     session_id_ = 0;
     lobby_id_ = 0;
+    room_id_ = 0;
     in_lobby_ = false;
     in_game_ = false;
+    in_room_ = false;
 }
 
 bool NetworkClient::is_tcp_connected() const {
@@ -123,6 +125,66 @@ void NetworkClient::send_leave_lobby() {
 
     std::cout << "[NetworkClient] Leaving lobby " << lobby_id_ << "\n";
     send_tcp_packet(protocol::PacketType::CLIENT_LEAVE_LOBBY, serialize_payload(&payload, sizeof(payload)));
+}
+
+void NetworkClient::send_create_room(const std::string& room_name, const std::string& password,
+                                     protocol::GameMode mode, protocol::Difficulty difficulty,
+                                     uint8_t max_players) {
+    protocol::ClientCreateRoomPayload payload;
+    payload.player_id = htonl(player_id_);
+    payload.set_room_name(room_name);
+
+    // Hash password if provided (simple SHA256 would be used in production)
+    if (!password.empty()) {
+        payload.set_password_hash(password);  // TODO: Implement proper SHA256 hashing
+    }
+
+    payload.game_mode = mode;
+    payload.difficulty = difficulty;
+    payload.map_id = htons(0);  // Default map
+    payload.max_players = max_players;
+
+    std::cout << "[NetworkClient] Creating room '" << room_name << "' (mode="
+              << static_cast<int>(mode) << ", diff=" << static_cast<int>(difficulty)
+              << ", max_players=" << static_cast<int>(max_players) << ")\n";
+    send_tcp_packet(protocol::PacketType::CLIENT_CREATE_ROOM, serialize_payload(&payload, sizeof(payload)));
+}
+
+void NetworkClient::send_join_room(uint32_t room_id, const std::string& password) {
+    protocol::ClientJoinRoomPayload payload;
+    payload.player_id = htonl(player_id_);
+    payload.room_id = htonl(room_id);
+
+    if (!password.empty()) {
+        payload.set_password_hash(password);  // TODO: Implement proper SHA256 hashing
+    }
+
+    std::cout << "[NetworkClient] Joining room " << room_id << "\n";
+    send_tcp_packet(protocol::PacketType::CLIENT_JOIN_ROOM, serialize_payload(&payload, sizeof(payload)));
+}
+
+void NetworkClient::send_leave_room() {
+    protocol::ClientLeaveRoomPayload payload;
+    payload.player_id = htonl(player_id_);
+    payload.room_id = htonl(room_id_);
+
+    std::cout << "[NetworkClient] Leaving room " << room_id_ << "\n";
+    send_tcp_packet(protocol::PacketType::CLIENT_LEAVE_ROOM, serialize_payload(&payload, sizeof(payload)));
+}
+
+void NetworkClient::send_request_room_list() {
+    std::cout << "[NetworkClient] Requesting room list\n";
+    // No payload needed for room list request
+    send_tcp_packet(protocol::PacketType::CLIENT_REQUEST_ROOM_LIST, std::vector<uint8_t>());
+}
+
+void NetworkClient::send_start_game() {
+    protocol::ClientStartGamePayload payload;
+    payload.player_id = htonl(player_id_);
+    payload.room_id = htonl(room_id_);
+
+    std::cout << "[NetworkClient] Requesting game start\n";
+    send_tcp_packet(protocol::PacketType::CLIENT_START_GAME, serialize_payload(&payload, sizeof(payload)));
 }
 
 void NetworkClient::send_input(uint16_t input_flags, uint32_t client_tick) {
@@ -225,6 +287,21 @@ void NetworkClient::handle_packet(const engine::NetworkPacket& packet) {
             break;
         case protocol::PacketType::SERVER_GAME_OVER:
             handle_game_over(payload);
+            break;
+        case protocol::PacketType::SERVER_ROOM_CREATED:
+            handle_room_created(payload);
+            break;
+        case protocol::PacketType::SERVER_ROOM_JOINED:
+            handle_room_joined(payload);
+            break;
+        case protocol::PacketType::SERVER_ROOM_LEFT:
+            handle_room_left(payload);
+            break;
+        case protocol::PacketType::SERVER_ROOM_LIST:
+            handle_room_list(payload);
+            break;
+        case protocol::PacketType::SERVER_ROOM_ERROR:
+            handle_room_error(payload);
             break;
         case protocol::PacketType::SERVER_SNAPSHOT:
         case protocol::PacketType::SERVER_DELTA_SNAPSHOT:
@@ -490,6 +567,112 @@ void NetworkClient::handle_score_update(const std::vector<uint8_t>& payload) {
         on_score_update_(score_update);
 }
 
+void NetworkClient::handle_room_created(const std::vector<uint8_t>& payload) {
+    if (payload.size() < sizeof(protocol::ServerRoomCreatedPayload)) {
+        return;
+    }
+
+    protocol::ServerRoomCreatedPayload room_created;
+    std::memcpy(&room_created, payload.data(), sizeof(room_created));
+    room_created.room_id = ntohl(room_created.room_id);
+
+    room_id_ = room_created.room_id;
+    in_room_ = true;
+
+    std::cout << "[NetworkClient] Room created: ID=" << room_id_
+              << ", name=" << room_created.room_name << "\n";
+
+    if (on_room_created_)
+        on_room_created_(room_created);
+}
+
+void NetworkClient::handle_room_joined(const std::vector<uint8_t>& payload) {
+    if (payload.size() < sizeof(protocol::ServerRoomJoinedPayload)) {
+        return;
+    }
+
+    protocol::ServerRoomJoinedPayload room_joined;
+    std::memcpy(&room_joined, payload.data(), sizeof(room_joined));
+    room_joined.room_id = ntohl(room_joined.room_id);
+
+    room_id_ = room_joined.room_id;
+    in_room_ = true;
+
+    std::cout << "[NetworkClient] Joined room " << room_id_ << "\n";
+
+    if (on_room_joined_)
+        on_room_joined_(room_joined);
+}
+
+void NetworkClient::handle_room_left(const std::vector<uint8_t>& payload) {
+    if (payload.size() < sizeof(protocol::ServerRoomLeftPayload)) {
+        return;
+    }
+
+    protocol::ServerRoomLeftPayload room_left;
+    std::memcpy(&room_left, payload.data(), sizeof(room_left));
+    room_left.room_id = ntohl(room_left.room_id);
+    room_left.player_id = ntohl(room_left.player_id);
+
+    if (room_left.player_id == player_id_) {
+        room_id_ = 0;
+        in_room_ = false;
+        std::cout << "[NetworkClient] Left room " << room_left.room_id << "\n";
+    } else {
+        std::cout << "[NetworkClient] Player " << room_left.player_id
+                  << " left room " << room_left.room_id << "\n";
+    }
+
+    if (on_room_left_)
+        on_room_left_(room_left);
+}
+
+void NetworkClient::handle_room_list(const std::vector<uint8_t>& payload) {
+    if (payload.size() < sizeof(protocol::ServerRoomListPayload)) {
+        return;
+    }
+
+    protocol::ServerRoomListPayload room_list_header;
+    std::memcpy(&room_list_header, payload.data(), sizeof(room_list_header));
+    room_list_header.room_count = ntohs(room_list_header.room_count);
+
+    std::vector<protocol::RoomInfo> rooms;
+    size_t offset = sizeof(protocol::ServerRoomListPayload);
+
+    for (uint16_t i = 0; i < room_list_header.room_count; ++i) {
+        if (offset + sizeof(protocol::RoomInfo) > payload.size()) {
+            break;
+        }
+
+        protocol::RoomInfo room;
+        std::memcpy(&room, payload.data() + offset, sizeof(room));
+        room.room_id = ntohl(room.room_id);
+        room.map_id = ntohs(room.map_id);
+
+        rooms.push_back(room);
+        offset += sizeof(protocol::RoomInfo);
+    }
+
+    std::cout << "[NetworkClient] Received room list: " << rooms.size() << " rooms\n";
+
+    if (on_room_list_)
+        on_room_list_(rooms);
+}
+
+void NetworkClient::handle_room_error(const std::vector<uint8_t>& payload) {
+    if (payload.size() < sizeof(protocol::ServerRoomErrorPayload)) {
+        return;
+    }
+
+    protocol::ServerRoomErrorPayload room_error;
+    std::memcpy(&room_error, payload.data(), sizeof(room_error));
+
+    std::cout << "[NetworkClient] Room error: " << room_error.error_message << "\n";
+
+    if (on_room_error_)
+        on_room_error_(room_error);
+}
+
 // ============== UDP Connection ==============
 
 void NetworkClient::connect_udp(uint16_t udp_port) {
@@ -622,6 +805,26 @@ void NetworkClient::set_on_wave_complete(std::function<void(const protocol::Serv
 
 void NetworkClient::set_on_score_update(std::function<void(const protocol::ServerScoreUpdatePayload&)> callback) {
     on_score_update_ = callback;
+}
+
+void NetworkClient::set_on_room_created(std::function<void(const protocol::ServerRoomCreatedPayload&)> callback) {
+    on_room_created_ = callback;
+}
+
+void NetworkClient::set_on_room_joined(std::function<void(const protocol::ServerRoomJoinedPayload&)> callback) {
+    on_room_joined_ = callback;
+}
+
+void NetworkClient::set_on_room_left(std::function<void(const protocol::ServerRoomLeftPayload&)> callback) {
+    on_room_left_ = callback;
+}
+
+void NetworkClient::set_on_room_list(std::function<void(const std::vector<protocol::RoomInfo>&)> callback) {
+    on_room_list_ = callback;
+}
+
+void NetworkClient::set_on_room_error(std::function<void(const protocol::ServerRoomErrorPayload&)> callback) {
+    on_room_error_ = callback;
 }
 
 }

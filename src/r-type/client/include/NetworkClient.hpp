@@ -94,6 +94,40 @@ public:
     void send_leave_lobby();
 
     /**
+     * @brief Request to create a custom room
+     * @param room_name Room name (optional, empty for auto-name)
+     * @param password Room password (optional, empty for no password)
+     * @param mode Game mode
+     * @param difficulty Difficulty level
+     * @param max_players Maximum players (2-4)
+     */
+    void send_create_room(const std::string& room_name, const std::string& password,
+                          protocol::GameMode mode, protocol::Difficulty difficulty,
+                          uint8_t max_players);
+
+    /**
+     * @brief Request to join a custom room
+     * @param room_id Room ID to join
+     * @param password Room password (empty if no password)
+     */
+    void send_join_room(uint32_t room_id, const std::string& password);
+
+    /**
+     * @brief Request to leave current room
+     */
+    void send_leave_room();
+
+    /**
+     * @brief Request list of available rooms
+     */
+    void send_request_room_list();
+
+    /**
+     * @brief Request to start game (host only)
+     */
+    void send_start_game();
+
+    /**
      * @brief Send player input (via UDP if connected, TCP otherwise)
      * @param input_flags Input bitfield
      * @param client_tick Current client tick
@@ -191,6 +225,36 @@ public:
      */
     void set_on_score_update(std::function<void(const protocol::ServerScoreUpdatePayload&)> callback);
 
+    /**
+     * @brief Set callback for room creation response
+     * @param callback Function receiving room_created payload
+     */
+    void set_on_room_created(std::function<void(const protocol::ServerRoomCreatedPayload&)> callback);
+
+    /**
+     * @brief Set callback for room join response
+     * @param callback Function receiving room_joined payload
+     */
+    void set_on_room_joined(std::function<void(const protocol::ServerRoomJoinedPayload&)> callback);
+
+    /**
+     * @brief Set callback for room left notification
+     * @param callback Function receiving room_left payload
+     */
+    void set_on_room_left(std::function<void(const protocol::ServerRoomLeftPayload&)> callback);
+
+    /**
+     * @brief Set callback for room list response
+     * @param callback Function receiving list of rooms
+     */
+    void set_on_room_list(std::function<void(const std::vector<protocol::RoomInfo>& rooms)> callback);
+
+    /**
+     * @brief Set callback for room errors
+     * @param callback Function receiving error payload
+     */
+    void set_on_room_error(std::function<void(const protocol::ServerRoomErrorPayload&)> callback);
+
     // ============== Getters ==============
 
     uint32_t get_player_id() const { return player_id_; }
@@ -217,6 +281,11 @@ private:
     void handle_wave_start(const std::vector<uint8_t>& payload);
     void handle_wave_complete(const std::vector<uint8_t>& payload);
     void handle_score_update(const std::vector<uint8_t>& payload);
+    void handle_room_created(const std::vector<uint8_t>& payload);
+    void handle_room_joined(const std::vector<uint8_t>& payload);
+    void handle_room_left(const std::vector<uint8_t>& payload);
+    void handle_room_list(const std::vector<uint8_t>& payload);
+    void handle_room_error(const std::vector<uint8_t>& payload);
 
     // UDP connection after game start
     void connect_udp(uint16_t udp_port);
@@ -236,8 +305,10 @@ private:
     uint32_t player_id_ = 0;
     uint32_t session_id_ = 0;
     uint32_t lobby_id_ = 0;
+    uint32_t room_id_ = 0;
     std::atomic<bool> in_lobby_{false};
     std::atomic<bool> in_game_{false};
+    std::atomic<bool> in_room_{false};
 
     // Ping tracking
     uint32_t last_ping_timestamp_ = 0;
@@ -258,6 +329,11 @@ private:
     std::function<void(const protocol::ServerWaveStartPayload&)> on_wave_start_;
     std::function<void(const protocol::ServerWaveCompletePayload&)> on_wave_complete_;
     std::function<void(const protocol::ServerScoreUpdatePayload&)> on_score_update_;
+    std::function<void(const protocol::ServerRoomCreatedPayload&)> on_room_created_;
+    std::function<void(const protocol::ServerRoomJoinedPayload&)> on_room_joined_;
+    std::function<void(const protocol::ServerRoomLeftPayload&)> on_room_left_;
+    std::function<void(const std::vector<protocol::RoomInfo>&)> on_room_list_;
+    std::function<void(const protocol::ServerRoomErrorPayload&)> on_room_error_;
 };
 
 }

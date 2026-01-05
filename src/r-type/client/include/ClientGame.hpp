@@ -15,6 +15,7 @@
 #include "EntityManager.hpp"
 #include "StatusOverlay.hpp"
 #include "InputHandler.hpp"
+#include "MenuManager.hpp"
 
 namespace rtype::client {
 
@@ -71,6 +72,7 @@ private:
     std::unique_ptr<EntityManager> entity_manager_;
     std::unique_ptr<StatusOverlay> status_overlay_;
     std::unique_ptr<InputHandler> input_handler_;
+    std::unique_ptr<MenuManager> menu_manager_;
 
     // Network client
     std::unique_ptr<rtype::client::NetworkClient> network_client_;

@@ -53,11 +53,11 @@ struct Lobby {
 
     Lobby(uint32_t id, protocol::GameMode mode, protocol::Difficulty diff,
           const std::string& name, const std::string& pwd_hash,
-          uint32_t host, uint16_t map)
+          uint32_t host, uint16_t map, uint8_t max_plrs = 0)
         : lobby_id(id)
         , game_mode(mode)
         , difficulty(diff)
-        , max_players(get_max_players_for_mode(mode))
+        , max_players(max_plrs > 0 ? max_plrs : get_max_players_for_mode(mode))
         , countdown_active(false)
         , map_id(map)
         , room_name(name)

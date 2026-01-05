@@ -11,6 +11,10 @@ namespace rtype::client {
  * @brief Game screen states
  */
 enum class GameScreen {
+    MAIN_MENU,
+    CREATE_ROOM,
+    BROWSE_ROOMS,
+    ROOM_LOBBY,
     WAITING,
     PLAYING,
     VICTORY,

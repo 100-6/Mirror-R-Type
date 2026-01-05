@@ -10,6 +10,16 @@ set(RTYPE_CLIENT_SOURCES
     src/ScreenManager.cpp
     src/EntityManager.cpp
     src/StatusOverlay.cpp
+    src/MenuManager.cpp
+    src/ui/UIButton.cpp
+    src/ui/UITextField.cpp
+    src/ui/UILabel.cpp
+    # Screen classes
+    src/screens/MainMenuScreen.cpp
+    src/screens/CreateRoomScreen.cpp
+    src/screens/BrowseRoomsScreen.cpp
+    src/screens/RoomLobbyScreen.cpp
+    src/screens/PasswordDialog.cpp
 )
 
 add_executable(r-type_client ${RTYPE_CLIENT_SOURCES})

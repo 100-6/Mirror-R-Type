@@ -73,6 +73,10 @@ bool ClientGame::initialize(const std::string& host, uint16_t tcp_port, const st
     network_client_ = std::make_unique<rtype::client::NetworkClient>(*network_plugin_);
     setup_network_callbacks();
 
+    // Initialize menu manager
+    menu_manager_ = std::make_unique<MenuManager>(*network_client_, screen_width_, screen_height_);
+    menu_manager_->initialize();
+
     status_overlay_->set_connection("Connecting to " + host_ + ":" + std::to_string(tcp_port_));
     status_overlay_->refresh();
 
@@ -82,6 +86,10 @@ bool ClientGame::initialize(const std::string& host, uint16_t tcp_port, const st
     }
 
     network_client_->send_connect(player_name_);
+
+    // Start at main menu instead of auto-joining
+    screen_manager_->set_screen(GameScreen::MAIN_MENU);
+
     running_ = true;
 
     return true;
@@ -228,7 +236,7 @@ void ClientGame::setup_network_callbacks() {
         entity_manager_->set_local_player_id(player_id);
         status_overlay_->set_connection("Connected (Player " + std::to_string(player_id) + ")");
         status_overlay_->refresh();
-        network_client_->send_join_lobby(protocol::GameMode::DUO, protocol::Difficulty::NORMAL);
+        // Don't auto-join lobby anymore - user will choose from menu
     });
 
     network_client_->set_on_rejected([this](uint8_t reason, const std::string& message) {
@@ -445,10 +453,30 @@ void ClientGame::run() {
             last_overlay_update = now;
         }
 
-        entity_manager_->update_projectiles(dt);
-        entity_manager_->update_name_tags();
+        // Check current screen
+        GameScreen current_screen = screen_manager_->get_current_screen();
+        bool in_menu = (current_screen == GameScreen::MAIN_MENU ||
+                       current_screen == GameScreen::CREATE_ROOM ||
+                       current_screen == GameScreen::BROWSE_ROOMS ||
+                       current_screen == GameScreen::ROOM_LOBBY);
 
-        registry_->run_systems(dt);
+        if (in_menu) {
+            // Menu screen - only update and draw menu
+            menu_manager_->update(graphics_plugin_, input_plugin_);
+
+            // Sync menu screen with screen manager
+            if (menu_manager_->get_current_screen() != current_screen) {
+                screen_manager_->set_screen(menu_manager_->get_current_screen());
+            }
+
+            menu_manager_->draw(graphics_plugin_);
+        } else {
+            // Game screen - run game systems
+            entity_manager_->update_projectiles(dt);
+            entity_manager_->update_name_tags();
+
+            registry_->run_systems(dt);
+        }
 
         graphics_plugin_->display();
         input_plugin_->update();
