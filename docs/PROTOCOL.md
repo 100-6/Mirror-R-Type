@@ -18,6 +18,7 @@ This document specifies the R-Type Game Protocol (RTGP), a UDP-based binary prot
 This protocol defines packet formats, message types, and communication patterns for:
 - Client authentication and connection management
 - Lobby system with game mode and difficulty selection
+- Custom room management with password protection
 - Matchmaking and game session initialization
 - Player input transmission
 - Game state synchronization
@@ -116,8 +117,10 @@ Packet types are organized by functional category:
 | 0x01-0x04   | Connection Management     | Connect, disconnect, keepalive        |
 | 0x05-0x09   | Lobby & Matchmaking       | Join, leave, lobby state updates      |
 | 0x10-0x1F   | Player Input              | Real-time input commands              |
-| 0x20-0x3F   | Reserved                  | Future client-to-server use           |
+| 0x20-0x2F   | Room Management           | Custom rooms, room list, host control |
+| 0x30-0x3F   | Reserved                  | Future client-to-server use           |
 | 0x81-0x8A   | Connection & Lobby (S→C)  | Accept, reject, lobby updates         |
+| 0x90-0x9F   | Room Management (S→C)     | Room created, room list, room errors  |
 | 0xA0-0xAF   | World State               | Game snapshots, delta updates         |
 | 0xB0-0xBF   | Entity Events             | Spawn, destroy, damage                |
 | 0xC0-0xCF   | Game Mechanics            | Powerups, scoring, waves, respawn     |
@@ -133,6 +136,11 @@ Packet types are organized by functional category:
 | 0x05    | CLIENT_JOIN_LOBBY     | Join lobby with mode/difficulty          |
 | 0x06    | CLIENT_LEAVE_LOBBY    | Leave current lobby                      |
 | 0x10    | CLIENT_INPUT          | Player input state                       |
+| 0x20    | CLIENT_CREATE_ROOM    | Create a custom game room                |
+| 0x21    | CLIENT_JOIN_ROOM      | Join an existing custom room             |
+| 0x22    | CLIENT_LEAVE_ROOM     | Leave current custom room                |
+| 0x23    | CLIENT_REQUEST_ROOM_LIST | Request list of available rooms       |
+| 0x24    | CLIENT_START_GAME     | Start game (host only)                   |
 
 ### 4.3 Server-to-Client Packets
 
@@ -147,6 +155,12 @@ Packet types are organized by functional category:
 | 0x88    | SERVER_GAME_START_COUNTDOWN  | Game starting countdown               |
 | 0x89    | SERVER_COUNTDOWN_CANCELLED   | Countdown cancelled (player left)     |
 | 0x8A    | SERVER_GAME_START            | Game session begins                   |
+| 0x90    | SERVER_ROOM_CREATED          | Custom room created successfully      |
+| 0x91    | SERVER_ROOM_LIST             | List of available custom rooms        |
+| 0x92    | SERVER_ROOM_JOINED           | Successfully joined a custom room     |
+| 0x93    | SERVER_ROOM_LEFT             | Player left a custom room             |
+| 0x94    | SERVER_ROOM_STATE_UPDATE     | Custom room state changed             |
+| 0x95    | SERVER_ROOM_ERROR            | Room operation error                  |
 | 0xA0    | SERVER_SNAPSHOT              | Complete world state snapshot         |
 | 0xA1    | SERVER_DELTA_SNAPSHOT        | Delta-compressed state update         |
 | 0xB0    | SERVER_ENTITY_SPAWN          | New entity spawned                    |
@@ -473,9 +487,259 @@ All multi-byte integer fields are in network byte order (big-endian) unless othe
 
 **Total Size**: 14 + (12 × Player Count) bytes
 
-### 5.3 Player Input Payloads
+### 5.3 Custom Room Management Payloads
 
-#### 5.3.1 CLIENT_INPUT (0x10)
+#### 5.3.1 CLIENT_CREATE_ROOM (0x20)
+
+```
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                          Player ID                            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                                                               |
+   +                    Room Name (32 bytes)                       +
+   |                             ...                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                                                               |
+   +                 Password Hash (64 bytes, SHA-256)             +
+   |                             ...                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |   Game Mode   |  Difficulty   |           Map ID              |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```
+
+| Field         | Size     | Description                                    |
+|---------------|----------|------------------------------------------------|
+| Player ID     | 4 bytes  | Player creating the room (becomes host)        |
+| Room Name     | 32 bytes | Optional room name (empty = auto-generated)    |
+| Password Hash | 64 bytes | SHA-256 hash of password (empty = public room) |
+| Game Mode     | 1 byte   | Game mode (see 5.2.1)                          |
+| Difficulty    | 1 byte   | Difficulty level (see 5.2.1)                   |
+| Map ID        | 2 bytes  | Map identifier                                 |
+
+**Total Size**: 104 bytes
+
+**Security Note**: Password is hashed client-side using SHA-256. Empty hash indicates public room.
+
+#### 5.3.2 CLIENT_JOIN_ROOM (0x21)
+
+```
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                          Player ID                            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                          Room ID                              |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                                                               |
+   +                 Password Hash (64 bytes, SHA-256)             +
+   |                             ...                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```
+
+| Field         | Size     | Description                              |
+|---------------|----------|------------------------------------------|
+| Player ID     | 4 bytes  | Player joining the room                  |
+| Room ID       | 4 bytes  | Target room identifier                   |
+| Password Hash | 64 bytes | SHA-256 hash of password (if private)    |
+
+**Total Size**: 72 bytes
+
+#### 5.3.3 CLIENT_LEAVE_ROOM (0x22)
+
+```
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                          Player ID                            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                          Room ID                              |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```
+
+| Field      | Size    | Description                 |
+|------------|---------|-----------------------------|
+| Player ID  | 4 bytes | Player leaving the room     |
+| Room ID    | 4 bytes | Room to leave               |
+
+**Total Size**: 8 bytes
+
+#### 5.3.4 CLIENT_REQUEST_ROOM_LIST (0x23)
+
+This packet has no payload. The header is sufficient.
+
+**Total Size**: 0 bytes (header only)
+
+#### 5.3.5 CLIENT_START_GAME (0x24)
+
+```
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                          Player ID                            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                          Room ID                              |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```
+
+| Field      | Size    | Description                              |
+|------------|---------|------------------------------------------|
+| Player ID  | 4 bytes | Player requesting start (must be host)   |
+| Room ID    | 4 bytes | Room to start                            |
+
+**Total Size**: 8 bytes
+
+**Authorization**: Only the room host can start the game. Server validates host status.
+
+#### 5.3.6 SERVER_ROOM_CREATED (0x90)
+
+```
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                          Room ID                              |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                                                               |
+   +                    Room Name (32 bytes)                       +
+   |                             ...                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```
+
+| Field      | Size     | Description                              |
+|------------|----------|------------------------------------------|
+| Room ID    | 4 bytes  | Newly created room identifier            |
+| Room Name  | 32 bytes | Final room name (auto-generated or custom)|
+
+**Total Size**: 36 bytes
+
+**Note**: Room IDs for custom rooms start at 1000 to distinguish from matchmaking lobbies.
+
+#### 5.3.7 SERVER_ROOM_LIST (0x91)
+
+```
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |         Room Count            |                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+                               +
+   |                   Room Info Entry (44 bytes each)             |
+   |                             ...                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```
+
+| Field       | Size     | Description                         |
+|-------------|----------|-------------------------------------|
+| Room Count  | 2 bytes  | Number of rooms in list             |
+| Room Entries| Variable | Array of room information           |
+
+**Room Info Entry Format (44 bytes each)**:
+
+```
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                          Room ID                              |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                                                               |
+   +                    Room Name (32 bytes)                       +
+   |                             ...                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |   Game Mode   |  Difficulty   |Current Players| Max Players   |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |           Map ID              |    Status     |  Is Private   |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```
+
+| Field           | Size     | Offset | Description                       |
+|-----------------|----------|--------|-----------------------------------|
+| Room ID         | 4 bytes  | 0      | Room identifier                   |
+| Room Name       | 32 bytes | 4      | Room name (UTF-8)                 |
+| Game Mode       | 1 byte   | 36     | Game mode (see 5.2.1)             |
+| Difficulty      | 1 byte   | 37     | Difficulty (see 5.2.1)            |
+| Current Players | 1 byte   | 38     | Number of players in room         |
+| Max Players     | 1 byte   | 39     | Maximum room capacity             |
+| Map ID          | 2 bytes  | 40     | Map identifier                    |
+| Status          | 1 byte   | 42     | Room status code                  |
+| Is Private      | 1 byte   | 43     | 1 if password-protected, 0 if public |
+
+**Room Status Codes**:
+- `0x01`: WAITING - Room waiting for players
+- `0x02`: IN_PROGRESS - Game in progress
+- `0x03`: FINISHED - Game finished
+
+**Total Size**: 2 + (44 × Room Count) bytes
+
+**Note**: Only rooms with status WAITING are typically included in the list.
+
+#### 5.3.8 SERVER_ROOM_JOINED (0x92)
+
+```
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                          Room ID                              |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```
+
+| Field    | Size    | Description                       |
+|----------|---------|-----------------------------------|
+| Room ID  | 4 bytes | ID of room successfully joined    |
+
+**Total Size**: 4 bytes
+
+#### 5.3.9 SERVER_ROOM_LEFT (0x93)
+
+```
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                          Player ID                            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                          Room ID                              |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```
+
+| Field      | Size    | Description                 |
+|------------|---------|-----------------------------|
+| Player ID  | 4 bytes | Player who left             |
+| Room ID    | 4 bytes | Room that was left          |
+
+**Total Size**: 8 bytes
+
+#### 5.3.10 SERVER_ROOM_ERROR (0x95)
+
+```
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |  Error Code   |                                               |
+   +-+-+-+-+-+-+-+-+                                               +
+   |                  Error Message (64 bytes)                     |
+   +                                                               +
+   |                             ...                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```
+
+| Field         | Size     | Description                              |
+|---------------|----------|------------------------------------------|
+| Error Code    | 1 byte   | Room error code                          |
+| Error Message | 64 bytes | Human-readable error message (UTF-8)     |
+
+**Error Codes**:
+- `0x01`: ROOM_NOT_FOUND - Specified room does not exist
+- `0x02`: ROOM_FULL - Room has reached maximum player capacity
+- `0x03`: WRONG_PASSWORD - Incorrect password for private room
+- `0x04`: ALREADY_STARTED - Room game already in progress
+- `0x05`: NOT_HOST - Operation requires host privileges
+- `0x06`: INVALID_CONFIGURATION - Invalid room settings
+- `0x07`: ALREADY_IN_ROOM - Player already in a lobby or room
+
+**Total Size**: 65 bytes
+
+### 5.4 Player Input Payloads
+
+#### 5.4.1 CLIENT_INPUT (0x10)
 
 ```
     0                   1                   2                   3
@@ -1121,6 +1385,11 @@ Implementations SHOULD provide encoder/decoder functions that:
 | 0x05 | CLIENT_JOIN_LOBBY         | ✓   |     | Once         |
 | 0x06 | CLIENT_LEAVE_LOBBY        | ✓   |     | Once         |
 | 0x10 | CLIENT_INPUT              | ✓   |     | 60 Hz        |
+| 0x20 | CLIENT_CREATE_ROOM        | ✓   |     | Once         |
+| 0x21 | CLIENT_JOIN_ROOM          | ✓   |     | Once         |
+| 0x22 | CLIENT_LEAVE_ROOM         | ✓   |     | Once         |
+| 0x23 | CLIENT_REQUEST_ROOM_LIST  | ✓   |     | On demand    |
+| 0x24 | CLIENT_START_GAME         | ✓   |     | Once         |
 | 0x81 | SERVER_ACCEPT             |     | ✓   | Once         |
 | 0x82 | SERVER_REJECT             |     | ✓   | Once         |
 | 0x83 | SERVER_PLAYER_JOINED      |     | ✓   | Event        |
@@ -1130,6 +1399,12 @@ Implementations SHOULD provide encoder/decoder functions that:
 | 0x88 | SERVER_GAME_START_COUNTDOWN|    | ✓   | 1 Hz         |
 | 0x89 | SERVER_COUNTDOWN_CANCELLED|     | ✓   | Event        |
 | 0x8A | SERVER_GAME_START         |     | ✓   | Once         |
+| 0x90 | SERVER_ROOM_CREATED       |     | ✓   | Once         |
+| 0x91 | SERVER_ROOM_LIST          |     | ✓   | On demand    |
+| 0x92 | SERVER_ROOM_JOINED        |     | ✓   | Once         |
+| 0x93 | SERVER_ROOM_LEFT          |     | ✓   | Event        |
+| 0x94 | SERVER_ROOM_STATE_UPDATE  |     | ✓   | Event        |
+| 0x95 | SERVER_ROOM_ERROR         |     | ✓   | Event        |
 | 0xA0 | SERVER_SNAPSHOT           |     | ✓   | 20-30 Hz     |
 | 0xB0 | SERVER_ENTITY_SPAWN       |     | ✓   | Event        |
 | 0xB1 | SERVER_ENTITY_DESTROY     |     | ✓   | Event        |

@@ -1,5 +1,3 @@
-# server/CMakeLists.txt
-
 add_executable(r-type_server
     src/main.cpp
     src/Server.cpp
@@ -7,6 +5,7 @@ add_executable(r-type_server
     src/PacketSender.cpp
     src/GameSessionManager.cpp
     src/LobbyManager.cpp
+    src/RoomManager.cpp
     src/GameSession.cpp
     src/WaveManager.cpp
     src/ServerNetworkSystem.cpp
@@ -26,12 +25,10 @@ target_link_libraries(r-type_server
         rtype_logic
 )
 
-# Link Winsock on Windows
 if(WIN32)
     target_link_libraries(r-type_server PRIVATE ws2_32)
 endif()
 
-# Ensure the server can find shared libraries at runtime
 set_target_properties(r-type_server PROPERTIES
     INSTALL_RPATH "$ORIGIN"
     BUILD_WITH_INSTALL_RPATH TRUE

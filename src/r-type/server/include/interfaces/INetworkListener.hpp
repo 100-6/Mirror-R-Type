@@ -25,8 +25,6 @@ class INetworkListener {
 public:
     virtual ~INetworkListener() = default;
 
-    // === Connection Events ===
-
     /**
      * @brief Called when a client sends CONNECTION request
      * @param client_id TCP client ID
@@ -48,8 +46,6 @@ public:
      */
     virtual void on_client_ping(uint32_t client_id, const protocol::ClientPingPayload& payload) = 0;
 
-    // === Lobby Events ===
-
     /**
      * @brief Called when a client wants to join a lobby
      * @param client_id TCP client ID
@@ -64,7 +60,39 @@ public:
      */
     virtual void on_client_leave_lobby(uint32_t client_id, const protocol::ClientLeaveLobbyPayload& payload) = 0;
 
-    // === Game Events ===
+    /**
+     * @brief Called when a client wants to create a custom room
+     * @param client_id TCP client ID
+     * @param payload Room creation data
+     */
+    virtual void on_client_create_room(uint32_t client_id, const protocol::ClientCreateRoomPayload& payload) = 0;
+
+    /**
+     * @brief Called when a client wants to join a custom room
+     * @param client_id TCP client ID
+     * @param payload Room join data
+     */
+    virtual void on_client_join_room(uint32_t client_id, const protocol::ClientJoinRoomPayload& payload) = 0;
+
+    /**
+     * @brief Called when a client wants to leave a custom room
+     * @param client_id TCP client ID
+     * @param payload Room leave data
+     */
+    virtual void on_client_leave_room(uint32_t client_id, const protocol::ClientLeaveRoomPayload& payload) = 0;
+
+    /**
+     * @brief Called when a client requests the list of available rooms
+     * @param client_id TCP client ID
+     */
+    virtual void on_client_request_room_list(uint32_t client_id) = 0;
+
+    /**
+     * @brief Called when a client (host) wants to start the game
+     * @param client_id TCP client ID
+     * @param payload Start game data
+     */
+    virtual void on_client_start_game(uint32_t client_id, const protocol::ClientStartGamePayload& payload) = 0;
 
     /**
      * @brief Called when a client sends UDP handshake

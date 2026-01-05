@@ -600,4 +600,217 @@ PACK_END
 
 static_assert(sizeof(ServerGameOverPayload) == 9, "ServerGameOverPayload base must be 9 bytes");
 
+/**
+ * @brief CLIENT_CREATE_ROOM payload (0x20)
+ * Total size: 104 bytes
+ */
+PACK_START
+struct PACKED ClientCreateRoomPayload {
+    uint32_t player_id;
+    char room_name[32];
+    char password_hash[64];
+    GameMode game_mode;
+    Difficulty difficulty;
+    uint16_t map_id;
+
+    ClientCreateRoomPayload()
+        : player_id(0)
+        , game_mode(GameMode::SQUAD)
+        , difficulty(Difficulty::NORMAL)
+        , map_id(0) {
+        std::memset(room_name, 0, sizeof(room_name));
+        std::memset(password_hash, 0, sizeof(password_hash));
+    }
+
+    void set_room_name(const std::string& name) {
+        std::memset(room_name, 0, sizeof(room_name));
+        std::strncpy(room_name, name.c_str(), sizeof(room_name) - 1);
+    }
+
+    void set_password_hash(const std::string& hash) {
+        std::memset(password_hash, 0, sizeof(password_hash));
+        std::strncpy(password_hash, hash.c_str(), sizeof(password_hash) - 1);
+    }
+};
+PACK_END
+
+static_assert(sizeof(ClientCreateRoomPayload) == 104, "ClientCreateRoomPayload must be 104 bytes");
+
+/**
+ * @brief CLIENT_JOIN_ROOM payload (0x21)
+ * Total size: 72 bytes
+ */
+PACK_START
+struct PACKED ClientJoinRoomPayload {
+    uint32_t player_id;
+    uint32_t room_id;
+    char password_hash[64];
+
+    ClientJoinRoomPayload() : player_id(0), room_id(0) {
+        std::memset(password_hash, 0, sizeof(password_hash));
+    }
+
+    void set_password_hash(const std::string& hash) {
+        std::memset(password_hash, 0, sizeof(password_hash));
+        std::strncpy(password_hash, hash.c_str(), sizeof(password_hash) - 1);
+    }
+};
+PACK_END
+
+static_assert(sizeof(ClientJoinRoomPayload) == 72, "ClientJoinRoomPayload must be 72 bytes");
+
+/**
+ * @brief CLIENT_LEAVE_ROOM payload (0x22)
+ * Total size: 8 bytes
+ */
+PACK_START
+struct PACKED ClientLeaveRoomPayload {
+    uint32_t player_id;
+    uint32_t room_id;
+
+    ClientLeaveRoomPayload() : player_id(0), room_id(0) {}
+};
+PACK_END
+
+static_assert(sizeof(ClientLeaveRoomPayload) == 8, "ClientLeaveRoomPayload must be 8 bytes");
+
+/**
+ * @brief CLIENT_START_GAME payload (0x24)
+ * Total size: 8 bytes
+ */
+PACK_START
+struct PACKED ClientStartGamePayload {
+    uint32_t player_id;
+    uint32_t room_id;
+
+    ClientStartGamePayload() : player_id(0), room_id(0) {}
+};
+PACK_END
+
+static_assert(sizeof(ClientStartGamePayload) == 8, "ClientStartGamePayload must be 8 bytes");
+
+/**
+ * @brief Room information entry for SERVER_ROOM_LIST
+ * Size: 44 bytes
+ */
+PACK_START
+struct PACKED RoomInfo {
+    uint32_t room_id;
+    char room_name[32];
+    GameMode game_mode;
+    Difficulty difficulty;
+    uint8_t current_players;
+    uint8_t max_players;
+    uint16_t map_id;
+    RoomStatus status;
+    uint8_t is_private;  // 0 = public, 1 = private
+
+    RoomInfo()
+        : room_id(0)
+        , game_mode(GameMode::SQUAD)
+        , difficulty(Difficulty::NORMAL)
+        , current_players(0)
+        , max_players(4)
+        , map_id(0)
+        , status(RoomStatus::WAITING)
+        , is_private(0) {
+        std::memset(room_name, 0, sizeof(room_name));
+    }
+
+    void set_name(const std::string& name) {
+        std::memset(room_name, 0, sizeof(room_name));
+        std::strncpy(room_name, name.c_str(), sizeof(room_name) - 1);
+    }
+};
+PACK_END
+
+static_assert(sizeof(RoomInfo) == 44, "RoomInfo must be 44 bytes");
+
+/**
+ * @brief SERVER_ROOM_LIST payload header (0x91)
+ * Base size: 2 bytes + (44 × room_count) bytes
+ */
+PACK_START
+struct PACKED ServerRoomListPayload {
+    uint16_t room_count;
+
+    ServerRoomListPayload() : room_count(0) {}
+};
+PACK_END
+
+static_assert(sizeof(ServerRoomListPayload) == 2, "ServerRoomListPayload base must be 2 bytes");
+
+/**
+ * @brief SERVER_ROOM_CREATED payload (0x90)
+ * Total size: 36 bytes
+ */
+PACK_START
+struct PACKED ServerRoomCreatedPayload {
+    uint32_t room_id;
+    char room_name[32];
+
+    ServerRoomCreatedPayload() : room_id(0) {
+        std::memset(room_name, 0, sizeof(room_name));
+    }
+
+    void set_room_name(const std::string& name) {
+        std::memset(room_name, 0, sizeof(room_name));
+        std::strncpy(room_name, name.c_str(), sizeof(room_name) - 1);
+    }
+};
+PACK_END
+
+static_assert(sizeof(ServerRoomCreatedPayload) == 36, "ServerRoomCreatedPayload must be 36 bytes");
+
+/**
+ * @brief SERVER_ROOM_JOINED payload (0x92)
+ * Total size: 4 bytes
+ */
+PACK_START
+struct PACKED ServerRoomJoinedPayload {
+    uint32_t room_id;
+
+    ServerRoomJoinedPayload() : room_id(0) {}
+};
+PACK_END
+
+static_assert(sizeof(ServerRoomJoinedPayload) == 4, "ServerRoomJoinedPayload must be 4 bytes");
+
+/**
+ * @brief SERVER_ROOM_LEFT payload (0x93)
+ * Total size: 8 bytes
+ */
+PACK_START
+struct PACKED ServerRoomLeftPayload {
+    uint32_t room_id;
+    uint32_t player_id;
+
+    ServerRoomLeftPayload() : room_id(0), player_id(0) {}
+};
+PACK_END
+
+static_assert(sizeof(ServerRoomLeftPayload) == 8, "ServerRoomLeftPayload must be 8 bytes");
+
+/**
+ * @brief SERVER_ROOM_ERROR payload (0x95)
+ * Total size: 65 bytes
+ */
+PACK_START
+struct PACKED ServerRoomErrorPayload {
+    RoomError error_code;
+    char error_message[64];
+
+    ServerRoomErrorPayload() : error_code(RoomError::ROOM_NOT_FOUND) {
+        std::memset(error_message, 0, sizeof(error_message));
+    }
+
+    void set_message(const std::string& message) {
+        std::memset(error_message, 0, sizeof(error_message));
+        std::strncpy(error_message, message.c_str(), sizeof(error_message) - 1);
+    }
+};
+PACK_END
+
+static_assert(sizeof(ServerRoomErrorPayload) == 65, "ServerRoomErrorPayload must be 65 bytes");
+
 }
