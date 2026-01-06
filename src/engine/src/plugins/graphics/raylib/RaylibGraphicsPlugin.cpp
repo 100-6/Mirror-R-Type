@@ -202,13 +202,25 @@ void RaylibGraphicsPlugin::draw_sprite(const Sprite& sprite, Vector2f position) 
         draw_pos.y = position.y - view_center_.y + view_size_.y / 2.0f;
     }
     
-    // Define source rectangle (full texture)
-    ::Rectangle source = {
-        0.0f,
-        0.0f,
-        static_cast<float>(texture->width),
-        static_cast<float>(texture->height)
-    };
+    // Define source rectangle
+    // Si source_rect est défini, l'utiliser (pour spritesheets)
+    // Sinon, utiliser la texture complète
+    ::Rectangle source;
+    if (sprite.source_rect.is_valid()) {
+        source = {
+            sprite.source_rect.x,
+            sprite.source_rect.y,
+            sprite.source_rect.width,
+            sprite.source_rect.height
+        };
+    } else {
+        source = {
+            0.0f,
+            0.0f,
+            static_cast<float>(texture->width),
+            static_cast<float>(texture->height)
+        };
+    }
     
     // Define destination rectangle
     ::Rectangle dest = {
