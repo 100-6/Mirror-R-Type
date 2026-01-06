@@ -51,6 +51,7 @@ public:
      * @param game_mode DUO, TRIO, or SQUAD
      * @param difficulty EASY, NORMAL, or HARD
      * @param map_id Map identifier
+     * @param max_players Maximum players (2-4, 0 = use default for mode)
      * @return Room ID, or 0 if creation failed
      */
     uint32_t create_room(uint32_t host_player_id,
@@ -58,7 +59,8 @@ public:
                          const std::string& password_hash,
                          protocol::GameMode game_mode,
                          protocol::Difficulty difficulty,
-                         uint16_t map_id);
+                         uint16_t map_id,
+                         uint8_t max_players = 0);
 
     /**
      * @brief Join an existing room

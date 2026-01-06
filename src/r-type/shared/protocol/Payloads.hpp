@@ -602,7 +602,7 @@ static_assert(sizeof(ServerGameOverPayload) == 9, "ServerGameOverPayload base mu
 
 /**
  * @brief CLIENT_CREATE_ROOM payload (0x20)
- * Total size: 104 bytes
+ * Total size: 105 bytes
  */
 PACK_START
 struct PACKED ClientCreateRoomPayload {
@@ -612,12 +612,14 @@ struct PACKED ClientCreateRoomPayload {
     GameMode game_mode;
     Difficulty difficulty;
     uint16_t map_id;
+    uint8_t max_players;  // Maximum players (2-4)
 
     ClientCreateRoomPayload()
         : player_id(0)
         , game_mode(GameMode::SQUAD)
         , difficulty(Difficulty::NORMAL)
-        , map_id(0) {
+        , map_id(0)
+        , max_players(4) {
         std::memset(room_name, 0, sizeof(room_name));
         std::memset(password_hash, 0, sizeof(password_hash));
     }
@@ -634,7 +636,7 @@ struct PACKED ClientCreateRoomPayload {
 };
 PACK_END
 
-static_assert(sizeof(ClientCreateRoomPayload) == 104, "ClientCreateRoomPayload must be 104 bytes");
+static_assert(sizeof(ClientCreateRoomPayload) == 105, "ClientCreateRoomPayload must be 105 bytes");
 
 /**
  * @brief CLIENT_JOIN_ROOM payload (0x21)

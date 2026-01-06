@@ -21,13 +21,14 @@ uint32_t RoomManager::create_room(uint32_t host_player_id,
                                    const std::string& password_hash,
                                    protocol::GameMode game_mode,
                                    protocol::Difficulty difficulty,
-                                   uint16_t map_id)
+                                   uint16_t map_id,
+                                   uint8_t max_players)
 {
     uint32_t room_id = next_room_id_++;
     std::string final_name = room_name.empty() ? generate_room_name(room_id) : room_name;
     auto room = std::make_unique<Lobby>(
         room_id, game_mode, difficulty,
-        final_name, password_hash, host_player_id, map_id
+        final_name, password_hash, host_player_id, map_id, max_players
     );
 
     room->player_ids.push_back(host_player_id);

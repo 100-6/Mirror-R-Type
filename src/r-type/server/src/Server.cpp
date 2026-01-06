@@ -270,26 +270,47 @@ void Server::on_countdown_tick(uint32_t lobby_id, uint8_t seconds_remaining)
     countdown.lobby_id = ByteOrder::host_to_net32(lobby_id);
     countdown.countdown_value = seconds_remaining;
 
-    std::cout << "[Server] Countdown tick for lobby " << lobby_id << ": "
+    std::cout << "[Server] Countdown tick for lobby/room " << lobby_id << ": "
               << static_cast<int>(seconds_remaining) << "s\n";
-    packet_sender_->broadcast_tcp_to_lobby(lobby_id, protocol::PacketType::SERVER_GAME_START_COUNTDOWN,
-                                          serialize(countdown), lobby_manager_, connected_clients_);
+
+    // Check if it's a custom room first
+    const auto* room = room_manager_.get_room(lobby_id);
+    if (room) {
+        // Broadcast to all players in the room
+        for (uint32_t player_id : room->player_ids) {
+            auto client_it = player_to_client_.find(player_id);
+            if (client_it != player_to_client_.end()) {
+                packet_sender_->send_tcp_packet(client_it->second,
+                                               protocol::PacketType::SERVER_GAME_START_COUNTDOWN,
+                                               serialize(countdown));
+            }
+        }
+    } else {
+        // It's a matchmaking lobby
+        packet_sender_->broadcast_tcp_to_lobby(lobby_id, protocol::PacketType::SERVER_GAME_START_COUNTDOWN,
+                                              serialize(countdown), lobby_manager_, connected_clients_);
+    }
 }
 
 void Server::on_game_start(uint32_t lobby_id, const std::vector<uint32_t>& player_ids)
 {
-    std::cout << "[Server] Game starting for lobby " << lobby_id
+    std::cout << "[Server] Game starting for lobby/room " << lobby_id
               << " with " << player_ids.size() << " players\n";
-    const auto* lobby = lobby_manager_.get_lobby(lobby_id);
 
-    if (!lobby) {
-        std::cerr << "[Server] Cannot start game - lobby " << lobby_id << " not found\n";
+    // Check if it's a custom room first
+    const auto* room = room_manager_.get_room(lobby_id);
+    const auto* lobby = room ? nullptr : lobby_manager_.get_lobby(lobby_id);
+
+    if (!room && !lobby) {
+        std::cerr << "[Server] Cannot start game - lobby/room " << lobby_id << " not found\n";
         return;
     }
-    protocol::GameMode game_mode = lobby->game_mode;
-    protocol::Difficulty difficulty = lobby->difficulty;
+
+    protocol::GameMode game_mode = room ? room->game_mode : lobby->game_mode;
+    protocol::Difficulty difficulty = room ? room->difficulty : lobby->difficulty;
     uint32_t session_id = generate_session_id();
     auto* session = session_manager_->create_session(session_id, game_mode, difficulty, 0);
+
     for (uint32_t player_id : player_ids) {
         auto client_it = player_to_client_.find(player_id);
         if (client_it == player_to_client_.end())
@@ -311,6 +332,12 @@ void Server::on_game_start(uint32_t lobby_id, const std::vector<uint32_t>& playe
         packet_sender_->send_tcp_packet(client_id, protocol::PacketType::SERVER_GAME_START,
                                        serialize(game_start));
     }
+
+    // Clean up the room after game starts
+    if (room) {
+        room_manager_.leave_room(player_ids[0]);  // This will cleanup the room
+    }
+
     std::cout << "[Server] GameSession " << session_id << " created\n";
 }
 
@@ -478,14 +505,16 @@ void Server::on_client_create_room(uint32_t client_id, const protocol::ClientCre
     protocol::GameMode game_mode = static_cast<protocol::GameMode>(payload.game_mode);
     protocol::Difficulty difficulty = static_cast<protocol::Difficulty>(payload.difficulty);
     uint16_t map_id = ByteOrder::net_to_host16(payload.map_id);
+    uint8_t max_players = payload.max_players;
     std::cout << "[Server] Player " << player_id << " (" << it->second.player_name
               << ") creating room: '" << (room_name.empty() ? "unnamed" : room_name)
               << "' (mode: " << protocol::game_mode_to_string(game_mode)
               << ", difficulty: " << protocol::difficulty_to_string(difficulty)
+              << ", max_players: " << static_cast<int>(max_players)
               << ", private: " << (!password_hash.empty() ? "yes" : "no") << ")\n";
     uint32_t room_id = room_manager_.create_room(
         player_id, room_name, password_hash,
-        game_mode, difficulty, map_id
+        game_mode, difficulty, map_id, max_players
     );
     if (room_id == 0) {
         std::cerr << "[Server] Failed to create room for player " << player_id << "\n";
