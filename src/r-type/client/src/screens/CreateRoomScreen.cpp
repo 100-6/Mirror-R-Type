@@ -9,11 +9,25 @@ CreateRoomScreen::CreateRoomScreen(NetworkClient& network_client, int screen_wid
     : BaseScreen(network_client, screen_width, screen_height) {
 }
 
+uint8_t CreateRoomScreen::get_configured_max_players() const {
+    switch (game_mode_) {
+        case protocol::GameMode::DUO:
+            return 2;
+        case protocol::GameMode::TRIO:
+            return 3;
+        case protocol::GameMode::SQUAD:
+            return 4;
+        default:
+            return 4;
+    }
+}
+
 void CreateRoomScreen::initialize() {
     labels_.clear();
     fields_.clear();
     buttons_.clear();
-    max_players_ = 4;  // Reset to default
+    mode_buttons_.clear();
+    game_mode_ = protocol::GameMode::SQUAD;  // Reset to default
 
     float center_x = screen_width_ / 2.0f;
     float start_y = 150.0f;
@@ -38,33 +52,52 @@ void CreateRoomScreen::initialize() {
     pass_field->set_password_mode(true);
     fields_.push_back(std::move(pass_field));
 
-    // Max players selector
-    float selector_y = start_y + 290;
+    // Game Mode selector - Label
+    auto mode_label = std::make_unique<UILabel>(center_x, start_y + 280, "Game Mode:", 20);
+    mode_label->set_alignment(UILabel::Alignment::CENTER);
+    mode_label->set_color(engine::Color{200, 200, 200, 255});
+    labels_.push_back(std::move(mode_label));
 
-    // Decrease button
-    auto decrease_btn = std::make_unique<UIButton>(center_x - 80, selector_y, 40, 40, "-");
-    decrease_btn->set_on_click([this]() {
-        if (max_players_ > 2) {
-            max_players_--;
-        }
+    // Game Mode buttons (DUO/TRIO/SQUAD)
+    float mode_button_y = start_y + 315;
+    float button_width = 120.0f;
+    float button_height = 45.0f;
+    float button_spacing = 10.0f;
+    float total_width = button_width * 3 + button_spacing * 2;
+    float start_x = center_x - total_width / 2.0f;
+
+    // DUO button (2 players)
+    auto duo_btn = std::make_unique<UIButton>(start_x, mode_button_y, button_width, button_height, "DUO (2)");
+    duo_btn->set_on_click([this]() {
+        game_mode_ = protocol::GameMode::DUO;
+        std::cout << "[CreateRoomScreen] Selected DUO mode (2 players)\n";
     });
-    buttons_.push_back(std::move(decrease_btn));
+    mode_buttons_.push_back(std::move(duo_btn));
 
-    // Increase button
-    auto increase_btn = std::make_unique<UIButton>(center_x + 40, selector_y, 40, 40, "+");
-    increase_btn->set_on_click([this]() {
-        if (max_players_ < 4) {
-            max_players_++;
-        }
+    // TRIO button (3 players)
+    auto trio_btn = std::make_unique<UIButton>(start_x + button_width + button_spacing, mode_button_y,
+                                                button_width, button_height, "TRIO (3)");
+    trio_btn->set_on_click([this]() {
+        game_mode_ = protocol::GameMode::TRIO;
+        std::cout << "[CreateRoomScreen] Selected TRIO mode (3 players)\n";
     });
-    buttons_.push_back(std::move(increase_btn));
+    mode_buttons_.push_back(std::move(trio_btn));
 
-    // Create button
-    float button_width = 200.0f;
-    float button_height = 50.0f;
+    // SQUAD button (4 players)
+    auto squad_btn = std::make_unique<UIButton>(start_x + (button_width + button_spacing) * 2, mode_button_y,
+                                                 button_width, button_height, "SQUAD (4)");
+    squad_btn->set_on_click([this]() {
+        game_mode_ = protocol::GameMode::SQUAD;
+        std::cout << "[CreateRoomScreen] Selected SQUAD mode (4 players)\n";
+    });
+    mode_buttons_.push_back(std::move(squad_btn));
+
+    // Create and Back buttons
+    float action_button_width = 200.0f;
+    float action_button_height = 50.0f;
 
     auto create_btn = std::make_unique<UIButton>(
-        center_x - button_width - 10, start_y + 360, button_width, button_height, "Create");
+        center_x - action_button_width - 10, start_y + 390, action_button_width, action_button_height, "Create");
     create_btn->set_on_click([this]() {
         std::string room_name = fields_[0]->get_text();
         std::string password = fields_[1]->get_text();
@@ -73,19 +106,21 @@ void CreateRoomScreen::initialize() {
             room_name = "Room";
         }
 
+        uint8_t max_players = get_configured_max_players();
+
         network_client_.send_create_room(room_name, password,
-                                         protocol::GameMode::SQUAD,
-                                         protocol::Difficulty::NORMAL, max_players_);
+                                         game_mode_,
+                                         protocol::Difficulty::NORMAL, max_players);
 
         if (on_room_created_) {
-            on_room_created_(max_players_);
+            on_room_created_(game_mode_, max_players);
         }
     });
     buttons_.push_back(std::move(create_btn));
 
     // Back button
     auto back_btn = std::make_unique<UIButton>(
-        center_x + 10, start_y + 360, button_width, button_height, "Back");
+        center_x + 10, start_y + 390, action_button_width, action_button_height, "Back");
     back_btn->set_on_click([this]() {
         if (on_screen_change_) {
             on_screen_change_(GameScreen::MAIN_MENU);
@@ -110,6 +145,9 @@ void CreateRoomScreen::update(engine::IGraphicsPlugin* graphics, engine::IInputP
     }
 
     if (!any_field_focused) {
+        for (auto& button : mode_buttons_) {
+            button->update(graphics, input);
+        }
         for (auto& button : buttons_) {
             button->update(graphics, input);
         }
@@ -126,21 +164,10 @@ void CreateRoomScreen::draw(engine::IGraphicsPlugin* graphics) {
         field->draw(graphics);
     }
 
-    // Draw max players selector label
-    float center_x = screen_width_ / 2.0f;
-    float start_y = 150.0f;
-    float selector_y = start_y + 290;
-
-    UILabel max_players_text(center_x, selector_y - 25, "Max players:", 20);
-    max_players_text.set_alignment(UILabel::Alignment::CENTER);
-    max_players_text.set_color(engine::Color{200, 200, 200, 255});
-    max_players_text.draw(graphics);
-
-    UILabel max_players_value(center_x, selector_y + 10,
-                              std::to_string(max_players_), 24);
-    max_players_value.set_alignment(UILabel::Alignment::CENTER);
-    max_players_value.set_color(engine::Color{255, 200, 100, 255});
-    max_players_value.draw(graphics);
+    // Draw mode buttons
+    for (auto& button : mode_buttons_) {
+        button->draw(graphics);
+    }
 
     for (auto& button : buttons_) {
         button->draw(graphics);
