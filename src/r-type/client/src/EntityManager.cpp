@@ -225,23 +225,6 @@ Entity EntityManager::spawn_or_update_entity(uint32_t server_id, protocol::Entit
     server_types_[server_id] = type;
     stale_counters_[server_id] = 0;
 
-    // Mark projectiles, players, and moving entities for local integration (smooth movement)
-    if (type == protocol::EntityType::PROJECTILE_PLAYER || 
-        type == protocol::EntityType::PROJECTILE_ENEMY ||
-        type == protocol::EntityType::PLAYER ||
-        type == protocol::EntityType::ENEMY_BASIC ||
-        type == protocol::EntityType::ENEMY_FAST ||
-        type == protocol::EntityType::ENEMY_TANK ||
-        type == protocol::EntityType::ENEMY_BOSS ||
-        type == protocol::EntityType::POWERUP_HEALTH ||
-        type == protocol::EntityType::POWERUP_SHIELD ||
-        type == protocol::EntityType::POWERUP_SPEED ||
-        type == protocol::EntityType::POWERUP_SCORE) {
-        locally_integrated_.insert(server_id);
-    } else {
-        locally_integrated_.erase(server_id);
-    }
-
     // Check if this is the local player
     bool local_subtype_match = false;
     if (type == protocol::EntityType::PLAYER && local_player_id_ != 0) {
@@ -252,6 +235,23 @@ Entity EntityManager::spawn_or_update_entity(uint32_t server_id, protocol::Entit
         }
     }
     bool highlight_as_local = (server_id == local_player_entity_id_) || local_subtype_match;
+
+    // Mark projectiles, players, and moving entities for local integration (smooth movement)
+    if (!highlight_as_local && (type == protocol::EntityType::PROJECTILE_PLAYER || 
+        type == protocol::EntityType::PROJECTILE_ENEMY ||
+        type == protocol::EntityType::PLAYER ||
+        type == protocol::EntityType::ENEMY_BASIC ||
+        type == protocol::EntityType::ENEMY_FAST ||
+        type == protocol::EntityType::ENEMY_TANK ||
+        type == protocol::EntityType::ENEMY_BOSS ||
+        type == protocol::EntityType::POWERUP_HEALTH ||
+        type == protocol::EntityType::POWERUP_SHIELD ||
+        type == protocol::EntityType::POWERUP_SPEED ||
+        type == protocol::EntityType::POWERUP_SCORE)) {
+        locally_integrated_.insert(server_id);
+    } else {
+        locally_integrated_.erase(server_id);
+    }
 
     // Update position
     auto& positions = registry_.get_components<Position>();
@@ -298,6 +298,16 @@ Entity EntityManager::spawn_or_update_entity(uint32_t server_id, protocol::Entit
     auto& scores = registry_.get_components<Score>();
     if (!scores.has_entity(entity)) {
         registry_.add_component(entity, Score{0});
+    }
+
+    // Tag walls so the client-side prediction system can collide against them
+    auto& walls = registry_.get_components<Wall>();
+    if (type == protocol::EntityType::WALL) {
+        if (!walls.has_entity(entity)) {
+            registry_.add_component(entity, Wall{});
+        }
+    } else if (walls.has_entity(entity)) {
+        registry_.remove_component<Wall>(entity);
     }
 
     // Handle controllable

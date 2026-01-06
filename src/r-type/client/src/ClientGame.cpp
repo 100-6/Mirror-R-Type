@@ -1,13 +1,19 @@
 #include "ClientGame.hpp"
 #include "ecs/systems/SpriteAnimationSystem.hpp"
+#include "ecs/systems/MovementSystem.hpp"
 #include "systems/AttachmentSystem.hpp"
 #include "systems/ScrollingSystem.hpp"
 #include "ecs/systems/RenderSystem.hpp"
 #include "systems/HUDSystem.hpp"
+#include "systems/LocalPredictionSystem.hpp"
 #include "protocol/NetworkConfig.hpp"
+#include "protocol/Payloads.hpp"
 #include "plugin_manager/PluginPaths.hpp"
+#include "ecs/events/InputEvents.hpp"
+#include "ClientComponents.hpp"
 #include <iostream>
 #include <chrono>
+#include <cmath>
 
 #ifdef _WIN32
     #include <winsock2.h>
@@ -26,7 +32,8 @@ ClientGame::ClientGame(int screen_width, int screen_height)
     , audio_plugin_(nullptr)
     , network_plugin_(nullptr)
     , running_(false)
-    , client_tick_(0) {
+    , client_tick_(0)
+    , current_time_(0.0f) {
 }
 
 ClientGame::~ClientGame() {
@@ -46,7 +53,6 @@ bool ClientGame::initialize(const std::string& host, uint16_t tcp_port, const st
 
     registry_ = std::make_unique<Registry>();
     setup_registry();
-    setup_systems();
 
     texture_manager_ = std::make_unique<TextureManager>(*graphics_plugin_);
     if (!load_textures())
@@ -64,6 +70,8 @@ bool ClientGame::initialize(const std::string& host, uint16_t tcp_port, const st
     entity_manager_ = std::make_unique<EntityManager>(
         *registry_, *texture_manager_, screen_width_, screen_height_
     );
+
+    setup_systems();
 
     status_overlay_ = std::make_unique<StatusOverlay>(
         *registry_, screen_manager_->get_status_entity()
@@ -164,7 +172,7 @@ bool ClientGame::load_textures() {
 void ClientGame::setup_registry() {
     registry_->register_component<Position>();
     registry_->register_component<Velocity>();
-    registry_->register_component<Sprite>();
+    registry_->register_component<::Sprite>();
     registry_->register_component<SpriteAnimation>();
     registry_->register_component<Collider>();
     registry_->register_component<Health>();
@@ -185,12 +193,30 @@ void ClientGame::setup_registry() {
     registry_->register_component<ShotAnimation>();
     registry_->register_component<BulletAnimation>();
     registry_->register_component<Attached>();
+    registry_->register_component<Wall>();
+    // Client-side extrapolation component
+    registry_->register_component<LastServerState>();
 }
 
 void ClientGame::setup_systems() {
+    if (!registry_)
+        return;
+
+    // Background scrolling
     registry_->register_system<ScrollingSystem>(-100.0f, static_cast<float>(screen_width_));
+    // Visual and gameplay systems
     registry_->register_system<AttachmentSystem>();
     registry_->register_system<SpriteAnimationSystem>();
+    registry_->register_system<MovementSystem>();
+
+    if (entity_manager_) {
+        registry_->register_system<LocalPredictionSystem>(
+            *entity_manager_,
+            static_cast<float>(screen_width_),
+            static_cast<float>(screen_height_)
+        );
+    }
+
     registry_->register_system<RenderSystem>(*graphics_plugin_);
     registry_->register_system<HUDSystem>(*graphics_plugin_, screen_width_, screen_height_);
 }
@@ -200,7 +226,7 @@ void ClientGame::setup_background() {
     registry_->add_component(background1, Position{0.0f, 0.0f});
     registry_->add_component(background1, Background{});
     registry_->add_component(background1, Scrollable{1.0f, true, false});
-    registry_->add_component(background1, Sprite{
+    registry_->add_component(background1, ::Sprite{
         texture_manager_->get_background(),
         static_cast<float>(screen_width_),
         static_cast<float>(screen_height_),
@@ -215,7 +241,7 @@ void ClientGame::setup_background() {
     registry_->add_component(background2, Position{static_cast<float>(screen_width_), 0.0f});
     registry_->add_component(background2, Background{});
     registry_->add_component(background2, Scrollable{1.0f, true, false});
-    registry_->add_component(background2, Sprite{
+    registry_->add_component(background2, ::Sprite{
         texture_manager_->get_background(),
         static_cast<float>(screen_width_),
         static_cast<float>(screen_height_),
@@ -365,6 +391,7 @@ void ClientGame::setup_network_callbacks() {
         auto& positions = registry_->get_components<Position>();
         auto& velocities = registry_->get_components<Velocity>();
         auto& healths = registry_->get_components<Health>();
+        auto& last_states = registry_->get_components<LastServerState>();
         std::unordered_set<uint32_t> updated_ids;
         updated_ids.reserve(entities.size());
 
@@ -377,6 +404,26 @@ void ClientGame::setup_network_callbacks() {
 
             Entity entity = entity_manager_->get_entity(server_id);
 
+            // Vérifier si c'est le joueur local
+            bool is_local = (server_id == entity_manager_->get_local_player_entity_id());
+
+            // Sauvegarder l'état serveur pour extrapolation du joueur local
+            if (is_local) {
+                if (!last_states.has_entity(entity)) {
+                    LastServerState state_component;
+                    state_component.x = state.position_x;
+                    state_component.y = state.position_y;
+                    state_component.timestamp = current_time_;
+                    registry_->add_component(entity, state_component);
+                } else {
+                    LastServerState& last_state = last_states[entity];
+                    last_state.x = state.position_x;
+                    last_state.y = state.position_y;
+                    last_state.timestamp = current_time_;
+                }
+            }
+
+            // Mettre à jour la position (pour toutes les entités)
             if (positions.has_entity(entity)) {
                 positions[entity].x = state.position_x;
                 positions[entity].y = state.position_y;
@@ -384,13 +431,17 @@ void ClientGame::setup_network_callbacks() {
                 registry_->add_component(entity, Position{state.position_x, state.position_y});
             }
 
-            float vel_x = static_cast<float>(state.velocity_x) / 10.0f;
-            float vel_y = static_cast<float>(state.velocity_y) / 10.0f;
-            if (velocities.has_entity(entity)) {
-                velocities[entity].x = vel_x;
-                velocities[entity].y = vel_y;
-            } else {
-                registry_->add_component(entity, Velocity{vel_x, vel_y});
+            // Mettre à jour la vélocité SEULEMENT pour les autres joueurs
+            // Le joueur local garde sa vélocité prédite pour éviter le stuttering
+            if (!is_local) {
+                float vel_x = static_cast<float>(state.velocity_x) / 10.0f;
+                float vel_y = static_cast<float>(state.velocity_y) / 10.0f;
+                if (velocities.has_entity(entity)) {
+                    velocities[entity].x = vel_x;
+                    velocities[entity].y = vel_y;
+                } else {
+                    registry_->add_component(entity, Velocity{vel_x, vel_y});
+                }
             }
 
             uint16_t hp = ntohs(state.health);
@@ -432,6 +483,9 @@ void ClientGame::run() {
         float dt = std::chrono::duration<float>(now - last_frame).count();
         last_frame = now;
 
+        // Mettre à jour le temps écoulé pour l'extrapolation
+        current_time_ += dt;
+
         network_plugin_->update(dt);
         network_client_->update();
 
@@ -443,6 +497,10 @@ void ClientGame::run() {
         if (network_client_->is_in_game() &&
             std::chrono::duration_cast<std::chrono::milliseconds>(now - last_input_send).count() >= 15) {
             uint16_t input_flags = input_handler_->gather_input();
+
+            // NOUVEAU: Appliquer la vélocité localement AVANT d'envoyer au serveur
+            apply_input_to_local_player(input_flags);
+
             network_client_->send_input(input_flags, client_tick_++);
             last_input_send = now;
         }
@@ -466,10 +524,10 @@ void ClientGame::run() {
                        current_screen == GameScreen::ROOM_LOBBY);
         entity_manager_->update_projectiles(dt);
         entity_manager_->update_name_tags();
-        
+
         // Update bullet animations (cycle through 3 frames)
         auto& bulletAnimations = registry_->get_components<BulletAnimation>();
-        auto& sprites = registry_->get_components<Sprite>();
+        auto& sprites = registry_->get_components<::Sprite>();
         
         for (size_t i = 0; i < bulletAnimations.size(); i++) {
             Entity entity = bulletAnimations.get_entity_at(i);
@@ -545,6 +603,11 @@ void ClientGame::run() {
             entity_manager_->update_projectiles(dt);
             entity_manager_->update_name_tags();
 
+        if (registry_->has_system<LocalPredictionSystem>()) {
+            auto& prediction = registry_->get_system<LocalPredictionSystem>();
+            prediction.set_current_time(current_time_);
+        }
+        registry_->run_systems(dt);
             registry_->run_systems(dt);
         }
 
@@ -570,6 +633,26 @@ void ClientGame::shutdown() {
         graphics_plugin_->shutdown();
 
     std::cout << "[ClientGame] Client terminated.\n";
+}
+
+void ClientGame::apply_input_to_local_player(uint16_t input_flags) {
+    uint32_t local_id = entity_manager_->get_local_player_entity_id();
+    if (!entity_manager_->has_entity(local_id))
+        return;
+
+    Entity player = entity_manager_->get_entity(local_id);
+    if (!registry_)
+        return;
+
+    float dir_x = 0.0f;
+    float dir_y = 0.0f;
+
+    if (input_flags & protocol::INPUT_LEFT)  dir_x -= 1.0f;
+    if (input_flags & protocol::INPUT_RIGHT) dir_x += 1.0f;
+    if (input_flags & protocol::INPUT_UP)    dir_y -= 1.0f;
+    if (input_flags & protocol::INPUT_DOWN)  dir_y += 1.0f;
+
+    registry_->get_event_bus().publish(ecs::PlayerMoveEvent{player, dir_x, dir_y});
 }
 
 }

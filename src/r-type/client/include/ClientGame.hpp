@@ -81,6 +81,7 @@ private:
     std::atomic<bool> running_;
     uint32_t client_tick_;
     Entity wave_tracker_;
+    float current_time_;  // Temps écoulé depuis démarrage (pour extrapolation)
 
     // Initialization helpers
     bool load_plugins();
@@ -93,6 +94,9 @@ private:
     // Update methods
     void update(float delta_time);
     void handle_input();
+
+    // Client-side prediction
+    void apply_input_to_local_player(uint16_t input_flags);
 };
 
 }
