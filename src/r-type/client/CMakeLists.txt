@@ -21,6 +21,7 @@ set(RTYPE_CLIENT_SOURCES
     src/screens/RoomLobbyScreen.cpp
     src/screens/PasswordDialog.cpp
     src/SpaceshipManager.cpp
+    src/systems/LocalPredictionSystem.cpp
 )
 
 add_executable(r-type_client ${RTYPE_CLIENT_SOURCES})
@@ -45,7 +46,7 @@ endif()
 
 # Ensure the client can find shared libraries at runtime
 set_target_properties(r-type_client PROPERTIES
-    INSTALL_RPATH "$ORIGIN"
+    INSTALL_RPATH "$ORIGIN:$ORIGIN/vcpkg_installed/x64-linux-dynamic/lib:$ORIGIN/vcpkg_installed/x64-linux-dynamic/debug/lib"
     BUILD_WITH_INSTALL_RPATH TRUE
 )
 
@@ -79,7 +80,6 @@ if(WIN32)
 endif()
 
 set_target_properties(r-type_test_client PROPERTIES
-    INSTALL_RPATH "$ORIGIN"
+    INSTALL_RPATH "$ORIGIN:$ORIGIN/vcpkg_installed/x64-linux-dynamic/lib:$ORIGIN/vcpkg_installed/x64-linux-dynamic/debug/lib"
     BUILD_WITH_INSTALL_RPATH TRUE
 )
-
