@@ -92,6 +92,16 @@ struct BulletAnimation {
     int currentFrame = 0;         // 0, 1, or 2 (3 frames total)
 };
 
+struct ExplosionAnimation {
+    float timer = 0.0f;
+    float frameDuration = 0.05f;
+    int currentFrame = 0;
+    int totalFrames = 1;
+    int framesPerRow = 1;
+    int frameWidth = 32;
+    int frameHeight = 32;
+};
+
 struct Wall {};
 struct Background {};
 

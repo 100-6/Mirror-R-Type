@@ -276,6 +276,9 @@ void NetworkClient::handle_packet(const engine::NetworkPacket& packet) {
         case protocol::PacketType::SERVER_PROJECTILE_SPAWN:
             handle_projectile_spawn(payload);
             break;
+        case protocol::PacketType::SERVER_EXPLOSION_EVENT:
+            handle_explosion_event(payload);
+            break;
         case protocol::PacketType::SERVER_WAVE_START:
             handle_wave_start(payload);
             break;
@@ -480,6 +483,18 @@ void NetworkClient::handle_projectile_spawn(const std::vector<uint8_t>& payload)
 
     if (on_projectile_spawn_)
         on_projectile_spawn_(proj_spawn);
+}
+
+void NetworkClient::handle_explosion_event(const std::vector<uint8_t>& payload) {
+    if (payload.size() < sizeof(protocol::ServerExplosionPayload)) {
+        return;
+    }
+
+    protocol::ServerExplosionPayload explosion;
+    std::memcpy(&explosion, payload.data(), sizeof(explosion));
+
+    if (on_explosion_)
+        on_explosion_(explosion);
 }
 
 void NetworkClient::handle_snapshot(const std::vector<uint8_t>& payload) {
@@ -781,6 +796,10 @@ void NetworkClient::set_on_entity_destroy(std::function<void(const protocol::Ser
 
 void NetworkClient::set_on_projectile_spawn(std::function<void(const protocol::ServerProjectileSpawnPayload&)> callback) {
     on_projectile_spawn_ = callback;
+}
+
+void NetworkClient::set_on_explosion(std::function<void(const protocol::ServerExplosionPayload&)> callback) {
+    on_explosion_ = callback;
 }
 
 void NetworkClient::set_on_snapshot(std::function<void(const protocol::ServerSnapshotPayload&, const std::vector<protocol::EntityState>&)> callback) {

@@ -72,6 +72,7 @@ enum class PacketType : uint8_t {
     SERVER_ENTITY_DESTROY = 0xB1,
     SERVER_ENTITY_DAMAGE = 0xB2,
     SERVER_PROJECTILE_SPAWN = 0xB3,
+    SERVER_EXPLOSION_EVENT = 0xB4,
 
     // Game Mechanics (0xC0-0xCF)
     SERVER_POWERUP_COLLECTED = 0xC0,

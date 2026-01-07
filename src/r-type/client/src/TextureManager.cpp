@@ -14,7 +14,8 @@ TextureManager::TextureManager(engine::IGraphicsPlugin& graphics)
     , wall_(engine::INVALID_HANDLE)
     , shot_frame_1_(engine::INVALID_HANDLE)
     , shot_frame_2_(engine::INVALID_HANDLE)
-    , bullet_animation_(engine::INVALID_HANDLE) {
+    , bullet_animation_(engine::INVALID_HANDLE)
+    , explosion_(engine::INVALID_HANDLE) {
     player_frames_.fill(engine::INVALID_HANDLE);
 }
 
@@ -53,6 +54,7 @@ bool TextureManager::load_all() {
     
     // Load bullet animation spritesheet (48x16, 3 frames of 16x16)
     bullet_animation_ = graphics_.load_texture("assets/sprite/BulletAnimation.png");
+    explosion_ = graphics_.load_texture("assets/sprite/Explosion.png");
 
     // Check critical textures
     if (background_ == engine::INVALID_HANDLE ||
@@ -61,6 +63,10 @@ bool TextureManager::load_all() {
         projectile_ == engine::INVALID_HANDLE) {
         std::cerr << "[TextureManager] Failed to load critical textures\n";
         return false;
+    }
+
+    if (explosion_ == engine::INVALID_HANDLE) {
+        std::cerr << "[TextureManager] Warning: Explosion texture failed to load\n";
     }
 
     return true;

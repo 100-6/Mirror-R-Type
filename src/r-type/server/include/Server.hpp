@@ -85,6 +85,7 @@ private:
     void on_entity_spawn(uint32_t session_id, const std::vector<uint8_t>& spawn_data) override;
     void on_entity_destroy(uint32_t session_id, uint32_t entity_id) override;
     void on_projectile_spawn(uint32_t session_id, const std::vector<uint8_t>& projectile_data) override;
+    void on_explosion(uint32_t session_id, const std::vector<uint8_t>& explosion_data) override;
     void on_wave_start(uint32_t session_id, const std::vector<uint8_t>& wave_data) override;
     void on_wave_complete(uint32_t session_id, const std::vector<uint8_t>& wave_data) override;
     void on_game_over(uint32_t session_id, const std::vector<uint32_t>& player_ids, bool is_victory) override;

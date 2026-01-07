@@ -385,6 +385,16 @@ void Server::on_projectile_spawn(uint32_t session_id, const std::vector<uint8_t>
                                             projectile_data, session->get_player_ids(), connected_clients_);
 }
 
+void Server::on_explosion(uint32_t session_id, const std::vector<uint8_t>& explosion_data)
+{
+    auto* session = session_manager_->get_session(session_id);
+
+    if (!session)
+        return;
+    packet_sender_->broadcast_udp_to_session(session_id, protocol::PacketType::SERVER_EXPLOSION_EVENT,
+                                            explosion_data, session->get_player_ids(), connected_clients_);
+}
+
 void Server::on_wave_start(uint32_t session_id, const std::vector<uint8_t>& wave_data)
 {
     auto* session = session_manager_->get_session(session_id);

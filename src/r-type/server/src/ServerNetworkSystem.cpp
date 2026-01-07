@@ -86,6 +86,16 @@ void ServerNetworkSystem::init(Registry& registry)
             std::cout << "[SCORE] Queued score update: +" << event.scoreValue 
                       << " (Total: " << current_total_score << ")\n";
         });
+
+    explosionSubId_ = registry.get_event_bus().subscribe<ecs::ExplosionEvent>(
+        [this](const ecs::ExplosionEvent& event) {
+            protocol::ServerExplosionPayload payload;
+            payload.source_entity_id = ByteOrder::host_to_net32(static_cast<uint32_t>(event.source));
+            payload.position_x = event.x;
+            payload.position_y = event.y;
+            payload.effect_scale = event.scale;
+            pending_explosions_.push(payload);
+        });
 }
 
 void ServerNetworkSystem::update(Registry& registry, float dt)
@@ -133,6 +143,7 @@ void ServerNetworkSystem::update(Registry& registry, float dt)
     broadcast_pending_spawns();
     broadcast_pending_destroys();
     broadcast_pending_projectiles();
+    broadcast_pending_explosions();
     broadcast_pending_scores();
 }
 
@@ -337,6 +348,18 @@ void ServerNetworkSystem::broadcast_pending_projectiles()
         listener_->on_projectile_spawned(session_id_, serialize(proj));
         pending_projectiles_.pop();
         std::cout << "[SHOOT] Sent projectile " << ByteOrder::net_to_host32(proj.projectile_id) << " to clients\n";
+    }
+}
+
+void ServerNetworkSystem::broadcast_pending_explosions()
+{
+    if (!listener_)
+        return;
+
+    while (!pending_explosions_.empty()) {
+        const auto& payload = pending_explosions_.front();
+        listener_->on_explosion_triggered(session_id_, serialize(payload));
+        pending_explosions_.pop();
     }
 }
 

@@ -15,6 +15,7 @@
 #include <iostream>
 #include <chrono>
 #include <cmath>
+#include <algorithm>
 
 #ifdef _WIN32
     #include <winsock2.h>
@@ -193,6 +194,7 @@ void ClientGame::setup_registry() {
     registry_->register_component<Invulnerability>();
     registry_->register_component<ShotAnimation>();
     registry_->register_component<BulletAnimation>();
+    registry_->register_component<ExplosionAnimation>();
     registry_->register_component<Attached>();
     registry_->register_component<Wall>();
     // Client-side extrapolation component
@@ -385,6 +387,15 @@ void ClientGame::setup_network_callbacks() {
         } else {
             registry_->add_component(entity, Velocity{vel_x, vel_y});
         }
+    });
+
+    network_client_->set_on_explosion([this](const protocol::ServerExplosionPayload& explosion) {
+        if (!entity_manager_)
+            return;
+        float x = explosion.position_x;
+        float y = explosion.position_y;
+        float scale = explosion.effect_scale <= 0.0f ? 1.0f : explosion.effect_scale;
+        entity_manager_->spawn_explosion(x, y, scale);
     });
 
     network_client_->set_on_snapshot([this](const protocol::ServerSnapshotPayload& header,
@@ -596,6 +607,46 @@ void ClientGame::run() {
             // Destroy the muzzle flash effect after 0.3 second
             if (shotAnim.timer >= 0.3f) {
                 registry_->kill_entity(entity);
+            }
+        }
+
+        auto& explosionAnimations = registry_->get_components<ExplosionAnimation>();
+        for (size_t i = 0; i < explosionAnimations.size(); ++i) {
+            Entity entity = explosionAnimations.get_entity_at(i);
+            if (!explosionAnimations.has_entity(entity))
+                continue;
+
+            auto& explosionAnim = explosionAnimations[entity];
+            explosionAnim.timer += dt;
+
+            bool advance_frame = false;
+            if (explosionAnim.frameDuration > 0.0f) {
+                if (explosionAnim.timer >= explosionAnim.frameDuration) {
+                    explosionAnim.timer -= explosionAnim.frameDuration;
+                    advance_frame = true;
+                }
+            } else {
+                advance_frame = true;
+            }
+
+            if (advance_frame) {
+                explosionAnim.currentFrame++;
+
+                if (explosionAnim.currentFrame >= explosionAnim.totalFrames) {
+                    registry_->kill_entity(entity);
+                    continue;
+                }
+
+                if (sprites.has_entity(entity)) {
+                    auto& sprite = sprites[entity];
+                    int framesPerRow = std::max(1, explosionAnim.framesPerRow);
+                    int column = explosionAnim.currentFrame % framesPerRow;
+                    int row = explosionAnim.currentFrame / framesPerRow;
+                    sprite.source_rect.x = static_cast<float>(column * explosionAnim.frameWidth);
+                    sprite.source_rect.y = static_cast<float>(row * explosionAnim.frameHeight);
+                    sprite.source_rect.width = static_cast<float>(explosionAnim.frameWidth);
+                    sprite.source_rect.height = static_cast<float>(explosionAnim.frameHeight);
+                }
             }
         }
 

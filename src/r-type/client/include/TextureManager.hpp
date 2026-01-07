@@ -31,6 +31,7 @@ public:
     engine::TextureHandle get_shot_frame_1() const { return shot_frame_1_; }
     engine::TextureHandle get_shot_frame_2() const { return shot_frame_2_; }
     engine::TextureHandle get_bullet_animation() const { return bullet_animation_; }
+    engine::TextureHandle get_explosion() const { return explosion_; }
 
     const std::array<engine::TextureHandle, 4>& get_player_frames() const { return player_frames_; }
 
@@ -64,6 +65,7 @@ private:
     engine::TextureHandle shot_frame_1_;
     engine::TextureHandle shot_frame_2_;
     engine::TextureHandle bullet_animation_;
+    engine::TextureHandle explosion_;
 };
 
 }
