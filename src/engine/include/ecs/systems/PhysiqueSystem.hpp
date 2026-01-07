@@ -10,11 +10,12 @@
     #include "ISystem.hpp"
     #include "ecs/CoreComponents.hpp"
     #include "ecs/Registry.hpp"
+    #include "GameConfig.hpp"
 
 class PhysiqueSystem : public ISystem {
     private:
-        int SCREEN_WIDTH = 1920; //on mettera un truc du config json plus tard
-        int SCREEN_HEIGHT = 1080; //on mettera un truc du config json plus tard
+        static constexpr float SCREEN_WIDTH = rtype::shared::config::SCREEN_WIDTH;
+        static constexpr float SCREEN_HEIGHT = rtype::shared::config::SCREEN_HEIGHT;
 
     public:
         virtual ~PhysiqueSystem() = default;
