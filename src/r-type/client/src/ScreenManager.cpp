@@ -133,11 +133,45 @@ void ScreenManager::show_waiting_screen() {
 void ScreenManager::show_result(bool victory) {
     auto& sprites = registry_.get_components<Sprite>();
     auto& texts = registry_.get_components<UIText>();
+    auto& positions = registry_.get_components<Position>();
 
-    if (sprites.has_entity(result_screen_bg_))
+    // Recreate background sprite if needed
+    if (!sprites.has_entity(result_screen_bg_) || !positions.has_entity(result_screen_bg_)) {
+        result_screen_bg_ = registry_.spawn_entity();
+        registry_.add_component(result_screen_bg_, Position{0.0f, 0.0f});
+        registry_.add_component(result_screen_bg_, Sprite{
+            menu_background_texture_,
+            static_cast<float>(screen_width_),
+            static_cast<float>(screen_height_),
+            0.0f,
+            engine::Color::White,
+            0.0f,
+            0.0f,
+            200
+        });
+    } else {
         sprites[result_screen_bg_].tint = engine::Color::White;
+    }
 
-    if (texts.has_entity(result_screen_text_)) {
+    // Recreate result text if needed
+    if (!texts.has_entity(result_screen_text_) || !positions.has_entity(result_screen_text_)) {
+        result_screen_text_ = registry_.spawn_entity();
+        registry_.add_component(result_screen_text_, Position{
+            static_cast<float>(screen_width_) / 2.0f - 150.0f,
+            static_cast<float>(screen_height_) / 2.0f - 50.0f
+        });
+        registry_.add_component(result_screen_text_, UIText{
+            victory ? "VICTOIRE !" : "DEFAITE...",
+            victory ? engine::Color{100, 255, 100, 255} : engine::Color{255, 100, 100, 255},
+            engine::Color{0, 0, 0, 200},
+            48,
+            true,
+            4.0f,
+            4.0f,
+            true,
+            201
+        });
+    } else {
         texts[result_screen_text_].text = victory ? "VICTOIRE !" : "DEFAITE...";
         texts[result_screen_text_].color = victory
             ? engine::Color{100, 255, 100, 255}

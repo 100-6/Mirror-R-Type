@@ -579,6 +579,8 @@ void ClientGame::run() {
                        current_screen == GameScreen::CREATE_ROOM ||
                        current_screen == GameScreen::BROWSE_ROOMS ||
                        current_screen == GameScreen::ROOM_LOBBY);
+        bool in_result = (current_screen == GameScreen::VICTORY ||
+                         current_screen == GameScreen::DEFEAT);
         entity_manager_->update_projectiles(dt);
         entity_manager_->update_name_tags();
 
@@ -695,16 +697,15 @@ void ClientGame::run() {
             }
 
             menu_manager_->draw(graphics_plugin_);
+        } else if (in_result) {
+            // Result screen (victory/defeat) - only render, no game logic
+            registry_->run_systems(dt);
         } else {
             // Game screen - run game systems
-            entity_manager_->update_projectiles(dt);
-            entity_manager_->update_name_tags();
-
-        if (registry_->has_system<LocalPredictionSystem>()) {
-            auto& prediction = registry_->get_system<LocalPredictionSystem>();
-            prediction.set_current_time(current_time_);
-        }
-        registry_->run_systems(dt);
+            if (registry_->has_system<LocalPredictionSystem>()) {
+                auto& prediction = registry_->get_system<LocalPredictionSystem>();
+                prediction.set_current_time(current_time_);
+            }
             registry_->run_systems(dt);
         }
 
