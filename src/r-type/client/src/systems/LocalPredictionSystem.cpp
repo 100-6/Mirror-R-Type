@@ -73,15 +73,21 @@ void LocalPredictionSystem::update(Registry& registry, float dt) {
 }
 
 void LocalPredictionSystem::clamp_position(float& x, float& y, const Collider& collider) const {
-    if (x < 0.0f)
-        x = 0.0f;
-    if (x + collider.width > screen_width_)
-        x = std::max(0.0f, screen_width_ - collider.width);
+    // Center-based clamping using half-extents
+    float half_w = collider.width * 0.5f;
+    float half_h = collider.height * 0.5f;
 
-    if (y < 0.0f)
-        y = 0.0f;
-    if (y + collider.height > screen_height_)
-        y = std::max(0.0f, screen_height_ - collider.height);
+    // Clamp X to keep entity within screen bounds
+    if (x - half_w < 0.0f)
+        x = half_w;
+    if (x + half_w > screen_width_)
+        x = screen_width_ - half_w;
+
+    // Clamp Y to keep entity within screen bounds
+    if (y - half_h < 0.0f)
+        y = half_h;
+    if (y + half_h > screen_height_)
+        y = screen_height_ - half_h;
 }
 
 void LocalPredictionSystem::resolve_wall_collisions(Registry& registry,
@@ -95,6 +101,10 @@ void LocalPredictionSystem::resolve_wall_collisions(Registry& registry,
     auto& colliders = registry.get_components<Collider>();
     auto& walls = registry.get_components<Wall>();
 
+    // Center-based collision resolution using half-extents
+    float half_pw = player_collider.width * 0.5f;
+    float half_ph = player_collider.height * 0.5f;
+
     for (size_t i = 0; i < walls.size(); ++i) {
         Entity wall_entity = walls.get_entity_at(i);
 
@@ -104,29 +114,35 @@ void LocalPredictionSystem::resolve_wall_collisions(Registry& registry,
         const Position& wall_pos = positions[wall_entity];
         const Collider& wall_col = colliders[wall_entity];
 
-        bool overlap = (x < wall_pos.x + wall_col.width &&
-                        x + player_collider.width > wall_pos.x &&
-                        y < wall_pos.y + wall_col.height &&
-                        y + player_collider.height > wall_pos.y);
+        float half_ww = wall_col.width * 0.5f;
+        float half_wh = wall_col.height * 0.5f;
+
+        // Check for overlap using center-based AABB
+        bool overlap = (x + half_pw > wall_pos.x - half_ww &&
+                        x - half_pw < wall_pos.x + half_ww &&
+                        y + half_ph > wall_pos.y - half_wh &&
+                        y - half_ph < wall_pos.y + half_wh);
 
         if (!overlap)
             continue;
 
-        float overlap_left = (x + player_collider.width) - wall_pos.x;
-        float overlap_right = (wall_pos.x + wall_col.width) - x;
-        float overlap_top = (y + player_collider.height) - wall_pos.y;
-        float overlap_bottom = (wall_pos.y + wall_col.height) - y;
+        // Calculate overlap amounts on each axis
+        float overlap_left = (x + half_pw) - (wall_pos.x - half_ww);
+        float overlap_right = (wall_pos.x + half_ww) - (x - half_pw);
+        float overlap_top = (y + half_ph) - (wall_pos.y - half_wh);
+        float overlap_bottom = (wall_pos.y + half_wh) - (y - half_ph);
 
         float min_overlap = std::min({overlap_left, overlap_right, overlap_top, overlap_bottom});
 
+        // Push player out on axis with minimum overlap
         if (min_overlap == overlap_left) {
-            x = wall_pos.x - player_collider.width;
+            x -= overlap_left;
         } else if (min_overlap == overlap_right) {
-            x = wall_pos.x + wall_col.width;
+            x += overlap_right;
         } else if (min_overlap == overlap_top) {
-            y = wall_pos.y - player_collider.height;
+            y -= overlap_top;
         } else {
-            y = wall_pos.y + wall_col.height;
+            y += overlap_bottom;
         }
     }
 }

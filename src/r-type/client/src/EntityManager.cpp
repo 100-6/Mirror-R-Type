@@ -168,6 +168,10 @@ Sprite EntityManager::build_sprite(protocol::EntityType type, bool is_local_play
             sprite.width = tex_size.x * scale;
             sprite.height = tex_size.y * scale;
         }
+
+        // CENTER THE ORIGIN for all non-player sprites to match center-based positions
+        sprite.origin_x = sprite.width / 2.0f;
+        sprite.origin_y = sprite.height / 2.0f;
     }
 
     return sprite;
@@ -553,9 +557,10 @@ void EntityManager::update_name_tags() {
         if (sprites.has_entity(player_entity))
             sprite_height = sprites[player_entity].height;
 
+        // Position is center-based, place tag above the top edge of the sprite
         Position& tag_pos = positions[text_entity];
-        tag_pos.x = player_pos.x;
-        tag_pos.y = player_pos.y - (sprite_height * 0.2f + 30.0f);
+        tag_pos.x = player_pos.x; // Center X
+        tag_pos.y = player_pos.y - (sprite_height / 2.0f) - 30.0f; // Above top edge
     }
 
     for (uint32_t server_id : orphan_tags) {

@@ -6,6 +6,7 @@
 #include "ecs/systems/RenderSystem.hpp"
 #include "systems/HUDSystem.hpp"
 #include "systems/LocalPredictionSystem.hpp"
+#include "systems/ColliderDebugSystem.hpp"
 #include "protocol/NetworkConfig.hpp"
 #include "protocol/Payloads.hpp"
 #include "plugin_manager/PluginPaths.hpp"
@@ -218,6 +219,7 @@ void ClientGame::setup_systems() {
     }
 
     registry_->register_system<RenderSystem>(*graphics_plugin_);
+    registry_->register_system<ColliderDebugSystem>(*graphics_plugin_);
     registry_->register_system<HUDSystem>(*graphics_plugin_, screen_width_, screen_height_);
 }
 
@@ -494,6 +496,15 @@ void ClientGame::run() {
             break;
         }
 
+        // Toggle collider debug visualization with H key
+        if (input_handler_->is_hitbox_toggle_pressed()) {
+            if (registry_->has_system<ColliderDebugSystem>()) {
+                auto& debug_system = registry_->get_system<ColliderDebugSystem>();
+                bool new_state = !debug_system.is_enabled();
+                debug_system.set_enabled(new_state);
+            }
+        }
+
         if (network_client_->is_in_game() &&
             std::chrono::duration_cast<std::chrono::milliseconds>(now - last_input_send).count() >= 15) {
             uint16_t input_flags = input_handler_->gather_input();
@@ -612,7 +623,7 @@ void ClientGame::run() {
         }
 
         graphics_plugin_->display();
-        input_plugin_->update();
+        input_plugin_->update();  // Update at END of frame for proper just_pressed detection
     }
 }
 
