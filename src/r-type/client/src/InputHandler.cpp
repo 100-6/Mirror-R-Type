@@ -37,4 +37,8 @@ bool InputHandler::is_escape_pressed() const {
     return input_plugin_.is_key_pressed(engine::Key::Escape);
 }
 
+bool InputHandler::is_hitbox_toggle_pressed() const {
+    return input_plugin_.is_key_pressed(engine::Key::H);
+}
+
 }

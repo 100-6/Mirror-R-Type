@@ -24,6 +24,11 @@ public:
      */
     bool is_escape_pressed() const;
 
+    /**
+     * @brief Check if hitbox debug toggle key (H) was just pressed
+     */
+    bool is_hitbox_toggle_pressed() const;
+
 private:
     engine::IInputPlugin& input_plugin_;
 };

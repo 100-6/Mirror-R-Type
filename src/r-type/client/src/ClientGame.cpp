@@ -496,6 +496,15 @@ void ClientGame::run() {
             break;
         }
 
+        // Toggle collider debug visualization with H key
+        if (input_handler_->is_hitbox_toggle_pressed()) {
+            if (registry_->has_system<ColliderDebugSystem>()) {
+                auto& debug_system = registry_->get_system<ColliderDebugSystem>();
+                bool new_state = !debug_system.is_enabled();
+                debug_system.set_enabled(new_state);
+            }
+        }
+
         if (network_client_->is_in_game() &&
             std::chrono::duration_cast<std::chrono::milliseconds>(now - last_input_send).count() >= 15) {
             uint16_t input_flags = input_handler_->gather_input();
