@@ -17,15 +17,21 @@ bool CollisionSystem::check_collision(const Position& pos1, const Position& pos2
         if (col1.width <= 0 || col1.height <= 0 || col2.width <= 0 || col2.height <= 0)
             return false;
 
-        float left1 = pos1.x;
-        float right1 = pos1.x + col1.width;
-        float up1 = pos1.y;
-        float down1 = pos1.y + col1.height;
+        // Center-based collision detection using half-extents
+        float half_w1 = col1.width * 0.5f;
+        float half_h1 = col1.height * 0.5f;
+        float half_w2 = col2.width * 0.5f;
+        float half_h2 = col2.height * 0.5f;
 
-        float left2 = pos2.x;
-        float right2 = pos2.x + col2.width;
-        float up2 = pos2.y;
-        float down2 = pos2.y + col2.height;
+        float left1 = pos1.x - half_w1;
+        float right1 = pos1.x + half_w1;
+        float up1 = pos1.y - half_h1;
+        float down1 = pos1.y + half_h1;
+
+        float left2 = pos2.x - half_w2;
+        float right2 = pos2.x + half_w2;
+        float up2 = pos2.y - half_h2;
+        float down2 = pos2.y + half_h2;
 
         return (right1 > left2)
             && (left1 < right2)
@@ -56,9 +62,17 @@ void CollisionSystem::update(Registry& registry, float dt)
 
     auto& damages = registry.get_components<Damage>();
     auto& projectiles = registry.get_components<Projectile>();
+    auto hide_projectile_sprite = [&registry](Entity projectile) {
+        if (!registry.has_component_registered<Sprite>())
+            return;
+        auto& sprites = registry.get_components<Sprite>();
+        if (!sprites.has_entity(projectile))
+            return;
+        registry.remove_component<Sprite>(projectile);
+    };
 
     // Collision Projectile (joueur) vs Enemy : Applique les dégâts à l'ennemi
-    scan_collisions<Projectile, Enemy>(registry, [&registry, &damages, &projectiles](Entity bullet, Entity enemy) {
+    scan_collisions<Projectile, Enemy>(registry, [&registry, &damages, &projectiles, &hide_projectile_sprite](Entity bullet, Entity enemy) {
         if (!projectiles.has_entity(bullet))
             return;
 
@@ -66,6 +80,8 @@ void CollisionSystem::update(Registry& registry, float dt)
             return;
 
         registry.add_component(bullet, ToDestroy{});
+        hide_projectile_sprite(bullet);
+        // TODO: publier un ProjectileHitEvent ici pour déclencher un VFX/SFX côté client.
 
         int dmg = damages.has_entity(bullet) ? damages[bullet].value : 10;
         registry.get_event_bus().publish(ecs::DamageEvent{enemy, bullet, dmg});
@@ -73,7 +89,7 @@ void CollisionSystem::update(Registry& registry, float dt)
 
     // Collision Projectile (ennemi) vs Player : Applique les dégâts au joueur (ou casse le bouclier)
     auto& shields = registry.get_components<Shield>();
-    scan_collisions<Projectile, Controllable>(registry, [&registry, &damages, &projectiles, &shields](Entity bullet, Entity player) {
+    scan_collisions<Projectile, Controllable>(registry, [&registry, &damages, &projectiles, &shields, &hide_projectile_sprite](Entity bullet, Entity player) {
         if (!projectiles.has_entity(bullet))
             return;
 
@@ -81,6 +97,8 @@ void CollisionSystem::update(Registry& registry, float dt)
             return;
 
         registry.add_component(bullet, ToDestroy{});
+        hide_projectile_sprite(bullet);
+        // TODO: publier un ProjectileHitEvent ici pour déclencher un VFX/SFX côté client.
 
         // Vérifier si le joueur a un bouclier actif
         if (shields.has_entity(player) && shields[player].active) {
@@ -95,9 +113,11 @@ void CollisionSystem::update(Registry& registry, float dt)
     });
 
     // Collision Projectile vs Wall : Marque le projectile pour destruction
-    scan_collisions<Projectile, Wall>(registry, [&registry](Entity bullet, Entity wall) {
+    scan_collisions<Projectile, Wall>(registry, [&registry, &hide_projectile_sprite](Entity bullet, Entity wall) {
         (void)wall;
         registry.add_component(bullet, ToDestroy{});
+        hide_projectile_sprite(bullet);
+        // TODO: publier un ProjectileHitEvent spécifique aux murs pour feedback visuel.
     });
 
     // Collision Player (Controllable) vs Enemy : Publie PlayerHitEvent
@@ -126,14 +146,22 @@ void CollisionSystem::update(Registry& registry, float dt)
         const Position& posW = positions[wall];
         const Collider& colW = colliders[wall];
 
-        float overlapLeft = (posP.x + colP.width) - posW.x;
-        float overlapRight = (posW.x + colW.width) - posP.x;
-        float overlapTop = (posP.y + colP.height) - posW.y;
-        float overlapBottom = (posW.y + colW.height) - posP.y;
+        // Center-based collision resolution using half-extents
+        float half_wP = colP.width * 0.5f;
+        float half_hP = colP.height * 0.5f;
+        float half_wW = colW.width * 0.5f;
+        float half_hW = colW.height * 0.5f;
+
+        // Calculate overlap on each axis
+        float overlapLeft = (posP.x + half_wP) - (posW.x - half_wW);
+        float overlapRight = (posW.x + half_wW) - (posP.x - half_wP);
+        float overlapTop = (posP.y + half_hP) - (posW.y - half_hW);
+        float overlapBottom = (posW.y + half_hW) - (posP.y - half_hP);
 
         float minOverlapX = std::min(overlapLeft, overlapRight);
         float minOverlapY = std::min(overlapTop, overlapBottom);
 
+        // Push player out on axis with minimum overlap
         if (minOverlapX < minOverlapY) {
             if (overlapLeft < overlapRight)
                 posP.x -= overlapLeft;
