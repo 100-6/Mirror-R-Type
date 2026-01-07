@@ -193,6 +193,12 @@ public:
     void set_on_projectile_spawn(std::function<void(const protocol::ServerProjectileSpawnPayload& spawn)> callback);
 
     /**
+     * @brief Set callback for explosion events
+     * @param callback Function receiving explosion payload
+     */
+    void set_on_explosion(std::function<void(const protocol::ServerExplosionPayload& payload)> callback);
+
+    /**
      * @brief Set callback for game snapshot
      * @param callback Function receiving snapshot header and entity states
      */
@@ -276,6 +282,7 @@ private:
     void handle_entity_spawn(const std::vector<uint8_t>& payload);
     void handle_entity_destroy(const std::vector<uint8_t>& payload);
     void handle_projectile_spawn(const std::vector<uint8_t>& payload);
+    void handle_explosion_event(const std::vector<uint8_t>& payload);
     void handle_snapshot(const std::vector<uint8_t>& payload);
     void handle_game_over(const std::vector<uint8_t>& payload);
     void handle_wave_start(const std::vector<uint8_t>& payload);
@@ -323,6 +330,7 @@ private:
     std::function<void(const protocol::ServerEntitySpawnPayload&)> on_entity_spawn_;
     std::function<void(const protocol::ServerEntityDestroyPayload&)> on_entity_destroy_;
     std::function<void(const protocol::ServerProjectileSpawnPayload&)> on_projectile_spawn_;
+    std::function<void(const protocol::ServerExplosionPayload&)> on_explosion_;
     std::function<void(const protocol::ServerSnapshotPayload&, const std::vector<protocol::EntityState>&)> on_snapshot_;
     std::function<void(const protocol::ServerGameOverPayload&)> on_game_over_;
     std::function<void()> on_disconnected_;

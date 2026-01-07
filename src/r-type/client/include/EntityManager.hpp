@@ -52,6 +52,11 @@ public:
     void update_name_tags();
 
     /**
+     * @brief Spawn a transient explosion effect at the given coordinates
+     */
+    void spawn_explosion(float x, float y, float scale);
+
+    /**
      * @brief Set local player ID
      */
     void set_local_player_id(uint32_t player_id) { local_player_id_ = player_id; }

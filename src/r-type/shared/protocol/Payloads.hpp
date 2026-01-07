@@ -460,6 +460,27 @@ PACK_END
 static_assert(sizeof(ServerProjectileSpawnPayload) == 21, "ServerProjectileSpawnPayload must be 21 bytes");
 
 /**
+ * @brief SERVER_EXPLOSION_EVENT payload (0xB4)
+ * Total size: 16 bytes
+ */
+PACK_START
+struct PACKED ServerExplosionPayload {
+    uint32_t source_entity_id;
+    float position_x;
+    float position_y;
+    float effect_scale;
+
+    ServerExplosionPayload()
+        : source_entity_id(0)
+        , position_x(0.0f)
+        , position_y(0.0f)
+        , effect_scale(1.0f) {}
+};
+PACK_END
+
+static_assert(sizeof(ServerExplosionPayload) == 16, "ServerExplosionPayload must be 16 bytes");
+
+/**
  * @brief SERVER_POWERUP_COLLECTED payload (0xC0)
  * Total size: 6 bytes
  */

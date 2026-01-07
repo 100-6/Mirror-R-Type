@@ -90,6 +90,7 @@ private:
     void broadcast_pending_spawns();
     void broadcast_pending_destroys();
     void broadcast_pending_projectiles();
+    void broadcast_pending_explosions();
     void broadcast_pending_scores();
     void spawn_projectile(Registry& registry, Entity owner, float x, float y);
     void spawn_enemy_projectile(Registry& registry, Entity owner, float x, float y);
@@ -110,6 +111,7 @@ private:
     std::queue<protocol::ServerEntitySpawnPayload> pending_spawns_;
     std::queue<uint32_t> pending_destroys_;
     std::queue<protocol::ServerProjectileSpawnPayload> pending_projectiles_;
+    std::queue<protocol::ServerExplosionPayload> pending_explosions_;
     std::queue<protocol::ServerScoreUpdatePayload> pending_scores_;
 
     // Cooldown tracking
@@ -125,6 +127,7 @@ private:
     // Event subscription ID
     core::EventBus::SubscriptionId shotFiredSubId_;
     core::EventBus::SubscriptionId enemyKilledSubId_;
+    core::EventBus::SubscriptionId explosionSubId_;
 
     // Player ID -> Entity mapping (owned by GameSession)
     std::unordered_map<uint32_t, Entity>* player_entities_ = nullptr;

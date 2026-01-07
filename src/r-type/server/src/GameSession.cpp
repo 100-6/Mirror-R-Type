@@ -416,6 +416,12 @@ void GameSession::on_projectile_spawned(uint32_t session_id, const std::vector<u
         listener_->on_projectile_spawn(session_id, projectile_data);
 }
 
+void GameSession::on_explosion_triggered(uint32_t session_id, const std::vector<uint8_t>& explosion_data)
+{
+    if (listener_)
+        listener_->on_explosion(session_id, explosion_data);
+}
+
 void GameSession::on_score_updated(uint32_t session_id, const std::vector<uint8_t>& score_data)
 {
     if (listener_)

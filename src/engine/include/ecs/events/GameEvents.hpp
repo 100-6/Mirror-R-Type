@@ -42,4 +42,20 @@ struct ShotFiredEvent : public core::Event {
     ShotFiredEvent(Entity s, Entity p) : shooter(s), projectile(p) {}
 };
 
+/**
+ * @brief Event fired when an explosion should be spawned (typically when an enemy dies)
+ */
+struct ExplosionEvent : public core::Event {
+    Entity source;
+    float x;
+    float y;
+    float scale;
+
+    ExplosionEvent(Entity src, float px, float py, float s = 1.0f)
+        : source(src)
+        , x(px)
+        , y(py)
+        , scale(s) {}
+};
+
 }
