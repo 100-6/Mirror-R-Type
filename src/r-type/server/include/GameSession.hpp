@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <chrono>
 #include <string>
+#include <atomic>
 
 #include "ecs/Registry.hpp"
 #include "ecs/CoreComponents.hpp"
@@ -68,29 +69,23 @@ public:
                 protocol::Difficulty difficulty, uint16_t map_id);
     ~GameSession() = default;
 
-    // === Configuration ===
-
     /**
      * @brief Set the listener for game session events
      */
     void set_listener(IGameSessionListener* listener) { listener_ = listener; }
 
-    // === Player Management ===
-
     void add_player(uint32_t player_id, const std::string& player_name);
     void remove_player(uint32_t player_id);
     void handle_input(uint32_t player_id, const protocol::ClientInputPayload& input);
 
-    // === Update ===
-
     void update(float delta_time);
-
-    // === Queries ===
 
     uint32_t get_session_id() const { return session_id_; }
     std::vector<uint32_t> get_player_ids() const;
-    bool is_active() const { return is_active_; }
+    bool is_active() const { return is_active_.load(std::memory_order_acquire); }
+    bool is_active_threadsafe() const { return is_active_.load(std::memory_order_acquire); }
     Registry& get_registry() { return registry_; }
+    ServerNetworkSystem* get_network_system() { return network_system_; }
 
     /**
      * @brief Resync a client with all existing entities
@@ -98,14 +93,12 @@ public:
     void resync_client(uint32_t player_id, uint32_t tcp_client_id);
 
 private:
-    // IWaveListener implementation
     void on_wave_started(const Wave& wave) override;
     void on_wave_completed(const Wave& wave) override;
     void on_spawn_enemy(const std::string& enemy_type, float x, float y) override;
     void on_spawn_wall(float x, float y) override;
     void on_spawn_powerup(const std::string& bonus_type, float x, float y) override;
 
-    // INetworkSystemListener implementation
     void on_snapshot_ready(uint32_t session_id, const std::vector<uint8_t>& snapshot) override;
     void on_entity_spawned(uint32_t session_id, const std::vector<uint8_t>& spawn_data) override;
     void on_entity_destroyed(uint32_t session_id, uint32_t entity_id) override;
@@ -113,36 +106,29 @@ private:
     void on_explosion_triggered(uint32_t session_id, const std::vector<uint8_t>& explosion_data) override;
     void on_score_updated(uint32_t session_id, const std::vector<uint8_t>& score_data) override;
 
-    // Internal helpers
     void spawn_player_entity(GamePlayer& player);
     void check_game_over();
     void check_offscreen_enemies();
 
-    // Session data
     uint32_t session_id_;
     protocol::GameMode game_mode_;
     protocol::Difficulty difficulty_;
     uint16_t map_id_;
-    bool is_active_;
+    std::atomic<bool> is_active_;
 
-    // ECS
     Registry registry_;
     std::unordered_map<uint32_t, GamePlayer> players_;
     std::unordered_map<uint32_t, Entity> player_entities_;
     WaveManager wave_manager_;
 
-    // Timing
     uint32_t tick_count_;
     float current_scroll_;
     std::chrono::steady_clock::time_point session_start_time_;
 
-    // Network system reference
     ServerNetworkSystem* network_system_ = nullptr;
 
-    // Listener for game events
     IGameSessionListener* listener_ = nullptr;
 
-    // Wave state for resync
     protocol::ServerWaveStartPayload last_wave_start_payload_;
     protocol::ServerWaveCompletePayload last_wave_complete_payload_;
     bool has_wave_started_ = false;
