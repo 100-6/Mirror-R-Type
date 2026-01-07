@@ -17,6 +17,7 @@ add_library(game_engine
 target_include_directories(game_engine
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/src/r-type/shared
 )
 
 # Link system libraries for dynamic loading

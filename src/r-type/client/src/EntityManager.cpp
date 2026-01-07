@@ -1,5 +1,5 @@
 #include "EntityManager.hpp"
-#include "GameDimensions.hpp"
+#include "GameConfig.hpp"
 #include <iostream>
 #include <algorithm>
 
@@ -16,7 +16,7 @@ struct EntityDimensions {
 };
 
 static EntityDimensions get_collider_dimensions(protocol::EntityType type) {
-    using namespace rtype::shared::dimensions;
+    using namespace rtype::shared::config;
 
     // Map bonus types to powerup types
     if (type == protocol::EntityType::BONUS_HEALTH)
@@ -46,7 +46,7 @@ static EntityDimensions get_collider_dimensions(protocol::EntityType type) {
         case protocol::EntityType::POWERUP_SHIELD:
         case protocol::EntityType::POWERUP_SPEED:
         case protocol::EntityType::POWERUP_SCORE:
-            return {BONUS_SIZE * 2.0f, BONUS_SIZE * 2.0f};
+            return {BONUS_SIZE, BONUS_SIZE};
         default:
             return {ENEMY_BASIC_WIDTH, ENEMY_BASIC_HEIGHT};
     }
