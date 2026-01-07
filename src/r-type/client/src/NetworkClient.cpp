@@ -129,7 +129,7 @@ void NetworkClient::send_leave_lobby() {
 
 void NetworkClient::send_create_room(const std::string& room_name, const std::string& password,
                                      protocol::GameMode mode, protocol::Difficulty difficulty,
-                                     uint8_t max_players) {
+                                     uint16_t map_id, uint8_t max_players) {
     protocol::ClientCreateRoomPayload payload;
     payload.player_id = htonl(player_id_);
     payload.set_room_name(room_name);
@@ -141,12 +141,12 @@ void NetworkClient::send_create_room(const std::string& room_name, const std::st
 
     payload.game_mode = mode;
     payload.difficulty = difficulty;
-    payload.map_id = htons(0);  // Default map
+    payload.map_id = htons(map_id);
     payload.max_players = max_players;
 
     std::cout << "[NetworkClient] Creating room '" << room_name << "' (mode="
               << static_cast<int>(mode) << ", diff=" << static_cast<int>(difficulty)
-              << ", max_players=" << static_cast<int>(max_players) << ")\n";
+              << ", map_id=" << map_id << ", max_players=" << static_cast<int>(max_players) << ")\n";
     send_tcp_packet(protocol::PacketType::CLIENT_CREATE_ROOM, serialize_payload(&payload, sizeof(payload)));
 }
 
@@ -436,17 +436,18 @@ void NetworkClient::handle_game_start(const std::vector<uint8_t>& payload) {
 
     session_id_ = ntohl(game_start.game_session_id);
     udp_port_ = ntohs(game_start.udp_port);
+    uint16_t map_id = ntohs(game_start.map_id);
     in_lobby_ = false;
     in_game_ = true;
 
     std::cout << "[NetworkClient] Game started! Session: " << session_id_
-              << ", UDP port: " << udp_port_ << "\n";
+              << ", UDP port: " << udp_port_ << ", Map: " << map_id << "\n";
 
     // Connect UDP for gameplay
     connect_udp(udp_port_);
 
     if (on_game_start_)
-        on_game_start_(session_id_, udp_port_);
+        on_game_start_(session_id_, udp_port_, map_id);
 }
 
 void NetworkClient::handle_entity_spawn(const std::vector<uint8_t>& payload) {
@@ -782,7 +783,7 @@ void NetworkClient::set_on_countdown(std::function<void(uint8_t)> callback) {
     on_countdown_ = callback;
 }
 
-void NetworkClient::set_on_game_start(std::function<void(uint32_t, uint16_t)> callback) {
+void NetworkClient::set_on_game_start(std::function<void(uint32_t, uint16_t, uint16_t)> callback) {
     on_game_start_ = callback;
 }
 

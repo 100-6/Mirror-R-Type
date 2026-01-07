@@ -281,8 +281,8 @@ static_assert(sizeof(PlayerSpawnData) == 12, "PlayerSpawnData must be 12 bytes")
 
 /**
  * @brief SERVER_GAME_START payload header (0x8A)
- * Base size: 16 bytes + (12 × player_count) bytes
- * Contains UDP port for gameplay communication
+ * Base size: 18 bytes + (12 × player_count) bytes
+ * Contains UDP port for gameplay communication and map_id
  */
 PACK_START
 struct PACKED ServerGameStartPayload {
@@ -292,6 +292,7 @@ struct PACKED ServerGameStartPayload {
     uint32_t server_tick;
     uint32_t level_seed;
     uint16_t udp_port;  // UDP port for gameplay communication
+    uint16_t map_id;    // Map identifier (1=Nebula, 2=Asteroid, 3=Bydo)
 
     ServerGameStartPayload()
         : game_session_id(0)
@@ -299,11 +300,12 @@ struct PACKED ServerGameStartPayload {
         , difficulty(Difficulty::NORMAL)
         , server_tick(0)
         , level_seed(0)
-        , udp_port(config::DEFAULT_UDP_PORT) {}
+        , udp_port(config::DEFAULT_UDP_PORT)
+        , map_id(1) {}
 };
 PACK_END
 
-static_assert(sizeof(ServerGameStartPayload) == 16, "ServerGameStartPayload base must be 16 bytes");
+static_assert(sizeof(ServerGameStartPayload) == 18, "ServerGameStartPayload base must be 18 bytes");
 
 /**
  * @brief CLIENT_INPUT payload (0x10)

@@ -8,7 +8,16 @@
 namespace rtype::client {
 
 /**
- * @brief Screen for creating a custom room with name, password, and game mode
+ * @brief Map identifiers for the 3 available maps
+ */
+enum class MapId : uint16_t {
+    NEBULA_OUTPOST = 1,    // Map 1 - Intro level
+    ASTEROID_BELT = 2,     // Map 2 - Navigation challenge
+    BYDO_MOTHERSHIP = 3    // Map 3 - Final battle
+};
+
+/**
+ * @brief Screen for creating a custom room with name, password, game mode, map, and difficulty
  */
 class CreateRoomScreen : public BaseScreen {
 public:
@@ -30,18 +39,27 @@ public:
     }
 
     protocol::GameMode get_configured_game_mode() const { return game_mode_; }
+    protocol::Difficulty get_configured_difficulty() const { return difficulty_; }
+    uint16_t get_configured_map_id() const { return static_cast<uint16_t>(map_id_); }
     uint8_t get_configured_max_players() const;
 
 private:
     std::vector<std::unique_ptr<UILabel>> labels_;
     std::vector<std::unique_ptr<UITextField>> fields_;
     std::vector<std::unique_ptr<UIButton>> buttons_;
-    std::vector<std::unique_ptr<UIButton>> mode_buttons_;  // DUO, TRIO, SQUAD buttons
+    std::vector<std::unique_ptr<UIButton>> mode_buttons_;       // DUO, TRIO, SQUAD buttons
+    std::vector<std::unique_ptr<UIButton>> map_buttons_;        // Map selection buttons
+    std::vector<std::unique_ptr<UIButton>> difficulty_buttons_; // Difficulty selection buttons
 
     protocol::GameMode game_mode_ = protocol::GameMode::SQUAD;  // Default to SQUAD
+    protocol::Difficulty difficulty_ = protocol::Difficulty::NORMAL;  // Default to NORMAL
+    MapId map_id_ = MapId::NEBULA_OUTPOST;  // Default to first map
 
     ScreenChangeCallback on_screen_change_;
     RoomCreatedCallback on_room_created_;
+
+    // Helper to get map name for display
+    static const char* get_map_name(MapId id);
 };
 
 }  // namespace rtype::client

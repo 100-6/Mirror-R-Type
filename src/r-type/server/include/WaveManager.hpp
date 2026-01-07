@@ -95,9 +95,10 @@ public:
     bool all_waves_complete() const;
 
     /**
-     * @brief Select map file based on game mode and difficulty
+     * @brief Select map file based on map_id
+     * @param map_id 1=Nebula Outpost, 2=Asteroid Belt, 3=Bydo Mothership
      */
-    static std::string get_map_file(protocol::GameMode mode, protocol::Difficulty difficulty);
+    static std::string get_map_file(uint16_t map_id);
 
 private:
     WaveConfig config_;

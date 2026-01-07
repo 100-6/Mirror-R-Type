@@ -1,0 +1,207 @@
+{
+  "mapName": "Bydo Mothership",
+  "mapDescription": "Enemy mothership - Intense combat with final boss",
+  "defaultSpawnInterval": 1.5,
+  "loopWaves": false,
+  "backgroundTheme": "purple",
+  "waves": [
+    {
+      "waveNumber": 1,
+      "trigger": {
+        "scrollDistance": 0,
+        "timeDelay": 0
+      },
+      "spawns": [
+        {"type": "wall", "positionX": 2000, "positionY": 0, "count": 2, "pattern": "line", "spacing": 64},
+        {"type": "wall", "positionX": 2100, "positionY": 500, "count": 3, "pattern": "line", "spacing": 64},
+        {"type": "wall", "positionX": 2200, "positionY": 850, "count": 2, "pattern": "line", "spacing": 64},
+        {"type": "enemy", "enemyType": "fast", "positionX": 2050, "positionY": 220, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "fast", "positionX": 2120, "positionY": 380, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "fast", "positionX": 2180, "positionY": 720, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "basic", "positionX": 2250, "positionY": 280, "count": 1, "pattern": "single", "spacing": 0}
+      ]
+    },
+    {
+      "waveNumber": 2,
+      "trigger": {
+        "scrollDistance": 350,
+        "timeDelay": 0
+      },
+      "spawns": [
+        {"type": "wall", "positionX": 2500, "positionY": 150, "count": 3, "pattern": "line", "spacing": 64},
+        {"type": "wall", "positionX": 2650, "positionY": 550, "count": 3, "pattern": "line", "spacing": 64},
+        {"type": "wall", "positionX": 2800, "positionY": 0, "count": 2, "pattern": "line", "spacing": 64},
+        {"type": "wall", "positionX": 2850, "positionY": 800, "count": 3, "pattern": "line", "spacing": 64},
+        {"type": "enemy", "enemyType": "basic", "positionX": 2520, "positionY": 420, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "tank", "positionX": 2600, "positionY": 280, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "fast", "positionX": 2680, "positionY": 720, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "basic", "positionX": 2750, "positionY": 380, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "fast", "positionX": 2820, "positionY": 580, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "powerup", "bonusType": "health", "positionX": 2950, "positionY": 450, "count": 1, "pattern": "single", "spacing": 0}
+      ]
+    },
+    {
+      "waveNumber": 3,
+      "trigger": {
+        "scrollDistance": 750,
+        "timeDelay": 0
+      },
+      "spawns": [
+        {"type": "wall", "positionX": 3100, "positionY": 300, "count": 3, "pattern": "line", "spacing": 64},
+        {"type": "wall", "positionX": 3250, "positionY": 0, "count": 3, "pattern": "line", "spacing": 64},
+        {"type": "wall", "positionX": 3300, "positionY": 650, "count": 3, "pattern": "line", "spacing": 64},
+        {"type": "wall", "positionX": 3450, "positionY": 850, "count": 2, "pattern": "line", "spacing": 64},
+        {"type": "enemy", "enemyType": "fast", "positionX": 3120, "positionY": 520, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "basic", "positionX": 3180, "positionY": 180, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "fast", "positionX": 3250, "positionY": 420, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "basic", "positionX": 3320, "positionY": 280, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "fast", "positionX": 3400, "positionY": 580, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "basic", "positionX": 3480, "positionY": 720, "count": 1, "pattern": "single", "spacing": 0}
+      ]
+    },
+    {
+      "waveNumber": 4,
+      "trigger": {
+        "scrollDistance": 1150,
+        "timeDelay": 0
+      },
+      "spawns": [
+        {"type": "wall", "positionX": 3650, "positionY": 0, "count": 3, "pattern": "line", "spacing": 64},
+        {"type": "wall", "positionX": 3750, "positionY": 400, "count": 3, "pattern": "line", "spacing": 64},
+        {"type": "wall", "positionX": 3900, "positionY": 750, "count": 3, "pattern": "line", "spacing": 64},
+        {"type": "wall", "positionX": 4050, "positionY": 200, "count": 2, "pattern": "line", "spacing": 64},
+        {"type": "enemy", "enemyType": "tank", "positionX": 3680, "positionY": 280, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "fast", "positionX": 3750, "positionY": 620, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "tank", "positionX": 3820, "positionY": 180, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "fast", "positionX": 3900, "positionY": 480, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "basic", "positionX": 3980, "positionY": 320, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "fast", "positionX": 4050, "positionY": 580, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "powerup", "bonusType": "shield", "positionX": 4150, "positionY": 420, "count": 1, "pattern": "single", "spacing": 0}
+      ]
+    },
+    {
+      "waveNumber": 5,
+      "trigger": {
+        "scrollDistance": 1550,
+        "timeDelay": 0
+      },
+      "spawns": [
+        {"type": "wall", "positionX": 4250, "positionY": 300, "count": 3, "pattern": "line", "spacing": 64},
+        {"type": "wall", "positionX": 4400, "positionY": 0, "count": 3, "pattern": "line", "spacing": 64},
+        {"type": "wall", "positionX": 4450, "positionY": 600, "count": 3, "pattern": "line", "spacing": 64},
+        {"type": "wall", "positionX": 4600, "positionY": 850, "count": 2, "pattern": "line", "spacing": 64},
+        {"type": "enemy", "enemyType": "basic", "positionX": 4280, "positionY": 520, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "fast", "positionX": 4350, "positionY": 180, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "tank", "positionX": 4420, "positionY": 380, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "fast", "positionX": 4500, "positionY": 720, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "basic", "positionX": 4580, "positionY": 280, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "fast", "positionX": 4650, "positionY": 480, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "basic", "positionX": 4720, "positionY": 620, "count": 1, "pattern": "single", "spacing": 0}
+      ]
+    },
+    {
+      "waveNumber": 6,
+      "trigger": {
+        "scrollDistance": 1950,
+        "timeDelay": 0
+      },
+      "spawns": [
+        {"type": "wall", "positionX": 4850, "positionY": 150, "count": 3, "pattern": "line", "spacing": 64},
+        {"type": "wall", "positionX": 5000, "positionY": 500, "count": 3, "pattern": "line", "spacing": 64},
+        {"type": "wall", "positionX": 5150, "positionY": 0, "count": 2, "pattern": "line", "spacing": 64},
+        {"type": "wall", "positionX": 5200, "positionY": 800, "count": 3, "pattern": "line", "spacing": 64},
+        {"type": "enemy", "enemyType": "fast", "positionX": 4880, "positionY": 380, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "basic", "positionX": 4950, "positionY": 720, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "fast", "positionX": 5020, "positionY": 280, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "tank", "positionX": 5100, "positionY": 420, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "fast", "positionX": 5180, "positionY": 580, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "basic", "positionX": 5250, "positionY": 180, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "fast", "positionX": 5320, "positionY": 650, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "powerup", "bonusType": "health", "positionX": 5400, "positionY": 350, "count": 1, "pattern": "single", "spacing": 0}
+      ]
+    },
+    {
+      "waveNumber": 7,
+      "trigger": {
+        "scrollDistance": 2400,
+        "timeDelay": 0
+      },
+      "spawns": [
+        {"type": "wall", "positionX": 5500, "positionY": 250, "count": 3, "pattern": "line", "spacing": 64},
+        {"type": "wall", "positionX": 5650, "positionY": 600, "count": 3, "pattern": "line", "spacing": 64},
+        {"type": "wall", "positionX": 5800, "positionY": 0, "count": 3, "pattern": "line", "spacing": 64},
+        {"type": "wall", "positionX": 5850, "positionY": 850, "count": 2, "pattern": "line", "spacing": 64},
+        {"type": "enemy", "enemyType": "basic", "positionX": 5530, "positionY": 480, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "fast", "positionX": 5600, "positionY": 180, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "basic", "positionX": 5680, "positionY": 380, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "fast", "positionX": 5750, "positionY": 720, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "tank", "positionX": 5820, "positionY": 520, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "fast", "positionX": 5900, "positionY": 280, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "basic", "positionX": 5980, "positionY": 620, "count": 1, "pattern": "single", "spacing": 0}
+      ]
+    },
+    {
+      "waveNumber": 8,
+      "trigger": {
+        "scrollDistance": 2850,
+        "timeDelay": 0
+      },
+      "spawns": [
+        {"type": "wall", "positionX": 6100, "positionY": 0, "count": 3, "pattern": "line", "spacing": 64},
+        {"type": "wall", "positionX": 6200, "positionY": 400, "count": 3, "pattern": "line", "spacing": 64},
+        {"type": "wall", "positionX": 6350, "positionY": 750, "count": 3, "pattern": "line", "spacing": 64},
+        {"type": "wall", "positionX": 6500, "positionY": 200, "count": 2, "pattern": "line", "spacing": 64},
+        {"type": "enemy", "enemyType": "tank", "positionX": 6130, "positionY": 280, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "fast", "positionX": 6200, "positionY": 620, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "basic", "positionX": 6280, "positionY": 180, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "fast", "positionX": 6350, "positionY": 520, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "tank", "positionX": 6420, "positionY": 380, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "fast", "positionX": 6500, "positionY": 720, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "basic", "positionX": 6580, "positionY": 280, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "fast", "positionX": 6650, "positionY": 480, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "powerup", "bonusType": "shield", "positionX": 6750, "positionY": 550, "count": 1, "pattern": "single", "spacing": 0}
+      ]
+    },
+    {
+      "waveNumber": 9,
+      "trigger": {
+        "scrollDistance": 3300,
+        "timeDelay": 0
+      },
+      "spawns": [
+        {"type": "wall", "positionX": 6850, "positionY": 300, "count": 3, "pattern": "line", "spacing": 64},
+        {"type": "wall", "positionX": 7000, "positionY": 0, "count": 3, "pattern": "line", "spacing": 64},
+        {"type": "wall", "positionX": 7050, "positionY": 650, "count": 3, "pattern": "line", "spacing": 64},
+        {"type": "wall", "positionX": 7200, "positionY": 850, "count": 2, "pattern": "line", "spacing": 64},
+        {"type": "enemy", "enemyType": "basic", "positionX": 6880, "positionY": 520, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "fast", "positionX": 6950, "positionY": 180, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "tank", "positionX": 7020, "positionY": 420, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "fast", "positionX": 7100, "positionY": 280, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "tank", "positionX": 7180, "positionY": 580, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "fast", "positionX": 7250, "positionY": 720, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "basic", "positionX": 7320, "positionY": 380, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "fast", "positionX": 7400, "positionY": 620, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "powerup", "bonusType": "health", "positionX": 7500, "positionY": 450, "count": 1, "pattern": "single", "spacing": 0}
+      ]
+    },
+    {
+      "waveNumber": 10,
+      "trigger": {
+        "scrollDistance": 3700,
+        "timeDelay": 1.0
+      },
+      "spawns": [
+        {"type": "wall", "positionX": 7600, "positionY": 0, "count": 3, "pattern": "line", "spacing": 64},
+        {"type": "wall", "positionX": 7650, "positionY": 800, "count": 3, "pattern": "line", "spacing": 64},
+        {"type": "enemy", "enemyType": "boss", "positionX": 7700, "positionY": 480, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "basic", "positionX": 7850, "positionY": 220, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "fast", "positionX": 7920, "positionY": 380, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "basic", "positionX": 7850, "positionY": 680, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "fast", "positionX": 7920, "positionY": 550, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "fast", "positionX": 8000, "positionY": 280, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "enemy", "enemyType": "fast", "positionX": 8000, "positionY": 620, "count": 1, "pattern": "single", "spacing": 0},
+        {"type": "powerup", "bonusType": "health", "positionX": 8100, "positionY": 480, "count": 1, "pattern": "single", "spacing": 0}
+      ]
+    }
+  ]
+}

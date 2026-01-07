@@ -82,6 +82,11 @@ private:
     uint32_t client_tick_;
     Entity wave_tracker_;
     float current_time_;  // Temps écoulé depuis démarrage (pour extrapolation)
+    uint16_t current_map_id_ = 1;  // Current map (1=Nebula, 2=Asteroid, 3=Bydo)
+
+    // Background entities
+    Entity background1_;
+    Entity background2_;
 
     // Initialization helpers
     bool load_plugins();
@@ -90,6 +95,9 @@ private:
     void setup_systems();
     void setup_background();
     void setup_network_callbacks();
+
+    // Map-specific theming
+    void apply_map_theme(uint16_t map_id);
 
     // Update methods
     void update(float delta_time);
