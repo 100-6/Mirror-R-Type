@@ -163,6 +163,10 @@ target_link_libraries(asio_network
         Boost::system
 )
 
+if(WIN32)
+    target_link_libraries(asio_network PRIVATE ws2_32 mswsock)
+endif()
+
 target_compile_definitions(asio_network PRIVATE PLUGIN_EXPORTS)
 
 # Set output to plugins directory with unified naming
