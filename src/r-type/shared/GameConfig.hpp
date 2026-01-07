@@ -90,4 +90,9 @@ constexpr float WALL_HEIGHT = 80.0f;
 // === Powerup/Bonus Configuration ===
 constexpr float BONUS_SIZE = 12.0f;
 
+// === Explosion FX Configuration ===
+constexpr float EXPLOSION_FRAME_SIZE = 32.0f;
+constexpr float EXPLOSION_FRAME_TIME = 0.04f;
+constexpr float EXPLOSION_DRAW_SCALE = 3.0f;
+
 } // namespace rtype::shared::config

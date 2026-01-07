@@ -2,6 +2,7 @@
 #include "GameConfig.hpp"
 #include <iostream>
 #include <algorithm>
+#include <random>
 
 namespace rtype::client {
 
@@ -570,6 +571,54 @@ void EntityManager::update_name_tags() {
             player_name_tags_.erase(it);
         }
     }
+}
+
+void EntityManager::spawn_explosion(float x, float y, float scale) {
+    engine::TextureHandle explosion_tex = textures_.get_explosion();
+    if (explosion_tex == engine::INVALID_HANDLE)
+        return;
+
+    Entity explosion = registry_.spawn_entity();
+    registry_.add_component(explosion, Position{x, y});
+
+    Sprite sprite{};
+    sprite.texture = explosion_tex;
+    sprite.layer = 30;
+    sprite.source_rect.x = 0.0f;
+    sprite.source_rect.y = 0.0f;
+    sprite.source_rect.width = rtype::shared::config::EXPLOSION_FRAME_SIZE;
+    sprite.source_rect.height = rtype::shared::config::EXPLOSION_FRAME_SIZE;
+
+    float size = rtype::shared::config::EXPLOSION_FRAME_SIZE * rtype::shared::config::EXPLOSION_DRAW_SCALE * scale;
+    sprite.width = size;
+    sprite.height = size;
+    sprite.origin_x = size / 2.0f;
+    sprite.origin_y = size / 2.0f;
+
+    registry_.add_component(explosion, sprite);
+
+    engine::Vector2f tex_size = textures_.get_texture_size(explosion_tex);
+    ExplosionAnimation anim{};
+    static std::mt19937 rng(std::random_device{}());
+    std::uniform_real_distribution<float> speed_dist(0.7f, 1.3f);
+    anim.frameDuration = rtype::shared::config::EXPLOSION_FRAME_TIME * speed_dist(rng);
+    anim.frameWidth = static_cast<int>(rtype::shared::config::EXPLOSION_FRAME_SIZE);
+    anim.frameHeight = static_cast<int>(rtype::shared::config::EXPLOSION_FRAME_SIZE);
+
+    if (anim.frameWidth <= 0)
+        anim.frameWidth = 16;
+    if (anim.frameHeight <= 0)
+        anim.frameHeight = 16;
+
+    anim.framesPerRow = anim.frameWidth > 0 ? static_cast<int>(tex_size.x / anim.frameWidth) : 1;
+    if (anim.framesPerRow <= 0)
+        anim.framesPerRow = 1;
+    int rows = anim.frameHeight > 0 ? static_cast<int>(tex_size.y / anim.frameHeight) : 1;
+    if (rows <= 0)
+        rows = 1;
+    anim.totalFrames = std::max(1, anim.framesPerRow * rows);
+
+    registry_.add_component(explosion, anim);
 }
 
 void EntityManager::set_player_name(uint32_t server_id, const std::string& name) {
