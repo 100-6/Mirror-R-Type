@@ -96,11 +96,23 @@ bool WaveManager::all_waves_complete() const
     return !config_.waves.empty();
 }
 
-std::string WaveManager::get_map_file(protocol::GameMode mode, protocol::Difficulty difficulty)
+std::string WaveManager::get_map_file(uint16_t map_id)
 {
-    // For now, use the simple wave file as fallback
-    // In production: waves_duo_easy.json, waves_squad_hard.json, etc.
-    return "assets/waves_simple.json";
+    // Map ID to file mapping:
+    // 1 = Nebula Outpost
+    // 2 = Asteroid Belt
+    // 3 = Bydo Mothership
+    switch (map_id) {
+        case 1:
+            return "assets/waves_nebula_outpost.json";
+        case 2:
+            return "assets/waves_asteroid_belt.json";
+        case 3:
+            return "assets/waves_bydo_mothership.json";
+        default:
+            std::cout << "[WaveManager] Unknown map_id " << map_id << ", using Nebula Outpost\n";
+            return "assets/waves_nebula_outpost.json";
+    }
 }
 
 void WaveManager::check_wave_triggers(float current_scroll)

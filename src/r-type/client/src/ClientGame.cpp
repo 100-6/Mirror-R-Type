@@ -222,11 +222,11 @@ void ClientGame::setup_systems() {
 }
 
 void ClientGame::setup_background() {
-    Entity background1 = registry_->spawn_entity();
-    registry_->add_component(background1, Position{0.0f, 0.0f});
-    registry_->add_component(background1, Background{});
-    registry_->add_component(background1, Scrollable{1.0f, true, false});
-    registry_->add_component(background1, ::Sprite{
+    background1_ = registry_->spawn_entity();
+    registry_->add_component(background1_, Position{0.0f, 0.0f});
+    registry_->add_component(background1_, Background{});
+    registry_->add_component(background1_, Scrollable{1.0f, true, false});
+    registry_->add_component(background1_, ::Sprite{
         texture_manager_->get_background(),
         static_cast<float>(screen_width_),
         static_cast<float>(screen_height_),
@@ -237,11 +237,11 @@ void ClientGame::setup_background() {
         -100
     });
 
-    Entity background2 = registry_->spawn_entity();
-    registry_->add_component(background2, Position{static_cast<float>(screen_width_), 0.0f});
-    registry_->add_component(background2, Background{});
-    registry_->add_component(background2, Scrollable{1.0f, true, false});
-    registry_->add_component(background2, ::Sprite{
+    background2_ = registry_->spawn_entity();
+    registry_->add_component(background2_, Position{static_cast<float>(screen_width_), 0.0f});
+    registry_->add_component(background2_, Background{});
+    registry_->add_component(background2_, Scrollable{1.0f, true, false});
+    registry_->add_component(background2_, ::Sprite{
         texture_manager_->get_background(),
         static_cast<float>(screen_width_),
         static_cast<float>(screen_height_),
@@ -260,6 +260,38 @@ void ClientGame::setup_background() {
     wave_ctrl.totalScrollDistance = 0.0f;
     wave_ctrl.allWavesCompleted = false;
     registry_->add_component(wave_tracker_, wave_ctrl);
+}
+
+void ClientGame::apply_map_theme(uint16_t map_id) {
+    current_map_id_ = map_id;
+
+    // Define color tint for each map
+    engine::Color tint;
+    switch (map_id) {
+        case 1:  // Nebula Outpost - default blue/cyan tint
+            tint = engine::Color{255, 255, 255, 255};  // No tint (original)
+            break;
+        case 2:  // Asteroid Belt - red/orange tint
+            tint = engine::Color{255, 150, 130, 255};
+            break;
+        case 3:  // Bydo Mothership - purple/violet tint
+            tint = engine::Color{200, 150, 255, 255};
+            break;
+        default:
+            tint = engine::Color{255, 255, 255, 255};
+            break;
+    }
+
+    // Apply tint to both background entities
+    auto& sprites = registry_->get_components<::Sprite>();
+    if (sprites.has_entity(background1_)) {
+        sprites[background1_].tint = tint;
+    }
+    if (sprites.has_entity(background2_)) {
+        sprites[background2_].tint = tint;
+    }
+
+    std::cout << "[ClientGame] Applied theme for map " << map_id << "\n";
 }
 
 void ClientGame::setup_network_callbacks() {
@@ -296,12 +328,15 @@ void ClientGame::setup_network_callbacks() {
         status_overlay_->refresh();
     });
 
-    network_client_->set_on_game_start([this](uint32_t session_id, uint16_t udp_port) {
+    network_client_->set_on_game_start([this](uint32_t session_id, uint16_t udp_port, uint16_t map_id) {
         (void)udp_port;
         status_overlay_->set_session("In game (session " + std::to_string(session_id) + ")");
         status_overlay_->refresh();
         entity_manager_->clear_all();
         screen_manager_->set_screen(GameScreen::PLAYING);
+
+        // Apply map-specific theme (background color)
+        apply_map_theme(map_id);
 
         auto& texts = registry_->get_components<UIText>();
         Entity status_entity = screen_manager_->get_status_entity();

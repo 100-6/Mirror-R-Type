@@ -99,11 +99,12 @@ public:
      * @param password Room password (optional, empty for no password)
      * @param mode Game mode
      * @param difficulty Difficulty level
+     * @param map_id Map identifier (1=Nebula Outpost, 2=Asteroid Belt, 3=Bydo Mothership)
      * @param max_players Maximum players (2-4)
      */
     void send_create_room(const std::string& room_name, const std::string& password,
                           protocol::GameMode mode, protocol::Difficulty difficulty,
-                          uint8_t max_players);
+                          uint16_t map_id, uint8_t max_players);
 
     /**
      * @brief Request to join a custom room
@@ -170,9 +171,9 @@ public:
 
     /**
      * @brief Set callback for game start
-     * @param callback Function receiving session_id and udp_port
+     * @param callback Function receiving session_id, udp_port, and map_id
      */
-    void set_on_game_start(std::function<void(uint32_t session_id, uint16_t udp_port)> callback);
+    void set_on_game_start(std::function<void(uint32_t session_id, uint16_t udp_port, uint16_t map_id)> callback);
 
     /**
      * @brief Set callback for entity spawn
@@ -319,7 +320,7 @@ private:
     std::function<void(uint8_t, const std::string&)> on_rejected_;
     std::function<void(const protocol::ServerLobbyStatePayload&, const std::vector<protocol::PlayerLobbyEntry>&)> on_lobby_state_;
     std::function<void(uint8_t)> on_countdown_;
-    std::function<void(uint32_t, uint16_t)> on_game_start_;
+    std::function<void(uint32_t, uint16_t, uint16_t)> on_game_start_;
     std::function<void(const protocol::ServerEntitySpawnPayload&)> on_entity_spawn_;
     std::function<void(const protocol::ServerEntityDestroyPayload&)> on_entity_destroy_;
     std::function<void(const protocol::ServerProjectileSpawnPayload&)> on_projectile_spawn_;

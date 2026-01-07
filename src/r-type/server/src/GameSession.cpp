@@ -5,6 +5,14 @@
 ** GameSession implementation
 */
 
+#include <cstring>
+
+#ifdef _WIN32
+    #include <winsock2.h>
+#else
+    #include <arpa/inet.h>
+#endif
+
 #include "GameSession.hpp"
 #include "ServerConfig.hpp"
 #include "systems/ShootingSystem.hpp"
@@ -116,12 +124,13 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
             }
         });
 
-    // Load wave configuration
-    std::string wave_file = WaveManager::get_map_file(game_mode, difficulty);
+    // Load wave configuration based on map_id
+    std::string wave_file = WaveManager::get_map_file(map_id);
     if (wave_manager_.load_from_file(wave_file)) {
-        std::cout << "[GameSession " << session_id_ << "] Loaded " << wave_manager_.get_total_waves() << " waves\n";
+        std::cout << "[GameSession " << session_id_ << "] Loaded " << wave_manager_.get_total_waves()
+                  << " waves from " << wave_file << "\n";
     } else {
-        std::cerr << "[GameSession " << session_id_ << "] Failed to load wave config\n";
+        std::cerr << "[GameSession " << session_id_ << "] Failed to load wave config: " << wave_file << "\n";
     }
     wave_manager_.set_listener(this);  // GameSession is the wave listener
 }

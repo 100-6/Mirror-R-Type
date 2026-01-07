@@ -58,6 +58,8 @@ void UIButton::draw(engine::IGraphicsPlugin* graphics) {
         color = disabled_color_;
     } else if (pressed_) {
         color = pressed_color_;
+    } else if (selected_) {
+        color = selected_color_;
     } else if (hovered_) {
         color = hover_color_;
     } else {
@@ -68,12 +70,16 @@ void UIButton::draw(engine::IGraphicsPlugin* graphics) {
     engine::Rectangle rect{x_, y_, width_, height_};
     graphics->draw_rectangle(rect, color);
 
-    // Draw button border
+    // Draw button border (thicker when selected)
     engine::Color border_color = {255, 255, 255, 255};
+    float border_thickness = 2.0f;
     if (!enabled_) {
         border_color = {150, 150, 150, 255};
+    } else if (selected_) {
+        border_color = {200, 255, 200, 255};  // Light green border for selected
+        border_thickness = 3.0f;
     }
-    graphics->draw_rectangle_outline(rect, border_color, 2.0f);
+    graphics->draw_rectangle_outline(rect, border_color, border_thickness);
 
     // Draw text centered (approximate centering - 10 pixels per char, 20 pixels font size)
     int text_width_approx = text_.length() * 10;

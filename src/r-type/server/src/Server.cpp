@@ -308,8 +308,9 @@ void Server::on_game_start(uint32_t lobby_id, const std::vector<uint32_t>& playe
 
     protocol::GameMode game_mode = room ? room->game_mode : lobby->game_mode;
     protocol::Difficulty difficulty = room ? room->difficulty : lobby->difficulty;
+    uint16_t map_id = room ? room->map_id : 1;  // Default to map 1 for matchmaking
     uint32_t session_id = generate_session_id();
-    auto* session = session_manager_->create_session(session_id, game_mode, difficulty, 0);
+    auto* session = session_manager_->create_session(session_id, game_mode, difficulty, map_id);
 
     for (uint32_t player_id : player_ids) {
         auto client_it = player_to_client_.find(player_id);
@@ -329,6 +330,7 @@ void Server::on_game_start(uint32_t lobby_id, const std::vector<uint32_t>& playe
         game_start.server_tick = ByteOrder::host_to_net32(0);
         game_start.level_seed = ByteOrder::host_to_net32(0);
         game_start.udp_port = ByteOrder::host_to_net16(udp_port_);
+        game_start.map_id = ByteOrder::host_to_net16(map_id);
         packet_sender_->send_tcp_packet(client_id, protocol::PacketType::SERVER_GAME_START,
                                        serialize(game_start));
     }
