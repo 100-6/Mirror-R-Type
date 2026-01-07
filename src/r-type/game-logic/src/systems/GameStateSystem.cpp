@@ -7,6 +7,7 @@
 
 #include "systems/GameStateSystem.hpp"
 #include "ecs/events/InputEvents.hpp"
+#include "AssetsPaths.hpp"
 #include <sstream>
 #include <iomanip>
 #include <iostream>
@@ -34,7 +35,7 @@ void GameStateSystem::init(Registry& registry) {
     });
 
     // Load background texture for Game Over/Victory screens
-    m_backgroundTexture = m_graphicsPlugin.load_texture("assets/sprite/background_rtype_menu.png");
+    m_backgroundTexture = m_graphicsPlugin.load_texture(assets::paths::BACKGROUND_MENU);
     if (m_backgroundTexture == engine::INVALID_HANDLE) {
         std::cerr << "GameStateSystem: Failed to load background texture!" << std::endl;
     } else {
