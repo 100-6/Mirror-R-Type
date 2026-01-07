@@ -62,9 +62,17 @@ void CollisionSystem::update(Registry& registry, float dt)
 
     auto& damages = registry.get_components<Damage>();
     auto& projectiles = registry.get_components<Projectile>();
+    auto hide_projectile_sprite = [&registry](Entity projectile) {
+        if (!registry.has_component_registered<Sprite>())
+            return;
+        auto& sprites = registry.get_components<Sprite>();
+        if (!sprites.has_entity(projectile))
+            return;
+        registry.remove_component<Sprite>(projectile);
+    };
 
     // Collision Projectile (joueur) vs Enemy : Applique les dégâts à l'ennemi
-    scan_collisions<Projectile, Enemy>(registry, [&registry, &damages, &projectiles](Entity bullet, Entity enemy) {
+    scan_collisions<Projectile, Enemy>(registry, [&registry, &damages, &projectiles, &hide_projectile_sprite](Entity bullet, Entity enemy) {
         if (!projectiles.has_entity(bullet))
             return;
 
@@ -72,6 +80,8 @@ void CollisionSystem::update(Registry& registry, float dt)
             return;
 
         registry.add_component(bullet, ToDestroy{});
+        hide_projectile_sprite(bullet);
+        // TODO: publier un ProjectileHitEvent ici pour déclencher un VFX/SFX côté client.
 
         int dmg = damages.has_entity(bullet) ? damages[bullet].value : 10;
         registry.get_event_bus().publish(ecs::DamageEvent{enemy, bullet, dmg});
@@ -79,7 +89,7 @@ void CollisionSystem::update(Registry& registry, float dt)
 
     // Collision Projectile (ennemi) vs Player : Applique les dégâts au joueur (ou casse le bouclier)
     auto& shields = registry.get_components<Shield>();
-    scan_collisions<Projectile, Controllable>(registry, [&registry, &damages, &projectiles, &shields](Entity bullet, Entity player) {
+    scan_collisions<Projectile, Controllable>(registry, [&registry, &damages, &projectiles, &shields, &hide_projectile_sprite](Entity bullet, Entity player) {
         if (!projectiles.has_entity(bullet))
             return;
 
@@ -87,6 +97,8 @@ void CollisionSystem::update(Registry& registry, float dt)
             return;
 
         registry.add_component(bullet, ToDestroy{});
+        hide_projectile_sprite(bullet);
+        // TODO: publier un ProjectileHitEvent ici pour déclencher un VFX/SFX côté client.
 
         // Vérifier si le joueur a un bouclier actif
         if (shields.has_entity(player) && shields[player].active) {
@@ -101,9 +113,11 @@ void CollisionSystem::update(Registry& registry, float dt)
     });
 
     // Collision Projectile vs Wall : Marque le projectile pour destruction
-    scan_collisions<Projectile, Wall>(registry, [&registry](Entity bullet, Entity wall) {
+    scan_collisions<Projectile, Wall>(registry, [&registry, &hide_projectile_sprite](Entity bullet, Entity wall) {
         (void)wall;
         registry.add_component(bullet, ToDestroy{});
+        hide_projectile_sprite(bullet);
+        // TODO: publier un ProjectileHitEvent spécifique aux murs pour feedback visuel.
     });
 
     // Collision Player (Controllable) vs Enemy : Publie PlayerHitEvent
