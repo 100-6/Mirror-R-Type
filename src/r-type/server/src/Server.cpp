@@ -424,15 +424,15 @@ void Server::on_game_over(uint32_t session_id, const std::vector<uint32_t>& play
 {
     std::cout << "[Server] Game over for session " << session_id
               << (is_victory ? " - VICTORY!" : " - DEFEAT!") << "\n";
-    auto* session = session_manager_->get_session(session_id);
+
     protocol::ServerGameOverPayload game_over;
     game_over.result = is_victory ? protocol::GameResult::VICTORY : protocol::GameResult::DEFEAT;
 
-    if (session) {
-        packet_sender_->broadcast_udp_to_session(session_id, protocol::PacketType::SERVER_GAME_OVER,
-                                                serialize(game_over), session->get_player_ids(),
-                                                connected_clients_);
-    }
+    // Send message using player_ids parameter directly (session might be deleted by cleanup)
+    packet_sender_->broadcast_udp_to_session(session_id, protocol::PacketType::SERVER_GAME_OVER,
+                                            serialize(game_over), player_ids,
+                                            connected_clients_);
+
     for (uint32_t player_id : player_ids) {
         auto client_it = player_to_client_.find(player_id);
         if (client_it == player_to_client_.end())
