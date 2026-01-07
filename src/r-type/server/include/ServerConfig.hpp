@@ -47,8 +47,8 @@ constexpr float GAME_SCROLL_SPEED = 50.0f;                                   // 
 constexpr float PLAYER_MOVEMENT_SPEED = 200.0f;                              // pixels per second
 constexpr uint16_t PLAYER_MAX_HEALTH = 100;
 constexpr uint8_t PLAYER_LIVES = 3;
-constexpr float PLAYER_WIDTH = 128.0f;                                       // Player hitbox width
-constexpr float PLAYER_HEIGHT = 128.0f;                                      // Player hitbox height
+constexpr float PLAYER_WIDTH = 64.0f;                                       // Player hitbox width
+constexpr float PLAYER_HEIGHT = 64.0f;                                      // Player hitbox height
 
 // === Projectile Configuration ===
 constexpr float PROJECTILE_SPEED = 500.0f;                                   // pixels per second

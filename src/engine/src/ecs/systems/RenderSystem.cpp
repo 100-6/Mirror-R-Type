@@ -111,15 +111,9 @@ void RenderSystem::update(Registry& registry, float dt)
 
             const Position& pos = positions[entity];
 
-            // Calculer le centre (avec offset si collider présent)
+            // Position is already center-based, just apply offset
             float centerX = pos.x + circle.offsetX;
             float centerY = pos.y + circle.offsetY;
-
-            if (colliders.has_entity(entity)) {
-                const Collider& col = colliders[entity];
-                centerX = pos.x + col.width / 2.0f + circle.offsetX;
-                centerY = pos.y + col.height / 2.0f + circle.offsetY;
-            }
 
             graphics_plugin.draw_circle(engine::Vector2f{centerX, centerY}, circle.radius, circle.color);
         }

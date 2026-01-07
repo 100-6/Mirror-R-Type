@@ -3,8 +3,8 @@
 namespace rtype::shared::dimensions {
 
 // Vaisseaux
-constexpr float PLAYER_WIDTH = 128.0f;
-constexpr float PLAYER_HEIGHT = 128.0f;
+constexpr float PLAYER_WIDTH = 64.0f;
+constexpr float PLAYER_HEIGHT = 64.0f;
 
 constexpr float PROJECTILE_WIDTH = 28.0f;
 constexpr float PROJECTILE_HEIGHT = 12.0f;

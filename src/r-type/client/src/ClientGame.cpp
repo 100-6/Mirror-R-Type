@@ -6,6 +6,7 @@
 #include "ecs/systems/RenderSystem.hpp"
 #include "systems/HUDSystem.hpp"
 #include "systems/LocalPredictionSystem.hpp"
+#include "systems/ColliderDebugSystem.hpp"
 #include "protocol/NetworkConfig.hpp"
 #include "protocol/Payloads.hpp"
 #include "plugin_manager/PluginPaths.hpp"
@@ -218,6 +219,7 @@ void ClientGame::setup_systems() {
     }
 
     registry_->register_system<RenderSystem>(*graphics_plugin_);
+    registry_->register_system<ColliderDebugSystem>(*graphics_plugin_);
     registry_->register_system<HUDSystem>(*graphics_plugin_, screen_width_, screen_height_);
 }
 
@@ -612,7 +614,7 @@ void ClientGame::run() {
         }
 
         graphics_plugin_->display();
-        input_plugin_->update();
+        input_plugin_->update();  // Update at END of frame for proper just_pressed detection
     }
 }
 

@@ -22,6 +22,7 @@ set(RTYPE_CLIENT_SOURCES
     src/screens/PasswordDialog.cpp
     src/SpaceshipManager.cpp
     src/systems/LocalPredictionSystem.cpp
+    src/systems/ColliderDebugSystem.cpp
 )
 
 add_executable(r-type_client ${RTYPE_CLIENT_SOURCES})

@@ -223,7 +223,11 @@ void GameSession::spawn_player_entity(GamePlayer& player)
     float spawn_x = config::PLAYER_SPAWN_X;
     float spawn_y = config::PLAYER_SPAWN_Y_BASE + (players_.size() * config::PLAYER_SPAWN_Y_OFFSET);
 
-    registry_.add_component(entity, Position{spawn_x, spawn_y});
+    // Convert top-left spawn position to center-based position
+    float center_x = spawn_x + config::PLAYER_WIDTH / 2.0f;
+    float center_y = spawn_y + config::PLAYER_HEIGHT / 2.0f;
+
+    registry_.add_component(entity, Position{center_x, center_y});
     registry_.add_component(entity, Velocity{0.0f, 0.0f});
     registry_.add_component(entity, Health{static_cast<int>(config::PLAYER_MAX_HEALTH), static_cast<int>(config::PLAYER_MAX_HEALTH)});
     registry_.add_component(entity, Controllable{config::PLAYER_MOVEMENT_SPEED});
@@ -320,7 +324,11 @@ void GameSession::on_spawn_enemy(const std::string& enemy_type, float x, float y
         subtype = protocol::EnemySubtype::BOSS;
     }
 
-    registry_.add_component(enemy, Position{x, y});
+    // Convert top-left position to center-based position
+    float center_x = x + width / 2.0f;
+    float center_y = y + height / 2.0f;
+
+    registry_.add_component(enemy, Position{center_x, center_y});
     registry_.add_component(enemy, Velocity{velocity_x, 0.0f});
     registry_.add_component(enemy, Health{static_cast<int>(health), static_cast<int>(health)});
     registry_.add_component(enemy, Enemy{});
@@ -338,7 +346,11 @@ void GameSession::on_spawn_wall(float x, float y)
 {
     Entity wall = registry_.spawn_entity();
 
-    registry_.add_component(wall, Position{x, y});
+    // Convert top-left position to center-based position
+    float center_x = x + config::WALL_WIDTH / 2.0f;
+    float center_y = y + config::WALL_HEIGHT / 2.0f;
+
+    registry_.add_component(wall, Position{center_x, center_y});
     registry_.add_component(wall, Velocity{-config::GAME_SCROLL_SPEED, 0.0f});
     registry_.add_component(wall, Collider{config::WALL_WIDTH, config::WALL_HEIGHT});
     registry_.add_component(wall, Wall{});
@@ -355,7 +367,11 @@ void GameSession::on_spawn_powerup(const std::string& bonus_type, float x, float
 {
     Entity powerup = registry_.spawn_entity();
 
-    registry_.add_component(powerup, Position{x, y});
+    // Convert top-left position to center-based position
+    float center_x = x + config::BONUS_SIZE / 2.0f;
+    float center_y = y + config::BONUS_SIZE / 2.0f;
+
+    registry_.add_component(powerup, Position{center_x, center_y});
     registry_.add_component(powerup, Velocity{-config::GAME_SCROLL_SPEED, 0.0f});
     registry_.add_component(powerup, Collider{config::BONUS_SIZE, config::BONUS_SIZE});
     registry_.add_component(powerup, Bonus{});
