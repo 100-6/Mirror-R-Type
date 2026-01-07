@@ -4,6 +4,7 @@ add_executable(r-type_server
     src/NetworkHandler.cpp
     src/PacketSender.cpp
     src/GameSessionManager.cpp
+    src/SessionThreadPool.cpp
     src/LobbyManager.cpp
     src/RoomManager.cpp
     src/GameSession.cpp
@@ -19,10 +20,13 @@ target_include_directories(r-type_server
         ${CMAKE_SOURCE_DIR}/src/r-type/game-logic/include
 )
 
+find_package(Threads REQUIRED)
+
 target_link_libraries(r-type_server
     PRIVATE
         game_engine
         rtype_logic
+        Threads::Threads
 )
 
 if(WIN32)

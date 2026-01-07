@@ -12,6 +12,7 @@
 #include <vector>
 #include <cstdint>
 #include <atomic>
+#include <mutex>
 
 #include "plugin_manager/INetworkPlugin.hpp"
 #include "plugin_manager/PluginManager.hpp"
@@ -95,6 +96,14 @@ private:
     uint32_t generate_player_id();
     uint32_t generate_session_id();
 
+    /**
+     * @brief Broadcast all queued session events after barrier
+     *
+     * This method is called after session_manager_->update_all() completes.
+     * It drains all queued events from ServerNetworkSystem and broadcasts them.
+     */
+    void broadcast_all_session_events();
+
     engine::PluginManager plugin_manager_;
     engine::INetworkPlugin* network_plugin_;
     std::unique_ptr<NetworkHandler> network_handler_;
@@ -106,6 +115,7 @@ private:
     bool listen_on_all_interfaces_;
     std::atomic<bool> running_;
 
+    std::mutex connected_clients_mutex_;
     std::unordered_map<uint32_t, PlayerInfo> connected_clients_;
     std::unordered_map<uint32_t, uint32_t> player_to_client_;
     uint32_t next_player_id_;

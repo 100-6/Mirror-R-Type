@@ -33,22 +33,17 @@ ServerNetworkSystem::ServerNetworkSystem(uint32_t session_id, float snapshot_int
 void ServerNetworkSystem::init(Registry& registry)
 {
     std::cout << "[ServerNetworkSystem " << session_id_ << "] Initialized\n";
-
-    // Subscribe to ShotFiredEvent from ShootingSystem
     shotFiredSubId_ = registry.get_event_bus().subscribe<ecs::ShotFiredEvent>(
         [this, &registry](const ecs::ShotFiredEvent& event) {
             auto& velocities = registry.get_components<Velocity>();
             auto& positions = registry.get_components<Position>();
             auto& projectiles = registry.get_components<Projectile>();
-
             if (!velocities.has_entity(event.projectile) ||
                 !positions.has_entity(event.projectile) ||
                 !projectiles.has_entity(event.projectile))
                 return;
-
             const auto& vel = velocities[event.projectile];
             const auto& pos = positions[event.projectile];
-
             protocol::ServerProjectileSpawnPayload spawn;
             spawn.projectile_id = ByteOrder::host_to_net32(event.projectile);
             spawn.owner_id = ByteOrder::host_to_net32(event.shooter);
@@ -57,33 +52,30 @@ void ServerNetworkSystem::init(Registry& registry)
             spawn.spawn_y = pos.y;
             spawn.velocity_x = static_cast<int16_t>(vel.x);
             spawn.velocity_y = static_cast<int16_t>(vel.y);
-
-            pending_projectiles_.push(spawn);
+            {
+                std::lock_guard lock(projectiles_mutex_);
+                pending_projectiles_.push(spawn);
+            }
             std::cout << "[SHOOT] Queued projectile " << event.projectile
                       << " from shooter " << event.shooter << "\n";
         });
-
-    // Subscribe to EnemyKilledEvent for score updates
     enemyKilledSubId_ = registry.get_event_bus().subscribe<ecs::EnemyKilledEvent>(
         [this, &registry](const ecs::EnemyKilledEvent& event) {
             auto& scores = registry.get_components<Score>();
-            
-            // Get current total score (from any player, as they are synced)
             uint32_t current_total_score = 0;
             if (player_entities_ && !player_entities_->empty()) {
                 Entity first_player = player_entities_->begin()->second;
-                if (scores.has_entity(first_player)) {
+                if (scores.has_entity(first_player))
                     current_total_score = scores[first_player].value;
-                }
             }
-
             protocol::ServerScoreUpdatePayload score_update;
             score_update.score_delta = ByteOrder::host_to_net32(event.scoreValue);
-            // ScoreSystem has already updated the component, so current_total_score is the NEW score
             score_update.new_total_score = ByteOrder::host_to_net32(current_total_score);
-            
-            pending_scores_.push(score_update);
-            std::cout << "[SCORE] Queued score update: +" << event.scoreValue 
+            {
+                std::lock_guard lock(scores_mutex_);
+                pending_scores_.push(score_update);
+            }
+            std::cout << "[SCORE] Queued score update: +" << event.scoreValue
                       << " (Total: " << current_total_score << ")\n";
         });
 
@@ -94,27 +86,23 @@ void ServerNetworkSystem::init(Registry& registry)
             payload.position_x = event.x;
             payload.position_y = event.y;
             payload.effect_scale = event.scale;
-            pending_explosions_.push(payload);
+            {
+                std::lock_guard lock(explosions_mutex_);
+                pending_explosions_.push(payload);
+            }
         });
 }
 
 void ServerNetworkSystem::update(Registry& registry, float dt)
 {
-    // Update cooldowns
     for (auto& [player_id, cooldown] : shoot_cooldowns_)
         cooldown += dt;
     for (auto& [player_id, cooldown] : switch_cooldowns_)
         cooldown += dt;
     for (auto& [enemy_id, cooldown] : enemy_shoot_cooldowns_)
         cooldown += dt;
-
-    // 1. Process pending inputs
     process_pending_inputs(registry);
-
-    // 2. Update enemy shooting
     update_enemy_shooting(registry, dt);
-
-    // 3. Update projectile lifetimes
     auto& projectiles = registry.get_components<Projectile>();
     for (size_t i = 0; i < projectiles.size(); ++i) {
         Entity entity = projectiles.get_entity_at(i);
@@ -123,28 +111,17 @@ void ServerNetworkSystem::update(Registry& registry, float dt)
         if (proj.time_alive >= proj.lifetime)
             registry.add_component(entity, ToDestroy{});
     }
-
-    // 4. Queue destroy notifications for entities marked ToDestroy
     auto& to_destroy = registry.get_components<ToDestroy>();
     for (size_t i = 0; i < to_destroy.size(); ++i) {
         Entity entity = to_destroy.get_entity_at(i);
         queue_entity_destroy(entity);
     }
-
-    // 5. Send snapshot if interval reached
     snapshot_timer_ += dt;
     if (snapshot_timer_ >= snapshot_interval_) {
         send_state_snapshot(registry);
         snapshot_timer_ = 0.0f;
         tick_count_++;
     }
-
-    // 6. Broadcast pending events
-    broadcast_pending_spawns();
-    broadcast_pending_destroys();
-    broadcast_pending_projectiles();
-    broadcast_pending_explosions();
-    broadcast_pending_scores();
 }
 
 void ServerNetworkSystem::shutdown()
@@ -167,11 +144,14 @@ void ServerNetworkSystem::queue_entity_spawn(Entity entity, protocol::EntityType
     spawn.spawn_y = y;
     spawn.subtype = subtype;
     spawn.health = ByteOrder::host_to_net16(health);
+
+    std::lock_guard lock(spawns_mutex_);
     pending_spawns_.push(spawn);
 }
 
 void ServerNetworkSystem::queue_entity_destroy(Entity entity)
 {
+    std::lock_guard lock(destroys_mutex_);
     pending_destroys_.push(entity);
 }
 
@@ -179,27 +159,20 @@ void ServerNetworkSystem::process_pending_inputs(Registry& registry)
 {
     if (!player_entities_)
         return;
-
     auto& velocities = registry.get_components<Velocity>();
 
     while (!pending_inputs_.empty()) {
         auto [player_id, input] = pending_inputs_.front();
         pending_inputs_.pop();
-
         auto it = player_entities_->find(player_id);
         if (it == player_entities_->end())
             continue;
-
         Entity player_entity = it->second;
         if (!velocities.has_entity(player_entity))
             continue;
-
         Velocity& vel = velocities[player_entity];
-
-        // Apply input to velocity
         vel.x = 0.0f;
         vel.y = 0.0f;
-
         if (input.is_up_pressed())
             vel.y = -config::PLAYER_MOVEMENT_SPEED;
         if (input.is_down_pressed())
@@ -208,13 +181,10 @@ void ServerNetworkSystem::process_pending_inputs(Registry& registry)
             vel.x = -config::PLAYER_MOVEMENT_SPEED;
         if (input.is_right_pressed())
             vel.x = config::PLAYER_MOVEMENT_SPEED;
-
-        // Handle shooting via events
         auto& weapons = registry.get_components<Weapon>();
         if (weapons.has_entity(player_entity)) {
             bool was_held = weapons[player_entity].trigger_held;
             bool is_pressed = input.is_shoot_pressed();
-
             if (is_pressed && !was_held) {
                 std::cout << "[SHOOT] PlayerStartFireEvent for player " << player_id << "\n";
                 registry.get_event_bus().publish(ecs::PlayerStartFireEvent{player_entity});
@@ -223,12 +193,9 @@ void ServerNetworkSystem::process_pending_inputs(Registry& registry)
                 registry.get_event_bus().publish(ecs::PlayerStopFireEvent{player_entity});
             }
         }
-
-        // Handle weapon switch
         if (input.is_switch_weapon_pressed()) {
             if (switch_cooldowns_.find(player_id) == switch_cooldowns_.end())
                 switch_cooldowns_[player_id] = SWITCH_COOLDOWN;
-
             if (switch_cooldowns_[player_id] >= SWITCH_COOLDOWN) {
                 if (weapons.has_entity(player_entity)) {
                     Weapon& w = weapons[player_entity];
@@ -254,7 +221,6 @@ std::vector<uint8_t> ServerNetworkSystem::serialize_snapshot(Registry& registry)
 {
     protocol::ServerSnapshotPayload snapshot;
     snapshot.server_tick = ByteOrder::host_to_net32(tick_count_);
-
     std::vector<uint8_t> payload;
     const uint8_t* header_bytes = reinterpret_cast<const uint8_t*>(&snapshot);
     payload.insert(payload.end(), header_bytes, header_bytes + sizeof(snapshot));
@@ -263,25 +229,18 @@ std::vector<uint8_t> ServerNetworkSystem::serialize_snapshot(Registry& registry)
     auto& velocities = registry.get_components<Velocity>();
     auto& healths = registry.get_components<Health>();
     auto& to_destroy = registry.get_components<ToDestroy>();
-
     uint16_t entity_count = 0;
     std::vector<protocol::EntityState> entity_states;
-
     for (size_t i = 0; i < positions.size(); ++i) {
         Entity entity = positions.get_entity_at(i);
-
-        // Skip entities marked for destruction
         if (to_destroy.has_entity(entity))
             continue;
-
         Position& pos = positions.get_data_at(i);
-
         protocol::EntityState state;
         state.entity_id = ByteOrder::host_to_net32(entity);
         state.entity_type = protocol::EntityType::PLAYER;
         state.position_x = pos.x;
         state.position_y = pos.y;
-
         if (velocities.has_entity(entity)) {
             Velocity& vel = velocities[entity];
             state.velocity_x = static_cast<int16_t>(vel.x * 10.0f);
@@ -290,27 +249,22 @@ std::vector<uint8_t> ServerNetworkSystem::serialize_snapshot(Registry& registry)
             state.velocity_x = 0;
             state.velocity_y = 0;
         }
-
         if (healths.has_entity(entity)) {
             Health& health = healths[entity];
             state.health = ByteOrder::host_to_net16(static_cast<uint16_t>(health.current));
         } else {
             state.health = 0;
         }
-
         state.flags = 0;
         entity_states.push_back(state);
         entity_count++;
     }
-
     snapshot.entity_count = ByteOrder::host_to_net16(entity_count);
     Memory::copy(payload.data(), &snapshot, sizeof(snapshot));
-
     for (const auto& state : entity_states) {
         const uint8_t* state_bytes = reinterpret_cast<const uint8_t*>(&state);
         payload.insert(payload.end(), state_bytes, state_bytes + sizeof(state));
     }
-
     return payload;
 }
 
@@ -318,7 +272,6 @@ void ServerNetworkSystem::broadcast_pending_spawns()
 {
     if (!listener_)
         return;
-
     while (!pending_spawns_.empty()) {
         const auto& spawn = pending_spawns_.front();
         listener_->on_entity_spawned(session_id_, serialize(spawn));
@@ -330,7 +283,6 @@ void ServerNetworkSystem::broadcast_pending_destroys()
 {
     if (!listener_)
         return;
-
     while (!pending_destroys_.empty()) {
         uint32_t entity_id = pending_destroys_.front();
         listener_->on_entity_destroyed(session_id_, entity_id);
@@ -342,7 +294,6 @@ void ServerNetworkSystem::broadcast_pending_projectiles()
 {
     if (!listener_)
         return;
-
     while (!pending_projectiles_.empty()) {
         const auto& proj = pending_projectiles_.front();
         listener_->on_projectile_spawned(session_id_, serialize(proj));
@@ -355,7 +306,6 @@ void ServerNetworkSystem::broadcast_pending_explosions()
 {
     if (!listener_)
         return;
-
     while (!pending_explosions_.empty()) {
         const auto& payload = pending_explosions_.front();
         listener_->on_explosion_triggered(session_id_, serialize(payload));
@@ -367,14 +317,11 @@ void ServerNetworkSystem::broadcast_pending_scores()
 {
     if (!listener_)
         return;
-
     while (!pending_scores_.empty()) {
         const auto& score = pending_scores_.front();
-        
         std::vector<uint8_t> payload;
         const uint8_t* bytes = reinterpret_cast<const uint8_t*>(&score);
         payload.insert(payload.end(), bytes, bytes + sizeof(score));
-        
         listener_->on_score_updated(session_id_, payload);
         pending_scores_.pop();
     }
@@ -390,7 +337,6 @@ void ServerNetworkSystem::spawn_projectile(Registry& registry, Entity owner, flo
     registry.add_component(projectile, Damage{config::PROJECTILE_DAMAGE});
     registry.add_component(projectile, Projectile{0.0f, config::PROJECTILE_LIFETIME, 0.0f, ProjectileFaction::Player});
     registry.add_component(projectile, NoFriction{});
-
     protocol::ServerProjectileSpawnPayload spawn;
     spawn.projectile_id = ByteOrder::host_to_net32(projectile);
     spawn.owner_id = ByteOrder::host_to_net32(owner);
@@ -400,7 +346,6 @@ void ServerNetworkSystem::spawn_projectile(Registry& registry, Entity owner, flo
     spawn.velocity_x = static_cast<int16_t>(config::PROJECTILE_SPEED);
     spawn.velocity_y = 0;
     pending_projectiles_.push(spawn);
-
     std::cout << "[ServerNetworkSystem " << session_id_ << "] Spawned projectile " << projectile
               << " from entity " << owner << " at (" << x << ", " << y << ")\n";
 }
@@ -415,7 +360,6 @@ void ServerNetworkSystem::spawn_enemy_projectile(Registry& registry, Entity owne
     registry.add_component(projectile, Damage{config::ENEMY_PROJECTILE_DAMAGE});
     registry.add_component(projectile, Projectile{0.0f, config::PROJECTILE_LIFETIME, 0.0f, ProjectileFaction::Enemy});
     registry.add_component(projectile, NoFriction{});
-
     protocol::ServerProjectileSpawnPayload spawn;
     spawn.projectile_id = ByteOrder::host_to_net32(projectile);
     spawn.owner_id = ByteOrder::host_to_net32(owner);
@@ -425,7 +369,6 @@ void ServerNetworkSystem::spawn_enemy_projectile(Registry& registry, Entity owne
     spawn.velocity_x = static_cast<int16_t>(-config::PROJECTILE_SPEED);
     spawn.velocity_y = 0;
     pending_projectiles_.push(spawn);
-
     std::cout << "[ServerNetworkSystem " << session_id_ << "] Enemy " << owner
               << " spawned projectile " << projectile << " at (" << x << ", " << y << ")\n";
 }
@@ -439,39 +382,29 @@ void ServerNetworkSystem::update_enemy_shooting(Registry& registry, float dt)
     auto& enemy_positions = registry.get_components<Position>();
     auto& enemy_colliders = registry.get_components<Collider>();
     auto& player_positions = registry.get_components<Position>();
-
     for (size_t i = 0; i < enemies.size(); ++i) {
         Entity enemy = enemies.get_entity_at(i);
-
         if (!enemy_positions.has_entity(enemy) || !enemy_colliders.has_entity(enemy))
             continue;
-
         Position& enemy_pos = enemy_positions[enemy];
         Collider& enemy_col = enemy_colliders[enemy];
-
         if (enemy_shoot_cooldowns_.find(enemy) == enemy_shoot_cooldowns_.end())
             enemy_shoot_cooldowns_[enemy] = ENEMY_SHOOT_COOLDOWN;
-
         if (enemy_shoot_cooldowns_[enemy] < ENEMY_SHOOT_COOLDOWN)
             continue;
-
         bool player_in_range = false;
         for (const auto& [player_id, player_entity] : *player_entities_) {
             if (!player_positions.has_entity(player_entity))
                 continue;
-
             Position& player_pos = player_positions[player_entity];
-
             float dx = player_pos.x - enemy_pos.x;
             float dy = player_pos.y - enemy_pos.y;
             float distance = std::sqrt(dx * dx + dy * dy);
-
             if (distance <= ENEMY_SHOOT_RANGE && dx < 0) {
                 player_in_range = true;
                 break;
             }
         }
-
         if (player_in_range) {
             float spawn_x = enemy_pos.x;
             float spawn_y = enemy_pos.y + enemy_col.height / 2.0f - config::PROJECTILE_HEIGHT / 2.0f;
@@ -479,6 +412,46 @@ void ServerNetworkSystem::update_enemy_shooting(Registry& registry, float dt)
             enemy_shoot_cooldowns_[enemy] = 0.0f;
         }
     }
+}
+
+std::queue<protocol::ServerEntitySpawnPayload> ServerNetworkSystem::drain_pending_spawns()
+{
+    std::lock_guard lock(spawns_mutex_);
+    std::queue<protocol::ServerEntitySpawnPayload> temp;
+    temp.swap(pending_spawns_);
+    return temp;
+}
+
+std::queue<uint32_t> ServerNetworkSystem::drain_pending_destroys()
+{
+    std::lock_guard lock(destroys_mutex_);
+    std::queue<uint32_t> temp;
+    temp.swap(pending_destroys_);
+    return temp;
+}
+
+std::queue<protocol::ServerProjectileSpawnPayload> ServerNetworkSystem::drain_pending_projectiles()
+{
+    std::lock_guard lock(projectiles_mutex_);
+    std::queue<protocol::ServerProjectileSpawnPayload> temp;
+    temp.swap(pending_projectiles_);
+    return temp;
+}
+
+std::queue<protocol::ServerExplosionPayload> ServerNetworkSystem::drain_pending_explosions()
+{
+    std::lock_guard lock(explosions_mutex_);
+    std::queue<protocol::ServerExplosionPayload> temp;
+    temp.swap(pending_explosions_);
+    return temp;
+}
+
+std::queue<protocol::ServerScoreUpdatePayload> ServerNetworkSystem::drain_pending_scores()
+{
+    std::lock_guard lock(scores_mutex_);
+    std::queue<protocol::ServerScoreUpdatePayload> temp;
+    temp.swap(pending_scores_);
+    return temp;
 }
 
 }
