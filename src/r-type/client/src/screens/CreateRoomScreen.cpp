@@ -207,25 +207,24 @@ void CreateRoomScreen::update(engine::IGraphicsPlugin* graphics, engine::IInputP
         return; 
     }
 
-    // Check if any text field is focused
-    if (!createroom::Updater::is_any_field_focused(fields_)) {
-        // Update step-specific content
-        switch (current_step_) {
-            case Step::ROOM_INFO:
-                update_room_info_step(graphics, input);
-                break;
-            case Step::MAP_SELECTION:
-                update_map_selection_step(graphics, input);
-                break;
-            case Step::DIFFICULTY:
-                update_difficulty_step(graphics, input);
-                break;
-            case Step::GAME_MODE:
-                update_game_mode_step(graphics, input);
-                break;
-        }
+    // Update step-specific content (always - text fields need updates even when focused!)
+    switch (current_step_) {
+        case Step::ROOM_INFO:
+            update_room_info_step(graphics, input);
+            break;
+        case Step::MAP_SELECTION:
+            update_map_selection_step(graphics, input);
+            break;
+        case Step::DIFFICULTY:
+            update_difficulty_step(graphics, input);
+            break;
+        case Step::GAME_MODE:
+            update_game_mode_step(graphics, input);
+            break;
+    }
 
-        // Update navigation buttons
+    // Update navigation buttons only when no text field is focused
+    if (!createroom::Updater::is_any_field_focused(fields_)) {
         createroom::Updater::update_navigation_buttons(nav_buttons_, graphics, input);
     }
 }
