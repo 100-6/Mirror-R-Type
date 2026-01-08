@@ -151,29 +151,81 @@ void ChunkManagerSystem::loadChunk(Registry& registry, int segmentId, int chunkI
     chunk.tiles.resize(chunk.height);
     chunk.entities.clear();
     
+    // Track processed tiles for greedy merging
+    std::vector<std::vector<bool>> processed(chunk.height, std::vector<bool>(chunk.width, false));
+
+    // Populate actual tiles first
     for (int y = 0; y < chunk.height; ++y) {
         chunk.tiles[y].resize(chunk.width);
+        for (int x = 0; x < chunk.width; ++x) { 
+            chunk.tiles[y][x] = processedPadded[y][x + 1];
+        }
+    }
+
+    for (int y = 0; y < chunk.height; ++y) {
         for (int x = 0; x < chunk.width; ++x) {
-            auto& tile = processedPadded[y][x + 1];
-            chunk.tiles[y][x] = tile;
-            
-            // Spawn collider entity if tile is not empty
-            if (tile.type != TileType::EMPTY) {
-                auto entity = registry.spawn_entity();
-                
-                float size = static_cast<float>(m_config.tileSize);
-                
-                // Center-based coordinates for collision
-                float localX = x * m_config.tileSize + size / 2.0f;
-                float localY = y * m_config.tileSize + size / 2.0f;
-                
-                // Position will be updated in update()
-                registry.add_component(entity, Position{ chunk.worldX + localX - m_scrollX, localY });
-                registry.add_component(entity, Collider{ size, size });
-                registry.add_component(entity, Wall{});
-                
-                chunk.entities.push_back({ entity, localX, localY });
+            // content of tiles is already filled above
+            if (chunk.tiles[y][x].type == TileType::EMPTY || processed[y][x]) {
+                continue;
             }
+
+            // Start a new merged block
+            int w = 1;
+            int h = 1;
+
+            // Expand Horizontally
+            while (x + w < chunk.width && 
+                   chunk.tiles[y][x + w].type != TileType::EMPTY && 
+                   !processed[y][x + w]) {
+                w++;
+            }
+
+            // Expand Vertically
+            bool canExpandDown = true;
+            while (y + h < chunk.height && canExpandDown) {
+                // Check if the whole row below is valid and matches
+                for (int k = 0; k < w; ++k) {
+                    if (chunk.tiles[y + h][x + k].type == TileType::EMPTY || 
+                        processed[y + h][x + k]) {
+                        canExpandDown = false;
+                        break;
+                    }
+                }
+                if (canExpandDown) {
+                    h++;
+                }
+            }
+
+            // Mark these tiles as processed
+            for (int dy = 0; dy < h; ++dy) {
+                for (int dx = 0; dx < w; ++dx) {
+                    processed[y + dy][x + dx] = true;
+                }
+            }
+
+            // Create the merged entity
+            auto entity = registry.spawn_entity();
+            
+            float tileSize = static_cast<float>(m_config.tileSize);
+            float totalW = w * tileSize;
+            float totalH = h * tileSize;
+
+            // Top-left of the merged block in local coordinates
+            float startLocalX = x * tileSize;
+            float startLocalY = y * tileSize;
+
+            // Center of the merged block
+            float centerX = startLocalX + totalW * 0.5f;
+            float centerY = startLocalY + totalH * 0.5f;
+
+            // Register entity (position updated in update() for visual debug only)
+            // NOTE: These walls are CLIENT-ONLY for visual debugging
+            // Actual collision walls are spawned by WaveManager on SERVER
+            registry.add_component(entity, Position{ chunk.worldX + centerX - m_scrollX, centerY });
+            registry.add_component(entity, Collider{ totalW, totalH });
+            registry.add_component(entity, Wall{});
+            
+            chunk.entities.push_back({ entity, centerX, centerY });
         }
     }
     
@@ -245,8 +297,8 @@ void ChunkManagerSystem::update(Registry& registry, float dt) {
         // Initial load if empty
         loadChunk(registry, 0, 0);
     }
-    
-    // Update positions of all wall entities based on scroll
+
+    // Update positions of all wall entities based on scroll (for visual debug display)
     auto& positions = registry.get_components<Position>();
     
     for (const auto& chunk : m_activeChunks) {

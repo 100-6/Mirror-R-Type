@@ -203,6 +203,7 @@ void ClientGame::setup_registry() {
     registry_->register_component<Damage>();
     registry_->register_component<Projectile>();
     registry_->register_component<Enemy>();
+    registry_->register_component<NoFriction>();
     // Client-side extrapolation component
     registry_->register_component<LastServerState>();
 }
