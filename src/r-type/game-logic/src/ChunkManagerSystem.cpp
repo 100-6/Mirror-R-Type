@@ -38,6 +38,10 @@ void ChunkManagerSystem::initWithConfig(const MapConfig& config) {
     m_scrollSpeed = config.baseScrollSpeed;
     m_autoTiler.setWallSourceRects(config.wallSourceRects);
     m_initialized = true;
+    m_activeChunks.clear();
+    m_scrollX = 0.0f;
+    m_nextChunkIndex = 0;
+    m_currentSegment = 0;
 }
 
 bool ChunkManagerSystem::loadTileSheet(const std::string& path) {
@@ -293,7 +297,7 @@ void ChunkManagerSystem::update(Registry& registry, float dt) {
                m_activeChunks.front().worldX + chunkPixelWidth < unloadThreshold) {
             unloadChunk(registry, m_activeChunks.front().chunkIndex);
         }
-    } else {
+    } else if (m_nextChunkIndex == 0) {
         // Initial load if empty
         loadChunk(registry, 0, 0);
     }
