@@ -7,6 +7,7 @@
 #include "systems/HUDSystem.hpp"
 #include "systems/LocalPredictionSystem.hpp"
 #include "systems/ColliderDebugSystem.hpp"
+#include "systems/CollisionSystem.hpp"
 #include "systems/MapConfigLoader.hpp"
 #include "protocol/NetworkConfig.hpp"
 #include "protocol/Payloads.hpp"
@@ -199,6 +200,9 @@ void ClientGame::setup_registry() {
     registry_->register_component<ExplosionAnimation>();
     registry_->register_component<Attached>();
     registry_->register_component<Wall>();
+    registry_->register_component<Damage>();
+    registry_->register_component<Projectile>();
+    registry_->register_component<Enemy>();
     // Client-side extrapolation component
     registry_->register_component<LastServerState>();
 }
@@ -213,6 +217,7 @@ void ClientGame::setup_systems() {
     registry_->register_system<AttachmentSystem>();
     registry_->register_system<SpriteAnimationSystem>();
     registry_->register_system<MovementSystem>();
+    registry_->register_system<CollisionSystem>();
 
     if (entity_manager_) {
         registry_->register_system<LocalPredictionSystem>(

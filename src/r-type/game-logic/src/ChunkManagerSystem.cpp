@@ -9,6 +9,7 @@
 #include "systems/MapConfigLoader.hpp"
 #include "ecs/Registry.hpp"
 #include "ecs/CoreComponents.hpp"
+#include "components/GameComponents.hpp"
 #include <iostream>
 #include <algorithm>
 
@@ -159,13 +160,17 @@ void ChunkManagerSystem::loadChunk(Registry& registry, int segmentId, int chunkI
             // Spawn collider entity if tile is not empty
             if (tile.type != TileType::EMPTY) {
                 auto entity = registry.spawn_entity();
-                float localX = x * m_config.tileSize;
-                float localY = y * m_config.tileSize;
+                
                 float size = static_cast<float>(m_config.tileSize);
+                
+                // Center-based coordinates for collision
+                float localX = x * m_config.tileSize + size / 2.0f;
+                float localY = y * m_config.tileSize + size / 2.0f;
                 
                 // Position will be updated in update()
                 registry.add_component(entity, Position{ chunk.worldX + localX - m_scrollX, localY });
                 registry.add_component(entity, Collider{ size, size });
+                registry.add_component(entity, Wall{});
                 
                 chunk.entities.push_back({ entity, localX, localY });
             }
