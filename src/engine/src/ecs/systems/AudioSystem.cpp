@@ -6,6 +6,7 @@
 */
 
 #include "ecs/systems/AudioSystem.hpp"
+#include "../../../../r-type/shared/AssetsPaths.hpp"
 #include <iostream>
 
 AudioSystem::AudioSystem(engine::IAudioPlugin& plugin)
@@ -23,10 +24,10 @@ void AudioSystem::init(Registry& registry)
 
     // Load sounds
     // Using existing assets as placeholders
-    enemy_death_sound = audio_plugin.load_sound("assets/sounds/death.mp3");
-    player_hit_sound = audio_plugin.load_sound("assets/sounds/android.mp3");
-    powerup_sound = audio_plugin.load_sound("assets/sounds/rizz.mp3");
-    shoot_sound = audio_plugin.load_sound("assets/sounds/shoot.mp3"); // Load shoot sound
+    enemy_death_sound = audio_plugin.load_sound(assets::paths::SOUND_DEATH);
+    player_hit_sound = audio_plugin.load_sound(assets::paths::SOUND_PLAYER_HIT);
+    powerup_sound = audio_plugin.load_sound(assets::paths::SOUND_POWERUP);
+    shoot_sound = audio_plugin.load_sound(assets::paths::SOUND_SHOOT); // Load shoot sound
 
     if (enemy_death_sound == engine::INVALID_HANDLE) {
         std::cerr << "AudioSystem: Failed to load enemy death sound" << std::endl;

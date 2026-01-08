@@ -8,7 +8,7 @@
         "baseSpeed": 60.0
     },
     "tileSheet": {
-        "path": "tiles/TileSheet.png",
+        "path": "tiles/tilesheet.png",
         "walls": {
             "topLeft": {
                 "x": 0,
@@ -122,35 +122,35 @@
     },
     "parallaxLayers": [
         {
-            "path": "parallax/Starry_night_Layer_1.png",
+            "path": "parallax/starry-night-layer-1.png",
             "speedFactor": 0.2
         },
         {
-            "path": "parallax/Starry_night_Layer_2.png",
+            "path": "parallax/starry-night-layer-2.png",
             "speedFactor": 0.4
         },
         {
-            "path": "parallax/Starry_night_Layer_3.png",
+            "path": "parallax/starry-night-layer-3.png",
             "speedFactor": 0.8
         },
         {
-            "path": "parallax/Starry_night_Layer_4.png",
+            "path": "parallax/starry-night-layer-4.png",
             "speedFactor": 1.2
         },
         {
-            "path": "parallax/Starry_night_Layer_5.png",
+            "path": "parallax/starry-night-layer-5.png",
             "speedFactor": 1.6
         },
         {
-            "path": "parallax/Starry_night_Layer_6.png",
+            "path": "parallax/starry-night-layer-6.png",
             "speedFactor": 2.0
         },
         {
-            "path": "parallax/Starry_night_Layer_7.png",
+            "path": "parallax/starry-night-layer-7.png",
             "speedFactor": 2.4
         },
         {
-            "path": "parallax/Starry_night_Layer_8.png",
+            "path": "parallax/starry-night-layer-8.png",
             "speedFactor": 3.2
         }
     ]

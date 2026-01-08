@@ -28,6 +28,7 @@ target_include_directories(rtype_logic
         ${CMAKE_CURRENT_SOURCE_DIR}/include
     PRIVATE
         ${CMAKE_SOURCE_DIR}/src/engine/include
+        ${CMAKE_SOURCE_DIR}/src/r-type/shared
 )
 
 target_link_libraries(rtype_logic

@@ -6,6 +6,7 @@
 */
 
 #include "systems/MapConfigLoader.hpp"
+#include "AssetsPaths.hpp"
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <filesystem>
@@ -138,7 +139,7 @@ MapConfig MapConfigLoader::loadConfig(const std::string& path) {
         // Tilesheet settings
         if (j.contains("tileSheet")) {
             auto& ts = j["tileSheet"];
-            config.tileSheetPath = ts.value("path", "assets/sprite/tiles/TileSheet.png");
+            config.tileSheetPath = ts.value("path", "assets/sprite/tiles/tilesheet.png");
             
             if (ts.contains("walls")) {
                 auto& walls = ts["walls"];

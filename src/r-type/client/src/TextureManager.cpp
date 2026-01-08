@@ -1,4 +1,5 @@
 #include "TextureManager.hpp"
+#include "AssetsPaths.hpp"
 #include <iostream>
 #include <random>
 
@@ -20,8 +21,10 @@ TextureManager::TextureManager(engine::IGraphicsPlugin& graphics)
 }
 
 bool TextureManager::load_all() {
-    background_ = graphics_.load_texture("assets/sprite/symmetry.png");
-    menu_background_ = graphics_.load_texture("assets/sprite/background_rtype_menu.png");
+    using namespace assets::paths;
+
+    background_ = graphics_.load_texture(BACKGROUND_PARALLAX);
+    menu_background_ = graphics_.load_texture(BACKGROUND_MENU);
 
     // Fallback to regular background if menu background not found
     if (menu_background_ == engine::INVALID_HANDLE) {
@@ -29,12 +32,8 @@ bool TextureManager::load_all() {
     }
 
     // Load spaceship spritesheet
-    if (!ship_manager_->load_spritesheet("assets/sprite/Spaceships.png")) {
-        std::cerr << "[TextureManager] Failed to load Spaceships.png, falling back to individual files\n";
-        player_frames_[0] = graphics_.load_texture("assets/sprite/ship1.png");
-        player_frames_[1] = graphics_.load_texture("assets/sprite/ship2.png");
-        player_frames_[2] = graphics_.load_texture("assets/sprite/ship3.png");
-        player_frames_[3] = graphics_.load_texture("assets/sprite/ship4.png");
+    if (!ship_manager_->load_spritesheet(PLAYER_SPRITESHEET)) {
+        std::cerr << "[TextureManager] Failed to load Spaceships.png (player sprites unavailable)\n";
     } else {
         // Use spritesheet handle for compatibility
         player_frames_[0] = ship_manager_->get_spritesheet_handle();
@@ -43,23 +42,24 @@ bool TextureManager::load_all() {
         player_frames_[3] = ship_manager_->get_spritesheet_handle();
     }
 
-    enemy_ = graphics_.load_texture("assets/sprite/enemy.png");
-    projectile_ = graphics_.load_texture("assets/sprite/bullet.png");
-    wall_ = graphics_.load_texture("assets/sprite/lock.png");
+    enemy_ = graphics_.load_texture(ENEMY_BASIC);
+    wall_ = graphics_.load_texture(WALL);
     
     // Load shot animation spritesheet
-    engine::TextureHandle shot_spritesheet = graphics_.load_texture("assets/sprite/ShotAnimation.png");
+    engine::TextureHandle shot_spritesheet = graphics_.load_texture(SHOT_ANIMATION);
     shot_frame_1_ = shot_spritesheet;
     shot_frame_2_ = shot_spritesheet;
     
     // Load bullet animation spritesheet (48x16, 3 frames of 16x16)
-    bullet_animation_ = graphics_.load_texture("assets/sprite/BulletAnimation.png");
-    explosion_ = graphics_.load_texture("assets/sprite/Explosion.png");
+    engine::TextureHandle bullet_sheet = graphics_.load_texture(BULLET_ANIMATION);
+    bullet_animation_ = bullet_sheet;
+    projectile_ = bullet_sheet;
+    explosion_ = graphics_.load_texture(EXPLOSION_ANIMATION);
 
     // Check critical textures
     if (background_ == engine::INVALID_HANDLE ||
-        player_frames_[0] == engine::INVALID_HANDLE ||
         enemy_ == engine::INVALID_HANDLE ||
+        wall_ == engine::INVALID_HANDLE ||
         projectile_ == engine::INVALID_HANDLE) {
         std::cerr << "[TextureManager] Failed to load critical textures\n";
         return false;

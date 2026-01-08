@@ -1,6 +1,7 @@
 #include "screens/RoomLobbyScreen.hpp"
 #include "NetworkClient.hpp"
 #include "ScreenManager.hpp"
+#include "AssetsPaths.hpp"
 #include <iostream>
 #include <algorithm>
 #include <cmath>
@@ -199,9 +200,9 @@ void RoomLobbyScreen::update(engine::IGraphicsPlugin* graphics, engine::IInputPl
 void RoomLobbyScreen::draw(engine::IGraphicsPlugin* graphics) {
     // Load textures on first draw
     if (!textures_loaded_) {
-        background_texture_ = graphics->load_texture("assets/sprite/room-background.png");
+        background_texture_ = graphics->load_texture(assets::paths::UI_ROOM_BACKGROUND);
         spaceship_manager_ = std::make_unique<SpaceshipManager>(*graphics);
-        spaceship_manager_->load_spritesheet("assets/sprite/Spaceships.png");
+        spaceship_manager_->load_spritesheet(assets::paths::PLAYER_SPRITESHEET);
         textures_loaded_ = true;
     }
 

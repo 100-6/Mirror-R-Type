@@ -1,6 +1,7 @@
 #include "screens/MainMenuScreen.hpp"
 #include "NetworkClient.hpp"
 #include "ScreenManager.hpp"
+#include "AssetsPaths.hpp"
 #include <iostream>
 
 namespace rtype::client {
@@ -149,7 +150,7 @@ void MainMenuScreen::update(engine::IGraphicsPlugin* graphics, engine::IInputPlu
 void MainMenuScreen::draw(engine::IGraphicsPlugin* graphics) {
     // Load background texture on first draw
     if (!background_loaded_) {
-        background_texture_ = graphics->load_texture("assets/sprite/menu-background.png");
+        background_texture_ = graphics->load_texture(assets::paths::UI_MENU_BACKGROUND);
         background_loaded_ = true;
     }
 

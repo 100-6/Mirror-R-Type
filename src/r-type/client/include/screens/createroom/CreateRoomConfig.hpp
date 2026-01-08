@@ -1,6 +1,7 @@
 #pragma once
 
 #include "plugin_manager/CommonTypes.hpp"
+#include "AssetsPaths.hpp"
 
 namespace rtype::client::createroom {
 
@@ -53,19 +54,19 @@ struct Config {
     static inline engine::Color SHADOW() { return {0, 0, 0, 120}; }
 
     // Asset paths
-    static constexpr const char* MENU_BACKGROUND = "assets/sprite/stepper-background.png";
+    static constexpr const char* MENU_BACKGROUND = assets::paths::UI_STEPPER_BACKGROUND;
 
-    static constexpr const char* MAP_NEBULA = "assets/sprite/nebula-map.png";
-    static constexpr const char* MAP_ASTEROID = "assets/sprite/asteroid-map.png";
-    static constexpr const char* MAP_BYDO = "assets/sprite/bydo-map.png";
+    static constexpr const char* MAP_NEBULA = assets::paths::MAP_THUMBNAIL_NEBULA;
+    static constexpr const char* MAP_ASTEROID = assets::paths::MAP_THUMBNAIL_ASTEROID;
+    static constexpr const char* MAP_BYDO = assets::paths::MAP_THUMBNAIL_BYDO;
 
-    static constexpr const char* DIFFICULTY_EASY = "assets/sprite/easy.png";
-    static constexpr const char* DIFFICULTY_MEDIUM = "assets/sprite/medium.png";
-    static constexpr const char* DIFFICULTY_HARD = "assets/sprite/hard.png";
+    static constexpr const char* DIFFICULTY_EASY = assets::paths::UI_DIFFICULTY_EASY;
+    static constexpr const char* DIFFICULTY_MEDIUM = assets::paths::UI_DIFFICULTY_MEDIUM;
+    static constexpr const char* DIFFICULTY_HARD = assets::paths::UI_DIFFICULTY_HARD;
 
-    static constexpr const char* GAMEMODE_DUO = "assets/sprite/duo.png";
-    static constexpr const char* GAMEMODE_TRIO = "assets/sprite/trio.png";
-    static constexpr const char* GAMEMODE_SQUAD = "assets/sprite/squad.png";
+    static constexpr const char* GAMEMODE_DUO = assets::paths::UI_GAMEMODE_DUO;
+    static constexpr const char* GAMEMODE_TRIO = assets::paths::UI_GAMEMODE_TRIO;
+    static constexpr const char* GAMEMODE_SQUAD = assets::paths::UI_GAMEMODE_SQUAD;
 };
 
 }  // namespace rtype::client::createroom

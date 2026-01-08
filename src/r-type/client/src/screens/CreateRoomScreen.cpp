@@ -6,6 +6,7 @@
 #include "NetworkClient.hpp"
 #include "ScreenManager.hpp"
 #include "systems/MapConfigLoader.hpp"
+#include "AssetsPaths.hpp"
 #include "ui/UIButton.hpp"
 #include "ui/UILabel.hpp"
 #include "ui/UITextField.hpp"
@@ -118,7 +119,7 @@ void CreateRoomScreen::initialize() {
 
     // 2. Initialize Maps (Dynamic - Custom Logic)
     // Load available maps from index.json
-    available_maps_ = rtype::MapConfigLoader::loadMapIndex("assets/maps/index.json");
+    available_maps_ = rtype::MapConfigLoader::loadMapIndex(assets::paths::MAPS_INDEX);
     if (available_maps_.empty()) {
         std::cerr << "[CreateRoomScreen] No maps found in index.json!\n";
     } else {

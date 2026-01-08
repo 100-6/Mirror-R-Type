@@ -1,6 +1,7 @@
 #include "screens/BrowseRoomsScreen.hpp"
 #include "NetworkClient.hpp"
 #include "ScreenManager.hpp"
+#include "AssetsPaths.hpp"
 #include <iostream>
 
 namespace rtype::client {
@@ -130,7 +131,7 @@ void BrowseRoomsScreen::update(engine::IGraphicsPlugin* graphics, engine::IInput
 void BrowseRoomsScreen::draw(engine::IGraphicsPlugin* graphics) {
     // Load background texture on first draw
     if (!background_loaded_) {
-        background_texture_ = graphics->load_texture("assets/sprite/browse-background.png");
+        background_texture_ = graphics->load_texture(assets::paths::UI_BROWSE_BACKGROUND);
         background_loaded_ = true;
     }
 
