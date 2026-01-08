@@ -3,6 +3,7 @@
 #include "ScreenManager.hpp"
 #include <iostream>
 #include <algorithm>
+#include <cmath>
 
 namespace rtype::client {
 
@@ -238,13 +239,117 @@ void RoomLobbyScreen::draw(engine::IGraphicsPlugin* graphics) {
         draw_player_slot(graphics, i, slot_x, slot_y, slot_width, slot_height);
     }
 
-    // Draw countdown if active
+    // Draw countdown if active - R-Type Evolution modern design
     if (countdown_value_ > 0) {
-        std::string countdown_text = "Starting in " + std::to_string(countdown_value_) + "...";
-        UILabel countdown_label(center_x, screen_height_ - 280, countdown_text, 52);
-        countdown_label.set_alignment(UILabel::Alignment::CENTER);
-        countdown_label.set_color(engine::Color{255, 220, 100, 255});
-        countdown_label.draw(graphics);
+        // Panel dimensions - large and centered
+        float panel_width = 900.0f;
+        float panel_height = 200.0f;
+        float panel_x = center_x - panel_width / 2.0f;
+        float panel_y = screen_height_ / 2.0f - panel_height / 2.0f;
+        float corner_radius = 20.0f;
+
+        // Multi-layer shadow for dramatic depth
+        for (int i = 0; i < 4; ++i) {
+            float shadow_offset = 10.0f + i * 4.0f;
+            float shadow_alpha = 40 - i * 8;
+            engine::Rectangle shadow{panel_x + shadow_offset, panel_y + shadow_offset, panel_width, panel_height};
+            graphics->draw_rectangle(shadow, engine::Color{0, 0, 0, static_cast<uint8_t>(shadow_alpha)});
+        }
+
+        // Main panel background - very dark purple with high opacity
+        engine::Rectangle panel_main{panel_x + corner_radius, panel_y, panel_width - corner_radius * 2, panel_height};
+        graphics->draw_rectangle(panel_main, engine::Color{15, 12, 25, 245});
+
+        engine::Rectangle panel_left{panel_x, panel_y + corner_radius, corner_radius, panel_height - corner_radius * 2};
+        graphics->draw_rectangle(panel_left, engine::Color{15, 12, 25, 245});
+
+        engine::Rectangle panel_right{panel_x + panel_width - corner_radius, panel_y + corner_radius,
+                                      corner_radius, panel_height - corner_radius * 2};
+        graphics->draw_rectangle(panel_right, engine::Color{15, 12, 25, 245});
+
+        // Rounded corners
+        graphics->draw_circle({panel_x + corner_radius, panel_y + corner_radius},
+                             corner_radius, engine::Color{15, 12, 25, 245});
+        graphics->draw_circle({panel_x + panel_width - corner_radius, panel_y + corner_radius},
+                             corner_radius, engine::Color{15, 12, 25, 245});
+        graphics->draw_circle({panel_x + corner_radius, panel_y + panel_height - corner_radius},
+                             corner_radius, engine::Color{15, 12, 25, 245});
+        graphics->draw_circle({panel_x + panel_width - corner_radius, panel_y + panel_height - corner_radius},
+                             corner_radius, engine::Color{15, 12, 25, 245});
+
+        // Subtle gradient overlay for depth
+        engine::Rectangle gradient_top{panel_x + corner_radius, panel_y,
+                                       panel_width - corner_radius * 2, panel_height / 3};
+        graphics->draw_rectangle(gradient_top, engine::Color{60, 50, 90, 50});
+
+        // Pulsing neon violet border with glow effect
+        float pulse = std::sin(countdown_value_ * 3.14159f);
+        engine::Color border_color{160, 100, 255, static_cast<uint8_t>(220 + 35 * pulse)};
+        float border_width = 6.0f;
+
+        // Outer glow for neon effect
+        engine::Color glow_color{160, 100, 255, 60};
+        float glow_width = 2.0f;
+
+        // Top border with glow
+        engine::Rectangle glow_top{panel_x + corner_radius - glow_width, panel_y - glow_width,
+                                   panel_width - corner_radius * 2 + glow_width * 2, border_width + glow_width * 2};
+        graphics->draw_rectangle(glow_top, glow_color);
+        engine::Rectangle border_top{panel_x + corner_radius, panel_y, panel_width - corner_radius * 2, border_width};
+        graphics->draw_rectangle(border_top, border_color);
+
+        // Bottom border with glow
+        engine::Rectangle glow_bottom{panel_x + corner_radius - glow_width, panel_y + panel_height - border_width - glow_width,
+                                      panel_width - corner_radius * 2 + glow_width * 2, border_width + glow_width * 2};
+        graphics->draw_rectangle(glow_bottom, glow_color);
+        engine::Rectangle border_bottom{panel_x + corner_radius, panel_y + panel_height - border_width,
+                                       panel_width - corner_radius * 2, border_width};
+        graphics->draw_rectangle(border_bottom, border_color);
+
+        // Left border with glow
+        engine::Rectangle glow_left{panel_x - glow_width, panel_y + corner_radius - glow_width,
+                                   border_width + glow_width * 2, panel_height - corner_radius * 2 + glow_width * 2};
+        graphics->draw_rectangle(glow_left, glow_color);
+        engine::Rectangle border_left{panel_x, panel_y + corner_radius, border_width, panel_height - corner_radius * 2};
+        graphics->draw_rectangle(border_left, border_color);
+
+        // Right border with glow
+        engine::Rectangle glow_right{panel_x + panel_width - border_width - glow_width, panel_y + corner_radius - glow_width,
+                                    border_width + glow_width * 2, panel_height - corner_radius * 2 + glow_width * 2};
+        graphics->draw_rectangle(glow_right, glow_color);
+        engine::Rectangle border_right{panel_x + panel_width - border_width, panel_y + corner_radius,
+                                      border_width, panel_height - corner_radius * 2};
+        graphics->draw_rectangle(border_right, border_color);
+
+        // Decorative accent line
+        float accent_y = panel_y + panel_height / 2.0f + 55.0f;
+        engine::Rectangle accent_line{panel_x + 150.0f, accent_y, panel_width - 300.0f, 2.0f};
+        graphics->draw_rectangle(accent_line, engine::Color{120, 80, 200, 120});
+
+        // "GAME STARTING" label text (smaller, above main countdown)
+        float label_x = panel_x + panel_width / 2.0f;
+        float label_y = panel_y + 35.0f;
+        UILabel starting_label(label_x, label_y, "GAME STARTING", 28);
+        starting_label.set_alignment(UILabel::Alignment::CENTER);
+        starting_label.set_color(engine::Color{140, 120, 200, 255});
+        starting_label.draw(graphics);
+
+        // Main countdown number (HUGE and centered)
+        float countdown_number_x = panel_x + panel_width / 2.0f;
+        float countdown_number_y = panel_y + 75.0f;
+        UILabel countdown_number(countdown_number_x, countdown_number_y, std::to_string(countdown_value_), 90);
+        countdown_number.set_alignment(UILabel::Alignment::CENTER);
+        countdown_number.set_color(engine::Color{100, 220, 255, 255});  // Bright cyan
+        countdown_number.draw(graphics);
+
+        // Bottom text "seconds remaining"
+        float bottom_text_x = panel_x + panel_width / 2.0f;
+        float bottom_text_y = panel_y + panel_height - 50.0f;
+        std::string bottom_text = countdown_value_ == 1 ? "SECOND" : "SECONDS";
+        UILabel bottom_label(bottom_text_x, bottom_text_y, bottom_text, 26);
+        bottom_label.set_alignment(UILabel::Alignment::CENTER);
+        bottom_label.set_color(engine::Color{160, 180, 220, 255});
+        bottom_label.draw(graphics);
     }
 
     // Draw host controls

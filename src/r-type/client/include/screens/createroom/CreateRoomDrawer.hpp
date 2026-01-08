@@ -26,16 +26,7 @@ public:
         engine::IGraphicsPlugin* graphics
     );
 
-    /**
-     * @brief Draw map selection step (images + buttons)
-     */
-    static void draw_map_selection_step(
-        const TexturePack& textures,
-        const std::vector<std::unique_ptr<UIButton>>& map_buttons,
-        rtype::client::MapId selected_map,
-        float screen_width,
-        engine::IGraphicsPlugin* graphics
-    );
+
 
     /**
      * @brief Draw difficulty step (circular images only)

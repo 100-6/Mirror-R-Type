@@ -24,14 +24,7 @@ public:
         float screen_width
     );
 
-    /**
-     * @brief Initialize map selection step (map buttons)
-     */
-    static void init_map_selection_step(
-        std::vector<std::unique_ptr<UIButton>>& map_buttons,
-        rtype::client::MapId& map_id,
-        float screen_width
-    );
+
 
     /**
      * @brief Initialize difficulty step (no buttons, uses circular images)

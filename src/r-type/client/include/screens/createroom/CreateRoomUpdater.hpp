@@ -25,15 +25,7 @@ public:
         engine::IInputPlugin* input
     );
 
-    /**
-     * @brief Update map selection step (map buttons)
-     */
-    static void update_map_selection_step(
-        std::vector<std::unique_ptr<UIButton>>& map_buttons,
-        rtype::client::MapId current_map,
-        engine::IGraphicsPlugin* graphics,
-        engine::IInputPlugin* input
-    );
+
 
     /**
      * @brief Update difficulty step (circular click detection)

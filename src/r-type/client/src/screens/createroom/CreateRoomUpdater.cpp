@@ -13,18 +13,7 @@ void Updater::update_room_info_step(
     }
 }
 
-void Updater::update_map_selection_step(
-    std::vector<std::unique_ptr<UIButton>>& map_buttons,
-    rtype::client::MapId current_map,
-    engine::IGraphicsPlugin* graphics,
-    engine::IInputPlugin* input
-) {
-    for (size_t i = 0; i < map_buttons.size(); ++i) {
-        bool is_selected = (static_cast<uint16_t>(current_map) == i + 1);
-        map_buttons[i]->set_selected(is_selected);
-        map_buttons[i]->update(graphics, input);
-    }
-}
+
 
 void Updater::update_difficulty_step(
     protocol::Difficulty& current_difficulty,

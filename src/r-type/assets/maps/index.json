@@ -1,0 +1,12 @@
+{
+    "maps": [
+        {
+            "id": "nebula_outpost",
+            "name": "Nebula Outpost",
+            "description": "Navigate through asteroid fields in the outer rim",
+            "difficulty": 1,
+            "thumbnail": "assets/maps/nebula_outpost/thumbnail.png",
+            "wavesConfig": "assets/waves_nebula_outpost.json"
+        }
+    ]
+}

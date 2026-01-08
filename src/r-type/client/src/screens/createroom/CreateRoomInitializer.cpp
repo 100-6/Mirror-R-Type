@@ -35,47 +35,7 @@ void Initializer::init_room_info_step(
     fields.push_back(std::move(pass_field));
 }
 
-void Initializer::init_map_selection_step(
-    std::vector<std::unique_ptr<UIButton>>& map_buttons,
-    rtype::client::MapId& map_id,
-    float screen_width
-) {
-    float center_x = screen_width / 2.0f;
-    float content_start_y = Config::CONTENT_START_Y;
 
-    float map_button_width = Config::MAP_BUTTON_WIDTH;
-    float map_button_height = Config::MAP_BUTTON_HEIGHT;
-    float map_button_spacing = 50.0f;  // Increased spacing between buttons
-    float map_button_y = content_start_y + Config::MAP_PREVIEW_HEIGHT + 40.0f;  // 40px below map previews
-    float map_total_width = map_button_width * 3 + map_button_spacing * 2;
-    float map_start_x = center_x - map_total_width / 2.0f;
-
-    // Map 1 - Nebula Outpost
-    auto map1_btn = std::make_unique<UIButton>(map_start_x, map_button_y, map_button_width, map_button_height, "Nebula Outpost");
-    map1_btn->set_on_click([&map_id]() {
-        map_id = rtype::client::MapId::NEBULA_OUTPOST;
-        std::cout << "[CreateRoom] Selected Map: Nebula Outpost\n";
-    });
-    map_buttons.push_back(std::move(map1_btn));
-
-    // Map 2 - Asteroid Belt
-    auto map2_btn = std::make_unique<UIButton>(map_start_x + map_button_width + map_button_spacing, map_button_y,
-                                                map_button_width, map_button_height, "Asteroid Belt");
-    map2_btn->set_on_click([&map_id]() {
-        map_id = rtype::client::MapId::ASTEROID_BELT;
-        std::cout << "[CreateRoom] Selected Map: Asteroid Belt\n";
-    });
-    map_buttons.push_back(std::move(map2_btn));
-
-    // Map 3 - Bydo Mothership
-    auto map3_btn = std::make_unique<UIButton>(map_start_x + (map_button_width + map_button_spacing) * 2, map_button_y,
-                                                map_button_width, map_button_height, "Bydo Mothership");
-    map3_btn->set_on_click([&map_id]() {
-        map_id = rtype::client::MapId::BYDO_MOTHERSHIP;
-        std::cout << "[CreateRoom] Selected Map: Bydo Mothership\n";
-    });
-    map_buttons.push_back(std::move(map3_btn));
-}
 
 void Initializer::init_difficulty_step() {
     // Difficulty uses circular clickable images - no buttons needed

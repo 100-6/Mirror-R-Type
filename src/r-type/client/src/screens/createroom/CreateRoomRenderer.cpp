@@ -191,58 +191,7 @@ void Renderer::draw_stepper(
     counter_label.draw(graphics);
 }
 
-void Renderer::draw_map_selection(
-    engine::IGraphicsPlugin* graphics,
-    const TexturePack& textures,
-    int screen_width,
-    rtype::client::MapId selected_map
-) {
-    float content_start_y = Config::CONTENT_START_Y;
-    float map_width = Config::MAP_PREVIEW_WIDTH;
-    float map_height = Config::MAP_PREVIEW_HEIGHT;
-    float spacing = Config::MAP_PREVIEW_SPACING;
-    float center_x = screen_width / 2.0f;
-    float total_width = map_width * 3 + spacing * 2;
-    float start_x = center_x - total_width / 2.0f;
 
-    engine::TextureHandle map_textures[] = {textures.map_nebula, textures.map_asteroid, textures.map_bydo};
-
-    for (int i = 0; i < 3; ++i) {
-        float x = start_x + i * (map_width + spacing);
-        float y = content_start_y;
-
-        bool is_selected = (static_cast<uint16_t>(selected_map) == i + 1);
-
-        // Draw shadow
-        engine::Rectangle shadow{x + 6, y + 6, map_width, map_height};
-        graphics->draw_rectangle(shadow, Config::SHADOW());
-
-        // Draw border frame
-        engine::Rectangle frame{x - 4, y - 4, map_width + 8, map_height + 8};
-        engine::Color frame_color = is_selected ? Config::SELECTED_BORDER() : Config::NORMAL_BORDER();
-        graphics->draw_rectangle(frame, frame_color);
-
-        // Draw glow effect if selected
-        if (is_selected) {
-            for (int j = 4; j > 0; j--) {
-                float expand = 10.0f * j;
-                engine::Rectangle glow{x - 4 - expand, y - 4 - expand,
-                                     map_width + 8 + expand * 2, map_height + 8 + expand * 2};
-                engine::Color glow_color{150, 100, 255, static_cast<unsigned char>(70 / j)};
-                graphics->draw_rectangle(glow, glow_color);
-            }
-        }
-
-        // Draw map image
-        engine::Sprite map_sprite;
-        map_sprite.texture_handle = map_textures[i];
-        map_sprite.size = {map_width, map_height};
-        map_sprite.source_rect = {};
-
-        engine::Vector2f position{x, y};
-        graphics->draw_sprite(map_sprite, position);
-    }
-}
 
 void Renderer::draw_circular_image(
     engine::IGraphicsPlugin* graphics,

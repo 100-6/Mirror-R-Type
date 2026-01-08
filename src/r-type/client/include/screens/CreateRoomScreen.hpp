@@ -3,19 +3,12 @@
 #include "BaseScreen.hpp"
 #include "ScreenManager.hpp"
 #include "protocol/Payloads.hpp"
+#include "components/MapTypes.hpp"
 #include "screens/createroom/CreateRoomRenderer.hpp"
 #include <functional>
+#include <vector>
 
 namespace rtype::client {
-
-/**
- * @brief Map identifiers for the 3 available maps
- */
-enum class MapId : uint16_t {
-    NEBULA_OUTPOST = 1,    // Map 1 - Intro level
-    ASTEROID_BELT = 2,     // Map 2 - Navigation challenge
-    BYDO_MOTHERSHIP = 3    // Map 3 - Final battle
-};
 
 /**
  * @brief Screen for creating a custom room with name, password, game mode, map, and difficulty
@@ -41,7 +34,8 @@ public:
 
     protocol::GameMode get_configured_game_mode() const { return game_mode_; }
     protocol::Difficulty get_configured_difficulty() const { return difficulty_; }
-    uint16_t get_configured_map_id() const { return static_cast<uint16_t>(map_id_); }
+    std::string get_configured_map_id() const { return selected_map_id_; }
+    uint16_t get_configured_map_index() const { return selected_map_index_ + 1; }  // 1-based for protocol (if using index)
     uint8_t get_configured_max_players() const;
 
 private:
@@ -58,28 +52,32 @@ private:
 
     std::vector<std::unique_ptr<UILabel>> labels_;
     std::vector<std::unique_ptr<UITextField>> fields_;
-    std::vector<std::unique_ptr<UIButton>> buttons_;
-    std::vector<std::unique_ptr<UIButton>> mode_buttons_;       // DUO, TRIO, SQUAD buttons
-    std::vector<std::unique_ptr<UIButton>> map_buttons_;        // Map selection buttons
-    std::vector<std::unique_ptr<UIButton>> difficulty_buttons_; // Difficulty selection buttons
+    std::vector<std::unique_ptr<UIButton>> buttons_; // Legacy?
+    std::vector<std::unique_ptr<UIButton>> mode_buttons_;       // DUO, TRIO, SQUAD buttons (Legacy?)
+    std::vector<std::unique_ptr<UIButton>> map_buttons_;        // Map selection buttons (dynamic)
+    std::vector<std::unique_ptr<UIButton>> difficulty_buttons_; // Difficulty selection buttons (Legacy?)
     std::vector<std::unique_ptr<UIButton>> nav_buttons_;        // Next, Previous, Create buttons
 
     // Texture pack (handled by createroom module)
     createroom::TexturePack textures_;
 
+    // Dynamic map list from index.json
+    std::vector<rtype::MapInfo> available_maps_;
+    std::string selected_map_id_ = "nebula_outpost";
+    size_t selected_map_index_ = 0;
+    // MapId map_id_; // Removed in favor of dynamic map selection
+
     protocol::GameMode game_mode_ = protocol::GameMode::SQUAD;  // Default to SQUAD
     protocol::Difficulty difficulty_ = protocol::Difficulty::NORMAL;  // Default to NORMAL
-    MapId map_id_ = MapId::NEBULA_OUTPOST;  // Default to first map
 
     ScreenChangeCallback on_screen_change_;
     RoomCreatedCallback on_room_created_;
 
     // Navigation & State
-    static const char* get_map_name(MapId id);
+    const char* get_step_title() const;
     void next_step();
     void previous_step();
     void create_room();
-    const char* get_step_title() const;
 
     // Initialization helpers
     void initialize_room_info_step();

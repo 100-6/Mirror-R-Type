@@ -18,31 +18,7 @@ void Drawer::draw_room_info_step(
     }
 }
 
-void Drawer::draw_map_selection_step(
-    const TexturePack& textures,
-    const std::vector<std::unique_ptr<UIButton>>& map_buttons,
-    rtype::client::MapId selected_map,
-    float screen_width,
-    engine::IGraphicsPlugin* graphics
-) {
-    // Draw map images using renderer
-    Renderer::draw_map_selection(graphics, textures, screen_width, selected_map);
 
-    // Draw buttons below images
-    float map_preview_width = Config::MAP_PREVIEW_WIDTH;
-    float map_preview_spacing = Config::MAP_PREVIEW_SPACING;
-    float map_button_width = Config::MAP_BUTTON_WIDTH;
-    float center_x = screen_width / 2.0f;
-    float map_total_width = map_preview_width * 3 + map_preview_spacing * 2;
-    float map_preview_start_x = center_x - map_total_width / 2.0f;
-
-    for (size_t i = 0; i < map_buttons.size(); ++i) {
-        float button_x = map_preview_start_x + i * (map_preview_width + map_preview_spacing) +
-                        (map_preview_width - map_button_width) / 2.0f;
-        map_buttons[i]->set_position(button_x, Config::CONTENT_START_Y + Config::MAP_PREVIEW_HEIGHT + 20);
-        map_buttons[i]->draw(graphics);
-    }
-}
 
 void Drawer::draw_difficulty_step(
     const TexturePack& textures,

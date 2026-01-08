@@ -3,10 +3,7 @@
 #include "plugin_manager/IGraphicsPlugin.hpp"
 #include "protocol/Payloads.hpp"
 
-// Forward declaration to avoid circular dependency
-namespace rtype::client {
-    enum class MapId : uint16_t;
-}
+
 
 namespace rtype::client::createroom {
 
@@ -66,15 +63,7 @@ public:
         int total_steps
     );
 
-    /**
-     * @brief Draw map selection images with buttons
-     */
-    static void draw_map_selection(
-        engine::IGraphicsPlugin* graphics,
-        const TexturePack& textures,
-        int screen_width,
-        rtype::client::MapId selected_map
-    );
+
 
     /**
      * @brief Draw circular difficulty selection images

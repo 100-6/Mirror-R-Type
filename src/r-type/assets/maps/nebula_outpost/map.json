@@ -1,0 +1,157 @@
+{
+    "id": "nebula_outpost",
+    "name": "Nebula Outpost",
+    "description": "Navigate through asteroid fields in the outer rim",
+    "tileSize": 16,
+    "chunkWidth": 30,
+    "scroll": {
+        "baseSpeed": 60.0
+    },
+    "tileSheet": {
+        "path": "tiles/TileSheet.png",
+        "walls": {
+            "topLeft": {
+                "x": 0,
+                "y": 0,
+                "w": 16,
+                "h": 16
+            },
+            "top": {
+                "x": 16,
+                "y": 0,
+                "w": 16,
+                "h": 16
+            },
+            "topRight": {
+                "x": 32,
+                "y": 0,
+                "w": 16,
+                "h": 16
+            },
+            "left": {
+                "x": 0,
+                "y": 16,
+                "w": 16,
+                "h": 16
+            },
+            "center": {
+                "x": 16,
+                "y": 16,
+                "w": 16,
+                "h": 16
+            },
+            "right": {
+                "x": 32,
+                "y": 16,
+                "w": 16,
+                "h": 16
+            },
+            "bottomLeft": {
+                "x": 0,
+                "y": 32,
+                "w": 16,
+                "h": 16
+            },
+            "bottom": {
+                "x": 16,
+                "y": 32,
+                "w": 16,
+                "h": 16
+            },
+            "bottomRight": {
+                "x": 32,
+                "y": 32,
+                "w": 16,
+                "h": 16
+            },
+            "verticalTop": {
+                "x": 48,
+                "y": 0,
+                "w": 16,
+                "h": 16
+            },
+            "vertical": {
+                "x": 48,
+                "y": 16,
+                "w": 16,
+                "h": 16
+            },
+            "verticalBottom": {
+                "x": 48,
+                "y": 32,
+                "w": 16,
+                "h": 16
+            },
+            "horizontalLeft": {
+                "x": 0,
+                "y": 48,
+                "w": 16,
+                "h": 16
+            },
+            "horizontal": {
+                "x": 16,
+                "y": 48,
+                "w": 16,
+                "h": 16
+            },
+            "horizontalRight": {
+                "x": 32,
+                "y": 48,
+                "w": 16,
+                "h": 16
+            },
+            "isolated": {
+                "x": 48,
+                "y": 48,
+                "w": 16,
+                "h": 16
+            },
+            "spikeTop": {
+                "x": 64,
+                "y": 32,
+                "w": 16,
+                "h": 16
+            },
+            "spikeBottom": {
+                "x": 80,
+                "y": 32,
+                "w": 16,
+                "h": 16
+            }
+        }
+    },
+    "parallaxLayers": [
+        {
+            "path": "parallax/Starry_night_Layer_1.png",
+            "speedFactor": 0.2
+        },
+        {
+            "path": "parallax/Starry_night_Layer_2.png",
+            "speedFactor": 0.4
+        },
+        {
+            "path": "parallax/Starry_night_Layer_3.png",
+            "speedFactor": 0.8
+        },
+        {
+            "path": "parallax/Starry_night_Layer_4.png",
+            "speedFactor": 1.2
+        },
+        {
+            "path": "parallax/Starry_night_Layer_5.png",
+            "speedFactor": 1.6
+        },
+        {
+            "path": "parallax/Starry_night_Layer_6.png",
+            "speedFactor": 2.0
+        },
+        {
+            "path": "parallax/Starry_night_Layer_7.png",
+            "speedFactor": 2.4
+        },
+        {
+            "path": "parallax/Starry_night_Layer_8.png",
+            "speedFactor": 3.2
+        }
+    ]
+}
