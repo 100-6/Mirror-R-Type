@@ -100,15 +100,10 @@ std::string WaveManager::get_map_file(uint16_t map_id)
 {
     // Map ID to file mapping:
     // 1 = Nebula Outpost
-    // 2 = Asteroid Belt
-    // 3 = Bydo Mothership
     switch (map_id) {
         case 1:
             return "assets/waves_nebula_outpost.json";
-        case 2:
-            return "assets/waves_asteroid_belt.json";
-        case 3:
-            return "assets/waves_bydo_mothership.json";
+
         default:
             std::cout << "[WaveManager] Unknown map_id " << map_id << ", using Nebula Outpost\n";
             return "assets/waves_nebula_outpost.json";

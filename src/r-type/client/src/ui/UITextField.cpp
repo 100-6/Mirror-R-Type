@@ -189,16 +189,97 @@ void UITextField::handle_text_input(engine::IInputPlugin* input) {
 }
 
 void UITextField::draw(engine::IGraphicsPlugin* graphics) {
-    // Draw background
-    engine::Rectangle rect{x_, y_, width_, height_};
-    engine::Color bg_color = {30, 30, 30, 255};
-    graphics->draw_rectangle(rect, bg_color);
+    float corner_radius = 25.0f;  // More rounded corners for futuristic look
 
-    // Draw border (highlight if focused)
+    // Draw deep shadow for depth (rounded, more pronounced)
+    float shadow_offset = 6.0f;
+
+    // Shadow main rectangles (horizontal and vertical, without corners)
+    engine::Rectangle shadow_h{x_ + shadow_offset + corner_radius, y_ + shadow_offset, width_ - corner_radius * 2, height_};
+    graphics->draw_rectangle(shadow_h, {0, 0, 0, 140});
+    engine::Rectangle shadow_v{x_ + shadow_offset, y_ + shadow_offset + corner_radius, width_, height_ - corner_radius * 2};
+    graphics->draw_rectangle(shadow_v, {0, 0, 0, 140});
+
+    // Shadow corner circles only
+    graphics->draw_circle({x_ + shadow_offset + corner_radius, y_ + shadow_offset + corner_radius}, corner_radius, {0, 0, 0, 140});
+    graphics->draw_circle({x_ + width_ + shadow_offset - corner_radius, y_ + shadow_offset + corner_radius}, corner_radius, {0, 0, 0, 140});
+    graphics->draw_circle({x_ + shadow_offset + corner_radius, y_ + height_ + shadow_offset - corner_radius}, corner_radius, {0, 0, 0, 140});
+    graphics->draw_circle({x_ + width_ + shadow_offset - corner_radius, y_ + height_ + shadow_offset - corner_radius}, corner_radius, {0, 0, 0, 140});
+
+    // Draw outer purple/blue glow if focused (R-Type style)
+    if (focused_) {
+        for (int i = 4; i > 0; i--) {
+            float expand = 12.0f * i;
+            engine::Color glow_color{140, 80, 255, static_cast<unsigned char>(40 / i)};  // Purple glow
+
+            // Main glow rectangles
+            engine::Rectangle glow_h{x_ - expand + corner_radius, y_ - expand, width_ - corner_radius * 2, height_ + expand * 2};
+            graphics->draw_rectangle(glow_h, glow_color);
+            engine::Rectangle glow_v{x_ - expand, y_ - expand + corner_radius, width_ + expand * 2, height_ - corner_radius * 2};
+            graphics->draw_rectangle(glow_v, glow_color);
+
+            // Glow corners
+            float glow_radius = corner_radius + expand;
+            graphics->draw_circle({x_ + corner_radius, y_ + corner_radius}, glow_radius, glow_color);
+            graphics->draw_circle({x_ + width_ - corner_radius, y_ + corner_radius}, glow_radius, glow_color);
+            graphics->draw_circle({x_ + corner_radius, y_ + height_ - corner_radius}, glow_radius, glow_color);
+            graphics->draw_circle({x_ + width_ - corner_radius, y_ + height_ - corner_radius}, glow_radius, glow_color);
+        }
+    }
+
+    // Draw background with purple tint
+    engine::Color bg_color = focused_ ?
+        engine::Color{30, 20, 50, 245} :      // Purple-tinted background when focused
+        engine::Color{22, 18, 35, 235};       // Dark purple-tinted background
+
+    // Main background rectangles (without corners)
+    engine::Rectangle bg_h{x_ + corner_radius, y_, width_ - corner_radius * 2, height_};
+    graphics->draw_rectangle(bg_h, bg_color);
+    engine::Rectangle bg_v{x_, y_ + corner_radius, width_, height_ - corner_radius * 2};
+    graphics->draw_rectangle(bg_v, bg_color);
+
+    // Corner circles for rounded effect
+    graphics->draw_circle({x_ + corner_radius, y_ + corner_radius}, corner_radius, bg_color);
+    graphics->draw_circle({x_ + width_ - corner_radius, y_ + corner_radius}, corner_radius, bg_color);
+    graphics->draw_circle({x_ + corner_radius, y_ + height_ - corner_radius}, corner_radius, bg_color);
+    graphics->draw_circle({x_ + width_ - corner_radius, y_ + height_ - corner_radius}, corner_radius, bg_color);
+
+    // Draw inner purple gradient (top portion for sci-fi effect)
+    engine::Color gradient_color = focused_ ?
+        engine::Color{60, 40, 90, 80} :
+        engine::Color{45, 30, 65, 70};
+
+    engine::Rectangle inner_gradient_h{x_ + corner_radius, y_, width_ - corner_radius * 2, height_ / 2.5f};
+    graphics->draw_rectangle(inner_gradient_h, gradient_color);
+    engine::Rectangle inner_gradient_v{x_, y_ + corner_radius, width_, height_ / 2.5f - corner_radius};
+    graphics->draw_rectangle(inner_gradient_v, gradient_color);
+    // Top corners gradient
+    graphics->draw_circle({x_ + corner_radius, y_ + corner_radius}, corner_radius, gradient_color);
+    graphics->draw_circle({x_ + width_ - corner_radius, y_ + corner_radius}, corner_radius, gradient_color);
+
+    // Draw energy line accent at bottom (R-Type style)
+    engine::Color accent_color = focused_ ?
+        engine::Color{180, 120, 255, 200} :
+        engine::Color{100, 70, 150, 150};
+    float accent_height = 2.0f;
+    engine::Rectangle bottom_accent{x_ + corner_radius, y_ + height_ - accent_height - 8, width_ - corner_radius * 2, accent_height};
+    graphics->draw_rectangle(bottom_accent, accent_color);
+
+    // Draw border with purple/blue tint
     engine::Color border_color = focused_ ?
-        engine::Color{100, 150, 210, 255} :
-        engine::Color{150, 150, 150, 255};
-    graphics->draw_rectangle_outline(rect, border_color, 2.0f);
+        engine::Color{160, 100, 255, 255} :   // Bright purple border when focused
+        engine::Color{90, 70, 140, 200};      // Muted purple border
+    float border_width = focused_ ? 3.5f : 2.5f;
+
+    // Border rectangles (top, bottom, left, right)
+    engine::Rectangle border_top{x_ + corner_radius, y_, width_ - corner_radius * 2, border_width};
+    graphics->draw_rectangle(border_top, border_color);
+    engine::Rectangle border_bottom{x_ + corner_radius, y_ + height_ - border_width, width_ - corner_radius * 2, border_width};
+    graphics->draw_rectangle(border_bottom, border_color);
+    engine::Rectangle border_left{x_, y_ + corner_radius, border_width, height_ - corner_radius * 2};
+    graphics->draw_rectangle(border_left, border_color);
+    engine::Rectangle border_right{x_ + width_ - border_width, y_ + corner_radius, border_width, height_ - corner_radius * 2};
+    graphics->draw_rectangle(border_right, border_color);
 
     // Draw text or placeholder
     std::string display_text;
@@ -206,26 +287,33 @@ void UITextField::draw(engine::IGraphicsPlugin* graphics) {
 
     if (text_.empty() && !focused_) {
         display_text = placeholder_;
-        text_color = {128, 128, 128, 255};  // Gray for placeholder
+        text_color = {160, 140, 200, 200};  // Purple-tinted placeholder
     } else {
         if (password_mode_) {
             display_text = std::string(text_.length(), '*');
         } else {
             display_text = text_;
         }
-        text_color = {255, 255, 255, 255};  // White for text
+        text_color = {230, 220, 255, 255};  // Light purple-white for text
     }
 
-    engine::Vector2f text_pos{x_ + 10.0f, y_ + height_ / 2.0f};
-    graphics->draw_text(display_text, text_pos, text_color, engine::INVALID_HANDLE, 20);
+    // Center text vertically with better padding
+    float font_size = 30.0f;  // Larger font for better readability
+    float text_y = y_ + (height_ - font_size) / 2.0f + 3.0f;
+    engine::Vector2f text_pos{x_ + 30.0f, text_y};
+    graphics->draw_text(display_text, text_pos, text_color, engine::INVALID_HANDLE, static_cast<int>(font_size));
 
-    // Draw cursor if focused
+    // Draw animated cursor if focused (purple/magenta)
     if (focused_ && cursor_blink_timer_ < 0.5f) {
-        float cursor_x = x_ + 10.0f + display_text.length() * 10.0f;
-        engine::Vector2f cursor_start{cursor_x, y_ + 8.0f};
-        engine::Vector2f cursor_end{cursor_x, y_ + height_ - 8.0f};
-        engine::Color cursor_color = {255, 255, 255, 255};
-        graphics->draw_line(cursor_start, cursor_end, cursor_color, 2.0f);
+        float cursor_x = x_ + 30.0f + display_text.length() * 15.0f;
+        float cursor_margin = 14.0f;
+        engine::Vector2f cursor_start{cursor_x, y_ + cursor_margin};
+        engine::Vector2f cursor_end{cursor_x, y_ + height_ - cursor_margin};
+        engine::Color cursor_color = {200, 150, 255, 255};  // Purple cursor
+        graphics->draw_line(cursor_start, cursor_end, cursor_color, 3.5f);
+
+        // Add purple glow to cursor
+        graphics->draw_line(cursor_start, cursor_end, {180, 120, 255, 100}, 8.0f);
     }
 }
 

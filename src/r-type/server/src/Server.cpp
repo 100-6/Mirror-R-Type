@@ -81,7 +81,6 @@ void Server::stop()
         return;
     std::cout << "[Server] Stopping server...\n";
     running_ = false;
-
     if (network_plugin_)
         network_plugin_->stop_server();
     std::cout << "[Server] Server stopped\n";
@@ -95,7 +94,6 @@ void Server::run()
     }
     const auto tick_duration = std::chrono::milliseconds(config::TICK_INTERVAL_MS);
     auto last_tick_time = std::chrono::steady_clock::now();
-
     std::cout << "[Server] Running at " << config::SERVER_TICK_RATE << " TPS (tick interval: "
               << config::TICK_INTERVAL_MS << "ms)\n";
     while (running_) {
@@ -107,6 +105,7 @@ void Server::run()
         lobby_manager_.update();
         room_manager_.update();
         session_manager_->update_all(delta_time);
+        broadcast_all_session_events();
         session_manager_->cleanup_inactive_sessions();
         auto tick_end = std::chrono::steady_clock::now();
         auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(tick_end - tick_start);
@@ -245,16 +244,21 @@ void Server::on_client_input(uint32_t client_id, const protocol::ClientInputPayl
 
     if (tcp_client_id == 0)
         tcp_client_id = client_id;
-    auto it = connected_clients_.find(tcp_client_id);
-    if (it == connected_clients_.end())
-        return;
-    if (!it->second.in_game)
-        return;
-    uint32_t session_id = it->second.session_id;
+    uint32_t player_id, session_id;
+    {
+        std::lock_guard lock(connected_clients_mutex_);
+        auto it = connected_clients_.find(tcp_client_id);
+        if (it == connected_clients_.end())
+            return;
+        if (!it->second.in_game)
+            return;
+        player_id = it->second.player_id;
+        session_id = it->second.session_id;
+    }
     auto* session = session_manager_->get_session(session_id);
     if (!session)
         return;
-    session->handle_input(it->second.player_id, payload);
+    session->handle_input(player_id, payload);
 }
 
 void Server::on_lobby_state_changed(uint32_t lobby_id, const std::vector<uint8_t>& payload)
@@ -272,11 +276,8 @@ void Server::on_countdown_tick(uint32_t lobby_id, uint8_t seconds_remaining)
 
     std::cout << "[Server] Countdown tick for lobby/room " << lobby_id << ": "
               << static_cast<int>(seconds_remaining) << "s\n";
-
-    // Check if it's a custom room first
     const auto* room = room_manager_.get_room(lobby_id);
     if (room) {
-        // Broadcast to all players in the room
         for (uint32_t player_id : room->player_ids) {
             auto client_it = player_to_client_.find(player_id);
             if (client_it != player_to_client_.end()) {
@@ -286,7 +287,6 @@ void Server::on_countdown_tick(uint32_t lobby_id, uint8_t seconds_remaining)
             }
         }
     } else {
-        // It's a matchmaking lobby
         packet_sender_->broadcast_tcp_to_lobby(lobby_id, protocol::PacketType::SERVER_GAME_START_COUNTDOWN,
                                               serialize(countdown), lobby_manager_, connected_clients_);
     }
@@ -296,8 +296,6 @@ void Server::on_game_start(uint32_t lobby_id, const std::vector<uint32_t>& playe
 {
     std::cout << "[Server] Game starting for lobby/room " << lobby_id
               << " with " << player_ids.size() << " players\n";
-
-    // Check if it's a custom room first
     const auto* room = room_manager_.get_room(lobby_id);
     const auto* lobby = room ? nullptr : lobby_manager_.get_lobby(lobby_id);
 
@@ -305,13 +303,11 @@ void Server::on_game_start(uint32_t lobby_id, const std::vector<uint32_t>& playe
         std::cerr << "[Server] Cannot start game - lobby/room " << lobby_id << " not found\n";
         return;
     }
-
     protocol::GameMode game_mode = room ? room->game_mode : lobby->game_mode;
     protocol::Difficulty difficulty = room ? room->difficulty : lobby->difficulty;
-    uint16_t map_id = room ? room->map_id : 1;  // Default to map 1 for matchmaking
+    uint16_t map_id = room ? room->map_id : 1;
     uint32_t session_id = generate_session_id();
     auto* session = session_manager_->create_session(session_id, game_mode, difficulty, map_id);
-
     for (uint32_t player_id : player_ids) {
         auto client_it = player_to_client_.find(player_id);
         if (client_it == player_to_client_.end())
@@ -334,18 +330,15 @@ void Server::on_game_start(uint32_t lobby_id, const std::vector<uint32_t>& playe
         packet_sender_->send_tcp_packet(client_id, protocol::PacketType::SERVER_GAME_START,
                                        serialize(game_start));
     }
-
-    // Clean up the room after game starts
-    if (room) {
-        room_manager_.leave_room(player_ids[0]);  // This will cleanup the room
-    }
-
+    if (room)
+        room_manager_.leave_room(player_ids[0]);
     std::cout << "[Server] GameSession " << session_id << " created\n";
 }
 
 void Server::on_state_snapshot(uint32_t session_id, const std::vector<uint8_t>& snapshot)
 {
     auto* session = session_manager_->get_session(session_id);
+
     if (!session)
         return;
     packet_sender_->broadcast_udp_to_session(session_id, protocol::PacketType::SERVER_DELTA_SNAPSHOT,
@@ -703,6 +696,73 @@ void Server::on_client_start_game(uint32_t client_id, const protocol::ClientStar
         return;
     }
     std::cout << "[Server] Game start countdown initiated for room " << room_id << "\n";
+}
+
+void Server::broadcast_all_session_events()
+{
+    auto session_ids = session_manager_->get_active_session_ids();
+
+    for (uint32_t session_id : session_ids) {
+        auto* session = session_manager_->get_session(session_id);
+        if (!session)
+            continue;
+        auto* net_system = session->get_network_system();
+        if (!net_system)
+            continue;
+        auto spawns = net_system->drain_pending_spawns();
+        while (!spawns.empty()) {
+            auto& payload = spawns.front();
+            std::vector<uint8_t> data(reinterpret_cast<const uint8_t*>(&payload),
+                                      reinterpret_cast<const uint8_t*>(&payload) + sizeof(payload));
+            packet_sender_->broadcast_udp_to_session(session_id,
+                protocol::PacketType::SERVER_ENTITY_SPAWN,
+                data, session->get_player_ids(), connected_clients_);
+            spawns.pop();
+        }
+        auto destroys = net_system->drain_pending_destroys();
+        while (!destroys.empty()) {
+            uint32_t entity_id = destroys.front();
+            protocol::ServerEntityDestroyPayload destroy;
+            destroy.entity_id = ByteOrder::host_to_net32(entity_id);
+            destroy.reason = protocol::DestroyReason::KILLED;
+            destroy.position_x = 0.0f;
+            destroy.position_y = 0.0f;
+            packet_sender_->broadcast_udp_to_session(session_id,
+                protocol::PacketType::SERVER_ENTITY_DESTROY,
+                serialize(destroy), session->get_player_ids(), connected_clients_);
+            destroys.pop();
+        }
+        auto projectiles = net_system->drain_pending_projectiles();
+        while (!projectiles.empty()) {
+            auto& payload = projectiles.front();
+            std::vector<uint8_t> data(reinterpret_cast<const uint8_t*>(&payload),
+                                      reinterpret_cast<const uint8_t*>(&payload) + sizeof(payload));
+            packet_sender_->broadcast_udp_to_session(session_id,
+                protocol::PacketType::SERVER_PROJECTILE_SPAWN,
+                data, session->get_player_ids(), connected_clients_);
+            projectiles.pop();
+        }
+        auto explosions = net_system->drain_pending_explosions();
+        while (!explosions.empty()) {
+            auto& payload = explosions.front();
+            std::vector<uint8_t> data(reinterpret_cast<const uint8_t*>(&payload),
+                                      reinterpret_cast<const uint8_t*>(&payload) + sizeof(payload));
+            packet_sender_->broadcast_udp_to_session(session_id,
+                protocol::PacketType::SERVER_EXPLOSION_EVENT,
+                data, session->get_player_ids(), connected_clients_);
+            explosions.pop();
+        }
+        auto scores = net_system->drain_pending_scores();
+        while (!scores.empty()) {
+            auto& payload = scores.front();
+            std::vector<uint8_t> data(reinterpret_cast<const uint8_t*>(&payload),
+                                      reinterpret_cast<const uint8_t*>(&payload) + sizeof(payload));
+            packet_sender_->broadcast_udp_to_session(session_id,
+                protocol::PacketType::SERVER_SCORE_UPDATE,
+                data, session->get_player_ids(), connected_clients_);
+            scores.pop();
+        }
+    }
 }
 
 }

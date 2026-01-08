@@ -320,13 +320,14 @@ Entity EntityManager::spawn_or_update_entity(uint32_t server_id, protocol::Entit
         registry_.remove_component<Wall>(entity);
     }
 
-    // Handle controllable
+    // Handle controllable - keep on ALL players for wall collision resolution
     auto& controllables = registry_.get_components<Controllable>();
-    if (highlight_as_local) {
+    if (type == protocol::EntityType::PLAYER) {
         if (!controllables.has_entity(entity)) {
             registry_.add_component(entity, Controllable{300.0f});
         }
-    } else if (controllables.has_entity(entity) && server_id != local_player_entity_id_) {
+    } else if (controllables.has_entity(entity)) {
+        // Remove from non-player entities
         registry_.remove_component<Controllable>(entity);
     }
 

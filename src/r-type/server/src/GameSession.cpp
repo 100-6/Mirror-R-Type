@@ -9,6 +9,7 @@
 
 #ifdef _WIN32
     #include <winsock2.h>
+    #undef ERROR
 #else
     #include <arpa/inet.h>
 #endif
@@ -38,6 +39,7 @@
 
 namespace rtype::server {
 using netutils::ByteOrder;
+using protocol::EntityType;
 
 GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
                          protocol::Difficulty difficulty, uint16_t map_id)
@@ -53,7 +55,6 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
     std::cout << "[GameSession " << session_id_ << "] Created (mode: " << static_cast<int>(game_mode)
               << ", difficulty: " << static_cast<int>(difficulty) << ", map: " << map_id << ")\n";
 
-    // Register ECS components
     registry_.register_component<Position>();
     registry_.register_component<Velocity>();
     registry_.register_component<Health>();
@@ -78,7 +79,6 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
     registry_.register_component<ShotAnimation>();
     registry_.register_component<CircleEffect>();
 
-    // Register systems
     registry_.register_system<MovementSystem>();
     registry_.register_system<PhysiqueSystem>();
     registry_.register_system<CollisionSystem>();
@@ -91,40 +91,29 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
     registry_.get_system<BonusSystem>().init(registry_);
     registry_.get_system<ScoreSystem>().init(registry_);
 
-    // Register ServerNetworkSystem BEFORE DestroySystem
     registry_.register_system<ServerNetworkSystem>(session_id_, config::SNAPSHOT_INTERVAL);
     network_system_ = &registry_.get_system<ServerNetworkSystem>();
     network_system_->init(registry_);
     network_system_->set_player_entities(&player_entities_);
-    network_system_->set_listener(this);  // GameSession is the listener
+    network_system_->set_listener(this);
 
-    // DestroySystem must be LAST
     registry_.register_system<DestroySystem>();
 
-    // Subscribe to player death events
     registry_.get_event_bus().subscribe<ecs::EntityDeathEvent>(
         [this](const ecs::EntityDeathEvent& event) {
             if (!event.isPlayer)
                 return;
-
-            // Find which player died
             for (auto& [player_id, player] : players_) {
                 if (player.entity == event.entity && player.is_alive) {
                     std::cout << "[GameSession " << session_id_ << "] Player " << player_id << " died!\n";
                     player.is_alive = false;
-
-                    // Queue destroy notification
                     if (network_system_)
                         network_system_->queue_entity_destroy(event.entity);
-
-                    // Check if all players are dead
                     check_game_over();
                     break;
                 }
             }
         });
-
-    // Load wave configuration based on map_id
     std::string wave_file = WaveManager::get_map_file(map_id);
     if (wave_manager_.load_from_file(wave_file)) {
         std::cout << "[GameSession " << session_id_ << "] Loaded " << wave_manager_.get_total_waves()
@@ -132,7 +121,10 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
     } else {
         std::cerr << "[GameSession " << session_id_ << "] Failed to load wave config: " << wave_file << "\n";
     }
-    wave_manager_.set_listener(this);  // GameSession is the wave listener
+    wave_manager_.set_listener(this);
+
+    // Load map segments for tile-based walls
+    load_map_segments(map_id);
 }
 
 void GameSession::add_player(uint32_t player_id, const std::string& player_name)
@@ -141,20 +133,17 @@ void GameSession::add_player(uint32_t player_id, const std::string& player_name)
         std::cerr << "[GameSession " << session_id_ << "] Player " << player_id << " already in session\n";
         return;
     }
-
     GamePlayer player(player_id, player_name);
     spawn_player_entity(player);
     players_[player_id] = player;
     player_entities_[player_id] = player.entity;
-
     std::cout << "[GameSession " << session_id_ << "] Player " << player_id << " (" << player_name
               << ") added (entity ID: " << player.entity << ")\n";
-
     if (network_system_) {
         float spawn_y = config::PLAYER_SPAWN_Y_BASE + ((players_.size() - 1) * config::PLAYER_SPAWN_Y_OFFSET);
         network_system_->queue_entity_spawn(
             player.entity,
-            protocol::EntityType::PLAYER,
+            EntityType::PLAYER,
             config::PLAYER_SPAWN_X,
             spawn_y,
             config::PLAYER_MAX_HEALTH,
@@ -166,19 +155,16 @@ void GameSession::add_player(uint32_t player_id, const std::string& player_name)
 void GameSession::remove_player(uint32_t player_id)
 {
     auto it = players_.find(player_id);
+
     if (it == players_.end())
         return;
-
     Entity player_entity = it->second.entity;
     players_.erase(it);
     player_entities_.erase(player_id);
     registry_.kill_entity(player_entity);
-
     std::cout << "[GameSession " << session_id_ << "] Player " << player_id << " removed\n";
-
     if (network_system_)
         network_system_->queue_entity_destroy(player_entity);
-
     check_game_over();
 }
 
@@ -192,29 +178,27 @@ void GameSession::update(float delta_time)
 {
     if (!is_active_)
         return;
-
     tick_count_++;
     current_scroll_ += config::GAME_SCROLL_SPEED * delta_time;
-
+    
+    // Spawn walls from map tiles as they come into view
+    spawn_walls_in_view();
+    
     wave_manager_.update(delta_time, current_scroll_);
-
     registry_.get_system<BonusSystem>().update(registry_, delta_time);
     registry_.get_system<ShootingSystem>().update(registry_, delta_time);
     registry_.run_systems(delta_time);
-
     check_offscreen_enemies();
-
     if (wave_manager_.all_waves_complete() && is_active_) {
         auto& enemies = registry_.get_components<Enemy>();
         if (enemies.size() == 0) {
             std::cout << "[GameSession " << session_id_ << "] All waves complete - game victory!\n";
-            is_active_ = false;
+            is_active_.store(false, std::memory_order_release);
             if (listener_)
                 listener_->on_game_over(session_id_, get_player_ids(), true);  // Victory
             return;
         }
     }
-
     check_game_over();
 }
 
@@ -231,11 +215,8 @@ void GameSession::spawn_player_entity(GamePlayer& player)
 {
     Entity entity = registry_.spawn_entity();
     player.entity = entity;
-
     float spawn_x = config::PLAYER_SPAWN_X;
     float spawn_y = config::PLAYER_SPAWN_Y_BASE + (players_.size() * config::PLAYER_SPAWN_Y_OFFSET);
-
-    // Convert top-left spawn position to center-based position
     float center_x = spawn_x + config::PLAYER_WIDTH / 2.0f;
     float center_y = spawn_y + config::PLAYER_HEIGHT / 2.0f;
 
@@ -246,28 +227,21 @@ void GameSession::spawn_player_entity(GamePlayer& player)
     registry_.add_component(entity, Collider{config::PLAYER_WIDTH, config::PLAYER_HEIGHT});
     registry_.add_component(entity, Invulnerability{3.0f});
     registry_.add_component(entity, Score{0});
-
     Weapon weapon = create_weapon(WeaponType::BASIC, engine::INVALID_HANDLE);
     registry_.add_component(entity, weapon);
-
     std::cout << "[GameSession " << session_id_ << "] Spawned player entity " << entity
               << " at (" << spawn_x << ", " << spawn_y << ")\n";
 }
 
-// === IWaveListener Implementation ===
-
 void GameSession::on_wave_started(const Wave& wave)
 {
     std::cout << "[GameSession " << session_id_ << "] Wave " << wave.wave_number << " started\n";
-
     if (!listener_)
         return;
-
     protocol::ServerWaveStartPayload payload;
     payload.wave_number = ByteOrder::host_to_net32(wave.wave_number);
     payload.total_waves = ByteOrder::host_to_net16(static_cast<uint16_t>(wave_manager_.get_total_waves()));
     payload.scroll_distance = wave.trigger.scroll_distance;
-
     uint16_t enemy_count = 0;
     for (const auto& spawn : wave.spawns) {
         if (spawn.type == "enemy")
@@ -275,27 +249,22 @@ void GameSession::on_wave_started(const Wave& wave)
     }
     payload.expected_enemies = ByteOrder::host_to_net16(enemy_count);
     payload.set_wave_name("Wave " + std::to_string(wave.wave_number));
-
     last_wave_start_payload_ = payload;
     has_wave_started_ = true;
-
     listener_->on_wave_start(session_id_, serialize(payload));
 }
 
 void GameSession::on_wave_completed(const Wave& wave)
 {
     std::cout << "[GameSession " << session_id_ << "] Wave " << wave.wave_number << " completed\n";
-
     if (!listener_)
         return;
-
     protocol::ServerWaveCompletePayload payload;
     payload.wave_number = ByteOrder::host_to_net32(wave.wave_number);
     payload.completion_time = ByteOrder::host_to_net32(0);
     payload.enemies_killed = ByteOrder::host_to_net16(0);
     payload.bonus_points = ByteOrder::host_to_net16(0);
     payload.all_waves_complete = wave_manager_.all_waves_complete() ? 1 : 0;
-
     last_wave_complete_payload_ = payload;
     has_wave_complete_ = payload.all_waves_complete != 0;
 
@@ -305,12 +274,11 @@ void GameSession::on_wave_completed(const Wave& wave)
 void GameSession::on_spawn_enemy(const std::string& enemy_type, float x, float y)
 {
     Entity enemy = registry_.spawn_entity();
-
     float velocity_x = -config::ENEMY_BASIC_SPEED;
     uint16_t health = config::ENEMY_BASIC_HEALTH;
     float width = config::ENEMY_BASIC_WIDTH;
     float height = config::ENEMY_BASIC_HEIGHT;
-    protocol::EntityType entity_type = protocol::EntityType::ENEMY_BASIC;
+    EntityType entity_type = EntityType::ENEMY_BASIC;
     protocol::EnemySubtype subtype = protocol::EnemySubtype::BASIC;
 
     if (enemy_type == "fast") {
@@ -318,38 +286,33 @@ void GameSession::on_spawn_enemy(const std::string& enemy_type, float x, float y
         health = config::ENEMY_FAST_HEALTH;
         width = config::ENEMY_FAST_WIDTH;
         height = config::ENEMY_FAST_HEIGHT;
-        entity_type = protocol::EntityType::ENEMY_FAST;
+        entity_type = EntityType::ENEMY_FAST;
         subtype = protocol::EnemySubtype::FAST;
     } else if (enemy_type == "tank") {
         velocity_x = -config::ENEMY_TANK_SPEED;
         health = config::ENEMY_TANK_HEALTH;
         width = config::ENEMY_TANK_WIDTH;
         height = config::ENEMY_TANK_HEIGHT;
-        entity_type = protocol::EntityType::ENEMY_TANK;
+        entity_type = EntityType::ENEMY_TANK;
         subtype = protocol::EnemySubtype::TANK;
     } else if (enemy_type == "boss") {
         velocity_x = -config::ENEMY_BOSS_SPEED;
         health = config::ENEMY_BOSS_HEALTH;
         width = config::ENEMY_BOSS_WIDTH;
         height = config::ENEMY_BOSS_HEIGHT;
-        entity_type = protocol::EntityType::ENEMY_BOSS;
+        entity_type = EntityType::ENEMY_BOSS;
         subtype = protocol::EnemySubtype::BOSS;
     }
-
-    // Convert top-left position to center-based position
     float center_x = x + width / 2.0f;
     float center_y = y + height / 2.0f;
-
     registry_.add_component(enemy, Position{center_x, center_y});
     registry_.add_component(enemy, Velocity{velocity_x, 0.0f});
     registry_.add_component(enemy, Health{static_cast<int>(health), static_cast<int>(health)});
     registry_.add_component(enemy, Enemy{});
     registry_.add_component(enemy, NoFriction{});
     registry_.add_component(enemy, Collider{width, height});
-
     std::cout << "[GameSession " << session_id_ << "] Spawned " << enemy_type << " enemy " << enemy
               << " at (" << x << ", " << y << ")\n";
-
     if (network_system_)
         network_system_->queue_entity_spawn(enemy, entity_type, x, y, health, static_cast<uint8_t>(subtype));
 }
@@ -357,8 +320,6 @@ void GameSession::on_spawn_enemy(const std::string& enemy_type, float x, float y
 void GameSession::on_spawn_wall(float x, float y)
 {
     Entity wall = registry_.spawn_entity();
-
-    // Convert top-left position to center-based position
     float center_x = x + config::WALL_WIDTH / 2.0f;
     float center_y = y + config::WALL_HEIGHT / 2.0f;
 
@@ -368,18 +329,14 @@ void GameSession::on_spawn_wall(float x, float y)
     registry_.add_component(wall, Wall{});
     registry_.add_component(wall, NoFriction{});
     registry_.add_component(wall, Health{65535, 65535});
-
     std::cout << "[GameSession " << session_id_ << "] Spawned wall " << wall << " at (" << x << ", " << y << ")\n";
-
     if (network_system_)
-        network_system_->queue_entity_spawn(wall, protocol::EntityType::WALL, x, y, 65535, 0);
+        network_system_->queue_entity_spawn(wall, EntityType::WALL, x, y, 65535, 0);
 }
 
 void GameSession::on_spawn_powerup(const std::string& bonus_type, float x, float y)
 {
     Entity powerup = registry_.spawn_entity();
-
-    // Convert top-left position to center-based position
     float center_x = x + config::BONUS_SIZE / 2.0f;
     float center_y = y + config::BONUS_SIZE / 2.0f;
 
@@ -388,21 +345,16 @@ void GameSession::on_spawn_powerup(const std::string& bonus_type, float x, float
     registry_.add_component(powerup, Collider{config::BONUS_SIZE, config::BONUS_SIZE});
     registry_.add_component(powerup, Bonus{});
     registry_.add_component(powerup, NoFriction{});
-
     std::cout << "[GameSession " << session_id_ << "] Spawned " << bonus_type << " powerup " << powerup
               << " at (" << x << ", " << y << ")\n";
-
-    protocol::EntityType entity_type = protocol::EntityType::BONUS_HEALTH;
+    EntityType entity_type = EntityType::BONUS_HEALTH;
     if (bonus_type == "shield")
-        entity_type = protocol::EntityType::BONUS_SHIELD;
+        entity_type = EntityType::BONUS_SHIELD;
     else if (bonus_type == "speed")
-        entity_type = protocol::EntityType::BONUS_SPEED;
-
+        entity_type = EntityType::BONUS_SPEED;
     if (network_system_)
         network_system_->queue_entity_spawn(powerup, entity_type, x, y, 0, 0);
 }
-
-// === INetworkSystemListener Implementation ===
 
 void GameSession::on_snapshot_ready(uint32_t session_id, const std::vector<uint8_t>& snapshot)
 {
@@ -440,14 +392,10 @@ void GameSession::on_score_updated(uint32_t session_id, const std::vector<uint8_
         listener_->on_score_update(session_id, score_data);
 }
 
-// === Internal Helpers ===
-
 void GameSession::check_game_over()
 {
     if (players_.empty())
         return;
-
-    // Check if all players are dead
     bool all_dead = true;
     for (const auto& [player_id, player] : players_) {
         if (player.is_alive) {
@@ -455,9 +403,8 @@ void GameSession::check_game_over()
             break;
         }
     }
-
     if (all_dead) {
-        is_active_ = false;
+        is_active_.store(false, std::memory_order_release);
         std::cout << "[GameSession " << session_id_ << "] Game over - all players dead!\n";
         if (listener_)
             listener_->on_game_over(session_id_, get_player_ids(), false);  // Defeat
@@ -472,7 +419,6 @@ void GameSession::check_offscreen_enemies()
     for (size_t i = 0; i < positions.size(); ++i) {
         Entity entity = positions.get_entity_at(i);
         Position& pos = positions.get_data_at(i);
-
         bool is_player = false;
         for (const auto& [pid, player] : players_) {
             if (player.entity == entity) {
@@ -480,11 +426,9 @@ void GameSession::check_offscreen_enemies()
                 break;
             }
         }
-
         if (!is_player && pos.x < config::ENTITY_OFFSCREEN_LEFT)
             entities_to_kill.push_back(entity);
     }
-
     for (Entity entity : entities_to_kill) {
         registry_.kill_entity(entity);
         if (network_system_)
@@ -498,31 +442,24 @@ void GameSession::resync_client(uint32_t player_id, uint32_t tcp_client_id)
         std::cerr << "[GameSession " << session_id_ << "] Cannot resync: no network system\n";
         return;
     }
-
     std::cout << "[GameSession " << session_id_ << "] Resyncing client " << tcp_client_id
               << " (player " << player_id << ") with existing entities\n";
-
     auto& positions = registry_.get_components<Position>();
     auto& healths = registry_.get_components<Health>();
     int entity_count = 0;
-
-    // Resync players
     for (const auto& [pid, player] : players_) {
         if (positions.has_entity(player.entity)) {
             const Position& pos = positions[player.entity];
             uint16_t health = 100;
             if (healths.has_entity(player.entity))
                 health = healths[player.entity].current;
-
             network_system_->queue_entity_spawn(
-                player.entity, protocol::EntityType::PLAYER,
+                player.entity, EntityType::PLAYER,
                 pos.x, pos.y, health, static_cast<uint8_t>(pid)
             );
             entity_count++;
         }
     }
-
-    // Resync enemies
     auto& enemies = registry_.get_components<Enemy>();
     for (size_t i = 0; i < enemies.size(); ++i) {
         Entity entity = enemies.get_entity_at(i);
@@ -531,40 +468,148 @@ void GameSession::resync_client(uint32_t player_id, uint32_t tcp_client_id)
             uint16_t health = 100;
             if (healths.has_entity(entity))
                 health = healths[entity].current;
-
             network_system_->queue_entity_spawn(
-                entity, protocol::EntityType::ENEMY_BASIC,
+                entity, EntityType::ENEMY_BASIC,
                 pos.x, pos.y, health, 0
             );
             entity_count++;
         }
     }
-
-    // Resync projectiles
     auto& projectiles = registry_.get_components<Projectile>();
     for (size_t i = 0; i < projectiles.size(); ++i) {
         Entity entity = projectiles.get_entity_at(i);
         if (positions.has_entity(entity)) {
             const Position& pos = positions[entity];
             const Projectile& proj = projectiles.get_data_at(i);
-
             network_system_->queue_entity_spawn(
                 entity,
                 proj.faction == ProjectileFaction::Player ?
-                    protocol::EntityType::PROJECTILE_PLAYER : protocol::EntityType::PROJECTILE_ENEMY,
+                    EntityType::PROJECTILE_PLAYER : EntityType::PROJECTILE_ENEMY,
                 pos.x, pos.y, 0, 0
             );
             entity_count++;
         }
     }
-
-    // Resend wave events
     if (listener_ && has_wave_started_)
         listener_->on_wave_start(session_id_, serialize(last_wave_start_payload_));
     if (listener_ && has_wave_complete_)
         listener_->on_wave_complete(session_id_, serialize(last_wave_complete_payload_));
-
     std::cout << "[GameSession " << session_id_ << "] Queued " << entity_count << " entity spawns for resync\n";
+}
+
+void GameSession::load_map_segments(uint16_t map_id)
+{
+    // Map ID to folder mapping
+    std::string map_folder;
+    switch (map_id) {
+        case 1:
+            map_folder = "nebula_outpost";
+            break;
+        default:
+            std::cout << "[GameSession " << session_id_ << "] Unknown map_id " << map_id << ", using nebula_outpost\n";
+            map_folder = "nebula_outpost";
+            break;
+    }
+
+    try {
+        map_config_ = rtype::MapConfigLoader::loadMapById(map_folder);
+        tile_size_ = map_config_.tileSize;
+
+        std::string segments_dir = map_config_.basePath + "/segments";
+        auto segment_paths = rtype::MapConfigLoader::getSegmentPaths(segments_dir);
+
+        for (const auto& path : segment_paths) {
+            auto segment = rtype::MapConfigLoader::loadSegment(path);
+            map_segments_.push_back(segment);
+        }
+
+        std::cout << "[GameSession " << session_id_ << "] Loaded " << map_segments_.size()
+                  << " map segments for tile walls (tileSize=" << tile_size_ << ")\n";
+    } catch (const std::exception& e) {
+        std::cerr << "[GameSession " << session_id_ << "] Failed to load map segments: " << e.what() << "\n";
+    }
+}
+
+void GameSession::spawn_walls_in_view()
+{
+    if (map_segments_.empty() || next_segment_to_spawn_ >= map_segments_.size())
+        return;
+
+    // Calculate world X position where next segment starts
+    float segment_world_x = 0.0f;
+    for (size_t i = 0; i < next_segment_to_spawn_; ++i) {
+        segment_world_x += static_cast<float>(map_segments_[i].width * tile_size_);
+    }
+
+    // Spawn walls from segments that are about to come into view
+    float spawn_threshold = current_scroll_ + 1920.0f + 500.0f;  // screen width + buffer
+
+    while (next_segment_to_spawn_ < map_segments_.size() && segment_world_x < spawn_threshold) {
+        const auto& segment = map_segments_[next_segment_to_spawn_];
+        float segment_width = static_cast<float>(segment.width * tile_size_);
+
+        // Greedy merge: find rectangular groups of wall tiles
+        int height = static_cast<int>(segment.tiles.size());
+        int width = (height > 0) ? static_cast<int>(segment.tiles[0].size()) : 0;
+        std::vector<std::vector<bool>> processed(height, std::vector<bool>(width, false));
+
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                if (processed[y][x] || segment.tiles[y][x] == 0)
+                    continue;
+
+                // Greedy merge: find largest rectangle of wall tiles
+                int w = 1, h = 1;
+
+                // Expand width
+                while (x + w < width && segment.tiles[y][x + w] != 0 && !processed[y][x + w])
+                    w++;
+
+                // Expand height if all tiles in row match
+                while (y + h < height) {
+                    bool row_ok = true;
+                    for (int dx = 0; dx < w; ++dx) {
+                        if (segment.tiles[y + h][x + dx] == 0 || processed[y + h][x + dx]) {
+                            row_ok = false;
+                            break;
+                        }
+                    }
+                    if (!row_ok)
+                        break;
+                    h++;
+                }
+
+                // Mark tiles as processed
+                for (int dy = 0; dy < h; ++dy) {
+                    for (int dx = 0; dx < w; ++dx) {
+                        processed[y + dy][x + dx] = true;
+                    }
+                }
+
+                // Spawn merged wall entity
+                float tile_world_x = segment_world_x + static_cast<float>(x * tile_size_);
+                float wall_width = static_cast<float>(w * tile_size_);
+                float wall_height = static_cast<float>(h * tile_size_);
+                float center_x = tile_world_x + wall_width * 0.5f;
+                float center_y = static_cast<float>(y * tile_size_) + wall_height * 0.5f;
+
+                Entity wall = registry_.spawn_entity();
+                registry_.add_component(wall, Position{center_x, center_y});
+                registry_.add_component(wall, Velocity{-config::GAME_SCROLL_SPEED, 0.0f});
+                registry_.add_component(wall, Collider{wall_width, wall_height});
+                registry_.add_component(wall, Wall{});
+                registry_.add_component(wall, NoFriction{});
+                registry_.add_component(wall, Health{65535, 65535});
+
+                if (network_system_)
+                    network_system_->queue_entity_spawn(wall, EntityType::WALL,
+                        tile_world_x, static_cast<float>(y * tile_size_), 65535, 0);
+            }
+        }
+
+        segment_world_x += segment_width;
+        next_segment_to_spawn_++;
+    }
 }
 
 }
