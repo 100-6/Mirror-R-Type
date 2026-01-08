@@ -1,9 +1,17 @@
 #include "screens/CreateRoomScreen.hpp"
+#include "screens/createroom/CreateRoomInitializer.hpp"
+#include "screens/createroom/CreateRoomUpdater.hpp"
+#include "screens/createroom/CreateRoomDrawer.hpp"
+#include "screens/createroom/CreateRoomRenderer.hpp"
 #include "NetworkClient.hpp"
 #include "ScreenManager.hpp"
 #include <iostream>
 
 namespace rtype::client {
+
+// ============================================================================
+// STATIC HELPERS
+// ============================================================================
 
 const char* CreateRoomScreen::get_map_name(MapId id) {
     switch (id) {
@@ -14,293 +22,325 @@ const char* CreateRoomScreen::get_map_name(MapId id) {
     }
 }
 
+const char* CreateRoomScreen::get_step_title() const {
+    switch (current_step_) {
+        case Step::ROOM_INFO: return "Room Information";
+        case Step::MAP_SELECTION: return "Select Map";
+        case Step::DIFFICULTY: return "Choose Difficulty";
+        case Step::GAME_MODE: return "Game Mode";
+        default: return "";
+    }
+}
+
+// ============================================================================
+// CONSTRUCTOR
+// ============================================================================
+
 CreateRoomScreen::CreateRoomScreen(NetworkClient& network_client, int screen_width, int screen_height)
     : BaseScreen(network_client, screen_width, screen_height) {
 }
 
+// ============================================================================
+// CONFIGURATION GETTERS
+// ============================================================================
+
 uint8_t CreateRoomScreen::get_configured_max_players() const {
     switch (game_mode_) {
-        case protocol::GameMode::DUO:
-            return 2;
-        case protocol::GameMode::TRIO:
-            return 3;
-        case protocol::GameMode::SQUAD:
-            return 4;
-        default:
-            return 4;
+        case protocol::GameMode::DUO: return 2;
+        case protocol::GameMode::TRIO: return 3;
+        case protocol::GameMode::SQUAD: return 4;
+        default: return 4;
     }
 }
 
+// ============================================================================
+// NAVIGATION & ROOM CREATION
+// ============================================================================
+
+void CreateRoomScreen::next_step() {
+    if (current_step_ == Step::GAME_MODE) {
+        create_room();
+    } else {
+        current_step_ = static_cast<Step>(static_cast<int>(current_step_) + 1);
+    }
+}
+
+void CreateRoomScreen::previous_step() {
+    if (current_step_ == Step::ROOM_INFO) {
+        if (on_screen_change_) {
+            on_screen_change_(GameScreen::MAIN_MENU);
+        }
+    } else {
+        current_step_ = static_cast<Step>(static_cast<int>(current_step_) - 1);
+    }
+}
+
+void CreateRoomScreen::create_room() {
+    std::string room_name = fields_[0]->get_text();
+    std::string password = fields_[1]->get_text();
+
+    if (room_name.empty()) {
+        room_name = "Room";
+    }
+
+    uint8_t max_players = get_configured_max_players();
+    uint16_t map = get_configured_map_id();
+
+    std::cout << "[CreateRoomScreen] Creating room on map: " << get_map_name(map_id_) << "\n";
+
+    network_client_.send_create_room(room_name, password, game_mode_, difficulty_, map, max_players);
+
+    if (on_room_created_) {
+        on_room_created_(game_mode_, max_players);
+    }
+}
+
+// ============================================================================
+// INITIALIZATION
+// ============================================================================
+
 void CreateRoomScreen::initialize() {
+    // Clear all UI elements
     labels_.clear();
     fields_.clear();
     buttons_.clear();
     mode_buttons_.clear();
     map_buttons_.clear();
     difficulty_buttons_.clear();
+    nav_buttons_.clear();
 
     // Reset to defaults
+    current_step_ = Step::ROOM_INFO;
     game_mode_ = protocol::GameMode::SQUAD;
     difficulty_ = protocol::Difficulty::NORMAL;
     map_id_ = MapId::NEBULA_OUTPOST;
+    textures_.loaded = false;
 
-    float center_x = screen_width_ / 2.0f;
-    float start_y = 80.0f;
-
-    // Title
-    auto title = std::make_unique<UILabel>(center_x, start_y, "Create Room", 36);
-    title->set_alignment(UILabel::Alignment::CENTER);
-    labels_.push_back(std::move(title));
-
-    // Room Name field
-    auto name_label = std::make_unique<UILabel>(center_x - 200, start_y + 70, "Room Name:", 18);
-    labels_.push_back(std::move(name_label));
-
-    auto name_field = std::make_unique<UITextField>(center_x - 200, start_y + 95, 400, 35, "My Room");
-    fields_.push_back(std::move(name_field));
-
-    // Password field (optional)
-    auto pass_label = std::make_unique<UILabel>(center_x - 200, start_y + 145, "Password (optional):", 18);
-    labels_.push_back(std::move(pass_label));
-
-    auto pass_field = std::make_unique<UITextField>(center_x - 200, start_y + 170, 400, 35, "");
-    pass_field->set_password_mode(true);
-    fields_.push_back(std::move(pass_field));
-
-    // ==================== MAP SELECTION ====================
-    auto map_label = std::make_unique<UILabel>(center_x, start_y + 220, "Select Map:", 20);
-    map_label->set_alignment(UILabel::Alignment::CENTER);
-    map_label->set_color(engine::Color{100, 200, 255, 255});
-    labels_.push_back(std::move(map_label));
-
-    float map_button_y = start_y + 250;
-    float map_button_width = 160.0f;
-    float map_button_height = 40.0f;
-    float map_button_spacing = 15.0f;
-    float map_total_width = map_button_width * 3 + map_button_spacing * 2;
-    float map_start_x = center_x - map_total_width / 2.0f;
-
-    // Map 1 - Nebula Outpost
-    auto map1_btn = std::make_unique<UIButton>(map_start_x, map_button_y, map_button_width, map_button_height, "Nebula Outpost");
-    map1_btn->set_on_click([this]() {
-        map_id_ = MapId::NEBULA_OUTPOST;
-        std::cout << "[CreateRoomScreen] Selected Map: Nebula Outpost\n";
-    });
-    map_buttons_.push_back(std::move(map1_btn));
-
-    // Map 2 - Asteroid Belt
-    auto map2_btn = std::make_unique<UIButton>(map_start_x + map_button_width + map_button_spacing, map_button_y,
-                                                map_button_width, map_button_height, "Asteroid Belt");
-    map2_btn->set_on_click([this]() {
-        map_id_ = MapId::ASTEROID_BELT;
-        std::cout << "[CreateRoomScreen] Selected Map: Asteroid Belt\n";
-    });
-    map_buttons_.push_back(std::move(map2_btn));
-
-    // Map 3 - Bydo Mothership
-    auto map3_btn = std::make_unique<UIButton>(map_start_x + (map_button_width + map_button_spacing) * 2, map_button_y,
-                                                map_button_width, map_button_height, "Bydo Mothership");
-    map3_btn->set_on_click([this]() {
-        map_id_ = MapId::BYDO_MOTHERSHIP;
-        std::cout << "[CreateRoomScreen] Selected Map: Bydo Mothership\n";
-    });
-    map_buttons_.push_back(std::move(map3_btn));
-
-    // ==================== DIFFICULTY SELECTION ====================
-    auto diff_label = std::make_unique<UILabel>(center_x, start_y + 310, "Difficulty:", 20);
-    diff_label->set_alignment(UILabel::Alignment::CENTER);
-    diff_label->set_color(engine::Color{255, 200, 100, 255});
-    labels_.push_back(std::move(diff_label));
-
-    float diff_button_y = start_y + 340;
-    float diff_button_width = 120.0f;
-    float diff_button_height = 40.0f;
-    float diff_button_spacing = 15.0f;
-    float diff_total_width = diff_button_width * 3 + diff_button_spacing * 2;
-    float diff_start_x = center_x - diff_total_width / 2.0f;
-
-    // Easy
-    auto easy_btn = std::make_unique<UIButton>(diff_start_x, diff_button_y, diff_button_width, diff_button_height, "Easy");
-    easy_btn->set_on_click([this]() {
-        difficulty_ = protocol::Difficulty::EASY;
-        std::cout << "[CreateRoomScreen] Selected Difficulty: Easy\n";
-    });
-    difficulty_buttons_.push_back(std::move(easy_btn));
-
-    // Normal
-    auto normal_btn = std::make_unique<UIButton>(diff_start_x + diff_button_width + diff_button_spacing, diff_button_y,
-                                                  diff_button_width, diff_button_height, "Normal");
-    normal_btn->set_on_click([this]() {
-        difficulty_ = protocol::Difficulty::NORMAL;
-        std::cout << "[CreateRoomScreen] Selected Difficulty: Normal\n";
-    });
-    difficulty_buttons_.push_back(std::move(normal_btn));
-
-    // Hard
-    auto hard_btn = std::make_unique<UIButton>(diff_start_x + (diff_button_width + diff_button_spacing) * 2, diff_button_y,
-                                                diff_button_width, diff_button_height, "Hard");
-    hard_btn->set_on_click([this]() {
-        difficulty_ = protocol::Difficulty::HARD;
-        std::cout << "[CreateRoomScreen] Selected Difficulty: Hard\n";
-    });
-    difficulty_buttons_.push_back(std::move(hard_btn));
-
-    // ==================== GAME MODE SELECTION ====================
-    auto mode_label = std::make_unique<UILabel>(center_x, start_y + 400, "Game Mode:", 20);
-    mode_label->set_alignment(UILabel::Alignment::CENTER);
-    mode_label->set_color(engine::Color{200, 200, 200, 255});
-    labels_.push_back(std::move(mode_label));
-
-    float mode_button_y = start_y + 430;
-    float button_width = 120.0f;
-    float button_height = 40.0f;
-    float button_spacing = 15.0f;
-    float total_width = button_width * 3 + button_spacing * 2;
-    float start_x = center_x - total_width / 2.0f;
-
-    // DUO button (2 players)
-    auto duo_btn = std::make_unique<UIButton>(start_x, mode_button_y, button_width, button_height, "DUO (2)");
-    duo_btn->set_on_click([this]() {
-        game_mode_ = protocol::GameMode::DUO;
-        std::cout << "[CreateRoomScreen] Selected DUO mode (2 players)\n";
-    });
-    mode_buttons_.push_back(std::move(duo_btn));
-
-    // TRIO button (3 players)
-    auto trio_btn = std::make_unique<UIButton>(start_x + button_width + button_spacing, mode_button_y,
-                                                button_width, button_height, "TRIO (3)");
-    trio_btn->set_on_click([this]() {
-        game_mode_ = protocol::GameMode::TRIO;
-        std::cout << "[CreateRoomScreen] Selected TRIO mode (3 players)\n";
-    });
-    mode_buttons_.push_back(std::move(trio_btn));
-
-    // SQUAD button (4 players)
-    auto squad_btn = std::make_unique<UIButton>(start_x + (button_width + button_spacing) * 2, mode_button_y,
-                                                 button_width, button_height, "SQUAD (4)");
-    squad_btn->set_on_click([this]() {
-        game_mode_ = protocol::GameMode::SQUAD;
-        std::cout << "[CreateRoomScreen] Selected SQUAD mode (4 players)\n";
-    });
-    mode_buttons_.push_back(std::move(squad_btn));
-
-    // ==================== CREATE / BACK BUTTONS ====================
-    float action_button_width = 200.0f;
-    float action_button_height = 50.0f;
-    float action_y = start_y + 500;
-
-    auto create_btn = std::make_unique<UIButton>(
-        center_x - action_button_width - 10, action_y, action_button_width, action_button_height, "Create");
-    create_btn->set_on_click([this]() {
-        std::string room_name = fields_[0]->get_text();
-        std::string password = fields_[1]->get_text();
-
-        if (room_name.empty()) {
-            room_name = "Room";
-        }
-
-        uint8_t max_players = get_configured_max_players();
-        uint16_t map = get_configured_map_id();
-
-        std::cout << "[CreateRoomScreen] Creating room on map: " << get_map_name(map_id_) << "\n";
-
-        network_client_.send_create_room(room_name, password,
-                                         game_mode_, difficulty_,
-                                         map, max_players);
-
-        if (on_room_created_) {
-            on_room_created_(game_mode_, max_players);
-        }
-    });
-    buttons_.push_back(std::move(create_btn));
-
-    // Back button
-    auto back_btn = std::make_unique<UIButton>(
-        center_x + 10, action_y, action_button_width, action_button_height, "Back");
-    back_btn->set_on_click([this]() {
-        if (on_screen_change_) {
-            on_screen_change_(GameScreen::MAIN_MENU);
-        }
-    });
-    buttons_.push_back(std::move(back_btn));
+    // Initialize each step using modular initializers
+    createroom::Initializer::init_room_info_step(labels_, fields_, screen_width_);
+    createroom::Initializer::init_map_selection_step(map_buttons_, map_id_, screen_width_);
+    createroom::Initializer::init_difficulty_step();
+    createroom::Initializer::init_game_mode_step();
+    createroom::Initializer::init_navigation_buttons(
+        nav_buttons_,
+        [this]() { previous_step(); },
+        [this]() { next_step(); },
+        screen_width_,
+        screen_height_
+    );
 }
+
+void CreateRoomScreen::initialize_room_info_step() {
+    createroom::Initializer::init_room_info_step(labels_, fields_, screen_width_);
+}
+
+void CreateRoomScreen::initialize_map_selection_step() {
+    createroom::Initializer::init_map_selection_step(map_buttons_, map_id_, screen_width_);
+}
+
+void CreateRoomScreen::initialize_difficulty_step() {
+    createroom::Initializer::init_difficulty_step();
+}
+
+void CreateRoomScreen::initialize_game_mode_step() {
+    createroom::Initializer::init_game_mode_step();
+}
+
+void CreateRoomScreen::initialize_navigation_buttons() {
+    createroom::Initializer::init_navigation_buttons(
+        nav_buttons_,
+        [this]() { previous_step(); },
+        [this]() { next_step(); },
+        screen_width_,
+        screen_height_
+    );
+}
+
+// ============================================================================
+// UPDATE
+// ============================================================================
 
 void CreateRoomScreen::update(engine::IGraphicsPlugin* graphics, engine::IInputPlugin* input) {
-    // Update text fields first
-    for (auto& field : fields_) {
-        field->update(graphics, input);
+    // Edit mode controls for navigation arrows
+    if (edit_mode_) {
+        std::cout << "[EDIT MODE] Spacing: " << button_spacing_ << " | Y-Offset: " << button_y_offset_
+                  << " | Radius: " << button_radius_ << "\n";
+        std::cout << "[EDIT MODE] Controls: Arrow Keys (spacing), W/S (vertical), +/- (radius), P (print), E (exit)\n";
+
+        bool changed = false;
+
+        // Arrow Left/Right - Adjust horizontal spacing
+        if (input->is_key_pressed(engine::Key::Left)) {
+            button_spacing_ -= move_speed_;
+            changed = true;
+        }
+        if (input->is_key_pressed(engine::Key::Right)) {
+            button_spacing_ += move_speed_;
+            changed = true;
+        }
+
+        // W/S - Adjust vertical position
+        if (input->is_key_pressed(engine::Key::W)) {
+            button_y_offset_ += move_speed_;
+            changed = true;
+        }
+        if (input->is_key_pressed(engine::Key::S)) {
+            button_y_offset_ -= move_speed_;
+            changed = true;
+        }
+
+        // +/- - Adjust button radius (use Add/Subtract for numpad)
+        if (input->is_key_pressed(engine::Key::Equal) || input->is_key_pressed(engine::Key::Add)) {
+            button_radius_ += 1.0f;
+            changed = true;
+            std::cout << "[EDIT MODE] Radius increased to " << button_radius_ << "\n";
+        }
+        if (input->is_key_pressed(engine::Key::Hyphen) || input->is_key_pressed(engine::Key::Subtract)) {
+            if (button_radius_ > 10.0f) {  // Minimum size
+                button_radius_ -= 1.0f;
+                changed = true;
+                std::cout << "[EDIT MODE] Radius decreased to " << button_radius_ << "\n";
+            } else {
+                std::cout << "[EDIT MODE] Radius at minimum (10.0f)\n";
+            }
+        }
+
+        // P - Print current values
+        if (input->is_key_pressed(engine::Key::P)) {
+            std::cout << "\n=== NAVIGATION ARROW POSITIONS ===\n";
+            std::cout << "button_spacing = " << button_spacing_ << "f;\n";
+            std::cout << "button_y_offset = " << button_y_offset_ << "f;\n";
+            std::cout << "button_radius = " << button_radius_ << "f;\n";
+            std::cout << "==================================\n\n";
+        }
+
+        // E - Exit edit mode
+        if (input->is_key_pressed(engine::Key::E)) {
+            edit_mode_ = false;
+            std::cout << "[EDIT MODE] Disabled. Final values:\n";
+            std::cout << "  button_spacing = " << button_spacing_ << "f\n";
+            std::cout << "  button_y_offset = " << button_y_offset_ << "f\n";
+            std::cout << "  button_radius = " << button_radius_ << "f\n";
+        }
+
+        if (changed) {
+            std::cout << "[EDIT MODE] Updated: spacing=" << button_spacing_
+                     << " y_offset=" << button_y_offset_
+                     << " radius=" << button_radius_ << "\n";
+        }
+
+        return;  // Skip normal updates in edit mode
     }
 
-    // Update buttons only if no text field is focused
-    bool any_field_focused = false;
-    for (auto& field : fields_) {
-        if (field->is_focused()) {
-            any_field_focused = true;
-            break;
-        }
+    // Update text fields only on ROOM_INFO step
+    if (current_step_ == Step::ROOM_INFO) {
+        update_room_info_step(graphics, input);
     }
 
-    if (!any_field_focused) {
-        // Update map selection buttons
-        for (size_t i = 0; i < map_buttons_.size(); ++i) {
-            bool is_selected = (static_cast<uint16_t>(map_id_) == i + 1);
-            map_buttons_[i]->set_selected(is_selected);
-            map_buttons_[i]->update(graphics, input);
+    // Check if any text field is focused
+    if (!createroom::Updater::is_any_field_focused(fields_)) {
+        // Update step-specific content
+        switch (current_step_) {
+            case Step::MAP_SELECTION:
+                update_map_selection_step(graphics, input);
+                break;
+            case Step::DIFFICULTY:
+                update_difficulty_step(graphics, input);
+                break;
+            case Step::GAME_MODE:
+                update_game_mode_step(graphics, input);
+                break;
+            default:
+                break;
         }
 
-        // Update difficulty buttons
-        for (size_t i = 0; i < difficulty_buttons_.size(); ++i) {
-            bool is_selected = (static_cast<uint8_t>(difficulty_) == i + 1);
-            difficulty_buttons_[i]->set_selected(is_selected);
-            difficulty_buttons_[i]->update(graphics, input);
-        }
-
-        // Update game mode buttons
-        for (size_t i = 0; i < mode_buttons_.size(); ++i) {
-            bool is_selected = (static_cast<uint8_t>(game_mode_) == i + 1);
-            mode_buttons_[i]->set_selected(is_selected);
-            mode_buttons_[i]->update(graphics, input);
-        }
-
-        // Update action buttons
-        for (auto& button : buttons_) {
-            button->update(graphics, input);
-        }
+        // Update navigation buttons
+        createroom::Updater::update_navigation_buttons(nav_buttons_, graphics, input);
     }
 }
 
+void CreateRoomScreen::update_room_info_step(engine::IGraphicsPlugin* graphics, engine::IInputPlugin* input) {
+    createroom::Updater::update_room_info_step(fields_, graphics, input);
+}
+
+void CreateRoomScreen::update_map_selection_step(engine::IGraphicsPlugin* graphics, engine::IInputPlugin* input) {
+    createroom::Updater::update_map_selection_step(map_buttons_, map_id_, graphics, input);
+}
+
+void CreateRoomScreen::update_difficulty_step(engine::IGraphicsPlugin* graphics, engine::IInputPlugin* input) {
+    createroom::Updater::update_difficulty_step(difficulty_, screen_width_, input);
+}
+
+void CreateRoomScreen::update_game_mode_step(engine::IGraphicsPlugin* graphics, engine::IInputPlugin* input) {
+    createroom::Updater::update_game_mode_step(game_mode_, screen_width_, input);
+}
+
+// ============================================================================
+// DRAW
+// ============================================================================
+
 void CreateRoomScreen::draw(engine::IGraphicsPlugin* graphics) {
-    graphics->clear(engine::Color{20, 20, 30, 255});
+    // Load textures on first draw call
+    textures_.load(graphics);
 
-    // Draw labels
-    for (auto& label : labels_) {
-        label->draw(graphics);
+    // Draw background
+    draw_background(graphics);
+
+    // Draw stepper indicator
+    draw_stepper(graphics);
+
+    // Draw content based on current step
+    switch (current_step_) {
+        case Step::ROOM_INFO:
+            draw_room_info_step(graphics);
+            break;
+        case Step::MAP_SELECTION:
+            draw_map_selection_step(graphics);
+            break;
+        case Step::DIFFICULTY:
+            draw_difficulty_step(graphics);
+            break;
+        case Step::GAME_MODE:
+            draw_game_mode_step(graphics);
+            break;
     }
 
-    // Draw text fields
-    for (auto& field : fields_) {
-        field->draw(graphics);
-    }
+    // Draw navigation buttons
+    draw_navigation_buttons(graphics);
+}
 
-    // Draw map selection buttons
-    for (auto& button : map_buttons_) {
-        button->draw(graphics);
-    }
+void CreateRoomScreen::draw_background(engine::IGraphicsPlugin* graphics) {
+    createroom::Renderer::draw_background(graphics, textures_, screen_width_, screen_height_);
+}
 
-    // Draw difficulty buttons
-    for (auto& button : difficulty_buttons_) {
-        button->draw(graphics);
-    }
+void CreateRoomScreen::draw_stepper(engine::IGraphicsPlugin* graphics) {
+    createroom::Renderer::draw_stepper(
+        graphics,
+        screen_width_,
+        static_cast<int>(current_step_),
+        get_step_title(),
+        TOTAL_STEPS
+    );
+}
 
-    // Draw game mode buttons
-    for (auto& button : mode_buttons_) {
-        button->draw(graphics);
-    }
+void CreateRoomScreen::draw_room_info_step(engine::IGraphicsPlugin* graphics) {
+    createroom::Drawer::draw_room_info_step(labels_, fields_, graphics);
+}
 
-    // Draw action buttons
-    for (auto& button : buttons_) {
-        button->draw(graphics);
-    }
+void CreateRoomScreen::draw_map_selection_step(engine::IGraphicsPlugin* graphics) {
+    createroom::Drawer::draw_map_selection_step(textures_, map_buttons_, map_id_, screen_width_, graphics);
+}
+
+void CreateRoomScreen::draw_difficulty_step(engine::IGraphicsPlugin* graphics) {
+    createroom::Drawer::draw_difficulty_step(textures_, difficulty_, screen_width_, graphics);
+}
+
+void CreateRoomScreen::draw_game_mode_step(engine::IGraphicsPlugin* graphics) {
+    createroom::Drawer::draw_game_mode_step(textures_, game_mode_, screen_width_, graphics);
+}
+
+void CreateRoomScreen::draw_navigation_buttons(engine::IGraphicsPlugin* graphics) {
+    createroom::Drawer::draw_navigation_buttons(nav_buttons_, static_cast<int>(current_step_), TOTAL_STEPS, graphics, screen_width_, screen_height_, button_radius_, button_spacing_, button_y_offset_, edit_mode_);
 }
 
 }  // namespace rtype::client
