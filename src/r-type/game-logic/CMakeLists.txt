@@ -15,6 +15,12 @@ add_library(rtype_logic
     src/systems/HUDSystem.cpp
     src/systems/GameStateSystem.cpp
     src/systems/AttachmentSystem.cpp
+    # Map system
+    src/AutoTiler.cpp
+    src/MapConfigLoader.cpp
+    src/ChunkManagerSystem.cpp
+    src/ParallaxBackgroundSystem.cpp
+    src/MapCollisionManager.cpp
 )
 
 target_include_directories(rtype_logic

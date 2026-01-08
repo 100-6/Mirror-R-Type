@@ -16,6 +16,8 @@
 #include "StatusOverlay.hpp"
 #include "InputHandler.hpp"
 #include "MenuManager.hpp"
+#include "systems/ChunkManagerSystem.hpp"
+#include "systems/ParallaxBackgroundSystem.hpp"
 
 namespace rtype::client {
 
@@ -74,6 +76,12 @@ private:
     std::unique_ptr<InputHandler> input_handler_;
     std::unique_ptr<MenuManager> menu_manager_;
 
+    // Map system (new)
+    std::unique_ptr<rtype::ParallaxBackgroundSystem> parallax_system_;
+    std::unique_ptr<rtype::ChunkManagerSystem> chunk_manager_;
+    float map_scroll_x_ = 0.0f;
+    std::string current_map_id_str_ = "nebula_outpost";  // Current map ID
+
     // Network client
     std::unique_ptr<rtype::client::NetworkClient> network_client_;
 
@@ -84,7 +92,7 @@ private:
     float current_time_;  // Temps écoulé depuis démarrage (pour extrapolation)
     uint16_t current_map_id_ = 1;  // Current map (1=Nebula, 2=Asteroid, 3=Bydo)
 
-    // Background entities
+    // Background entities (legacy, kept for menu)
     Entity background1_;
     Entity background2_;
 
@@ -94,6 +102,8 @@ private:
     void setup_registry();
     void setup_systems();
     void setup_background();
+    void setup_map_system();  // New map system setup
+    void load_map(const std::string& mapId);  // Load specific map by ID
     void setup_network_callbacks();
 
     // Map-specific theming

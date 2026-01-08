@@ -1,18 +1,10 @@
 #include "screens/CreateRoomScreen.hpp"
 #include "NetworkClient.hpp"
 #include "ScreenManager.hpp"
+#include "systems/MapConfigLoader.hpp"
 #include <iostream>
 
 namespace rtype::client {
-
-const char* CreateRoomScreen::get_map_name(MapId id) {
-    switch (id) {
-        case MapId::NEBULA_OUTPOST: return "Nebula Outpost";
-        case MapId::ASTEROID_BELT: return "Asteroid Belt";
-        case MapId::BYDO_MOTHERSHIP: return "Bydo Mothership";
-        default: return "Unknown";
-    }
-}
 
 CreateRoomScreen::CreateRoomScreen(NetworkClient& network_client, int screen_width, int screen_height)
     : BaseScreen(network_client, screen_width, screen_height) {
@@ -39,10 +31,19 @@ void CreateRoomScreen::initialize() {
     map_buttons_.clear();
     difficulty_buttons_.clear();
 
+    // Load available maps from index.json
+    available_maps_ = rtype::MapConfigLoader::loadMapIndex("assets/maps/index.json");
+    if (available_maps_.empty()) {
+        std::cerr << "[CreateRoomScreen] No maps found in index.json!\n";
+    } else {
+        selected_map_id_ = available_maps_[0].id;
+        selected_map_index_ = 0;
+        std::cout << "[CreateRoomScreen] Loaded " << available_maps_.size() << " maps\n";
+    }
+
     // Reset to defaults
     game_mode_ = protocol::GameMode::SQUAD;
     difficulty_ = protocol::Difficulty::NORMAL;
-    map_id_ = MapId::NEBULA_OUTPOST;
 
     float center_x = screen_width_ / 2.0f;
     float start_y = 80.0f;
@@ -74,37 +75,32 @@ void CreateRoomScreen::initialize() {
     labels_.push_back(std::move(map_label));
 
     float map_button_y = start_y + 250;
-    float map_button_width = 160.0f;
+    float map_button_width = 180.0f;
     float map_button_height = 40.0f;
     float map_button_spacing = 15.0f;
-    float map_total_width = map_button_width * 3 + map_button_spacing * 2;
-    float map_start_x = center_x - map_total_width / 2.0f;
-
-    // Map 1 - Nebula Outpost
-    auto map1_btn = std::make_unique<UIButton>(map_start_x, map_button_y, map_button_width, map_button_height, "Nebula Outpost");
-    map1_btn->set_on_click([this]() {
-        map_id_ = MapId::NEBULA_OUTPOST;
-        std::cout << "[CreateRoomScreen] Selected Map: Nebula Outpost\n";
-    });
-    map_buttons_.push_back(std::move(map1_btn));
-
-    // Map 2 - Asteroid Belt
-    auto map2_btn = std::make_unique<UIButton>(map_start_x + map_button_width + map_button_spacing, map_button_y,
-                                                map_button_width, map_button_height, "Asteroid Belt");
-    map2_btn->set_on_click([this]() {
-        map_id_ = MapId::ASTEROID_BELT;
-        std::cout << "[CreateRoomScreen] Selected Map: Asteroid Belt\n";
-    });
-    map_buttons_.push_back(std::move(map2_btn));
-
-    // Map 3 - Bydo Mothership
-    auto map3_btn = std::make_unique<UIButton>(map_start_x + (map_button_width + map_button_spacing) * 2, map_button_y,
-                                                map_button_width, map_button_height, "Bydo Mothership");
-    map3_btn->set_on_click([this]() {
-        map_id_ = MapId::BYDO_MOTHERSHIP;
-        std::cout << "[CreateRoomScreen] Selected Map: Bydo Mothership\n";
-    });
-    map_buttons_.push_back(std::move(map3_btn));
+    
+    // Dynamically create map buttons based on available maps
+    size_t num_maps = available_maps_.size();
+    if (num_maps > 0) {
+        float map_total_width = map_button_width * static_cast<float>(num_maps) + map_button_spacing * static_cast<float>(num_maps - 1);
+        float map_start_x = center_x - map_total_width / 2.0f;
+        
+        for (size_t i = 0; i < num_maps; ++i) {
+            const auto& mapInfo = available_maps_[i];
+            float btn_x = map_start_x + static_cast<float>(i) * (map_button_width + map_button_spacing);
+            
+            auto map_btn = std::make_unique<UIButton>(btn_x, map_button_y, map_button_width, map_button_height, mapInfo.name.c_str());
+            
+            // Capture index by value for the callback
+            size_t map_index = i;
+            map_btn->set_on_click([this, map_index]() {
+                selected_map_index_ = map_index;
+                selected_map_id_ = available_maps_[map_index].id;
+                std::cout << "[CreateRoomScreen] Selected Map: " << available_maps_[map_index].name << "\n";
+            });
+            map_buttons_.push_back(std::move(map_btn));
+        }
+    }
 
     // ==================== DIFFICULTY SELECTION ====================
     auto diff_label = std::make_unique<UILabel>(center_x, start_y + 310, "Difficulty:", 20);
@@ -200,13 +196,14 @@ void CreateRoomScreen::initialize() {
         }
 
         uint8_t max_players = get_configured_max_players();
-        uint16_t map = get_configured_map_id();
+        uint16_t map_index = get_configured_map_index();
 
-        std::cout << "[CreateRoomScreen] Creating room on map: " << get_map_name(map_id_) << "\n";
+        std::string map_name = available_maps_.empty() ? "Unknown" : available_maps_[selected_map_index_].name;
+        std::cout << "[CreateRoomScreen] Creating room on map: " << map_name << "\n";
 
         network_client_.send_create_room(room_name, password,
                                          game_mode_, difficulty_,
-                                         map, max_players);
+                                         map_index, max_players);
 
         if (on_room_created_) {
             on_room_created_(game_mode_, max_players);
@@ -243,7 +240,7 @@ void CreateRoomScreen::update(engine::IGraphicsPlugin* graphics, engine::IInputP
     if (!any_field_focused) {
         // Update map selection buttons
         for (size_t i = 0; i < map_buttons_.size(); ++i) {
-            bool is_selected = (static_cast<uint16_t>(map_id_) == i + 1);
+            bool is_selected = (selected_map_index_ == i);
             map_buttons_[i]->set_selected(is_selected);
             map_buttons_[i]->update(graphics, input);
         }

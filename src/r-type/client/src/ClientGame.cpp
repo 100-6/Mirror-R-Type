@@ -7,6 +7,7 @@
 #include "systems/HUDSystem.hpp"
 #include "systems/LocalPredictionSystem.hpp"
 #include "systems/ColliderDebugSystem.hpp"
+#include "systems/MapConfigLoader.hpp"
 #include "protocol/NetworkConfig.hpp"
 #include "protocol/Payloads.hpp"
 #include "plugin_manager/PluginPaths.hpp"
@@ -74,6 +75,7 @@ bool ClientGame::initialize(const std::string& host, uint16_t tcp_port, const st
     );
 
     setup_systems();
+    setup_map_system();
 
     status_overlay_ = std::make_unique<StatusOverlay>(
         *registry_, screen_manager_->get_status_entity()
@@ -298,6 +300,77 @@ void ClientGame::apply_map_theme(uint16_t map_id) {
     std::cout << "[ClientGame] Applied theme for map " << map_id << "\n";
 }
 
+void ClientGame::setup_map_system() {
+    if (!graphics_plugin_) {
+        std::cerr << "[ClientGame] Cannot setup map system: graphics plugin not available\n";
+        return;
+    }
+    
+    // Create systems (will be configured when game starts with specific map)
+    parallax_system_ = std::make_unique<rtype::ParallaxBackgroundSystem>(
+        *graphics_plugin_, screen_width_, screen_height_
+    );
+    
+    chunk_manager_ = std::make_unique<rtype::ChunkManagerSystem>(
+        *graphics_plugin_, screen_width_, screen_height_
+    );
+    
+    map_scroll_x_ = 0.0f;
+    std::cout << "[ClientGame] Map systems created (waiting for map selection)\n";
+}
+
+void ClientGame::load_map(const std::string& mapId) {
+    std::cout << "[ClientGame] load_map() called with mapId: " << mapId << std::endl;
+    
+    if (!parallax_system_ || !chunk_manager_) {
+        std::cerr << "[ClientGame] Map systems not initialized\n";
+        return;
+    }
+    
+    // Load map configuration by ID
+    rtype::MapConfig config = rtype::MapConfigLoader::loadMapById(mapId);
+    
+    // Initialize parallax layers
+    if (parallax_system_->initLayers(config.parallaxLayers)) {
+        std::cout << "[ClientGame] Parallax initialized: " << config.parallaxLayers.size() << " layers\n";
+    } else {
+        std::cerr << "[ClientGame] Failed to initialize parallax layers\n";
+    }
+    
+    // Initialize chunk manager
+    chunk_manager_->initWithConfig(config);
+    
+    // Load tile sheet
+    if (chunk_manager_->loadTileSheet(config.tileSheetPath)) {
+        std::cout << "[ClientGame] Tile sheet loaded: " << config.tileSheetPath << "\n";
+    } else {
+        std::cerr << "[ClientGame] Failed to load tile sheet\n";
+    }
+    
+    // Load map segments
+    std::string segmentsDir = config.basePath + "/segments";
+    auto segmentPaths = rtype::MapConfigLoader::getSegmentPaths(segmentsDir);
+    if (!segmentPaths.empty()) {
+        chunk_manager_->loadSegments(segmentPaths);
+        std::cout << "[ClientGame] Loaded " << segmentPaths.size() << " segments\n";
+    } else {
+        std::cerr << "[ClientGame] No segments found in " << segmentsDir << "\n";
+    }
+    
+    // Disable old background entities (they would render on top of new parallax)
+    auto& sprites = registry_->get_components<::Sprite>();
+    if (sprites.has_entity(background1_)) {
+        sprites[background1_].texture = engine::INVALID_HANDLE;
+    }
+    if (sprites.has_entity(background2_)) {
+        sprites[background2_].texture = engine::INVALID_HANDLE;
+    }
+    
+    map_scroll_x_ = 0.0f;
+    current_map_id_str_ = mapId;
+    std::cout << "[ClientGame] Map loaded: " << config.name << "\n";
+}
+
 void ClientGame::setup_network_callbacks() {
     network_client_->set_on_accepted([this](uint32_t player_id) {
         entity_manager_->set_local_player_id(player_id);
@@ -338,6 +411,18 @@ void ClientGame::setup_network_callbacks() {
         status_overlay_->refresh();
         entity_manager_->clear_all();
         screen_manager_->set_screen(GameScreen::PLAYING);
+
+        // Convert numeric map ID to string ID
+        std::string mapIdStr;
+        switch (map_id) {
+            case 1: mapIdStr = "nebula_outpost"; break;
+            case 2: mapIdStr = "asteroid_belt"; break;
+            case 3: mapIdStr = "bydo_mothership"; break;
+            default: mapIdStr = "nebula_outpost"; break;
+        }
+        
+        // Load the selected map
+        load_map(mapIdStr);
 
         // Apply map-specific theme (background color)
         apply_map_theme(map_id);
@@ -702,10 +787,46 @@ void ClientGame::run() {
             registry_->run_systems(dt);
         } else {
             // Game screen - run game systems
+            
+            // Update map scrolling
+            float scrollSpeed = 60.0f;  // pixels per second
+            float scrollDelta = scrollSpeed * dt;
+            map_scroll_x_ += scrollDelta;
+            
+            // Update parallax and chunk states
+            if (parallax_system_) {
+                parallax_system_->updateScroll(scrollDelta);
+            }
+            if (chunk_manager_) {
+                chunk_manager_->advanceScroll(scrollDelta);
+                chunk_manager_->update(*registry_, dt);
+            }
+            
             if (registry_->has_system<LocalPredictionSystem>()) {
                 auto& prediction = registry_->get_system<LocalPredictionSystem>();
                 prediction.set_current_time(current_time_);
             }
+            
+            // Clear screen first (RenderSystem will skip clear since we did it)
+            graphics_plugin_->clear(engine::Color{20, 20, 30, 255});
+            
+            // Render parallax background (behind everything)
+            if (parallax_system_ && parallax_system_->isInitialized()) {
+                parallax_system_->render();
+            }
+            
+            // Render tile chunks
+            if (chunk_manager_ && chunk_manager_->isInitialized()) {
+                chunk_manager_->render(map_scroll_x_);
+            }
+            
+            // Tell RenderSystem to skip clear (we already cleared + rendered background)
+            if (registry_->has_system<RenderSystem>()) {
+                auto& render_sys = registry_->get_system<RenderSystem>();
+                render_sys.set_skip_clear(true);
+            }
+            
+            // Run ECS systems (RenderSystem will NOT clear since skip_clear is set)
             registry_->run_systems(dt);
         }
 
