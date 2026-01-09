@@ -184,6 +184,17 @@ Sprite EntityManager::build_sprite(protocol::EntityType type, bool is_local_play
 }
 
 std::string EntityManager::get_player_label(uint32_t server_id) {
+    // First, try to find the player_id for this server_id
+    auto pid_it = server_to_player_id_.find(server_id);
+    if (pid_it != server_to_player_id_.end()) {
+        uint32_t player_id = pid_it->second;
+        auto name_it = player_names_.find(player_id);
+        if (name_it != player_names_.end() && !name_it->second.empty()) {
+            return name_it->second;
+        }
+        return std::string("Player ") + std::to_string(player_id);
+    }
+    // Fallback: try server_id directly
     auto it = player_names_.find(server_id);
     if (it != player_names_.end() && !it->second.empty())
         return it->second;
@@ -234,6 +245,11 @@ Entity EntityManager::spawn_or_update_entity(uint32_t server_id, protocol::Entit
 
     server_types_[server_id] = type;
     stale_counters_[server_id] = 0;
+
+    // For player entities, store the player_id (subtype) mapping
+    if (type == protocol::EntityType::PLAYER && subtype != 0) {
+        server_to_player_id_[server_id] = subtype;
+    }
 
     // Check if this is the local player
     bool local_subtype_match = false;
@@ -329,6 +345,17 @@ Entity EntityManager::spawn_or_update_entity(uint32_t server_id, protocol::Entit
     } else if (controllables.has_entity(entity)) {
         // Remove from non-player entities
         registry_.remove_component<Controllable>(entity);
+    }
+
+    // Mark local player with LocalPlayer component for HUD to find
+    auto& localPlayers = registry_.get_components<LocalPlayer>();
+    if (type == protocol::EntityType::PLAYER && highlight_as_local) {
+        if (!localPlayers.has_entity(entity)) {
+            registry_.add_component(entity, LocalPlayer{});
+        }
+    } else if (localPlayers.has_entity(entity)) {
+        // Remove from non-local-player entities
+        registry_.remove_component<LocalPlayer>(entity);
     }
 
     // Handle player animation
@@ -438,6 +465,7 @@ void EntityManager::remove_entity(uint32_t server_id) {
     stale_counters_.erase(server_id);
     locally_integrated_.erase(server_id);
     snapshot_updated_.erase(server_id);
+    server_to_player_id_.erase(server_id);
     server_to_local_.erase(it);
 
     if (local_player_entity_id_ == server_id)
@@ -459,6 +487,7 @@ void EntityManager::clear_all() {
     stale_counters_.clear();
     locally_integrated_.clear();
     snapshot_updated_.clear();
+    server_to_player_id_.clear();
     local_player_entity_id_ = std::numeric_limits<uint32_t>::max();
 
     for (const auto& tag_pair : player_name_tags_)

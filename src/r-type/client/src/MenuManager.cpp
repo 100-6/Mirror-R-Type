@@ -36,9 +36,7 @@ void MenuManager::initialize() {
         if (room_lobby_screen_) {
             room_lobby_screen_->set_countdown(seconds_remaining);
         }
-        std::cout << "[MenuManager] Countdown: " << static_cast<int>(seconds_remaining) << "s\n";
     });
-
     // Create all screen instances
     main_menu_screen_ = std::make_unique<MainMenuScreen>(network_client_, screen_width_, screen_height_);
     create_room_screen_ = std::make_unique<CreateRoomScreen>(network_client_, screen_width_, screen_height_);
@@ -220,6 +218,10 @@ void MenuManager::on_room_created(const protocol::ServerRoomCreatedPayload& payl
             true  // Creator is the host
         );
         room_lobby_screen_->set_countdown(0);
+
+        // Add local player to lobby list for name updates
+        uint32_t player_id = network_client_.get_player_id();
+        room_lobby_screen_->add_player(player_id, "Player 1", 0);
     }
 
     // Request room list to get fresh data
@@ -242,6 +244,10 @@ void MenuManager::on_room_joined(const protocol::ServerRoomJoinedPayload& payloa
             false    // Joiner is not the host
         );
         room_lobby_screen_->set_countdown(0);
+
+        // Add local player to lobby list for name updates
+        uint32_t player_id = network_client_.get_player_id();
+        room_lobby_screen_->add_player(player_id, "Player", 0);
     }
 
     // Request updated room list
@@ -292,6 +298,16 @@ void MenuManager::on_room_error(const protocol::ServerRoomErrorPayload& payload)
     // Otherwise go back to main menu
     if (current_screen_ != GameScreen::ROOM_LOBBY) {
         set_screen(GameScreen::MAIN_MENU);
+    }
+}
+
+
+void MenuManager::on_player_name_updated(const protocol::ServerPlayerNameUpdatedPayload& payload)
+{
+    if (room_lobby_screen_) {
+        std::string new_name(payload.new_name,
+                            strnlen(payload.new_name, sizeof(payload.new_name)));
+        room_lobby_screen_->update_player_name(payload.player_id, new_name);
     }
 }
 

@@ -97,8 +97,9 @@ private:
     // Player management
     uint32_t local_player_id_;
     uint32_t local_player_entity_id_;
-    std::unordered_map<uint32_t, std::string> player_names_;
-    std::unordered_map<uint32_t, Entity> player_name_tags_;
+    std::unordered_map<uint32_t, std::string> player_names_;  // player_id -> name
+    std::unordered_map<uint32_t, Entity> player_name_tags_;   // server_id -> name tag entity
+    std::unordered_map<uint32_t, uint8_t> server_to_player_id_;  // server_id -> player_id (from subtype)
 
     // Helper functions
     Sprite build_sprite(protocol::EntityType type, bool is_local_player, uint8_t subtype);

@@ -72,11 +72,12 @@ private:
     void on_udp_handshake(uint32_t udp_client_id, const protocol::ClientUdpHandshakePayload& payload) override;
     void on_client_input(uint32_t client_id, const protocol::ClientInputPayload& payload) override;
 
-    void on_client_create_room(uint32_t client_id, const protocol::ClientCreateRoomPayload& payload);
-    void on_client_join_room(uint32_t client_id, const protocol::ClientJoinRoomPayload& payload);
-    void on_client_leave_room(uint32_t client_id, const protocol::ClientLeaveRoomPayload& payload);
-    void on_client_request_room_list(uint32_t client_id);
-    void on_client_start_game(uint32_t client_id, const protocol::ClientStartGamePayload& payload);
+    void on_client_create_room(uint32_t client_id, const protocol::ClientCreateRoomPayload& payload) override;
+    void on_client_join_room(uint32_t client_id, const protocol::ClientJoinRoomPayload& payload) override;
+    void on_client_leave_room(uint32_t client_id, const protocol::ClientLeaveRoomPayload& payload) override;
+    void on_client_request_room_list(uint32_t client_id) override;
+    void on_client_start_game(uint32_t client_id, const protocol::ClientStartGamePayload& payload) override;
+    void on_client_set_player_name(uint32_t client_id, const protocol::ClientSetPlayerNamePayload& payload) override;
 
     void on_lobby_state_changed(uint32_t lobby_id, const std::vector<uint8_t>& payload) override;
     void on_countdown_tick(uint32_t lobby_id, uint8_t seconds_remaining) override;

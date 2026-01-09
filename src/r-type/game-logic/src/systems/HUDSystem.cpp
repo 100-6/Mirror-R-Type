@@ -24,6 +24,7 @@ void HUDSystem::init(Registry& registry) {
     registry.register_component<UIPanel>();
     registry.register_component<UIBar>();
     registry.register_component<UIText>();
+    registry.register_component<LocalPlayer>();
 
     // Create health bar panel background
     m_healthPanelEntity = registry.spawn_entity();
@@ -237,14 +238,24 @@ void HUDSystem::update(Registry& registry, float dt) {
         return;
     }
 
-    // Find the player entity
+    // Find the LOCAL player entity (entity with LocalPlayer component)
     Entity playerEntity = 0;
     bool playerFound = false;
 
-    for (size_t i = 0; i < controllables.size(); ++i) {
-        playerEntity = controllables.get_entity_at(i);
+    auto& localPlayers = registry.get_components<LocalPlayer>();
+    for (size_t i = 0; i < localPlayers.size(); ++i) {
+        playerEntity = localPlayers.get_entity_at(i);
         playerFound = true;
         break;
+    }
+
+    // Fallback: if no LocalPlayer component found, use first Controllable
+    if (!playerFound) {
+        for (size_t i = 0; i < controllables.size(); ++i) {
+            playerEntity = controllables.get_entity_at(i);
+            playerFound = true;
+            break;
+        }
     }
 
     // Update health bar

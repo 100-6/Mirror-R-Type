@@ -187,6 +187,15 @@ void NetworkClient::send_start_game() {
     send_tcp_packet(protocol::PacketType::CLIENT_START_GAME, serialize_payload(&payload, sizeof(payload)));
 }
 
+void NetworkClient::send_set_player_name(const std::string& new_name) {
+    protocol::ClientSetPlayerNamePayload payload;
+    payload.player_id = htonl(player_id_);
+    payload.set_name(new_name);
+
+    std::cout << "[NetworkClient] Changing player name to '" << new_name << "'\n";
+    send_tcp_packet(protocol::PacketType::CLIENT_SET_PLAYER_NAME, serialize_payload(&payload, sizeof(payload)));
+}
+
 void NetworkClient::send_input(uint16_t input_flags, uint32_t client_tick) {
     protocol::ClientInputPayload payload;
     payload.player_id = htonl(player_id_);
@@ -305,6 +314,9 @@ void NetworkClient::handle_packet(const engine::NetworkPacket& packet) {
             break;
         case protocol::PacketType::SERVER_ROOM_ERROR:
             handle_room_error(payload);
+            break;
+        case protocol::PacketType::SERVER_PLAYER_NAME_UPDATED:
+            handle_player_name_updated(payload);
             break;
         case protocol::PacketType::SERVER_SNAPSHOT:
         case protocol::PacketType::SERVER_DELTA_SNAPSHOT:
@@ -689,6 +701,23 @@ void NetworkClient::handle_room_error(const std::vector<uint8_t>& payload) {
         on_room_error_(room_error);
 }
 
+void NetworkClient::handle_player_name_updated(const std::vector<uint8_t>& payload) {
+    if (payload.size() < sizeof(protocol::ServerPlayerNameUpdatedPayload)) {
+        return;
+    }
+
+    protocol::ServerPlayerNameUpdatedPayload name_updated;
+    std::memcpy(&name_updated, payload.data(), sizeof(name_updated));
+    name_updated.player_id = ntohl(name_updated.player_id);
+    name_updated.room_id = ntohl(name_updated.room_id);
+
+    std::cout << "[NetworkClient] Player " << name_updated.player_id
+              << " changed name to '" << name_updated.new_name << "'\n";
+
+    if (on_player_name_updated_)
+        on_player_name_updated_(name_updated);
+}
+
 // ============== UDP Connection ==============
 
 void NetworkClient::connect_udp(uint16_t udp_port) {
@@ -845,6 +874,10 @@ void NetworkClient::set_on_room_list(std::function<void(const std::vector<protoc
 
 void NetworkClient::set_on_room_error(std::function<void(const protocol::ServerRoomErrorPayload&)> callback) {
     on_room_error_ = callback;
+}
+
+void NetworkClient::set_on_player_name_updated(std::function<void(const protocol::ServerPlayerNameUpdatedPayload&)> callback) {
+    on_player_name_updated_ = callback;
 }
 
 }
