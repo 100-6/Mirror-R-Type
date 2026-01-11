@@ -174,7 +174,7 @@ void HUDSystem::update(Registry& registry, float dt) {
     // Get component arrays
     auto& healths = registry.get_components<Health>();
     auto& scores = registry.get_components<Score>();
-    auto& controllables = registry.get_components<Controllable>();
+    auto& localPlayers = registry.get_components<LocalPlayer>();
     auto& uibars = registry.get_components<UIBar>();
     auto& uitexts = registry.get_components<UIText>();
     auto& waveControllers = registry.get_components<WaveController>();
@@ -193,12 +193,8 @@ void HUDSystem::update(Registry& registry, float dt) {
         }
     }
 
-    // Also hide HUD if no player exists (game not started yet / waiting for players)
-    bool playerExists = false;
-    for (size_t i = 0; i < controllables.size(); ++i) {
-        playerExists = true;
-        break;
-    }
+    // Also hide HUD if no local player exists (game not started yet / waiting for players)
+    bool playerExists = localPlayers.size() > 0;
     if (!playerExists) {
         hideHUD = true;
     }
@@ -241,8 +237,8 @@ void HUDSystem::update(Registry& registry, float dt) {
     Entity playerEntity = 0;
     bool playerFound = false;
 
-    for (size_t i = 0; i < controllables.size(); ++i) {
-        playerEntity = controllables.get_entity_at(i);
+    for (size_t i = 0; i < localPlayers.size(); ++i) {
+        playerEntity = localPlayers.get_entity_at(i);
         playerFound = true;
         break;
     }
