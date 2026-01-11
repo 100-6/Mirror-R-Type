@@ -27,6 +27,13 @@ private:
     std::vector<std::unique_ptr<UILabel>> labels_;
     std::vector<std::unique_ptr<UIButton>> buttons_;
     ScreenChangeCallback on_screen_change_;
+    engine::TextureHandle background_texture_ = engine::INVALID_HANDLE;
+    bool background_loaded_ = false;
+
+    // Edit mode for button positioning
+    bool edit_mode_ = false;  // Set to true to enable edit mode
+    int selected_button_ = 0;  // 0=PLAY, 1=QUIT, 2=BROWSE
+    float move_speed_ = 1.0f;  // Pixels to move per key press
 };
 
 }  // namespace rtype::client

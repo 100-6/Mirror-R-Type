@@ -67,6 +67,7 @@ Sprite EntityManager::build_sprite(protocol::EntityType type, bool is_local_play
     Sprite sprite{};
     sprite.texture = textures_.get_enemy();
     auto dims = get_collider_dimensions(type);
+    bool use_fixed_dimensions = false;
 
     // Initialize dimensions with collider size as fallback
     sprite.width = dims.width;
@@ -115,22 +116,22 @@ Sprite EntityManager::build_sprite(protocol::EntityType type, bool is_local_play
             sprite.tint = engine::Color{180, 180, 255, 255};
             break;
         case protocol::EntityType::PROJECTILE_PLAYER:
-        case protocol::EntityType::PROJECTILE_ENEMY:
-            sprite.texture = (type == protocol::EntityType::PROJECTILE_PLAYER)
-                ? textures_.get_bullet_animation()
-                : textures_.get_projectile();
+            sprite.texture = textures_.get_bullet_animation();
             sprite.layer = 20;
-            sprite.tint = type == protocol::EntityType::PROJECTILE_PLAYER
-                ? engine::Color::White
-                : engine::Color::Red;
-            
-            // Configurer source_rect pour projectiles joueur (première frame)
-            if (type == protocol::EntityType::PROJECTILE_PLAYER) {
-                sprite.source_rect.x = 0.0f;
-                sprite.source_rect.y = 0.0f;
-                sprite.source_rect.width = 16.0f;
-                sprite.source_rect.height = 16.0f;
-            }
+            sprite.tint = engine::Color::White;
+            sprite.source_rect = {0.0f, 0.0f, 16.0f, 16.0f};
+            sprite.width = shared::config::PROJECTILE_WIDTH;
+            sprite.height = shared::config::PROJECTILE_HEIGHT;
+            use_fixed_dimensions = true;
+            break;
+        case protocol::EntityType::PROJECTILE_ENEMY:
+            sprite.texture = textures_.get_projectile();
+            sprite.layer = 20;
+            sprite.tint = engine::Color::Red;
+            sprite.source_rect = {16.0f, 0.0f, 16.0f, 16.0f};
+            sprite.width = shared::config::PROJECTILE_WIDTH;
+            sprite.height = shared::config::PROJECTILE_HEIGHT;
+            use_fixed_dimensions = true;
             break;
         case protocol::EntityType::POWERUP_HEALTH:
         case protocol::EntityType::POWERUP_SHIELD:
@@ -139,6 +140,10 @@ Sprite EntityManager::build_sprite(protocol::EntityType type, bool is_local_play
             sprite.texture = textures_.get_projectile();
             sprite.layer = 4;
             sprite.tint = engine::Color{120, 255, 120, 255};
+            sprite.source_rect = {32.0f, 0.0f, 16.0f, 16.0f};
+            sprite.width = shared::config::BONUS_SIZE;
+            sprite.height = shared::config::BONUS_SIZE;
+            use_fixed_dimensions = true;
             break;
         default:
             break;
@@ -151,26 +156,26 @@ Sprite EntityManager::build_sprite(protocol::EntityType type, bool is_local_play
     // Adjust sprite dimensions to preserve aspect ratio while fitting in collider box
     // SAUF pour les joueurs qui ont déjà leurs dimensions définies par le SpaceshipManager
     if (type != protocol::EntityType::PLAYER) {
-        engine::Vector2f tex_size = textures_.get_texture_size(sprite.texture);
-        if (tex_size.x > 0 && tex_size.y > 0) {
-            float scale_x = dims.width / tex_size.x;
-            float scale_y = dims.height / tex_size.y;
-            float scale = std::min(scale_x, scale_y);
+        if (!use_fixed_dimensions) {
+            engine::Vector2f tex_size = textures_.get_texture_size(sprite.texture);
+            if (tex_size.x > 0 && tex_size.y > 0) {
+                float scale_x = dims.width / tex_size.x;
+                float scale_y = dims.height / tex_size.y;
+                float scale = std::min(scale_x, scale_y);
 
-            // Apply x2 scaling for enemies and player projectiles
-            if (type == protocol::EntityType::ENEMY_BASIC ||
-                type == protocol::EntityType::ENEMY_FAST ||
-                type == protocol::EntityType::ENEMY_TANK ||
-                type == protocol::EntityType::ENEMY_BOSS ||
-                type == protocol::EntityType::PROJECTILE_PLAYER) {
-                scale *= 2.0f;
+                if (type == protocol::EntityType::ENEMY_BASIC ||
+                    type == protocol::EntityType::ENEMY_FAST ||
+                    type == protocol::EntityType::ENEMY_TANK ||
+                    type == protocol::EntityType::ENEMY_BOSS ||
+                    type == protocol::EntityType::PROJECTILE_PLAYER) {
+                    scale *= 2.0f;
+                }
+
+                sprite.width = tex_size.x * scale;
+                sprite.height = tex_size.y * scale;
             }
-
-            sprite.width = tex_size.x * scale;
-            sprite.height = tex_size.y * scale;
         }
 
-        // CENTER THE ORIGIN for all non-player sprites to match center-based positions
         sprite.origin_x = sprite.width / 2.0f;
         sprite.origin_y = sprite.height / 2.0f;
     }
@@ -315,13 +320,14 @@ Entity EntityManager::spawn_or_update_entity(uint32_t server_id, protocol::Entit
         registry_.remove_component<Wall>(entity);
     }
 
-    // Handle controllable
+    // Handle controllable - keep on ALL players for wall collision resolution
     auto& controllables = registry_.get_components<Controllable>();
-    if (highlight_as_local) {
+    if (type == protocol::EntityType::PLAYER) {
         if (!controllables.has_entity(entity)) {
             registry_.add_component(entity, Controllable{300.0f});
         }
-    } else if (controllables.has_entity(entity) && server_id != local_player_entity_id_) {
+    } else if (controllables.has_entity(entity)) {
+        // Remove from non-player entities
         registry_.remove_component<Controllable>(entity);
     }
 

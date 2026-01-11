@@ -20,6 +20,12 @@ set(RTYPE_CLIENT_SOURCES
     src/screens/BrowseRoomsScreen.cpp
     src/screens/RoomLobbyScreen.cpp
     src/screens/PasswordDialog.cpp
+    # CreateRoom module
+    src/screens/createroom/CreateRoomInput.cpp
+    src/screens/createroom/CreateRoomRenderer.cpp
+    src/screens/createroom/CreateRoomInitializer.cpp
+    src/screens/createroom/CreateRoomUpdater.cpp
+    src/screens/createroom/CreateRoomDrawer.cpp
     src/SpaceshipManager.cpp
     src/systems/LocalPredictionSystem.cpp
     src/systems/ColliderDebugSystem.cpp

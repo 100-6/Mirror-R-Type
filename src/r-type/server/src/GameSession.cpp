@@ -122,6 +122,9 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
         std::cerr << "[GameSession " << session_id_ << "] Failed to load wave config: " << wave_file << "\n";
     }
     wave_manager_.set_listener(this);
+
+    // Load map segments for tile-based walls
+    load_map_segments(map_id);
 }
 
 void GameSession::add_player(uint32_t player_id, const std::string& player_name)
@@ -177,6 +180,10 @@ void GameSession::update(float delta_time)
         return;
     tick_count_++;
     current_scroll_ += config::GAME_SCROLL_SPEED * delta_time;
+    
+    // Spawn walls from map tiles as they come into view
+    spawn_walls_in_view();
+    
     wave_manager_.update(delta_time, current_scroll_);
     registry_.get_system<BonusSystem>().update(registry_, delta_time);
     registry_.get_system<ShootingSystem>().update(registry_, delta_time);
@@ -488,6 +495,121 @@ void GameSession::resync_client(uint32_t player_id, uint32_t tcp_client_id)
     if (listener_ && has_wave_complete_)
         listener_->on_wave_complete(session_id_, serialize(last_wave_complete_payload_));
     std::cout << "[GameSession " << session_id_ << "] Queued " << entity_count << " entity spawns for resync\n";
+}
+
+void GameSession::load_map_segments(uint16_t map_id)
+{
+    // Map ID to folder mapping
+    std::string map_folder;
+    switch (map_id) {
+        case 1:
+            map_folder = "nebula_outpost";
+            break;
+        default:
+            std::cout << "[GameSession " << session_id_ << "] Unknown map_id " << map_id << ", using nebula_outpost\n";
+            map_folder = "nebula_outpost";
+            break;
+    }
+
+    try {
+        map_config_ = rtype::MapConfigLoader::loadMapById(map_folder);
+        tile_size_ = map_config_.tileSize;
+
+        std::string segments_dir = map_config_.basePath + "/segments";
+        auto segment_paths = rtype::MapConfigLoader::getSegmentPaths(segments_dir);
+
+        for (const auto& path : segment_paths) {
+            auto segment = rtype::MapConfigLoader::loadSegment(path);
+            map_segments_.push_back(segment);
+        }
+
+        std::cout << "[GameSession " << session_id_ << "] Loaded " << map_segments_.size()
+                  << " map segments for tile walls (tileSize=" << tile_size_ << ")\n";
+    } catch (const std::exception& e) {
+        std::cerr << "[GameSession " << session_id_ << "] Failed to load map segments: " << e.what() << "\n";
+    }
+}
+
+void GameSession::spawn_walls_in_view()
+{
+    if (map_segments_.empty() || next_segment_to_spawn_ >= map_segments_.size())
+        return;
+
+    // Calculate world X position where next segment starts
+    float segment_world_x = 0.0f;
+    for (size_t i = 0; i < next_segment_to_spawn_; ++i) {
+        segment_world_x += static_cast<float>(map_segments_[i].width * tile_size_);
+    }
+
+    // Spawn walls from segments that are about to come into view
+    float spawn_threshold = current_scroll_ + 1920.0f + 500.0f;  // screen width + buffer
+
+    while (next_segment_to_spawn_ < map_segments_.size() && segment_world_x < spawn_threshold) {
+        const auto& segment = map_segments_[next_segment_to_spawn_];
+        float segment_width = static_cast<float>(segment.width * tile_size_);
+
+        // Greedy merge: find rectangular groups of wall tiles
+        int height = static_cast<int>(segment.tiles.size());
+        int width = (height > 0) ? static_cast<int>(segment.tiles[0].size()) : 0;
+        std::vector<std::vector<bool>> processed(height, std::vector<bool>(width, false));
+
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                if (processed[y][x] || segment.tiles[y][x] == 0)
+                    continue;
+
+                // Greedy merge: find largest rectangle of wall tiles
+                int w = 1, h = 1;
+
+                // Expand width
+                while (x + w < width && segment.tiles[y][x + w] != 0 && !processed[y][x + w])
+                    w++;
+
+                // Expand height if all tiles in row match
+                while (y + h < height) {
+                    bool row_ok = true;
+                    for (int dx = 0; dx < w; ++dx) {
+                        if (segment.tiles[y + h][x + dx] == 0 || processed[y + h][x + dx]) {
+                            row_ok = false;
+                            break;
+                        }
+                    }
+                    if (!row_ok)
+                        break;
+                    h++;
+                }
+
+                // Mark tiles as processed
+                for (int dy = 0; dy < h; ++dy) {
+                    for (int dx = 0; dx < w; ++dx) {
+                        processed[y + dy][x + dx] = true;
+                    }
+                }
+
+                // Spawn merged wall entity
+                float tile_world_x = segment_world_x + static_cast<float>(x * tile_size_);
+                float wall_width = static_cast<float>(w * tile_size_);
+                float wall_height = static_cast<float>(h * tile_size_);
+                float center_x = tile_world_x + wall_width * 0.5f;
+                float center_y = static_cast<float>(y * tile_size_) + wall_height * 0.5f;
+
+                Entity wall = registry_.spawn_entity();
+                registry_.add_component(wall, Position{center_x, center_y});
+                registry_.add_component(wall, Velocity{-config::GAME_SCROLL_SPEED, 0.0f});
+                registry_.add_component(wall, Collider{wall_width, wall_height});
+                registry_.add_component(wall, Wall{});
+                registry_.add_component(wall, NoFriction{});
+                registry_.add_component(wall, Health{65535, 65535});
+
+                if (network_system_)
+                    network_system_->queue_entity_spawn(wall, EntityType::WALL,
+                        tile_world_x, static_cast<float>(y * tile_size_), 65535, 0);
+            }
+        }
+
+        segment_world_x += segment_width;
+        next_segment_to_spawn_++;
+    }
 }
 
 }

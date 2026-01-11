@@ -8,6 +8,7 @@
 #include "systems/BonusSystem.hpp"
 #include "components/GameComponents.hpp"
 #include "ecs/CoreComponents.hpp"
+#include "AssetsPaths.hpp"
 #include <iostream>
 #include <cmath>
 
@@ -28,7 +29,7 @@ void BonusSystem::init(Registry& registry)
 
     // Charger la texture pour les bonus
     if (graphicsPlugin_) {
-        bonusTex_ = graphicsPlugin_->load_texture("assets/sprite/bullet.png");
+        bonusTex_ = graphicsPlugin_->load_texture(assets::paths::SHOT_ANIMATION);
         if (bonusTex_ == engine::INVALID_HANDLE) {
             std::cerr << "BonusSystem: Failed to load bonus texture!" << std::endl;
         }
@@ -70,20 +71,15 @@ void BonusSystem::spawnBonus(Registry& registry, BonusType type)
             break;
     }
 
-    // Récupérer la taille du sprite
-    engine::Vector2f texSize = {0.0f, 0.0f};
-    if (graphicsPlugin_) {
-        texSize = graphicsPlugin_->get_texture_size(bonusTex_);
-    } else {
-        texSize = {BONUS_RADIUS * 2, BONUS_RADIUS * 2}; // Default size
-    }
+    // Taille fixe pour les bonus (cercle)
+    engine::Vector2f texSize = {BONUS_RADIUS * 2, BONUS_RADIUS * 2};
 
     Entity bonus = registry.spawn_entity();
     registry.add_component(bonus, Position{x, y});
     registry.add_component(bonus, Bonus{type, BONUS_RADIUS});
     registry.add_component(bonus, Collider{BONUS_RADIUS * 2, BONUS_RADIUS * 2});
     registry.add_component(bonus, Scrollable{1.0f, false, true}); // Scroll et détruit hors écran
-    registry.add_component(bonus, Sprite{
+    Sprite sprite{
         bonusTex_,
         texSize.x,
         texSize.y,
@@ -92,7 +88,11 @@ void BonusSystem::spawnBonus(Registry& registry, BonusType type)
         0.0f,
         0.0f,
         0  // Layer
-    });
+    };
+    sprite.source_rect = {0.0f, 0.0f, 16.0f, 16.0f};
+    sprite.origin_x = texSize.x / 2.0f;
+    sprite.origin_y = texSize.y / 2.0f;
+    registry.add_component(bonus, sprite);
 
     std::cout << "BonusSystem: Spawn bonus " << typeName << " à (" << x << ", " << y << ")" << std::endl;
 }

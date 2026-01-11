@@ -31,8 +31,10 @@ void RenderSystem::update(Registry& registry, float dt)
 {
     (void)dt;
 
-    // Effacer l'écran (fond gris foncé)
-    graphics_plugin.clear(engine::Color{30, 30, 40, 255});
+    // Effacer l'écran (fond gris foncé) - skip if cleared externally
+    if (!skip_clear_) {
+        graphics_plugin.clear(engine::Color{30, 30, 40, 255});
+    }
 
     // Récupérer les composants Position et Sprite
     auto& positions = registry.get_components<Position>();

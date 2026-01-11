@@ -31,6 +31,8 @@
 #include "interfaces/IGameSessionListener.hpp"
 #include "interfaces/IWaveListener.hpp"
 #include "interfaces/INetworkSystemListener.hpp"
+#include "systems/MapConfigLoader.hpp"
+#include "components/MapTypes.hpp"
 
 namespace rtype::server {
 
@@ -109,6 +111,10 @@ private:
     void spawn_player_entity(GamePlayer& player);
     void check_game_over();
     void check_offscreen_enemies();
+    
+    // Map-based wall spawning from tiles
+    void load_map_segments(uint16_t map_id);
+    void spawn_walls_in_view();
 
     uint32_t session_id_;
     protocol::GameMode game_mode_;
@@ -133,6 +139,12 @@ private:
     protocol::ServerWaveCompletePayload last_wave_complete_payload_;
     bool has_wave_started_ = false;
     bool has_wave_complete_ = false;
+
+    // Map segment data for tile-based walls
+    rtype::MapConfig map_config_;
+    std::vector<rtype::SegmentData> map_segments_;
+    size_t next_segment_to_spawn_ = 0;
+    int tile_size_ = 16;
 };
 
 }
