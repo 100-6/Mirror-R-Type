@@ -87,6 +87,9 @@ bool ClientGame::initialize(const std::string& host, uint16_t tcp_port, const st
     network_client_ = std::make_unique<rtype::client::NetworkClient>(*network_plugin_);
     setup_network_callbacks();
 
+    // Initialize debug overlay (F3 to toggle)
+    debug_network_overlay_ = std::make_unique<DebugNetworkOverlay>(false);
+
     // Initialize menu manager
     menu_manager_ = std::make_unique<MenuManager>(*network_client_, screen_width_, screen_height_);
     menu_manager_->initialize();
@@ -382,6 +385,11 @@ void ClientGame::setup_network_callbacks() {
         entity_manager_->set_local_player_id(player_id);
         status_overlay_->set_connection("Connected (Player " + std::to_string(player_id) + ")");
         status_overlay_->refresh();
+
+        // Initialize lag compensation system
+        prediction_system_ = std::make_unique<ClientPredictionSystem>(player_id);
+        std::cout << "[ClientGame] Lag compensation system initialized for player " << player_id << "\n";
+
         // Don't auto-join lobby anymore - user will choose from menu
     });
 
@@ -560,14 +568,57 @@ void ClientGame::setup_network_callbacks() {
                     last_state.y = state.position_y;
                     last_state.timestamp = current_time_;
                 }
+
+                // SERVER RECONCILIATION for local player
+                if (prediction_system_ && positions.has_entity(entity)) {
+                    // Acknowledge inputs up to the last processed sequence
+                    uint32_t last_ack = ntohl(state.last_ack_sequence);
+                    if (last_ack > 0) {
+                        prediction_system_->acknowledge_input(last_ack);
+
+                        // Check prediction error
+                        Position& local_pos = positions[entity];
+                        float error_x = std::abs(local_pos.x - state.position_x);
+                        float error_y = std::abs(local_pos.y - state.position_y);
+                        float error_distance = std::sqrt(error_x * error_x + error_y * error_y);
+
+                        constexpr float ERROR_THRESHOLD = 5.0f;  // pixels
+
+                        if (error_distance > ERROR_THRESHOLD) {
+                            std::cout << "[RECONCILIATION] Correction of " << error_distance
+                                      << " pixels (seq: " << last_ack << ", pending: "
+                                      << prediction_system_->get_pending_inputs().size() << ")\n";
+
+                            // Record correction for debug overlay
+                            if (debug_network_overlay_) {
+                                debug_network_overlay_->record_correction();
+                            }
+
+                            // Reset to server position
+                            local_pos.x = state.position_x;
+                            local_pos.y = state.position_y;
+
+                            // TODO: Replay pending inputs (requires movement system access)
+                            // For now, we just accept the server position
+                        }
+
+                        // Update debug overlay positions
+                        if (debug_network_overlay_) {
+                            debug_network_overlay_->set_server_position(state.position_x, state.position_y);
+                            debug_network_overlay_->set_predicted_position(local_pos.x, local_pos.y);
+                        }
+                    }
+                }
             }
 
-            // Mettre à jour la position (pour toutes les entités)
-            if (positions.has_entity(entity)) {
-                positions[entity].x = state.position_x;
-                positions[entity].y = state.position_y;
-            } else {
-                registry_->add_component(entity, Position{state.position_x, state.position_y});
+            // Mettre à jour la position (pour les entités distantes uniquement)
+            if (!is_local) {
+                if (positions.has_entity(entity)) {
+                    positions[entity].x = state.position_x;
+                    positions[entity].y = state.position_y;
+                } else {
+                    registry_->add_component(entity, Position{state.position_x, state.position_y});
+                }
             }
 
             // Mettre à jour la vélocité SEULEMENT pour les autres joueurs
@@ -642,6 +693,16 @@ void ClientGame::run() {
             }
         }
 
+        // Toggle network debug overlay with F3 key
+        if (input_handler_->is_network_debug_toggle_pressed()) {
+            if (debug_network_overlay_) {
+                bool new_state = !debug_network_overlay_->is_enabled();
+                debug_network_overlay_->set_enabled(new_state);
+                std::cout << "[ClientGame] Network debug overlay "
+                          << (new_state ? "enabled" : "disabled") << "\n";
+            }
+        }
+
         if (network_client_->is_in_game() &&
             std::chrono::duration_cast<std::chrono::milliseconds>(now - last_input_send).count() >= 15) {
             uint16_t input_flags = input_handler_->gather_input();
@@ -649,7 +710,18 @@ void ClientGame::run() {
             // NOUVEAU: Appliquer la vélocité localement AVANT d'envoyer au serveur
             apply_input_to_local_player(input_flags);
 
+            // Send input to server
             network_client_->send_input(input_flags, client_tick_++);
+
+            // Store input in prediction system for reconciliation
+            if (prediction_system_) {
+                uint32_t sequence = network_client_->get_last_input_sequence();
+                uint32_t timestamp = static_cast<uint32_t>(
+                    std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count()
+                );
+                prediction_system_->on_input_sent(sequence, input_flags, timestamp);
+            }
+
             last_input_send = now;
         }
 
@@ -834,6 +906,17 @@ void ClientGame::run() {
             
             // Run ECS systems (RenderSystem will NOT clear since skip_clear is set)
             registry_->run_systems(dt);
+        }
+
+        // Render debug network overlay (if enabled)
+        if (debug_network_overlay_ && prediction_system_) {
+            // Update metrics
+            float rtt = static_cast<float>(network_plugin_->get_server_ping());
+            size_t buffer_size = prediction_system_->get_pending_inputs().size();
+            debug_network_overlay_->update_metrics(rtt, 0, buffer_size);  // corrections_per_second updated elsewhere
+
+            // Render overlay
+            debug_network_overlay_->render(*graphics_plugin_);
         }
 
         graphics_plugin_->display();

@@ -29,6 +29,8 @@ set(RTYPE_CLIENT_SOURCES
     src/SpaceshipManager.cpp
     src/systems/LocalPredictionSystem.cpp
     src/systems/ColliderDebugSystem.cpp
+    src/systems/ClientPredictionSystem.cpp
+    src/DebugNetworkOverlay.cpp
 )
 
 add_executable(r-type_client ${RTYPE_CLIENT_SOURCES})

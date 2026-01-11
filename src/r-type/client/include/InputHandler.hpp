@@ -29,6 +29,11 @@ public:
      */
     bool is_hitbox_toggle_pressed() const;
 
+    /**
+     * @brief Check if network debug toggle key (F3) was just pressed
+     */
+    bool is_network_debug_toggle_pressed() const;
+
 private:
     engine::IInputPlugin& input_plugin_;
 };

@@ -269,6 +269,7 @@ public:
     uint32_t get_lobby_id() const { return lobby_id_; }
     bool is_in_lobby() const { return in_lobby_; }
     bool is_in_game() const { return in_game_; }
+    uint32_t get_last_input_sequence() const { return input_sequence_number_ - 1; }  // Returns last sent sequence
 
 private:
     void handle_packet(const engine::NetworkPacket& packet);
@@ -321,6 +322,9 @@ private:
     // Ping tracking
     uint32_t last_ping_timestamp_ = 0;
     int server_ping_ms_ = -1;
+
+    // Input sequence tracking (for lag compensation)
+    uint32_t input_sequence_number_ = 0;
 
     // Callbacks
     std::function<void(uint32_t)> on_accepted_;
