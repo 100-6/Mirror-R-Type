@@ -30,6 +30,7 @@ set(RTYPE_CLIENT_SOURCES
     src/systems/LocalPredictionSystem.cpp
     src/systems/ColliderDebugSystem.cpp
     src/systems/ClientPredictionSystem.cpp
+    src/systems/InterpolationSystem.cpp
     src/DebugNetworkOverlay.cpp
 )
 

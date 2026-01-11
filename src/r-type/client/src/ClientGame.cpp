@@ -87,7 +87,8 @@ bool ClientGame::initialize(const std::string& host, uint16_t tcp_port, const st
     network_client_ = std::make_unique<rtype::client::NetworkClient>(*network_plugin_);
     setup_network_callbacks();
 
-    // Initialize debug overlay (F3 to toggle)
+    // Initialize lag compensation systems
+    interpolation_system_ = std::make_unique<InterpolationSystem>();
     debug_network_overlay_ = std::make_unique<DebugNetworkOverlay>(false);
 
     // Initialize menu manager
@@ -534,13 +535,19 @@ void ClientGame::setup_network_callbacks() {
 
     network_client_->set_on_snapshot([this](const protocol::ServerSnapshotPayload& header,
                                             const std::vector<protocol::EntityState>& entities) {
-        (void)header;
         auto& positions = registry_->get_components<Position>();
         auto& velocities = registry_->get_components<Velocity>();
         auto& healths = registry_->get_components<Health>();
         auto& last_states = registry_->get_components<LastServerState>();
         std::unordered_set<uint32_t> updated_ids;
         updated_ids.reserve(entities.size());
+
+        // Store snapshot in interpolation system for remote entities
+        uint32_t server_tick = ntohl(header.server_tick);
+        uint32_t local_player_id = entity_manager_->get_local_player_entity_id();
+        if (interpolation_system_) {
+            interpolation_system_->on_snapshot_received(server_tick, entities, local_player_id);
+        }
 
         for (const auto& state : entities) {
             uint32_t server_id = ntohl(state.entity_id);
@@ -624,13 +631,29 @@ void ClientGame::setup_network_callbacks() {
                 }
             }
 
-            // Mettre à jour la position (pour les entités distantes uniquement)
+            // Mettre à jour la position (pour les entités distantes, utiliser interpolation)
             if (!is_local) {
-                if (positions.has_entity(entity)) {
-                    positions[entity].x = state.position_x;
-                    positions[entity].y = state.position_y;
+                // Try to get interpolated position first
+                float interp_x, interp_y;
+                bool has_interpolation = interpolation_system_ &&
+                    interpolation_system_->get_interpolated_position(server_id, server_tick, interp_x, interp_y);
+
+                if (has_interpolation) {
+                    // Use interpolated position for smooth movement
+                    if (positions.has_entity(entity)) {
+                        positions[entity].x = interp_x;
+                        positions[entity].y = interp_y;
+                    } else {
+                        registry_->add_component(entity, Position{interp_x, interp_y});
+                    }
                 } else {
-                    registry_->add_component(entity, Position{state.position_x, state.position_y});
+                    // Fallback: use direct server position if no interpolation data yet
+                    if (positions.has_entity(entity)) {
+                        positions[entity].x = state.position_x;
+                        positions[entity].y = state.position_y;
+                    } else {
+                        registry_->add_component(entity, Position{state.position_x, state.position_y});
+                    }
                 }
             }
 
