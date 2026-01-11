@@ -9,6 +9,7 @@
 
 #include <deque>
 #include <unordered_map>
+#include <vector>
 #include <cstdint>
 #include "protocol/Payloads.hpp"
 

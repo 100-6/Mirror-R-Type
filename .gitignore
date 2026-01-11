@@ -6,4 +6,3 @@ vcpkg/
 vcpkg_installed/
 .clangd
 vswhere.exe
-LAG_COMPENSATION_GUIDE.md
