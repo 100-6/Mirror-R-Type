@@ -582,24 +582,37 @@ void ClientGame::setup_network_callbacks() {
                         float error_y = std::abs(local_pos.y - state.position_y);
                         float error_distance = std::sqrt(error_x * error_x + error_y * error_y);
 
-                        constexpr float ERROR_THRESHOLD = 5.0f;  // pixels
+                        constexpr float ERROR_THRESHOLD = 10.0f;  // pixels (increased for smoother gameplay)
+                        constexpr float LARGE_ERROR_THRESHOLD = 50.0f;  // pixels (teleport if too far)
 
                         if (error_distance > ERROR_THRESHOLD) {
-                            std::cout << "[RECONCILIATION] Correction of " << error_distance
-                                      << " pixels (seq: " << last_ack << ", pending: "
-                                      << prediction_system_->get_pending_inputs().size() << ")\n";
-
                             // Record correction for debug overlay
                             if (debug_network_overlay_) {
                                 debug_network_overlay_->record_correction();
                             }
 
-                            // Reset to server position
-                            local_pos.x = state.position_x;
-                            local_pos.y = state.position_y;
+                            // If error is very large (>50px), teleport immediately (likely a collision or major desync)
+                            if (error_distance > LARGE_ERROR_THRESHOLD) {
+                                std::cout << "[RECONCILIATION] Large correction (teleport): " << error_distance
+                                          << " pixels (seq: " << last_ack << ")\n";
+                                local_pos.x = state.position_x;
+                                local_pos.y = state.position_y;
+                            } else {
+                                // Small-medium error: smooth correction over time (lerp)
+                                // Apply 30% of the correction per frame for smooth adjustment
+                                constexpr float CORRECTION_SPEED = 0.3f;
+                                float correction_x = (state.position_x - local_pos.x) * CORRECTION_SPEED;
+                                float correction_y = (state.position_y - local_pos.y) * CORRECTION_SPEED;
 
-                            // TODO: Replay pending inputs (requires movement system access)
-                            // For now, we just accept the server position
+                                local_pos.x += correction_x;
+                                local_pos.y += correction_y;
+
+                                // Only log significant corrections
+                                if (error_distance > 15.0f) {
+                                    std::cout << "[RECONCILIATION] Smooth correction: " << error_distance
+                                              << " pixels (applying " << (CORRECTION_SPEED * 100) << "%)\n";
+                                }
+                            }
                         }
 
                         // Update debug overlay positions
