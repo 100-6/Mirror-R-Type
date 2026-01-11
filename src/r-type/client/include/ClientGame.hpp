@@ -18,6 +18,9 @@
 #include "MenuManager.hpp"
 #include "systems/ChunkManagerSystem.hpp"
 #include "systems/ParallaxBackgroundSystem.hpp"
+#include "systems/ClientPredictionSystem.hpp"
+#include "systems/InterpolationSystem.hpp"
+#include "DebugNetworkOverlay.hpp"
 
 namespace rtype::client {
 
@@ -85,6 +88,11 @@ private:
 
     // Network client
     std::unique_ptr<rtype::client::NetworkClient> network_client_;
+
+    // Lag compensation system
+    std::unique_ptr<rtype::client::ClientPredictionSystem> prediction_system_;
+    std::unique_ptr<rtype::client::InterpolationSystem> interpolation_system_;
+    std::unique_ptr<rtype::client::DebugNetworkOverlay> debug_network_overlay_;
 
     // Game state
     std::atomic<bool> running_;

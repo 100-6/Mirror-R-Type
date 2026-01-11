@@ -164,6 +164,11 @@ void ServerNetworkSystem::process_pending_inputs(Registry& registry)
     while (!pending_inputs_.empty()) {
         auto [player_id, input] = pending_inputs_.front();
         pending_inputs_.pop();
+
+        // Store last processed sequence number for lag compensation
+        uint32_t sequence = ntohl(input.sequence_number);
+        last_processed_input_seq_[player_id] = sequence;
+
         auto it = player_entities_->find(player_id);
         if (it == player_entities_->end())
             continue;
@@ -256,6 +261,21 @@ std::vector<uint8_t> ServerNetworkSystem::serialize_snapshot(Registry& registry)
             state.health = 0;
         }
         state.flags = 0;
+
+        // Include last acknowledged input sequence for player entities (for reconciliation)
+        state.last_ack_sequence = 0;
+        if (player_entities_) {
+            for (const auto& [player_id, player_entity] : *player_entities_) {
+                if (player_entity == entity) {
+                    auto it = last_processed_input_seq_.find(player_id);
+                    if (it != last_processed_input_seq_.end()) {
+                        state.last_ack_sequence = ByteOrder::host_to_net32(it->second);
+                    }
+                    break;
+                }
+            }
+        }
+
         entity_states.push_back(state);
         entity_count++;
     }

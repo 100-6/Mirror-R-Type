@@ -192,6 +192,7 @@ void NetworkClient::send_input(uint16_t input_flags, uint32_t client_tick) {
     payload.player_id = htonl(player_id_);
     payload.input_flags = htons(input_flags);
     payload.client_tick = htonl(client_tick);
+    payload.sequence_number = htonl(input_sequence_number_++);  // Increment sequence for lag compensation
 
     // Send via UDP if connected, otherwise TCP
     if (network_plugin_.is_udp_connected()) {

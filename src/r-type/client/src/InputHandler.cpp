@@ -41,4 +41,8 @@ bool InputHandler::is_hitbox_toggle_pressed() const {
     return input_plugin_.is_key_pressed(engine::Key::H);
 }
 
+bool InputHandler::is_network_debug_toggle_pressed() const {
+    return input_plugin_.is_key_pressed(engine::Key::F3);
+}
+
 }
