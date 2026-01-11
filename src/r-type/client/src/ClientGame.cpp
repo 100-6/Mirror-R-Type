@@ -183,6 +183,7 @@ void ClientGame::setup_registry() {
     registry_->register_component<Health>();
     registry_->register_component<Score>();
     registry_->register_component<Controllable>();
+    registry_->register_component<LocalPlayer>();
     registry_->register_component<Background>();
     registry_->register_component<Scrollable>();
     registry_->register_component<NetworkId>();

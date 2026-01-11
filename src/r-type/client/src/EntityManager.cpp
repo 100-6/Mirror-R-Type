@@ -223,6 +223,7 @@ Entity EntityManager::spawn_or_update_entity(uint32_t server_id, protocol::Entit
                                              float x, float y, uint16_t health, uint8_t subtype) {
     Entity entity;
     const bool is_new = server_to_local_.find(server_id) == server_to_local_.end();
+    const uint32_t previous_local_server_id = local_player_entity_id_;
 
     if (is_new) {
         entity = registry_.spawn_entity();
@@ -245,6 +246,23 @@ Entity EntityManager::spawn_or_update_entity(uint32_t server_id, protocol::Entit
         }
     }
     bool highlight_as_local = (server_id == local_player_entity_id_) || local_subtype_match;
+
+    auto& localPlayers = registry_.get_components<LocalPlayer>();
+    const uint32_t invalid_local_server = std::numeric_limits<uint32_t>::max();
+    if (highlight_as_local) {
+        if (previous_local_server_id != invalid_local_server &&
+            previous_local_server_id != local_player_entity_id_) {
+            auto prev_it = server_to_local_.find(previous_local_server_id);
+            if (prev_it != server_to_local_.end() && localPlayers.has_entity(prev_it->second)) {
+                registry_.remove_component<LocalPlayer>(prev_it->second);
+            }
+        }
+        if (!localPlayers.has_entity(entity)) {
+            registry_.add_component(entity, LocalPlayer{});
+        }
+    } else if (localPlayers.has_entity(entity)) {
+        registry_.remove_component<LocalPlayer>(entity);
+    }
 
     // Mark projectiles, players, and moving entities for local integration (smooth movement)
     if (!highlight_as_local && (type == protocol::EntityType::PROJECTILE_PLAYER || 

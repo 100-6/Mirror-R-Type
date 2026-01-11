@@ -68,6 +68,8 @@ struct FireRate {
 
 struct Enemy {};
 
+struct LocalPlayer {};
+
 enum class ProjectileFaction {
     Player,
     Enemy
