@@ -88,6 +88,7 @@ public:
     bool is_active_threadsafe() const { return is_active_.load(std::memory_order_acquire); }
     Registry& get_registry() { return registry_; }
     ServerNetworkSystem* get_network_system() { return network_system_; }
+    float get_scroll_speed() const { return scroll_speed_; }
 
     /**
      * @brief Resync a client with all existing entities
@@ -129,6 +130,7 @@ private:
 
     uint32_t tick_count_;
     float current_scroll_;
+    float scroll_speed_;
     std::chrono::steady_clock::time_point session_start_time_;
 
     ServerNetworkSystem* network_system_ = nullptr;
