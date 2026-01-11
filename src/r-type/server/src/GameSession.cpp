@@ -50,6 +50,7 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
     , is_active_(true)
     , tick_count_(0)
     , current_scroll_(0.0f)
+    , scroll_speed_(config::GAME_SCROLL_SPEED)
     , session_start_time_(std::chrono::steady_clock::now())
 {
     std::cout << "[GameSession " << session_id_ << "] Created (mode: " << static_cast<int>(game_mode)
@@ -179,7 +180,7 @@ void GameSession::update(float delta_time)
     if (!is_active_)
         return;
     tick_count_++;
-    current_scroll_ += config::GAME_SCROLL_SPEED * delta_time;
+    current_scroll_ += scroll_speed_ * delta_time;
     
     // Spawn walls from map tiles as they come into view
     spawn_walls_in_view();
@@ -314,7 +315,7 @@ void GameSession::on_spawn_enemy(const std::string& enemy_type, float x, float y
     std::cout << "[GameSession " << session_id_ << "] Spawned " << enemy_type << " enemy " << enemy
               << " at (" << x << ", " << y << ")\n";
     if (network_system_)
-        network_system_->queue_entity_spawn(enemy, entity_type, x, y, health, static_cast<uint8_t>(subtype));
+        network_system_->queue_entity_spawn(enemy, entity_type, center_x, center_y, health, static_cast<uint8_t>(subtype));
 }
 
 void GameSession::on_spawn_wall(float x, float y)
@@ -324,14 +325,17 @@ void GameSession::on_spawn_wall(float x, float y)
     float center_y = y + config::WALL_HEIGHT / 2.0f;
 
     registry_.add_component(wall, Position{center_x, center_y});
-    registry_.add_component(wall, Velocity{-config::GAME_SCROLL_SPEED, 0.0f});
+    registry_.add_component(wall, Velocity{-scroll_speed_, 0.0f});
     registry_.add_component(wall, Collider{config::WALL_WIDTH, config::WALL_HEIGHT});
     registry_.add_component(wall, Wall{});
     registry_.add_component(wall, NoFriction{});
     registry_.add_component(wall, Health{65535, 65535});
     std::cout << "[GameSession " << session_id_ << "] Spawned wall " << wall << " at (" << x << ", " << y << ")\n";
-    if (network_system_)
-        network_system_->queue_entity_spawn(wall, EntityType::WALL, x, y, 65535, 0);
+
+    // DO NOT send walls to client - client loads walls from tilemap via ChunkManager
+    // Server uses these walls for server-side collision validation only
+    // if (network_system_)
+    //     network_system_->queue_entity_spawn(wall, EntityType::WALL, center_x, center_y, 65535, 0);
 }
 
 void GameSession::on_spawn_powerup(const std::string& bonus_type, float x, float y)
@@ -341,7 +345,7 @@ void GameSession::on_spawn_powerup(const std::string& bonus_type, float x, float
     float center_y = y + config::BONUS_SIZE / 2.0f;
 
     registry_.add_component(powerup, Position{center_x, center_y});
-    registry_.add_component(powerup, Velocity{-config::GAME_SCROLL_SPEED, 0.0f});
+    registry_.add_component(powerup, Velocity{-scroll_speed_, 0.0f});
     registry_.add_component(powerup, Collider{config::BONUS_SIZE, config::BONUS_SIZE});
     registry_.add_component(powerup, Bonus{});
     registry_.add_component(powerup, NoFriction{});
@@ -353,7 +357,7 @@ void GameSession::on_spawn_powerup(const std::string& bonus_type, float x, float
     else if (bonus_type == "speed")
         entity_type = EntityType::BONUS_SPEED;
     if (network_system_)
-        network_system_->queue_entity_spawn(powerup, entity_type, x, y, 0, 0);
+        network_system_->queue_entity_spawn(powerup, entity_type, center_x, center_y, 0, 0);
 }
 
 void GameSession::on_snapshot_ready(uint32_t session_id, const std::vector<uint8_t>& snapshot)
@@ -513,6 +517,9 @@ void GameSession::load_map_segments(uint16_t map_id)
 
     try {
         map_config_ = rtype::MapConfigLoader::loadMapById(map_folder);
+        scroll_speed_ = (map_config_.baseScrollSpeed > 0.0f)
+            ? map_config_.baseScrollSpeed
+            : config::GAME_SCROLL_SPEED;
         tile_size_ = map_config_.tileSize;
 
         std::string segments_dir = map_config_.basePath + "/segments";
@@ -595,15 +602,17 @@ void GameSession::spawn_walls_in_view()
 
                 Entity wall = registry_.spawn_entity();
                 registry_.add_component(wall, Position{center_x, center_y});
-                registry_.add_component(wall, Velocity{-config::GAME_SCROLL_SPEED, 0.0f});
+                registry_.add_component(wall, Velocity{-scroll_speed_, 0.0f});
                 registry_.add_component(wall, Collider{wall_width, wall_height});
                 registry_.add_component(wall, Wall{});
                 registry_.add_component(wall, NoFriction{});
                 registry_.add_component(wall, Health{65535, 65535});
 
-                if (network_system_)
-                    network_system_->queue_entity_spawn(wall, EntityType::WALL,
-                        tile_world_x, static_cast<float>(y * tile_size_), 65535, 0);
+                // DO NOT send walls to client - client loads walls from tilemap via ChunkManager
+                // Server uses these walls for server-side collision validation only
+                // if (network_system_)
+                //     network_system_->queue_entity_spawn(wall, EntityType::WALL,
+                //         center_x, center_y, 65535, 0);
             }
         }
 
