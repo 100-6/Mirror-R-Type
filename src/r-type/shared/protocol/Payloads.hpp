@@ -293,6 +293,7 @@ struct PACKED ServerGameStartPayload {
     uint32_t level_seed;
     uint16_t udp_port;  // UDP port for gameplay communication
     uint16_t map_id;    // Map identifier (1=Nebula, 2=Asteroid, 3=Bydo)
+    float scroll_speed;
 
     ServerGameStartPayload()
         : game_session_id(0)
@@ -301,11 +302,12 @@ struct PACKED ServerGameStartPayload {
         , server_tick(0)
         , level_seed(0)
         , udp_port(config::DEFAULT_UDP_PORT)
-        , map_id(1) {}
+        , map_id(1)
+        , scroll_speed(60.0f) {}
 };
 PACK_END
 
-static_assert(sizeof(ServerGameStartPayload) == 18, "ServerGameStartPayload base must be 18 bytes");
+static_assert(sizeof(ServerGameStartPayload) == 22, "ServerGameStartPayload base must be 22 bytes");
 
 /**
  * @brief CLIENT_INPUT payload (0x10)

@@ -412,12 +412,13 @@ void ClientGame::setup_network_callbacks() {
         status_overlay_->refresh();
     });
 
-    network_client_->set_on_game_start([this](uint32_t session_id, uint16_t udp_port, uint16_t map_id) {
+    network_client_->set_on_game_start([this](uint32_t session_id, uint16_t udp_port, uint16_t map_id, float scroll_speed) {
         (void)udp_port;
         status_overlay_->set_session("In game (session " + std::to_string(session_id) + ")");
         status_overlay_->refresh();
         entity_manager_->clear_all();
         screen_manager_->set_screen(GameScreen::PLAYING);
+        server_scroll_speed_ = scroll_speed;
 
         // Convert numeric map ID to string ID
         std::string mapIdStr;
@@ -430,6 +431,9 @@ void ClientGame::setup_network_callbacks() {
         
         // Load the selected map
         load_map(mapIdStr);
+        if (chunk_manager_) {
+            chunk_manager_->setScrollSpeed(server_scroll_speed_);
+        }
 
         // Apply map-specific theme (background color)
         apply_map_theme(map_id);
@@ -796,8 +800,7 @@ void ClientGame::run() {
             // Game screen - run game systems
             
             // Update map scrolling
-            float scrollSpeed = 60.0f;  // pixels per second
-            float scrollDelta = scrollSpeed * dt;
+            float scrollDelta = server_scroll_speed_ * dt;
             map_scroll_x_ += scrollDelta;
             
             // Update parallax and chunk states
