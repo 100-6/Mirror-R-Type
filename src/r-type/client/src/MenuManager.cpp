@@ -311,4 +311,27 @@ void MenuManager::on_player_name_updated(const protocol::ServerPlayerNameUpdated
     }
 }
 
+void MenuManager::on_player_skin_updated(const protocol::ServerPlayerSkinUpdatedPayload& payload)
+{
+    if (room_lobby_screen_) {
+        room_lobby_screen_->update_player_skin(payload.player_id, payload.skin_id);
+    }
+}
+
+void MenuManager::on_lobby_state(const protocol::ServerLobbyStatePayload& state,
+                                  const std::vector<protocol::PlayerLobbyEntry>& players)
+{
+    if (room_lobby_screen_) {
+        // Update all players from the lobby state
+        for (const auto& entry : players) {
+            std::string name(entry.player_name, strnlen(entry.player_name, sizeof(entry.player_name)));
+            if (name.empty()) {
+                name = "Player " + std::to_string(entry.player_id);
+            }
+            // add_player will update if exists, or add if not
+            room_lobby_screen_->add_player(entry.player_id, name, entry.skin_id);
+        }
+    }
+}
+
 }  // namespace rtype::client

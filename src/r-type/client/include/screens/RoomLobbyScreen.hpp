@@ -4,6 +4,7 @@
 #include "protocol/Payloads.hpp"
 #include "ScreenManager.hpp"
 #include "SpaceshipManager.hpp"
+#include "screens/SkinSelectorDialog.hpp"
 #include <functional>
 #include <string>
 #include <vector>
@@ -59,6 +60,9 @@ public:
 
     // Update player name (called when server broadcasts name change)
     void update_player_name(uint32_t player_id, const std::string& new_name);
+
+    // Update player skin (called when server broadcasts skin change)
+    void update_player_skin(uint32_t player_id, uint8_t skin_id);
 
 private:
     void draw_player_slot(engine::IGraphicsPlugin* graphics, int slot_index,
@@ -117,7 +121,17 @@ private:
     float change_name_button_width_ = 240.0f;
     float change_name_button_height_ = 60.0f;
 
-    int selected_button_ = 0;  // 0=leave, 1=decrease, 2=increase, 3=start, 4=change_name
+    // Skin change button (below name change button)
+    float change_skin_button_x_ = 1650.0f;
+    float change_skin_button_y_ = 120.0f;
+    float change_skin_button_width_ = 240.0f;
+    float change_skin_button_height_ = 60.0f;
+
+    int selected_button_ = 0;  // 0=leave, 1=decrease, 2=increase, 3=start, 4=change_name, 5=change_skin
+
+    // Skin selector dialog
+    std::unique_ptr<SkinSelectorDialog> skin_selector_dialog_;
+    uint8_t local_player_skin_ = 0;
 
     // Name editing state
     bool editing_name_ = false;

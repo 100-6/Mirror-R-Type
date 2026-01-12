@@ -78,8 +78,12 @@ Sprite EntityManager::build_sprite(protocol::EntityType type, bool is_local_play
 
     switch (type) {
         case protocol::EntityType::PLAYER: {
-            // Utiliser le SpaceshipManager pour obtenir un vaisseau aléatoire avec source_rect
-            engine::Sprite ship_sprite = textures_.get_random_ship_sprite(4.0f);
+            // Use skin_id from subtype to select the correct ship sprite
+            // skin_id formula: skin_id = color * 5 + type (0-14 range)
+            uint8_t skin_id = subtype % 15;  // Clamp to valid range
+            ShipColor color = static_cast<ShipColor>(skin_id / 5);
+            ShipType ship_type = static_cast<ShipType>(skin_id % 5);
+            engine::Sprite ship_sprite = textures_.get_ship_manager().create_ship_sprite(color, ship_type, 4.0f);
             sprite.texture = ship_sprite.texture_handle;
             
             // Copier le source_rect pour le découpage de la spritesheet
@@ -247,16 +251,20 @@ Entity EntityManager::spawn_or_update_entity(uint32_t server_id, protocol::Entit
     server_types_[server_id] = type;
     stale_counters_[server_id] = 0;
 
-    // For player entities, store the player_id (subtype) mapping
+    // For player entities, decode subtype: high 4 bits = player_id, low 4 bits = skin_id
+    uint8_t decoded_player_id = 0;
+    uint8_t decoded_skin_id = 0;
     if (type == protocol::EntityType::PLAYER && subtype != 0) {
-        server_to_player_id_[server_id] = subtype;
+        decoded_player_id = (subtype >> 4) & 0x0F;
+        decoded_skin_id = subtype & 0x0F;
+        server_to_player_id_[server_id] = decoded_player_id;
     }
 
     // Check if this is the local player
     bool local_subtype_match = false;
     if (type == protocol::EntityType::PLAYER && local_player_id_ != 0) {
-        uint8_t local_id_byte = static_cast<uint8_t>(local_player_id_ & 0xFFu);
-        if (subtype == local_id_byte) {
+        uint8_t local_id_byte = static_cast<uint8_t>(local_player_id_ & 0x0Fu);
+        if (decoded_player_id == local_id_byte) {
             local_player_entity_id_ = server_id;
             local_subtype_match = true;
         }
@@ -306,8 +314,9 @@ Entity EntityManager::spawn_or_update_entity(uint32_t server_id, protocol::Entit
         registry_.add_component(entity, Position{x, y});
     }
 
-    // Update sprite
-    Sprite sprite = build_sprite(type, highlight_as_local, subtype);
+    // Update sprite - use decoded_skin_id for players, raw subtype for others
+    uint8_t sprite_subtype = (type == protocol::EntityType::PLAYER) ? decoded_skin_id : subtype;
+    Sprite sprite = build_sprite(type, highlight_as_local, sprite_subtype);
     auto& sprites = registry_.get_components<Sprite>();
     if (sprites.has_entity(entity)) {
         sprites[entity] = sprite;

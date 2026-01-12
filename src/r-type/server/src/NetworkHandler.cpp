@@ -170,6 +170,16 @@ void NetworkHandler::handle_tcp_packet(uint32_t client_id, protocol::PacketType 
             listener_->on_client_set_player_name(client_id, data);
             break;
         }
+        case protocol::PacketType::CLIENT_SET_PLAYER_SKIN: {
+            if (payload.size() != sizeof(protocol::ClientSetPlayerSkinPayload)) {
+                std::cerr << "[NetworkHandler] Invalid CLIENT_SET_PLAYER_SKIN payload size\n";
+                return;
+            }
+            protocol::ClientSetPlayerSkinPayload data;
+            Memory::copy_to_struct(data, payload.data());
+            listener_->on_client_set_player_skin(client_id, data);
+            break;
+        }
         default:
             std::cerr << "[NetworkHandler] Unexpected TCP packet type: 0x" << std::hex
                       << static_cast<int>(type) << std::dec << "\n";

@@ -414,6 +414,11 @@ void ClientGame::setup_network_callbacks() {
                 name = "Player " + std::to_string(entry.player_id);
             entity_manager_->set_player_name(entry.player_id, name);
         }
+
+        // Update RoomLobbyScreen with all players (names + skins)
+        if (menu_manager_) {
+            menu_manager_->on_lobby_state(state, players_info);
+        }
     });
 
     network_client_->set_on_countdown([this](uint8_t seconds) {
@@ -466,9 +471,15 @@ void ClientGame::setup_network_callbacks() {
         std::string name(payload.new_name, strnlen(payload.new_name, sizeof(payload.new_name)));
         uint32_t playerId = payload.player_id;
         entity_manager_->set_player_name(playerId, name);
-        
+
         if (menu_manager_) {
             menu_manager_->on_player_name_updated(payload);
+        }
+    });
+
+    network_client_->set_on_player_skin_updated([this](const protocol::ServerPlayerSkinUpdatedPayload& payload) {
+        if (menu_manager_) {
+            menu_manager_->on_player_skin_updated(payload);
         }
     });
 

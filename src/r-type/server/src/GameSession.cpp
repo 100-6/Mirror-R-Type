@@ -128,27 +128,29 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
     load_map_segments(map_id);
 }
 
-void GameSession::add_player(uint32_t player_id, const std::string& player_name)
+void GameSession::add_player(uint32_t player_id, const std::string& player_name, uint8_t skin_id)
 {
     if (players_.find(player_id) != players_.end()) {
         std::cerr << "[GameSession " << session_id_ << "] Player " << player_id << " already in session\n";
         return;
     }
-    GamePlayer player(player_id, player_name);
+    GamePlayer player(player_id, player_name, skin_id);
     spawn_player_entity(player);
     players_[player_id] = player;
     player_entities_[player_id] = player.entity;
     std::cout << "[GameSession " << session_id_ << "] Player " << player_id << " (" << player_name
-              << ") added (entity ID: " << player.entity << ")\n";
+              << ") added with skin " << static_cast<int>(skin_id) << " (entity ID: " << player.entity << ")\n";
     if (network_system_) {
         float spawn_y = config::PLAYER_SPAWN_Y_BASE + ((players_.size() - 1) * config::PLAYER_SPAWN_Y_OFFSET);
+        // Encode both player_id and skin_id in subtype: high 4 bits = player_id, low 4 bits = skin_id
+        uint8_t subtype = static_cast<uint8_t>(((player_id & 0x0F) << 4) | (skin_id & 0x0F));
         network_system_->queue_entity_spawn(
             player.entity,
             EntityType::PLAYER,
             config::PLAYER_SPAWN_X,
             spawn_y,
             config::PLAYER_MAX_HEALTH,
-            static_cast<uint8_t>(player_id)
+            subtype
         );
     }
 }
@@ -457,9 +459,11 @@ void GameSession::resync_client(uint32_t player_id, uint32_t tcp_client_id)
             uint16_t health = 100;
             if (healths.has_entity(player.entity))
                 health = healths[player.entity].current;
+            // Encode both player_id and skin_id in subtype: high 4 bits = player_id, low 4 bits = skin_id
+            uint8_t subtype = static_cast<uint8_t>(((pid & 0x0F) << 4) | (player.skin_id & 0x0F));
             network_system_->queue_entity_spawn(
                 player.entity, EntityType::PLAYER,
-                pos.x, pos.y, health, static_cast<uint8_t>(pid)
+                pos.x, pos.y, health, subtype
             );
             entity_count++;
         }

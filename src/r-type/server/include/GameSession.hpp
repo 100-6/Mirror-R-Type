@@ -43,16 +43,17 @@ struct GamePlayer {
     uint32_t player_id;
     Entity entity;
     std::string player_name;
+    uint8_t skin_id;    // Player skin (0-14: 3 colors x 5 ship types)
     uint32_t score;
     uint8_t lives;
     bool is_alive;
 
     GamePlayer()
-        : player_id(0), entity(0), player_name(""), score(0)
+        : player_id(0), entity(0), player_name(""), skin_id(0), score(0)
         , lives(config::PLAYER_LIVES), is_alive(true) {}
 
-    GamePlayer(uint32_t id, const std::string& name)
-        : player_id(id), entity(0), player_name(name), score(0)
+    GamePlayer(uint32_t id, const std::string& name, uint8_t skin = 0)
+        : player_id(id), entity(0), player_name(name), skin_id(skin), score(0)
         , lives(config::PLAYER_LIVES), is_alive(true) {}
 };
 
@@ -76,7 +77,7 @@ public:
      */
     void set_listener(IGameSessionListener* listener) { listener_ = listener; }
 
-    void add_player(uint32_t player_id, const std::string& player_name);
+    void add_player(uint32_t player_id, const std::string& player_name, uint8_t skin_id = 0);
     void remove_player(uint32_t player_id);
     void handle_input(uint32_t player_id, const protocol::ClientInputPayload& input);
 
