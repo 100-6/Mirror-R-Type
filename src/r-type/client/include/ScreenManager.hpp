@@ -107,6 +107,7 @@ private:
 
     void hide_waiting_screen();
     void show_waiting_screen();
+    void hide_result_screen();
     void load_result_textures();
 };
 
