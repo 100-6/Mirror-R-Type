@@ -19,6 +19,7 @@ struct PlayerInfo {
     uint32_t udp_client_id;  // UDP client ID (0 if not yet associated)
     uint32_t player_id;
     std::string player_name;
+    uint8_t skin_id;         // Player skin (0-14: 3 colors x 5 ship types)
     Entity entity;
     bool in_lobby;
     uint32_t lobby_id;
@@ -29,6 +30,7 @@ struct PlayerInfo {
         : client_id(0)
         , udp_client_id(0)
         , player_id(0)
+        , skin_id(0)
         , entity(0)
         , in_lobby(false)
         , lobby_id(0)
@@ -40,6 +42,7 @@ struct PlayerInfo {
         , udp_client_id(0)
         , player_id(pid)
         , player_name(name)
+        , skin_id(0)
         , entity(0)
         , in_lobby(false)
         , lobby_id(0)

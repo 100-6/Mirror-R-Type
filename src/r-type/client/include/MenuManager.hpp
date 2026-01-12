@@ -56,6 +56,18 @@ public:
      */
     void on_player_name_updated(const protocol::ServerPlayerNameUpdatedPayload& payload);
 
+    /**
+     * @brief Handle player skin update (called by ClientGame)
+     */
+    void on_player_skin_updated(const protocol::ServerPlayerSkinUpdatedPayload& payload);
+
+    /**
+     * @brief Handle lobby state update (called by ClientGame)
+     * Updates player list with names and skins
+     */
+    void on_lobby_state(const protocol::ServerLobbyStatePayload& state,
+                        const std::vector<protocol::PlayerLobbyEntry>& players);
+
 private:
     NetworkClient& network_client_;
     int screen_width_;

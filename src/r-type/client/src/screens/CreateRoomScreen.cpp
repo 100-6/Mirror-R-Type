@@ -107,6 +107,7 @@ void CreateRoomScreen::initialize() {
     map_buttons_.clear();
     difficulty_buttons_.clear();
     nav_buttons_.clear();
+    map_thumbnails_.clear();
 
     // Reset to defaults
     current_step_ = Step::ROOM_INFO;
@@ -144,35 +145,8 @@ void CreateRoomScreen::initialize_room_info_step() {
 }
 
 void CreateRoomScreen::initialize_map_selection_step() {
-    // Custom logic to create buttons for dynamic maps
-    float center_x = screen_width_ / 2.0f;
-    float start_y = 80.0f;
-    float map_button_y = start_y + 250;
-    float map_button_width = 180.0f;
-    float map_button_height = 40.0f;
-    float map_button_spacing = 15.0f;
-
-    size_t num_maps = available_maps_.size();
-    if (num_maps > 0) {
-        float map_total_width = map_button_width * static_cast<float>(num_maps) + map_button_spacing * static_cast<float>(num_maps - 1);
-        float map_start_x = center_x - map_total_width / 2.0f;
-        
-        for (size_t i = 0; i < num_maps; ++i) {
-            const auto& mapInfo = available_maps_[i];
-            float btn_x = map_start_x + static_cast<float>(i) * (map_button_width + map_button_spacing);
-            
-            auto map_btn = std::make_unique<UIButton>(btn_x, map_button_y, map_button_width, map_button_height, mapInfo.name.c_str());
-            
-            // Capture index by value for the callback
-            size_t map_index = i;
-            map_btn->set_on_click([this, map_index]() {
-                selected_map_index_ = map_index;
-                selected_map_id_ = available_maps_[map_index].id;
-                std::cout << "[CreateRoomScreen] Selected Map: " << available_maps_[map_index].name << "\n";
-            });
-            map_buttons_.push_back(std::move(map_btn));
-        }
-    }
+    // Clear previous thumbnails (will be loaded on first draw)
+    map_thumbnails_.clear();
 }
 
 void CreateRoomScreen::initialize_difficulty_step() {
@@ -235,11 +209,14 @@ void CreateRoomScreen::update_room_info_step(engine::IGraphicsPlugin* graphics, 
 }
 
 void CreateRoomScreen::update_map_selection_step(engine::IGraphicsPlugin* graphics, engine::IInputPlugin* input) {
-    // Custom update logic for map buttons
-    for (size_t i = 0; i < map_buttons_.size(); ++i) {
-        bool is_selected = (selected_map_index_ == i);
-        map_buttons_[i]->set_selected(is_selected);
-        map_buttons_[i]->update(graphics, input);
+    // Use circular click detection (same as difficulty/gamemode)
+    size_t old_index = selected_map_index_;
+    createroom::Updater::update_map_step(selected_map_index_, available_maps_.size(), screen_width_, input);
+
+    // Update selected_map_id_ if index changed
+    if (old_index != selected_map_index_ && selected_map_index_ < available_maps_.size()) {
+        selected_map_id_ = available_maps_[selected_map_index_].id;
+        std::cout << "[CreateRoomScreen] Selected Map: " << available_maps_[selected_map_index_].name << "\n";
     }
 }
 
@@ -304,19 +281,25 @@ void CreateRoomScreen::draw_room_info_step(engine::IGraphicsPlugin* graphics) {
 }
 
 void CreateRoomScreen::draw_map_selection_step(engine::IGraphicsPlugin* graphics) {
-    // Custom draw logic
-    // Draw "Select Map" title (Manual draw or assuming it's handling in separate label list?
-    // User logic pushed map label to labels_. But initialize cleared labels_.
-    // So we must draw title manually here.
-    
-    // float center_x = screen_width_ / 2.0f;
-    // float start_y = 80.0f;
-    // graphics->drawText("Select Map", center_x, start_y + 220, 20, {100, 200, 255, 255}); // Psuedo-code
-    
-    // Actually, let's just draw the buttons.
-    for (auto& btn : map_buttons_) {
-        btn->draw(graphics);
+    // Load map thumbnails on first draw
+    if (map_thumbnails_.empty() && !available_maps_.empty()) {
+        for (const auto& mapInfo : available_maps_) {
+            engine::TextureHandle handle = graphics->load_texture(mapInfo.thumbnailPath);
+            if (handle == engine::INVALID_HANDLE) {
+                std::cerr << "[CreateRoomScreen] Failed to load thumbnail: " << mapInfo.thumbnailPath << "\n";
+            }
+            map_thumbnails_.push_back(handle);
+            std::cout << "[CreateRoomScreen] Loaded thumbnail: " << mapInfo.thumbnailPath << "\n";
+        }
     }
+
+    // Draw circular map images
+    createroom::Drawer::draw_map_selection_step(
+        map_thumbnails_,
+        selected_map_index_,
+        screen_width_,
+        graphics
+    );
 }
 
 void CreateRoomScreen::draw_difficulty_step(engine::IGraphicsPlugin* graphics) {

@@ -82,6 +82,27 @@ void RoomLobbyScreen::initialize() {
         std::cout << "[RoomLobbyScreen] Entering name edit mode\n";
     });
     buttons_.push_back(std::move(change_name_btn));
+
+    // Change Skin button
+    auto change_skin_btn = std::make_unique<UIButton>(change_skin_button_x_, change_skin_button_y_,
+                                                       change_skin_button_width_, change_skin_button_height_, "Change Skin");
+    change_skin_btn->set_on_click([this]() {
+        if (skin_selector_dialog_) {
+            skin_selector_dialog_->show(local_player_skin_);
+            std::cout << "[RoomLobbyScreen] Opening skin selector\n";
+        }
+    });
+    buttons_.push_back(std::move(change_skin_btn));
+
+    // Initialize skin selector dialog
+    skin_selector_dialog_ = std::make_unique<SkinSelectorDialog>(screen_width_, screen_height_);
+    skin_selector_dialog_->initialize();
+    skin_selector_dialog_->set_spaceship_manager(spaceship_manager_.get());
+    skin_selector_dialog_->set_confirm_callback([this](uint8_t skin_id) {
+        local_player_skin_ = skin_id;
+        network_client_.send_set_player_skin(skin_id);
+        std::cout << "[RoomLobbyScreen] Selected skin " << static_cast<int>(skin_id) << "\n";
+    });
 }
 
 void RoomLobbyScreen::update(engine::IGraphicsPlugin* graphics, engine::IInputPlugin* input) {
@@ -267,6 +288,16 @@ void RoomLobbyScreen::update(engine::IGraphicsPlugin* graphics, engine::IInputPl
     if (buttons_.size() > 4) {
         buttons_[4]->update(graphics, input);
     }
+
+    // Update Change Skin button (always visible, unless dialog is open)
+    if (buttons_.size() > 5 && (!skin_selector_dialog_ || !skin_selector_dialog_->is_visible())) {
+        buttons_[5]->update(graphics, input);
+    }
+
+    // Update skin selector dialog
+    if (skin_selector_dialog_ && skin_selector_dialog_->is_visible()) {
+        skin_selector_dialog_->update(graphics, input);
+    }
 }
 
 void RoomLobbyScreen::draw(engine::IGraphicsPlugin* graphics) {
@@ -275,6 +306,10 @@ void RoomLobbyScreen::draw(engine::IGraphicsPlugin* graphics) {
         background_texture_ = graphics->load_texture(assets::paths::UI_ROOM_BACKGROUND);
         spaceship_manager_ = std::make_unique<SpaceshipManager>(*graphics);
         spaceship_manager_->load_spritesheet(assets::paths::PLAYER_SPRITESHEET);
+        // Update skin selector dialog with spaceship manager
+        if (skin_selector_dialog_) {
+            skin_selector_dialog_->set_spaceship_manager(spaceship_manager_.get());
+        }
         textures_loaded_ = true;
     }
 
@@ -601,8 +636,18 @@ void RoomLobbyScreen::draw(engine::IGraphicsPlugin* graphics) {
         buttons_[4]->draw(graphics);
     }
 
+    // Draw Change Skin button (always visible)
+    if (buttons_.size() > 5) {
+        buttons_[5]->draw(graphics);
+    }
+
     // Draw name input dialog (on top of everything)
     draw_name_input(graphics);
+
+    // Draw skin selector dialog (on top of everything else)
+    if (skin_selector_dialog_) {
+        skin_selector_dialog_->draw(graphics);
+    }
 }
 
 void RoomLobbyScreen::set_room_info(uint32_t room_id, const std::string& room_name,
@@ -965,6 +1010,21 @@ void RoomLobbyScreen::update_player_name(uint32_t player_id, const std::string& 
     }
     // Player not found - add them
     add_player(player_id, new_name, 0);
+}
+
+void RoomLobbyScreen::update_player_skin(uint32_t player_id, uint8_t skin_id) {
+    for (auto& player : players_) {
+        if (player.player_id == player_id) {
+            player.ship_type = skin_id;
+            // Update local skin if it's our own
+            if (player_id == network_client_.get_player_id()) {
+                local_player_skin_ = skin_id;
+            }
+            return;
+        }
+    }
+    // Player not found - add them with default name and the skin
+    add_player(player_id, "Player " + std::to_string(player_id), skin_id);
 }
 
 }  // namespace rtype::client

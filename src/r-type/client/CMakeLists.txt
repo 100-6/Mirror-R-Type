@@ -20,6 +20,7 @@ set(RTYPE_CLIENT_SOURCES
     src/screens/BrowseRoomsScreen.cpp
     src/screens/RoomLobbyScreen.cpp
     src/screens/PasswordDialog.cpp
+    src/screens/SkinSelectorDialog.cpp
     # CreateRoom module
     src/screens/createroom/CreateRoomInput.cpp
     src/screens/createroom/CreateRoomRenderer.cpp

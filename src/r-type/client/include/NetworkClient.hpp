@@ -135,6 +135,12 @@ public:
     void send_set_player_name(const std::string& new_name);
 
     /**
+     * @brief Change player skin in lobby
+     * @param skin_id Skin ID (0-14 for 3 colors x 5 ship types)
+     */
+    void send_set_player_skin(uint8_t skin_id);
+
+    /**
      * @brief Send player input (via UDP if connected, TCP otherwise)
      * @param input_flags Input bitfield
      * @param client_tick Current client tick
@@ -274,6 +280,12 @@ public:
      */
     void set_on_player_name_updated(std::function<void(const protocol::ServerPlayerNameUpdatedPayload&)> callback);
 
+    /**
+     * @brief Set callback for player skin updates in room
+     * @param callback Function receiving skin update payload
+     */
+    void set_on_player_skin_updated(std::function<void(const protocol::ServerPlayerSkinUpdatedPayload&)> callback);
+
     // ============== Getters ==============
 
     uint32_t get_player_id() const { return player_id_; }
@@ -308,6 +320,7 @@ private:
     void handle_room_list(const std::vector<uint8_t>& payload);
     void handle_room_error(const std::vector<uint8_t>& payload);
     void handle_player_name_updated(const std::vector<uint8_t>& payload);
+    void handle_player_skin_updated(const std::vector<uint8_t>& payload);
 
     // UDP connection after game start
     void connect_udp(uint16_t udp_port);
@@ -365,6 +378,7 @@ private:
     std::function<void(const std::vector<protocol::RoomInfo>&)> on_room_list_;
     std::function<void(const protocol::ServerRoomErrorPayload&)> on_room_error_;
     std::function<void(const protocol::ServerPlayerNameUpdatedPayload&)> on_player_name_updated_;
+    std::function<void(const protocol::ServerPlayerSkinUpdatedPayload&)> on_player_skin_updated_;
 };
 
 }

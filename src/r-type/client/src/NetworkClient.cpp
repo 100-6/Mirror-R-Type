@@ -196,6 +196,15 @@ void NetworkClient::send_set_player_name(const std::string& new_name) {
     send_tcp_packet(protocol::PacketType::CLIENT_SET_PLAYER_NAME, serialize_payload(&payload, sizeof(payload)));
 }
 
+void NetworkClient::send_set_player_skin(uint8_t skin_id) {
+    protocol::ClientSetPlayerSkinPayload payload;
+    payload.player_id = htonl(player_id_);
+    payload.skin_id = skin_id;
+
+    std::cout << "[NetworkClient] Changing player skin to " << static_cast<int>(skin_id) << "\n";
+    send_tcp_packet(protocol::PacketType::CLIENT_SET_PLAYER_SKIN, serialize_payload(&payload, sizeof(payload)));
+}
+
 void NetworkClient::send_input(uint16_t input_flags, uint32_t client_tick) {
     protocol::ClientInputPayload payload;
     payload.player_id = htonl(player_id_);
@@ -323,6 +332,9 @@ void NetworkClient::handle_packet(const engine::NetworkPacket& packet) {
             break;
         case protocol::PacketType::SERVER_PLAYER_NAME_UPDATED:
             handle_player_name_updated(payload);
+            break;
+        case protocol::PacketType::SERVER_PLAYER_SKIN_UPDATED:
+            handle_player_skin_updated(payload);
             break;
         case protocol::PacketType::SERVER_SNAPSHOT:
         case protocol::PacketType::SERVER_DELTA_SNAPSHOT:
@@ -725,6 +737,23 @@ void NetworkClient::handle_player_name_updated(const std::vector<uint8_t>& paylo
         on_player_name_updated_(name_updated);
 }
 
+void NetworkClient::handle_player_skin_updated(const std::vector<uint8_t>& payload) {
+    if (payload.size() < sizeof(protocol::ServerPlayerSkinUpdatedPayload)) {
+        return;
+    }
+
+    protocol::ServerPlayerSkinUpdatedPayload skin_updated;
+    std::memcpy(&skin_updated, payload.data(), sizeof(skin_updated));
+    skin_updated.player_id = ntohl(skin_updated.player_id);
+    skin_updated.room_id = ntohl(skin_updated.room_id);
+
+    std::cout << "[NetworkClient] Player " << skin_updated.player_id
+              << " changed skin to " << static_cast<int>(skin_updated.skin_id) << "\n";
+
+    if (on_player_skin_updated_)
+        on_player_skin_updated_(skin_updated);
+}
+
 // ============== UDP Connection ==============
 
 void NetworkClient::connect_udp(uint16_t udp_port) {
@@ -888,6 +917,10 @@ void NetworkClient::set_on_room_error(std::function<void(const protocol::ServerR
 
 void NetworkClient::set_on_player_name_updated(std::function<void(const protocol::ServerPlayerNameUpdatedPayload&)> callback) {
     on_player_name_updated_ = callback;
+}
+
+void NetworkClient::set_on_player_skin_updated(std::function<void(const protocol::ServerPlayerSkinUpdatedPayload&)> callback) {
+    on_player_skin_updated_ = callback;
 }
 
 }

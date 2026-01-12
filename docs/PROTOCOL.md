@@ -183,6 +183,8 @@ Packet types are organized by functional category:
 | 0x22    | CLIENT_LEAVE_ROOM     | Leave current custom room                |
 | 0x23    | CLIENT_REQUEST_ROOM_LIST | Request list of available rooms       |
 | 0x24    | CLIENT_START_GAME     | Start game (host only)                   |
+| 0x25    | CLIENT_SET_PLAYER_NAME | Change player name in lobby             |
+| 0x26    | CLIENT_SET_PLAYER_SKIN | Change player skin in lobby             |
 
 ### 4.3 Server-to-Client Packets
 
@@ -203,6 +205,8 @@ Packet types are organized by functional category:
 | 0x93    | SERVER_ROOM_LEFT             | Player left a custom room             |
 | 0x94    | SERVER_ROOM_STATE_UPDATE     | Custom room state changed             |
 | 0x95    | SERVER_ROOM_ERROR            | Room operation error                  |
+| 0x96    | SERVER_PLAYER_NAME_UPDATED   | Player name changed in room           |
+| 0x97    | SERVER_PLAYER_SKIN_UPDATED   | Player skin changed in room           |
 | 0xA0    | SERVER_SNAPSHOT              | Complete world state snapshot         |
 | 0xA1    | SERVER_DELTA_SNAPSHOT        | Delta-compressed state update         |
 | 0xB0    | SERVER_ENTITY_SPAWN          | New entity spawned                    |
@@ -430,17 +434,23 @@ All multi-byte integer fields are in network byte order (big-endian) unless othe
 | Required Player Count | 1 byte   | Players needed to start game         |
 | Player Entries        | Variable | Array of player information          |
 
-**Player Entry Format (38 bytes each)**:
+**Player Entry Format (39 bytes each)**:
 
 | Field         | Size     | Offset | Description                    |
 |---------------|----------|--------|--------------------------------|
 | Player ID     | 4 bytes  | 0      | Player identifier              |
 | Player Name   | 32 bytes | 4      | Player name (UTF-8)            |
 | Player Level  | 2 bytes  | 36     | Player level (for display)     |
+| Skin ID       | 1 byte   | 38     | Player skin (0-14)             |
 
-**Total Size**: 8 + (38 × Current Player Count) bytes
+**Total Size**: 8 + (39 × Current Player Count) bytes
 
-**Example**: For 3 players in a squad lobby: 8 + (38 × 3) = 122 bytes
+**Example**: For 3 players in a squad lobby: 8 + (39 × 3) = 125 bytes
+
+**Skin ID Values** (0-14):
+- Skins 0-4: Green ships (Scout, Fighter, Cruiser, Bomber, Carrier)
+- Skins 5-9: Red ships (Scout, Fighter, Cruiser, Bomber, Carrier)
+- Skins 10-14: Blue ships (Scout, Fighter, Cruiser, Bomber, Carrier)
 
 #### 5.2.4 SERVER_GAME_START_COUNTDOWN (0x88)
 
@@ -779,6 +789,98 @@ This packet has no payload. The header is sufficient.
 
 **Total Size**: 65 bytes
 
+#### 5.3.11 CLIENT_SET_PLAYER_NAME (0x25)
+
+```
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                          Player ID                            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                                                               |
+   +                    New Name (32 bytes)                        +
+   |                             ...                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```
+
+| Field      | Size     | Description                              |
+|------------|----------|------------------------------------------|
+| Player ID  | 4 bytes  | Player changing their name               |
+| New Name   | 32 bytes | New player name (UTF-8, null-padded)     |
+
+**Total Size**: 36 bytes
+
+#### 5.3.12 CLIENT_SET_PLAYER_SKIN (0x26)
+
+```
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                          Player ID                            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |   Skin ID     |
+   +-+-+-+-+-+-+-+-+
+```
+
+| Field      | Size    | Description                              |
+|------------|---------|------------------------------------------|
+| Player ID  | 4 bytes | Player changing their skin               |
+| Skin ID    | 1 byte  | New skin ID (0-14)                       |
+
+**Skin ID Values**: See SERVER_LOBBY_STATE Player Entry Format.
+
+**Total Size**: 5 bytes
+
+#### 5.3.13 SERVER_PLAYER_NAME_UPDATED (0x96)
+
+```
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                          Player ID                            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                                                               |
+   +                    New Name (32 bytes)                        +
+   |                             ...                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                          Room ID                              |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```
+
+| Field      | Size     | Description                              |
+|------------|----------|------------------------------------------|
+| Player ID  | 4 bytes  | Player who changed name                  |
+| New Name   | 32 bytes | Updated player name (UTF-8)              |
+| Room ID    | 4 bytes  | Room where change occurred               |
+
+**Total Size**: 40 bytes
+
+**Note**: Broadcast to all players in the room when a player changes their name.
+
+#### 5.3.14 SERVER_PLAYER_SKIN_UPDATED (0x97)
+
+```
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                          Player ID                            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |   Skin ID     |                                               |
+   +-+-+-+-+-+-+-+-+                                               +
+   |                          Room ID                              |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```
+
+| Field      | Size    | Description                              |
+|------------|---------|------------------------------------------|
+| Player ID  | 4 bytes | Player who changed skin                  |
+| Skin ID    | 1 byte  | New skin ID (0-14)                       |
+| Room ID    | 4 bytes | Room where change occurred               |
+
+**Total Size**: 9 bytes
+
+**Note**: Broadcast to all players in the room when a player changes their skin.
+
 ### 5.4 Player Input Payloads
 
 #### 5.4.1 CLIENT_INPUT (0x10)
@@ -928,6 +1030,21 @@ This packet has no payload. The header is sufficient.
 - `0x01`: FAST - Fast-moving enemy
 - `0x02`: TANK - High-health enemy
 - `0x03`: BOSS - Boss enemy
+
+**Player Entity Subtype Encoding**:
+
+For PLAYER entities, the subtype byte encodes both player_id and skin_id:
+- High 4 bits (bits 4-7): `player_id & 0x0F` (player identification)
+- Low 4 bits (bits 0-3): `skin_id & 0x0F` (skin selection, 0-14)
+
+```
+Subtype byte: [player_id:4][skin_id:4]
+Example: Player 2 with skin 7 → subtype = (2 << 4) | 7 = 0x27
+```
+
+This allows clients to:
+1. Identify which entity is the local player (by matching player_id)
+2. Select the correct ship sprite (by extracting skin_id)
 
 **Total Size**: 16 bytes
 
@@ -1432,6 +1549,8 @@ Implementations SHOULD provide encoder/decoder functions that:
 | 0x22 | CLIENT_LEAVE_ROOM         | ✓   |     | Once         |
 | 0x23 | CLIENT_REQUEST_ROOM_LIST  | ✓   |     | On demand    |
 | 0x24 | CLIENT_START_GAME         | ✓   |     | Once         |
+| 0x25 | CLIENT_SET_PLAYER_NAME    | ✓   |     | On demand    |
+| 0x26 | CLIENT_SET_PLAYER_SKIN    | ✓   |     | On demand    |
 | 0x81 | SERVER_ACCEPT             |     | ✓   | Once         |
 | 0x82 | SERVER_REJECT             |     | ✓   | Once         |
 | 0x83 | SERVER_PLAYER_JOINED      |     | ✓   | Event        |
@@ -1447,6 +1566,8 @@ Implementations SHOULD provide encoder/decoder functions that:
 | 0x93 | SERVER_ROOM_LEFT          |     | ✓   | Event        |
 | 0x94 | SERVER_ROOM_STATE_UPDATE  |     | ✓   | Event        |
 | 0x95 | SERVER_ROOM_ERROR         |     | ✓   | Event        |
+| 0x96 | SERVER_PLAYER_NAME_UPDATED|     | ✓   | Event        |
+| 0x97 | SERVER_PLAYER_SKIN_UPDATED|     | ✓   | Event        |
 | 0xA0 | SERVER_SNAPSHOT           |     | ✓   | 20-30 Hz     |
 | 0xB0 | SERVER_ENTITY_SPAWN       |     | ✓   | Event        |
 | 0xB1 | SERVER_ENTITY_DESTROY     |     | ✓   | Event        |

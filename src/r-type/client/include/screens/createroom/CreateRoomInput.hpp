@@ -11,6 +11,21 @@ namespace rtype::client::createroom {
 class InputHandler {
 public:
     /**
+     * @brief Handle clicks on circular map images
+     * @param input Input plugin
+     * @param screen_width Screen width for positioning
+     * @param current_map_index Current selected map index (will be modified if clicked)
+     * @param num_maps Number of available maps
+     * @return true if a map was clicked
+     */
+    static bool handle_map_click(
+        engine::IInputPlugin* input,
+        float screen_width,
+        size_t& current_map_index,
+        size_t num_maps
+    );
+
+    /**
      * @brief Handle clicks on circular difficulty images
      * @param input Input plugin
      * @param screen_width Screen width for positioning

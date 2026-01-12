@@ -63,6 +63,7 @@ private:
 
     // Dynamic map list from index.json
     std::vector<rtype::MapInfo> available_maps_;
+    std::vector<engine::TextureHandle> map_thumbnails_;  // Dynamically loaded thumbnails
     std::string selected_map_id_ = "nebula_outpost";
     size_t selected_map_index_ = 0;
     // MapId map_id_; // Removed in favor of dynamic map selection

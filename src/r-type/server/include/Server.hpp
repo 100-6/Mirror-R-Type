@@ -78,6 +78,7 @@ private:
     void on_client_request_room_list(uint32_t client_id) override;
     void on_client_start_game(uint32_t client_id, const protocol::ClientStartGamePayload& payload) override;
     void on_client_set_player_name(uint32_t client_id, const protocol::ClientSetPlayerNamePayload& payload) override;
+    void on_client_set_player_skin(uint32_t client_id, const protocol::ClientSetPlayerSkinPayload& payload) override;
 
     void on_lobby_state_changed(uint32_t lobby_id, const std::vector<uint8_t>& payload) override;
     void on_countdown_tick(uint32_t lobby_id, uint8_t seconds_remaining) override;
