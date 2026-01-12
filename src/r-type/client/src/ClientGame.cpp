@@ -450,6 +450,9 @@ void ClientGame::setup_network_callbacks() {
         screen_manager_->set_screen(GameScreen::PLAYING);
         server_scroll_speed_ = scroll_speed;
 
+        // Reset score at start of new game
+        last_known_score_ = 0;
+
         // Convert numeric map ID to string ID
         std::string mapIdStr;
         switch (map_id) {
@@ -543,6 +546,8 @@ void ClientGame::setup_network_callbacks() {
             auto& scores = registry_->get_components<Score>();
             if (scores.has_entity(entity)) {
                 scores[entity].value = score.new_total_score;
+                // Save the score for game over screen (in case entity is destroyed)
+                last_known_score_ = static_cast<int>(score.new_total_score);
             }
         }
     });
@@ -735,7 +740,8 @@ void ClientGame::setup_network_callbacks() {
         status_overlay_->refresh();
 
         // Get final score from local player
-        int final_score = 0;
+        // Try to get from entity first (if still alive), otherwise use cached value
+        int final_score = last_known_score_;
         auto& scores = registry_->get_components<Score>();
         auto& localPlayers = registry_->get_components<LocalPlayer>();
 
@@ -743,6 +749,8 @@ void ClientGame::setup_network_callbacks() {
             Entity playerEntity = localPlayers.get_entity_at(i);
             if (scores.has_entity(playerEntity)) {
                 final_score = scores[playerEntity].value;
+                // Update cached value
+                last_known_score_ = final_score;
                 break;
             }
         }
