@@ -87,6 +87,9 @@ public:
 private:
     engine::INetworkPlugin* network_plugin_;
 
+    // Packet sequence tracking (for compression/ordering)
+    uint32_t sequence_number_ = 0;
+
     /**
      * @brief Create a packet with header and payload
      * @param type Packet type

@@ -26,6 +26,7 @@ target_link_libraries(r-type_server
     PRIVATE
         game_engine
         rtype_logic
+        rtype_protocol
         Threads::Threads
 )
 

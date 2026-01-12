@@ -81,7 +81,7 @@ void NetworkClient::send_connect(const std::string& player_name) {
     payload.client_version = 0x01;
     payload.set_player_name(player_name);
 
-    std::cout << "[NetworkClient] Sending connect request as '" << player_name << "'\n";
+    std::cout << "[NetworkClient] **NEW CODE VERSION** Sending connect request as '" << player_name << "'\n";
     send_tcp_packet(protocol::PacketType::CLIENT_CONNECT, serialize_payload(&payload, sizeof(payload)));
 }
 
@@ -245,10 +245,15 @@ void NetworkClient::handle_packet(const engine::NetworkPacket& packet) {
         return;
     }
 
-    std::vector<uint8_t> payload(
-        packet.data.begin() + protocol::HEADER_SIZE,
-        packet.data.begin() + protocol::HEADER_SIZE + header.payload_length
-    );
+    // Decompress payload if needed (handles both compressed and uncompressed packets)
+    std::vector<uint8_t> payload;
+    try {
+        payload = protocol::ProtocolEncoder::get_decompressed_payload(
+            packet.data.data(), packet.data.size());
+    } catch (const std::exception& e) {
+        std::cerr << "[NetworkClient] Failed to decompress packet: " << e.what() << "\n";
+        return;
+    }
 
     auto packet_type = static_cast<protocol::PacketType>(header.type);
 
@@ -754,15 +759,18 @@ void NetworkClient::send_tcp_packet(protocol::PacketType type, const std::vector
         return;
     }
 
-    protocol::PacketHeader header;
-    header.version = 0x01;
-    header.type = static_cast<uint8_t>(type);
-    header.payload_length = static_cast<uint16_t>(payload.size());
-    header.sequence_number = 0;
+    // Use ProtocolEncoder to handle compression automatically
+    // Pass nullptr if payload is empty to avoid undefined behavior
+    const void* payload_ptr = payload.empty() ? nullptr : payload.data();
+    std::vector<uint8_t> packet_data = protocol::ProtocolEncoder::encode_packet(
+        type,
+        payload_ptr,
+        payload.size(),
+        tcp_sequence_number_++
+    );
 
-    std::vector<uint8_t> packet_data(protocol::HEADER_SIZE);
-    protocol::ProtocolEncoder::encode_header(header, packet_data.data());
-    packet_data.insert(packet_data.end(), payload.begin(), payload.end());
+    std::cout << "[NetworkClient] DEBUG: Sending TCP packet type=" << static_cast<int>(type)
+              << ", total_size=" << packet_data.size() << " bytes, payload_size=" << payload.size() << "\n";
 
     engine::NetworkPacket packet;
     packet.data = packet_data;
@@ -775,15 +783,15 @@ void NetworkClient::send_udp_packet(protocol::PacketType type, const std::vector
         return;
     }
 
-    protocol::PacketHeader header;
-    header.version = 0x01;
-    header.type = static_cast<uint8_t>(type);
-    header.payload_length = static_cast<uint16_t>(payload.size());
-    header.sequence_number = 0;
-
-    std::vector<uint8_t> packet_data(protocol::HEADER_SIZE);
-    protocol::ProtocolEncoder::encode_header(header, packet_data.data());
-    packet_data.insert(packet_data.end(), payload.begin(), payload.end());
+    // Use ProtocolEncoder to handle compression automatically
+    // Pass nullptr if payload is empty to avoid undefined behavior
+    const void* payload_ptr = payload.empty() ? nullptr : payload.data();
+    std::vector<uint8_t> packet_data = protocol::ProtocolEncoder::encode_packet(
+        type,
+        payload_ptr,
+        payload.size(),
+        udp_sequence_number_++
+    );
 
     engine::NetworkPacket packet;
     packet.data = packet_data;
