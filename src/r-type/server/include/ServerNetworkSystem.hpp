@@ -144,6 +144,9 @@ private:
     std::unordered_map<uint32_t, float> switch_cooldowns_;
     std::unordered_map<Entity, float> enemy_shoot_cooldowns_;
 
+    // Lag compensation: track last processed input sequence per player
+    std::unordered_map<uint32_t, uint32_t> last_processed_input_seq_;
+
     static constexpr float SHOOT_COOLDOWN = 0.2f;
     static constexpr float SWITCH_COOLDOWN = 0.5f;
     static constexpr float ENEMY_SHOOT_COOLDOWN = 1.5f;

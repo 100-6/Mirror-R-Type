@@ -18,6 +18,9 @@
 #include "MenuManager.hpp"
 #include "systems/ChunkManagerSystem.hpp"
 #include "systems/ParallaxBackgroundSystem.hpp"
+#include "systems/ClientPredictionSystem.hpp"
+#include "systems/InterpolationSystem.hpp"
+#include "DebugNetworkOverlay.hpp"
 
 namespace rtype::client {
 
@@ -81,9 +84,15 @@ private:
     std::unique_ptr<rtype::ChunkManagerSystem> chunk_manager_;
     float map_scroll_x_ = 0.0f;
     std::string current_map_id_str_ = "nebula_outpost";  // Current map ID
+    float server_scroll_speed_ = 60.0f;
 
     // Network client
     std::unique_ptr<rtype::client::NetworkClient> network_client_;
+
+    // Lag compensation system
+    std::unique_ptr<rtype::client::ClientPredictionSystem> prediction_system_;
+    std::unique_ptr<rtype::client::InterpolationSystem> interpolation_system_;
+    std::unique_ptr<rtype::client::DebugNetworkOverlay> debug_network_overlay_;
 
     // Game state
     std::atomic<bool> running_;

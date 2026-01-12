@@ -209,7 +209,7 @@ void ChunkManagerSystem::loadChunk(Registry& registry, int segmentId, int chunkI
 
             // Create the merged entity
             auto entity = registry.spawn_entity();
-            
+
             float tileSize = static_cast<float>(m_config.tileSize);
             float totalW = w * tileSize;
             float totalH = h * tileSize;
@@ -222,13 +222,14 @@ void ChunkManagerSystem::loadChunk(Registry& registry, int segmentId, int chunkI
             float centerX = startLocalX + totalW * 0.5f;
             float centerY = startLocalY + totalH * 0.5f;
 
-            // Register entity (position updated in update() for visual debug only)
-            // NOTE: These walls are CLIENT-ONLY for visual debugging
-            // Actual collision walls are spawned by WaveManager on SERVER
-            registry.add_component(entity, Position{ chunk.worldX + centerX - m_scrollX, centerY });
+            // Register entity (position will be set correctly in first update() call)
+            // NOTE: These walls provide client-side collision for smooth local prediction
+            // Server validates collisions independently
+            float chunkScreenX = chunk.worldX - m_scrollX;
+            registry.add_component(entity, Position{ chunkScreenX + centerX, centerY });
             registry.add_component(entity, Collider{ totalW, totalH });
             registry.add_component(entity, Wall{});
-            
+
             chunk.entities.push_back({ entity, centerX, centerY });
         }
     }

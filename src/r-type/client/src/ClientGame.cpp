@@ -87,6 +87,10 @@ bool ClientGame::initialize(const std::string& host, uint16_t tcp_port, const st
     network_client_ = std::make_unique<rtype::client::NetworkClient>(*network_plugin_);
     setup_network_callbacks();
 
+    // Initialize lag compensation systems
+    interpolation_system_ = std::make_unique<InterpolationSystem>();
+    debug_network_overlay_ = std::make_unique<DebugNetworkOverlay>(false);
+
     // Initialize menu manager
     menu_manager_ = std::make_unique<MenuManager>(*network_client_, screen_width_, screen_height_);
     menu_manager_->initialize();
@@ -183,6 +187,7 @@ void ClientGame::setup_registry() {
     registry_->register_component<Health>();
     registry_->register_component<Score>();
     registry_->register_component<Controllable>();
+    registry_->register_component<LocalPlayer>();
     registry_->register_component<Background>();
     registry_->register_component<Scrollable>();
     registry_->register_component<NetworkId>();
@@ -382,6 +387,11 @@ void ClientGame::setup_network_callbacks() {
         entity_manager_->set_local_player_id(player_id);
         status_overlay_->set_connection("Connected (Player " + std::to_string(player_id) + ")");
         status_overlay_->refresh();
+
+        // Initialize lag compensation system
+        prediction_system_ = std::make_unique<ClientPredictionSystem>(player_id);
+        std::cout << "[ClientGame] Lag compensation system initialized for player " << player_id << "\n";
+
         // Don't auto-join lobby anymore - user will choose from menu
     });
 
@@ -411,12 +421,13 @@ void ClientGame::setup_network_callbacks() {
         status_overlay_->refresh();
     });
 
-    network_client_->set_on_game_start([this](uint32_t session_id, uint16_t udp_port, uint16_t map_id) {
+    network_client_->set_on_game_start([this](uint32_t session_id, uint16_t udp_port, uint16_t map_id, float scroll_speed) {
         (void)udp_port;
         status_overlay_->set_session("In game (session " + std::to_string(session_id) + ")");
         status_overlay_->refresh();
         entity_manager_->clear_all();
         screen_manager_->set_screen(GameScreen::PLAYING);
+        server_scroll_speed_ = scroll_speed;
 
         // Convert numeric map ID to string ID
         std::string mapIdStr;
@@ -429,6 +440,9 @@ void ClientGame::setup_network_callbacks() {
         
         // Load the selected map
         load_map(mapIdStr);
+        if (chunk_manager_) {
+            chunk_manager_->setScrollSpeed(server_scroll_speed_);
+        }
 
         // Apply map-specific theme (background color)
         apply_map_theme(map_id);
@@ -536,13 +550,19 @@ void ClientGame::setup_network_callbacks() {
 
     network_client_->set_on_snapshot([this](const protocol::ServerSnapshotPayload& header,
                                             const std::vector<protocol::EntityState>& entities) {
-        (void)header;
         auto& positions = registry_->get_components<Position>();
         auto& velocities = registry_->get_components<Velocity>();
         auto& healths = registry_->get_components<Health>();
         auto& last_states = registry_->get_components<LastServerState>();
         std::unordered_set<uint32_t> updated_ids;
         updated_ids.reserve(entities.size());
+
+        // Store snapshot in interpolation system for remote entities
+        uint32_t server_tick = ntohl(header.server_tick);
+        uint32_t local_player_id = entity_manager_->get_local_player_entity_id();
+        if (interpolation_system_) {
+            interpolation_system_->on_snapshot_received(server_tick, entities, local_player_id);
+        }
 
         for (const auto& state : entities) {
             uint32_t server_id = ntohl(state.entity_id);
@@ -570,14 +590,86 @@ void ClientGame::setup_network_callbacks() {
                     last_state.y = state.position_y;
                     last_state.timestamp = current_time_;
                 }
+
+                // SERVER RECONCILIATION for local player
+                if (prediction_system_ && positions.has_entity(entity)) {
+                    // Acknowledge inputs up to the last processed sequence
+                    uint32_t last_ack = ntohl(state.last_ack_sequence);
+                    if (last_ack > 0) {
+                        prediction_system_->acknowledge_input(last_ack);
+
+                        // Check prediction error
+                        Position& local_pos = positions[entity];
+                        float error_x = std::abs(local_pos.x - state.position_x);
+                        float error_y = std::abs(local_pos.y - state.position_y);
+                        float error_distance = std::sqrt(error_x * error_x + error_y * error_y);
+
+                        constexpr float ERROR_THRESHOLD = 10.0f;  // pixels (increased for smoother gameplay)
+                        constexpr float LARGE_ERROR_THRESHOLD = 50.0f;  // pixels (teleport if too far)
+
+                        if (error_distance > ERROR_THRESHOLD) {
+                            // Record correction for debug overlay
+                            if (debug_network_overlay_) {
+                                debug_network_overlay_->record_correction();
+                            }
+
+                            // If error is very large (>50px), teleport immediately (likely a collision or major desync)
+                            if (error_distance > LARGE_ERROR_THRESHOLD) {
+                                std::cout << "[RECONCILIATION] Large correction (teleport): " << error_distance
+                                          << " pixels (seq: " << last_ack << ")\n";
+                                local_pos.x = state.position_x;
+                                local_pos.y = state.position_y;
+                            } else {
+                                // Small-medium error: smooth correction over time (lerp)
+                                // Apply 30% of the correction per frame for smooth adjustment
+                                constexpr float CORRECTION_SPEED = 0.3f;
+                                float correction_x = (state.position_x - local_pos.x) * CORRECTION_SPEED;
+                                float correction_y = (state.position_y - local_pos.y) * CORRECTION_SPEED;
+
+                                local_pos.x += correction_x;
+                                local_pos.y += correction_y;
+
+                                // Only log significant corrections
+                                if (error_distance > 15.0f) {
+                                    std::cout << "[RECONCILIATION] Smooth correction: " << error_distance
+                                              << " pixels (applying " << (CORRECTION_SPEED * 100) << "%)\n";
+                                }
+                            }
+                        }
+
+                        // Update debug overlay positions
+                        if (debug_network_overlay_) {
+                            debug_network_overlay_->set_server_position(state.position_x, state.position_y);
+                            debug_network_overlay_->set_predicted_position(local_pos.x, local_pos.y);
+                        }
+                    }
+                }
             }
 
-            // Mettre à jour la position (pour toutes les entités)
-            if (positions.has_entity(entity)) {
-                positions[entity].x = state.position_x;
-                positions[entity].y = state.position_y;
-            } else {
-                registry_->add_component(entity, Position{state.position_x, state.position_y});
+            // Mettre à jour la position (pour les entités distantes, utiliser interpolation)
+            if (!is_local) {
+                // Try to get interpolated position first
+                float interp_x, interp_y;
+                bool has_interpolation = interpolation_system_ &&
+                    interpolation_system_->get_interpolated_position(server_id, server_tick, interp_x, interp_y);
+
+                if (has_interpolation) {
+                    // Use interpolated position for smooth movement
+                    if (positions.has_entity(entity)) {
+                        positions[entity].x = interp_x;
+                        positions[entity].y = interp_y;
+                    } else {
+                        registry_->add_component(entity, Position{interp_x, interp_y});
+                    }
+                } else {
+                    // Fallback: use direct server position if no interpolation data yet
+                    if (positions.has_entity(entity)) {
+                        positions[entity].x = state.position_x;
+                        positions[entity].y = state.position_y;
+                    } else {
+                        registry_->add_component(entity, Position{state.position_x, state.position_y});
+                    }
+                }
             }
 
             // Mettre à jour la vélocité SEULEMENT pour les autres joueurs
@@ -652,6 +744,16 @@ void ClientGame::run() {
             }
         }
 
+        // Toggle network debug overlay with F3 key
+        if (input_handler_->is_network_debug_toggle_pressed()) {
+            if (debug_network_overlay_) {
+                bool new_state = !debug_network_overlay_->is_enabled();
+                debug_network_overlay_->set_enabled(new_state);
+                std::cout << "[ClientGame] Network debug overlay "
+                          << (new_state ? "enabled" : "disabled") << "\n";
+            }
+        }
+
         if (network_client_->is_in_game() &&
             std::chrono::duration_cast<std::chrono::milliseconds>(now - last_input_send).count() >= 15) {
             uint16_t input_flags = input_handler_->gather_input();
@@ -659,7 +761,18 @@ void ClientGame::run() {
             // NOUVEAU: Appliquer la vélocité localement AVANT d'envoyer au serveur
             apply_input_to_local_player(input_flags);
 
+            // Send input to server
             network_client_->send_input(input_flags, client_tick_++);
+
+            // Store input in prediction system for reconciliation
+            if (prediction_system_) {
+                uint32_t sequence = network_client_->get_last_input_sequence();
+                uint32_t timestamp = static_cast<uint32_t>(
+                    std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count()
+                );
+                prediction_system_->on_input_sent(sequence, input_flags, timestamp);
+            }
+
             last_input_send = now;
         }
 
@@ -805,8 +918,7 @@ void ClientGame::run() {
             // Game screen - run game systems
             
             // Update map scrolling
-            float scrollSpeed = 60.0f;  // pixels per second
-            float scrollDelta = scrollSpeed * dt;
+            float scrollDelta = server_scroll_speed_ * dt;
             map_scroll_x_ += scrollDelta;
             
             // Update parallax and chunk states
@@ -844,6 +956,17 @@ void ClientGame::run() {
             
             // Run ECS systems (RenderSystem will NOT clear since skip_clear is set)
             registry_->run_systems(dt);
+        }
+
+        // Render debug network overlay (if enabled)
+        if (debug_network_overlay_ && prediction_system_) {
+            // Update metrics
+            float rtt = static_cast<float>(network_plugin_->get_server_ping());
+            size_t buffer_size = prediction_system_->get_pending_inputs().size();
+            debug_network_overlay_->update_metrics(rtt, 0, buffer_size);  // corrections_per_second updated elsewhere
+
+            // Render overlay
+            debug_network_overlay_->render(*graphics_plugin_);
         }
 
         graphics_plugin_->display();

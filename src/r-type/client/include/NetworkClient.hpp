@@ -177,9 +177,9 @@ public:
 
     /**
      * @brief Set callback for game start
-     * @param callback Function receiving session_id, udp_port, and map_id
+     * @param callback Function receiving session_id, udp_port, map_id and scroll speed
      */
-    void set_on_game_start(std::function<void(uint32_t session_id, uint16_t udp_port, uint16_t map_id)> callback);
+    void set_on_game_start(std::function<void(uint32_t session_id, uint16_t udp_port, uint16_t map_id, float scroll_speed)> callback);
 
     /**
      * @brief Set callback for entity spawn
@@ -281,6 +281,7 @@ public:
     uint32_t get_lobby_id() const { return lobby_id_; }
     bool is_in_lobby() const { return in_lobby_; }
     bool is_in_game() const { return in_game_; }
+    uint32_t get_last_input_sequence() const { return input_sequence_number_ - 1; }  // Returns last sent sequence
 
 private:
     void handle_packet(const engine::NetworkPacket& packet);
@@ -335,12 +336,15 @@ private:
     uint32_t last_ping_timestamp_ = 0;
     int server_ping_ms_ = -1;
 
+    // Input sequence tracking (for lag compensation)
+    uint32_t input_sequence_number_ = 0;
+
     // Callbacks
     std::function<void(uint32_t)> on_accepted_;
     std::function<void(uint8_t, const std::string&)> on_rejected_;
     std::function<void(const protocol::ServerLobbyStatePayload&, const std::vector<protocol::PlayerLobbyEntry>&)> on_lobby_state_;
     std::function<void(uint8_t)> on_countdown_;
-    std::function<void(uint32_t, uint16_t, uint16_t)> on_game_start_;
+    std::function<void(uint32_t, uint16_t, uint16_t, float)> on_game_start_;
     std::function<void(const protocol::ServerEntitySpawnPayload&)> on_entity_spawn_;
     std::function<void(const protocol::ServerEntityDestroyPayload&)> on_entity_destroy_;
     std::function<void(const protocol::ServerProjectileSpawnPayload&)> on_projectile_spawn_;

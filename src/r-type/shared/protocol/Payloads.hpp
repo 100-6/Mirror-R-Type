@@ -293,6 +293,7 @@ struct PACKED ServerGameStartPayload {
     uint32_t level_seed;
     uint16_t udp_port;  // UDP port for gameplay communication
     uint16_t map_id;    // Map identifier (1=Nebula, 2=Asteroid, 3=Bydo)
+    float scroll_speed;
 
     ServerGameStartPayload()
         : game_session_id(0)
@@ -301,23 +302,25 @@ struct PACKED ServerGameStartPayload {
         , server_tick(0)
         , level_seed(0)
         , udp_port(config::DEFAULT_UDP_PORT)
-        , map_id(1) {}
+        , map_id(1)
+        , scroll_speed(60.0f) {}
 };
 PACK_END
 
-static_assert(sizeof(ServerGameStartPayload) == 18, "ServerGameStartPayload base must be 18 bytes");
+static_assert(sizeof(ServerGameStartPayload) == 22, "ServerGameStartPayload base must be 22 bytes");
 
 /**
  * @brief CLIENT_INPUT payload (0x10)
- * Total size: 10 bytes
+ * Total size: 14 bytes (added sequence_number for lag compensation)
  */
 PACK_START
 struct PACKED ClientInputPayload {
     uint32_t player_id;
     uint16_t input_flags;
     uint32_t client_tick;
+    uint32_t sequence_number;  // For client prediction and reconciliation
 
-    ClientInputPayload() : player_id(0), input_flags(0), client_tick(0) {}
+    ClientInputPayload() : player_id(0), input_flags(0), client_tick(0), sequence_number(0) {}
 
     bool is_up_pressed() const { return (input_flags & INPUT_UP) != 0; }
     bool is_down_pressed() const { return (input_flags & INPUT_DOWN) != 0; }
@@ -330,11 +333,11 @@ struct PACKED ClientInputPayload {
 };
 PACK_END
 
-static_assert(sizeof(ClientInputPayload) == 10, "ClientInputPayload must be 10 bytes");
+static_assert(sizeof(ClientInputPayload) == 14, "ClientInputPayload must be 14 bytes");
 
 /**
  * @brief Entity state in SERVER_SNAPSHOT
- * Size: 21 bytes
+ * Size: 25 bytes (added last_ack_sequence for lag compensation)
  */
 PACK_START
 struct PACKED EntityState {
@@ -346,6 +349,7 @@ struct PACKED EntityState {
     int16_t velocity_y;
     uint16_t health;
     uint16_t flags;
+    uint32_t last_ack_sequence;  // Last processed input sequence (0 for non-player entities)
 
     EntityState()
         : entity_id(0)
@@ -355,7 +359,8 @@ struct PACKED EntityState {
         , velocity_x(0)
         , velocity_y(0)
         , health(100)
-        , flags(0) {}
+        , flags(0)
+        , last_ack_sequence(0) {}
 
     bool is_invulnerable() const { return (flags & ENTITY_INVULNERABLE) != 0; }
     bool is_charging() const { return (flags & ENTITY_CHARGING) != 0; }
@@ -363,7 +368,7 @@ struct PACKED EntityState {
 };
 PACK_END
 
-static_assert(sizeof(EntityState) == 21, "EntityState must be 21 bytes");
+static_assert(sizeof(EntityState) == 25, "EntityState must be 25 bytes");
 
 /**
  * @brief SERVER_SNAPSHOT payload header (0xA0)
