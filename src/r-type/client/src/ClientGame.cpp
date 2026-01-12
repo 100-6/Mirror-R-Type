@@ -75,6 +75,14 @@ bool ClientGame::initialize(const std::string& host, uint16_t tcp_port, const st
 
     // Set callback for back to menu button
     screen_manager_->set_back_to_menu_callback([this]() {
+        // Reset GameState to PLAYING so player can start a new game
+        auto& gameStates = registry_->get_components<GameState>();
+        for (size_t i = 0; i < gameStates.size(); ++i) {
+            Entity entity = gameStates.get_entity_at(i);
+            gameStates[entity].currentState = GameStateType::PLAYING;
+            gameStates[entity].finalScore = 0;
+        }
+
         // Reset to main menu
         menu_manager_->set_screen(GameScreen::MAIN_MENU);
         screen_manager_->set_screen(GameScreen::MAIN_MENU);
@@ -450,7 +458,7 @@ void ClientGame::setup_network_callbacks() {
             case 3: mapIdStr = "bydo_mothership"; break;
             default: mapIdStr = "nebula_outpost"; break;
         }
-        
+
         // Load the selected map
         load_map(mapIdStr);
         if (chunk_manager_) {
@@ -464,6 +472,14 @@ void ClientGame::setup_network_callbacks() {
         Entity status_entity = screen_manager_->get_status_entity();
         if (texts.has_entity(status_entity))
             texts[status_entity].active = false;
+
+        // Reset GameState to PLAYING for the new game
+        auto& gameStates = registry_->get_components<GameState>();
+        for (size_t i = 0; i < gameStates.size(); ++i) {
+            Entity entity = gameStates.get_entity_at(i);
+            gameStates[entity].currentState = GameStateType::PLAYING;
+            gameStates[entity].finalScore = 0;
+        }
 
         auto& wave_controllers = registry_->get_components<WaveController>();
         if (wave_controllers.has_entity(wave_tracker_)) {

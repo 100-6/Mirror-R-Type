@@ -98,10 +98,19 @@ void ScreenManager::set_screen(GameScreen screen) {
             break;
         case GameScreen::PLAYING:
             hide_waiting_screen();
+            hide_result_screen();
             break;
         case GameScreen::VICTORY:
         case GameScreen::DEFEAT:
             // Result screens are shown via show_result()
+            break;
+        case GameScreen::MAIN_MENU:
+        case GameScreen::CREATE_ROOM:
+        case GameScreen::BROWSE_ROOMS:
+        case GameScreen::ROOM_LOBBY:
+            // Hide game screens when returning to menu
+            hide_waiting_screen();
+            hide_result_screen();
             break;
     }
 }
@@ -124,6 +133,18 @@ void ScreenManager::show_waiting_screen() {
         sprites[waiting_screen_bg_].tint = engine::Color::White;
     if (texts.has_entity(waiting_screen_text_))
         texts[waiting_screen_text_].active = true;
+}
+
+void ScreenManager::hide_result_screen() {
+    auto& sprites = registry_.get_components<Sprite>();
+
+    // Hide the result screen background by making it transparent
+    if (sprites.has_entity(result_screen_bg_))
+        sprites[result_screen_bg_].tint = engine::Color{255, 255, 255, 0};
+
+    // Disable the back to menu button
+    if (back_to_menu_button_)
+        back_to_menu_button_->set_enabled(false);
 }
 
 void ScreenManager::load_result_textures() {

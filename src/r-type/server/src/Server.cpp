@@ -314,6 +314,17 @@ void Server::on_game_start(uint32_t lobby_id, const std::vector<uint32_t>& playe
             continue;
         uint32_t client_id = client_it->second;
         auto& player_info = connected_clients_[client_id];
+
+        // Remove player from any previous session before adding to new one
+        uint32_t old_session_id = player_info.session_id;
+        if (old_session_id != 0) {
+            auto* old_session = session_manager_->get_session(old_session_id);
+            if (old_session) {
+                std::cout << "[Server] Removing player " << player_id << " from old session " << old_session_id << "\n";
+                old_session->remove_player(player_id);
+            }
+        }
+
         player_info.in_lobby = false;
         player_info.lobby_id = 0;
         player_info.in_game = true;
