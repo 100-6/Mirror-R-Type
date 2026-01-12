@@ -462,6 +462,16 @@ void ClientGame::setup_network_callbacks() {
         }
     });
 
+    network_client_->set_on_player_name_updated([this](const protocol::ServerPlayerNameUpdatedPayload& payload) {
+        std::string name(payload.new_name, strnlen(payload.new_name, sizeof(payload.new_name)));
+        uint32_t playerId = payload.player_id;
+        entity_manager_->set_player_name(playerId, name);
+        
+        if (menu_manager_) {
+            menu_manager_->on_player_name_updated(payload);
+        }
+    });
+
     network_client_->set_on_entity_spawn([this](const protocol::ServerEntitySpawnPayload& spawn) {
         uint32_t server_id = ntohl(spawn.entity_id);
         uint16_t health = ntohs(spawn.health);

@@ -5,6 +5,7 @@
 #include <iostream>
 #include <algorithm>
 #include <cmath>
+#include <set>
 
 namespace rtype::client {
 
@@ -71,6 +72,16 @@ void RoomLobbyScreen::initialize() {
         }
     });
     buttons_.push_back(std::move(start_btn));
+
+    // Change Name button
+    auto change_name_btn = std::make_unique<UIButton>(change_name_button_x_, change_name_button_y_,
+                                                       change_name_button_width_, change_name_button_height_, "Change Name");
+    change_name_btn->set_on_click([this]() {
+        editing_name_ = true;
+        name_input_buffer_ = "";  // Start with empty buffer
+        std::cout << "[RoomLobbyScreen] Entering name edit mode\n";
+    });
+    buttons_.push_back(std::move(change_name_btn));
 }
 
 void RoomLobbyScreen::update(engine::IGraphicsPlugin* graphics, engine::IInputPlugin* input) {
@@ -194,6 +205,67 @@ void RoomLobbyScreen::update(engine::IGraphicsPlugin* graphics, engine::IInputPl
             error_timer_ = 0.0f;
             error_message_ = "";
         }
+    }
+
+    // Name editing mode - handle keyboard input
+    if (editing_name_) {
+        // Cursor blinking
+        cursor_blink_timer_ += 0.016f;
+        if (cursor_blink_timer_ >= 0.5f) {
+            cursor_blink_timer_ = 0.0f;
+            cursor_visible_ = !cursor_visible_;
+        }
+
+        // Handle text input (A-Z, 0-9, space) - use is_key_just_pressed for single trigger
+        for (int key = static_cast<int>(engine::Key::A); key <= static_cast<int>(engine::Key::Z); ++key) {
+            if (input->is_key_just_pressed(static_cast<engine::Key>(key))) {
+                if (name_input_buffer_.length() < 20) {
+                    char c = 'A' + (key - static_cast<int>(engine::Key::A));
+                    name_input_buffer_ += c;
+                }
+            }
+        }
+        for (int key = static_cast<int>(engine::Key::Num0); key <= static_cast<int>(engine::Key::Num9); ++key) {
+            if (input->is_key_just_pressed(static_cast<engine::Key>(key))) {
+                if (name_input_buffer_.length() < 20) {
+                    char c = '0' + (key - static_cast<int>(engine::Key::Num0));
+                    name_input_buffer_ += c;
+                }
+            }
+        }
+        if (input->is_key_just_pressed(engine::Key::Space)) {
+            if (name_input_buffer_.length() < 20) {
+                name_input_buffer_ += ' ';
+            }
+        }
+
+        // Backspace to delete
+        if (input->is_key_just_pressed(engine::Key::Backspace)) {
+            if (!name_input_buffer_.empty()) {
+                name_input_buffer_.pop_back();
+            }
+        }
+
+        // Enter to confirm
+        if (input->is_key_just_pressed(engine::Key::Enter)) {
+            if (!name_input_buffer_.empty()) {
+                network_client_.send_set_player_name(name_input_buffer_);
+            }
+            editing_name_ = false;
+            name_input_buffer_ = "";
+        }
+
+        // Escape to cancel
+        if (input->is_key_just_pressed(engine::Key::Escape)) {
+            editing_name_ = false;
+            name_input_buffer_ = "";
+        }
+        return;  // Don't process other inputs while editing
+    }
+
+    // Update Change Name button (always visible)
+    if (buttons_.size() > 4) {
+        buttons_[4]->update(graphics, input);
     }
 }
 
@@ -523,6 +595,14 @@ void RoomLobbyScreen::draw(engine::IGraphicsPlugin* graphics) {
                               {255, 0, 0, 255}, 2.0f);
         }
     }
+
+    // Draw Change Name button (always visible)
+    if (buttons_.size() > 4) {
+        buttons_[4]->draw(graphics);
+    }
+
+    // Draw name input dialog (on top of everything)
+    draw_name_input(graphics);
 }
 
 void RoomLobbyScreen::set_room_info(uint32_t room_id, const std::string& room_name,
@@ -554,11 +634,33 @@ void RoomLobbyScreen::add_player(uint32_t player_id, const std::string& name, ui
         }
     }
 
+    // Calculate slot index
+    int slot = -1;
+    if (players_.empty()) {
+        // First player gets slot 0 (host or first to join from this client's perspective)
+        slot = 0;
+    } else {
+        // Find next available slot
+        std::set<int> used_slots;
+        for (const auto& p : players_) {
+            if (p.slot_index >= 0) {
+                used_slots.insert(p.slot_index);
+            }
+        }
+        for (int i = 0; i < static_cast<int>(max_players_); ++i) {
+            if (used_slots.find(i) == used_slots.end()) {
+                slot = i;
+                break;
+            }
+        }
+    }
+
     // Add new player
     LobbyPlayer new_player;
     new_player.player_id = player_id;
     new_player.name = name;
     new_player.ship_type = ship_type;
+    new_player.slot_index = slot;
     new_player.is_connected = true;
     new_player.is_ready = false;
     players_.push_back(new_player);
@@ -659,13 +761,13 @@ void RoomLobbyScreen::draw_player_slot(engine::IGraphicsPlugin* graphics, int sl
         uint8_t ship_type = (slot_index * 3) % 15;  // Default ship rotation (0-14 for all ship combinations)
         bool is_ready = false;
 
-        // Find player data by slot index - players are stored in order
-        if (static_cast<size_t>(slot_index) < players_.size()) {
-            const auto& player = players_[slot_index];
-            if (player.is_connected && !player.name.empty()) {
+        // Find player data by slot_index - search all players
+        for (const auto& player : players_) {
+            if (player.slot_index == slot_index && player.is_connected && !player.name.empty()) {
                 player_name = player.name;
                 ship_type = player.ship_type;
                 is_ready = player.is_ready;
+                break;
             }
         }
 
@@ -790,6 +892,79 @@ void RoomLobbyScreen::draw_player_slot(engine::IGraphicsPlugin* graphics, int sl
         slot_label.set_color(engine::Color{90, 90, 100, 255});
         slot_label.draw(graphics);
     }
+}
+
+void RoomLobbyScreen::draw_name_input(engine::IGraphicsPlugin* graphics) {
+    if (!editing_name_) return;
+
+    float center_x = screen_width_ / 2.0f;
+    float center_y = screen_height_ / 2.0f;
+
+    // Semi-transparent overlay
+    engine::Rectangle overlay{0, 0, static_cast<float>(screen_width_), static_cast<float>(screen_height_)};
+    graphics->draw_rectangle(overlay, engine::Color{0, 0, 0, 180});
+
+    // Dialog box
+    float dialog_width = 500.0f;
+    float dialog_height = 180.0f;
+    float dialog_x = center_x - dialog_width / 2.0f;
+    float dialog_y = center_y - dialog_height / 2.0f;
+
+    // Dialog background
+    engine::Rectangle dialog_bg{dialog_x, dialog_y, dialog_width, dialog_height};
+    graphics->draw_rectangle(dialog_bg, engine::Color{30, 25, 45, 250});
+
+    // Dialog border
+    engine::Rectangle border_top{dialog_x, dialog_y, dialog_width, 3.0f};
+    engine::Rectangle border_bottom{dialog_x, dialog_y + dialog_height - 3.0f, dialog_width, 3.0f};
+    engine::Rectangle border_left{dialog_x, dialog_y, 3.0f, dialog_height};
+    engine::Rectangle border_right{dialog_x + dialog_width - 3.0f, dialog_y, 3.0f, dialog_height};
+    engine::Color border_color{140, 100, 220, 255};
+    graphics->draw_rectangle(border_top, border_color);
+    graphics->draw_rectangle(border_bottom, border_color);
+    graphics->draw_rectangle(border_left, border_color);
+    graphics->draw_rectangle(border_right, border_color);
+
+    // Title
+    UILabel title(center_x, dialog_y + 30.0f, "ENTER NEW NAME", 24);
+    title.set_alignment(UILabel::Alignment::CENTER);
+    title.set_color(engine::Color{220, 200, 255, 255});
+    title.draw(graphics);
+
+    // Input field background
+    float input_width = 400.0f;
+    float input_height = 50.0f;
+    float input_x = center_x - input_width / 2.0f;
+    float input_y = dialog_y + 70.0f;
+    engine::Rectangle input_bg{input_x, input_y, input_width, input_height};
+    graphics->draw_rectangle(input_bg, engine::Color{20, 15, 30, 255});
+
+    // Input text
+    std::string display_text = name_input_buffer_;
+    if (cursor_visible_) {
+        display_text += "|";
+    }
+    UILabel input_text(input_x + 15.0f, input_y + 15.0f, display_text.empty() && !cursor_visible_ ? "Type your name..." : display_text, 22);
+    input_text.set_alignment(UILabel::Alignment::LEFT);
+    input_text.set_color(display_text.empty() && !cursor_visible_ ? engine::Color{100, 100, 120, 255} : engine::Color{255, 255, 255, 255});
+    input_text.draw(graphics);
+
+    // Instructions
+    UILabel hint(center_x, dialog_y + dialog_height - 30.0f, "ENTER to confirm  |  ESC to cancel", 16);
+    hint.set_alignment(UILabel::Alignment::CENTER);
+    hint.set_color(engine::Color{140, 140, 160, 255});
+    hint.draw(graphics);
+}
+
+void RoomLobbyScreen::update_player_name(uint32_t player_id, const std::string& new_name) {
+    for (auto& player : players_) {
+        if (player.player_id == player_id) {
+            player.name = new_name;
+            return;
+        }
+    }
+    // Player not found - add them
+    add_player(player_id, new_name, 0);
 }
 
 }  // namespace rtype::client

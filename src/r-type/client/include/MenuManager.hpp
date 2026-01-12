@@ -51,6 +51,11 @@ public:
      */
     void set_screen(GameScreen screen);
 
+    /**
+     * @brief Handle player name update (called by ClientGame)
+     */
+    void on_player_name_updated(const protocol::ServerPlayerNameUpdatedPayload& payload);
+
 private:
     NetworkClient& network_client_;
     int screen_width_;

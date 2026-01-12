@@ -843,4 +843,51 @@ PACK_END
 
 static_assert(sizeof(ServerRoomErrorPayload) == 65, "ServerRoomErrorPayload must be 65 bytes");
 
+/**
+ * @brief CLIENT_SET_PLAYER_NAME payload (0x25)
+ * Used to change player name while in lobby
+ * Total size: 36 bytes
+ */
+PACK_START
+struct PACKED ClientSetPlayerNamePayload {
+    uint32_t player_id;
+    char new_name[32];
+
+    ClientSetPlayerNamePayload() : player_id(0) {
+        std::memset(new_name, 0, sizeof(new_name));
+    }
+
+    void set_name(const std::string& name) {
+        std::memset(new_name, 0, sizeof(new_name));
+        std::strncpy(new_name, name.c_str(), sizeof(new_name) - 1);
+    }
+};
+PACK_END
+
+static_assert(sizeof(ClientSetPlayerNamePayload) == 36, "ClientSetPlayerNamePayload must be 36 bytes");
+
+/**
+ * @brief SERVER_PLAYER_NAME_UPDATED payload (0x96)
+ * Broadcast to room members when a player changes their name
+ * Total size: 40 bytes
+ */
+PACK_START
+struct PACKED ServerPlayerNameUpdatedPayload {
+    uint32_t player_id;
+    char new_name[32];
+    uint32_t room_id;
+
+    ServerPlayerNameUpdatedPayload() : player_id(0), room_id(0) {
+        std::memset(new_name, 0, sizeof(new_name));
+    }
+
+    void set_name(const std::string& name) {
+        std::memset(new_name, 0, sizeof(new_name));
+        std::strncpy(new_name, name.c_str(), sizeof(new_name) - 1);
+    }
+};
+PACK_END
+
+static_assert(sizeof(ServerPlayerNameUpdatedPayload) == 40, "ServerPlayerNameUpdatedPayload must be 40 bytes");
+
 }
