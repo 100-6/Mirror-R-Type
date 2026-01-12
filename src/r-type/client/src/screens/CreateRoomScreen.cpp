@@ -80,14 +80,16 @@ void CreateRoomScreen::create_room() {
     }
 
     uint8_t max_players = get_configured_max_players();
-    uint16_t map_index = get_configured_map_index();
+
+    // Use the map's difficulty field as the level_id (0, 1, 2, 3, or 99 for debug)
+    uint16_t level_id = available_maps_.empty() ? 1 : available_maps_[selected_map_index_].difficulty;
 
     std::string map_name = available_maps_.empty() ? "Unknown" : available_maps_[selected_map_index_].name;
-    std::cout << "[CreateRoomScreen] Creating room on map: " << map_name << " (Index: " << map_index << ")\n";
+    std::cout << "[CreateRoomScreen] Creating room on map: " << map_name << " (Level ID: " << level_id << ")\n";
 
     network_client_.send_create_room(room_name, password,
                                      game_mode_, difficulty_,
-                                     map_index, max_players);
+                                     level_id, max_players);
 
     if (on_room_created_) {
         on_room_created_(game_mode_, max_players);

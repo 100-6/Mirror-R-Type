@@ -10,6 +10,9 @@ add_library(rtype_logic
     src/systems/CollisionSystem.cpp
     src/systems/PlayerInputSystem.cpp
     src/systems/WaveSpawnerSystem.cpp
+    src/systems/LevelSystem.cpp
+    src/systems/BossSystem.cpp
+    src/systems/CheckpointSystem.cpp
     src/utils/WaveConfigLoader.cpp
     src/systems/BonusSystem.cpp
     src/systems/HUDSystem.cpp

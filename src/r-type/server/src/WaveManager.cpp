@@ -70,6 +70,18 @@ bool WaveManager::load_from_file(const std::string& filepath)
     }
 }
 
+void WaveManager::load_from_phases(const std::vector<Wave>& all_waves)
+{
+    config_.waves = all_waves;
+    config_.default_spawn_interval = 2.0f;
+    config_.loop_waves = false;
+
+    current_wave_index_ = 0;
+    accumulated_time_ = 0.0f;
+
+    std::cout << "[WaveManager] Loaded " << all_waves.size() << " waves from level config\n";
+}
+
 void WaveManager::update(float delta_time, float current_scroll)
 {
     accumulated_time_ += delta_time;
@@ -89,11 +101,17 @@ void WaveManager::reset()
 
 bool WaveManager::all_waves_complete() const
 {
+    // If there are no waves at all, consider them complete (for instant boss levels)
+    if (config_.waves.empty()) {
+        return true;
+    }
+
+    // Check if all waves are completed
     for (const auto& wave : config_.waves) {
         if (!wave.completed)
             return false;
     }
-    return !config_.waves.empty();
+    return true;
 }
 
 std::string WaveManager::get_map_file(uint16_t map_id)

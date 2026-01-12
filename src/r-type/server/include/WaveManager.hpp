@@ -75,6 +75,12 @@ public:
      */
     bool load_from_file(const std::string& filepath);
 
+    /**
+     * @brief Load waves from level phases (for level system)
+     * @param phases Vector of phases containing waves
+     */
+    void load_from_phases(const std::vector<Wave>& all_waves);
+
     // === Update ===
 
     /**

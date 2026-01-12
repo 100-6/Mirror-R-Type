@@ -454,12 +454,18 @@ void ClientGame::setup_network_callbacks() {
         last_known_score_ = 0;
 
         // Convert numeric map ID to string ID
+        // All levels use nebula_outpost visual map for now
+        // The gameplay logic (waves, boss) is defined in level JSON files
         std::string mapIdStr;
         switch (map_id) {
-            case 1: mapIdStr = "nebula_outpost"; break;
-            case 2: mapIdStr = "asteroid_belt"; break;
-            case 3: mapIdStr = "bydo_mothership"; break;
-            default: mapIdStr = "nebula_outpost"; break;
+            case 0:   // Debug: Quick Test
+            case 1:   // Level 1: Asteroid Belt
+            case 2:   // Level 2: Nebula Station
+            case 3:   // Level 3: Bydo Fortress
+            case 99:  // Debug: Instant Boss
+            default:
+                mapIdStr = "nebula_outpost";
+                break;
         }
 
         // Load the selected map

@@ -34,6 +34,13 @@
 #include "systems/MapConfigLoader.hpp"
 #include "components/MapTypes.hpp"
 
+// Level System includes
+#include "LevelManager.hpp"
+#include "components/LevelComponents.hpp"
+#include "systems/LevelSystem.hpp"
+#include "systems/BossSystem.hpp"
+#include "systems/CheckpointSystem.hpp"
+
 namespace rtype::server {
 
 /**
@@ -89,6 +96,7 @@ public:
     Registry& get_registry() { return registry_; }
     ServerNetworkSystem* get_network_system() { return network_system_; }
     float get_scroll_speed() const { return scroll_speed_; }
+    float get_current_scroll() const { return current_scroll_; }  // NEW: For checkpoint system
 
     /**
      * @brief Resync a client with all existing entities
@@ -127,6 +135,7 @@ private:
     std::unordered_map<uint32_t, GamePlayer> players_;
     std::unordered_map<uint32_t, Entity> player_entities_;
     WaveManager wave_manager_;
+    LevelManager level_manager_;  // NEW: Level system manager
 
     uint32_t tick_count_;
     float current_scroll_;

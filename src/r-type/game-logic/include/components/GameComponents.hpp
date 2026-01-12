@@ -66,7 +66,9 @@ struct FireRate {
 
 // Tags Spécifiques R-Type
 
-struct Enemy {};
+struct Enemy {
+    bool is_boss = false;  // True if this enemy is a boss (for boss-specific behavior)
+};
 
 struct LocalPlayer {};
 

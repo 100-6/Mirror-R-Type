@@ -1,0 +1,107 @@
+{
+  "level_id": 0,
+  "level_name": "TEST LEVEL - Quick Boss",
+  "level_description": "Debug level with only 3 waves for testing",
+  "map_id": 1,
+  "base_scroll_speed": 60.0,
+  "total_scroll_distance": 2000.0,
+
+  "checkpoints": [
+    {"checkpoint_id": "start", "scroll_distance": 0.0, "respawn_x": 100.0, "respawn_y": 540.0},
+    {"checkpoint_id": "boss", "scroll_distance": 1500.0, "respawn_x": 100.0, "respawn_y": 540.0}
+  ],
+
+  "phases": [
+    {
+      "phase_number": 1,
+      "phase_name": "Quick Test",
+      "scroll_start": 0.0,
+      "scroll_end": 1500.0,
+      "difficulty": "easy",
+      "waves": [
+        {
+          "waveNumber": 1,
+          "trigger": {"scrollDistance": 100, "timeDelay": 0},
+          "formation": "test_wave_1",
+          "spawns": [
+            {"type": "enemy", "enemyType": "basic", "positionX": 2100, "positionY": 300, "count": 2, "pattern": "single", "spacing": 100}
+          ]
+        },
+        {
+          "waveNumber": 2,
+          "trigger": {"scrollDistance": 500, "timeDelay": 0},
+          "formation": "test_wave_2",
+          "spawns": [
+            {"type": "enemy", "enemyType": "fast", "positionX": 2100, "positionY": 400, "count": 2, "pattern": "line", "spacing": 100}
+          ]
+        },
+        {
+          "waveNumber": 3,
+          "trigger": {"scrollDistance": 900, "timeDelay": 0},
+          "formation": "test_wave_3",
+          "spawns": [
+            {"type": "enemy", "enemyType": "basic", "positionX": 2100, "positionY": 500, "count": 1, "pattern": "single", "spacing": 0}
+          ]
+        }
+      ]
+    }
+  ],
+
+  "boss": {
+    "boss_name": "TEST BOSS",
+    "spawn_scroll_distance": 1500.0,
+    "spawn_position_x": 1600.0,
+    "spawn_position_y": 540.0,
+    "enemy_type": "boss",
+    "total_phases": 3,
+    "phases": [
+      {
+        "phase_number": 1,
+        "health_threshold": 1.0,
+        "movement_pattern": "horizontal_sine",
+        "movement_speed_multiplier": 1.0,
+        "attack_patterns": [
+          {
+            "pattern": "aimed_burst",
+            "cooldown": 2.0,
+            "projectile_count": 3,
+            "projectile_speed": 300.0,
+            "projectile_damage": 20,
+            "spread_angle": 15.0
+          }
+        ]
+      },
+      {
+        "phase_number": 2,
+        "health_threshold": 0.66,
+        "movement_pattern": "vertical_sine",
+        "movement_speed_multiplier": 1.2,
+        "attack_patterns": [
+          {
+            "pattern": "spiral",
+            "cooldown": 1.5,
+            "projectile_count": 8,
+            "projectile_speed": 250.0,
+            "projectile_damage": 20,
+            "rotation_speed": 45.0
+          }
+        ]
+      },
+      {
+        "phase_number": 3,
+        "health_threshold": 0.33,
+        "movement_pattern": "figure_eight",
+        "movement_speed_multiplier": 1.5,
+        "attack_patterns": [
+          {
+            "pattern": "spray_360",
+            "cooldown": 2.0,
+            "projectile_count": 12,
+            "projectile_speed": 200.0,
+            "projectile_damage": 25
+          }
+        ]
+      }
+    ]
+  }
+}
