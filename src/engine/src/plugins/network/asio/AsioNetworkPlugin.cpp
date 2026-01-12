@@ -20,8 +20,6 @@ using boost::system::error_code;
 
 namespace engine {
 
-// ============== Constructor / Destructor ==============
-
 AsioNetworkPlugin::AsioNetworkPlugin()
     : last_timeout_check_(std::chrono::steady_clock::now())
 {
@@ -33,8 +31,6 @@ AsioNetworkPlugin::~AsioNetworkPlugin()
     if (initialized_)
         shutdown();
 }
-
-// ============== IPlugin Interface ==============
 
 const char* AsioNetworkPlugin::get_name() const
 {
@@ -377,8 +373,9 @@ void AsioNetworkPlugin::start_tcp_receive(ClientId client_id)
                 return;
 
             auto& buffer = it->second.read_buffer;
-            uint16_t payload_len = (static_cast<uint16_t>(buffer[2]) << 8) |
-                                   static_cast<uint16_t>(buffer[3]);
+            // Payload length is at bytes 3-4 (after version, type, flags)
+            uint16_t payload_len = (static_cast<uint16_t>(buffer[3]) << 8) |
+                                   static_cast<uint16_t>(buffer[4]);
 
             if (payload_len == 0) {
                 // No payload, packet is complete
@@ -774,9 +771,9 @@ void AsioNetworkPlugin::start_client_tcp_receive()
                 return;
             }
 
-            // Get payload length
-            uint16_t payload_len = (static_cast<uint16_t>(client_tcp_read_buffer_[2]) << 8) |
-                                   static_cast<uint16_t>(client_tcp_read_buffer_[3]);
+            // Get payload length (at bytes 3-4 after version, type, flags)
+            uint16_t payload_len = (static_cast<uint16_t>(client_tcp_read_buffer_[3]) << 8) |
+                                   static_cast<uint16_t>(client_tcp_read_buffer_[4]);
 
             if (payload_len == 0) {
                 // No payload

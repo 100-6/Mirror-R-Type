@@ -339,6 +339,10 @@ private:
     // Input sequence tracking (for lag compensation)
     uint32_t input_sequence_number_ = 0;
 
+    // Packet sequence tracking (for compression/ordering)
+    uint32_t tcp_sequence_number_ = 0;
+    uint32_t udp_sequence_number_ = 0;
+
     // Callbacks
     std::function<void(uint32_t)> on_accepted_;
     std::function<void(uint8_t, const std::string&)> on_rejected_;

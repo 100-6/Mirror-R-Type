@@ -11,17 +11,15 @@ PacketSender::PacketSender(engine::INetworkPlugin* network_plugin)
 
 std::vector<uint8_t> PacketSender::create_packet(protocol::PacketType type,
                                                  const std::vector<uint8_t>& payload) {
-    protocol::PacketHeader header;
-    header.version = protocol::PROTOCOL_VERSION;
-    header.type = static_cast<uint8_t>(type);
-    header.payload_length = static_cast<uint16_t>(payload.size());
-    header.sequence_number = 0;
-
-    std::vector<uint8_t> packet_data(protocol::HEADER_SIZE);
-    protocol::ProtocolEncoder::encode_header(header, packet_data.data());
-    packet_data.insert(packet_data.end(), payload.begin(), payload.end());
-
-    return packet_data;
+    // Use ProtocolEncoder to handle compression automatically
+    // Pass nullptr if payload is empty to avoid undefined behavior
+    const void* payload_ptr = payload.empty() ? nullptr : payload.data();
+    return protocol::ProtocolEncoder::encode_packet(
+        type,
+        payload_ptr,
+        payload.size(),
+        sequence_number_++
+    );
 }
 
 // ============== TCP Sending ==============

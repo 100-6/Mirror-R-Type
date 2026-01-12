@@ -50,9 +50,13 @@ All packets consist of a fixed-size header followed by a variable-length payload
     0                   1                   2                   3
     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |    Version    |     Type      |         Payload Length        |
+   |    Version    |     Type      |     Flags     | Payload Len   |
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |                        Sequence Number                        |
+   |  Payload Len  |                Sequence Number                |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   | Seq Number    | Uncompressed Size (optional, if COMPRESSED)   |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |Uncompressed.. |              Payload Data                     |
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
    |                         Payload Data                          |
    |                             ...                               |
@@ -62,9 +66,23 @@ All packets consist of a fixed-size header followed by a variable-length payload
 ### 2.3 Size Constraints
 
 - **Maximum packet size**: 1400 bytes (MTU-safe for typical network configurations)
-- **Header size**: 8 bytes (fixed)
-- **Maximum payload size**: 1392 bytes
+- **Base header size**: 9 bytes (without compression metadata)
+- **Extended header size**: 13 bytes (with compression metadata when COMPRESSED flag is set)
+- **Maximum payload size**: 1387 bytes (accounting for largest possible header)
 - Packets exceeding 1400 bytes MUST be fragmented or redesigned
+
+### 2.4 Compression
+
+Starting from protocol version 1.0, packets support **optional LZ4 compression** for large payloads:
+
+- **Compression library**: LZ4 (fast compression algorithm)
+- **Automatic compression**: Large packets are automatically compressed if beneficial
+- **Compression criteria**:
+  - Payload size ≥ 128 bytes (configurable via `MIN_COMPRESSION_SIZE`)
+  - Compression gain ≥ 10% (configurable via `MIN_COMPRESSION_GAIN`)
+  - Compression time < 500µs (configurable via `MAX_COMPRESSION_TIME_US`)
+- **Compressible packet types**: SNAPSHOT, DELTA_SNAPSHOT, LOBBY_STATE, ROOM_LIST
+- **Compression statistics**: Tracked automatically for monitoring and optimization
 
 ---
 
@@ -72,14 +90,23 @@ All packets consist of a fixed-size header followed by a variable-length payload
 
 ### 3.1 Header Format
 
-All packets begin with an 8-byte header in network byte order (big-endian).
+All packets begin with a header in network byte order (big-endian). The header size is **9 bytes** (base) or **13 bytes** (if COMPRESSED flag is set).
+
+#### Base Header (9 bytes)
 
 | Field            | Size    | Offset | Description                              |
 |------------------|---------|--------|------------------------------------------|
 | Version          | 1 byte  | 0      | Protocol version (0x01)                  |
 | Type             | 1 byte  | 1      | Packet type identifier                   |
-| Payload Length   | 2 bytes | 2      | Length of payload in bytes (big-endian)  |
-| Sequence Number  | 4 bytes | 4      | Monotonic sequence number (big-endian)   |
+| Flags            | 1 byte  | 2      | Packet flags (bit 0 = COMPRESSED)        |
+| Payload Length   | 2 bytes | 3      | Length of payload in bytes (big-endian)  |
+| Sequence Number  | 4 bytes | 5      | Monotonic sequence number (big-endian)   |
+
+#### Extended Header (+ 4 bytes if COMPRESSED flag set)
+
+| Field              | Size    | Offset | Description                                    |
+|--------------------|---------|--------|------------------------------------------------|
+| Uncompressed Size  | 4 bytes | 9      | Original payload size before compression       |
 
 ### 3.2 Field Definitions
 
@@ -93,10 +120,25 @@ All packets begin with an 8-byte header in network byte order (big-endian).
 - Values `0x00-0x7F`: Reserved for client-to-server packets
 - Values `0x80-0xFF`: Reserved for server-to-client packets
 
+**Flags (8 bits)**
+- Bitfield for packet metadata and options
+- **Bit 0 (0x01)**: `COMPRESSED` - Payload is compressed with LZ4
+  - When set, the header includes 4 additional bytes (Uncompressed Size)
+  - Payload data is LZ4-compressed and must be decompressed before processing
+- **Bits 1-7**: Reserved for future use (MUST be set to 0)
+
 **Payload Length (16 bits, big-endian)**
 - Length of the payload in bytes
-- MUST NOT exceed 1392 bytes
+- If COMPRESSED flag is set, this is the **compressed** payload size
+- If COMPRESSED flag is NOT set, this is the original payload size
+- MUST NOT exceed 1387 bytes
 - Value of 0 indicates no payload (header-only packet)
+
+**Uncompressed Size (32 bits, big-endian)** - *Optional*
+- ONLY present if COMPRESSED flag (bit 0) is set
+- Specifies the original size of the payload before compression
+- Used by receiver to pre-allocate decompression buffer
+- MUST be greater than Payload Length when present
 
 **Sequence Number (32 bits, big-endian)**
 - Monotonically increasing counter per connection
