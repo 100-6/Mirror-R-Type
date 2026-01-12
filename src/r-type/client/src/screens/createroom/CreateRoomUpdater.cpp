@@ -15,6 +15,15 @@ void Updater::update_room_info_step(
 
 
 
+void Updater::update_map_step(
+    size_t& current_map_index,
+    size_t num_maps,
+    float screen_width,
+    engine::IInputPlugin* input
+) {
+    InputHandler::handle_map_click(input, screen_width, current_map_index, num_maps);
+}
+
 void Updater::update_difficulty_step(
     protocol::Difficulty& current_difficulty,
     float screen_width,

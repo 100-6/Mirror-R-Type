@@ -20,6 +20,15 @@ void Drawer::draw_room_info_step(
 
 
 
+void Drawer::draw_map_selection_step(
+    const std::vector<engine::TextureHandle>& map_thumbnails,
+    size_t selected_map_index,
+    float screen_width,
+    engine::IGraphicsPlugin* graphics
+) {
+    Renderer::draw_map_selection(graphics, map_thumbnails, screen_width, selected_map_index);
+}
+
 void Drawer::draw_difficulty_step(
     const TexturePack& textures,
     protocol::Difficulty selected_difficulty,

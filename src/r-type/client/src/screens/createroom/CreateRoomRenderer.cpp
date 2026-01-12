@@ -234,6 +234,32 @@ void Renderer::draw_circular_image(
     graphics->draw_sprite(sprite, position);
 }
 
+void Renderer::draw_map_selection(
+    engine::IGraphicsPlugin* graphics,
+    const std::vector<engine::TextureHandle>& map_thumbnails,
+    int screen_width,
+    size_t selected_map_index
+) {
+    // Use same circular image style as difficulty/gamemode
+    float size = Config::DIFFICULTY_CIRCLE_SIZE;  // Same size as difficulty
+    float spacing = Config::DIFFICULTY_CIRCLE_SPACING;
+    float center_x = screen_width / 2.0f;
+
+    size_t num_maps = map_thumbnails.size();
+    if (num_maps == 0) return;
+
+    float total_width = size * num_maps + spacing * (num_maps - 1);
+    float start_x = center_x - total_width / 2.0f;
+
+    for (size_t i = 0; i < num_maps; ++i) {
+        float x = start_x + i * (size + spacing);
+        float y = Config::CONTENT_START_Y;
+        bool is_selected = (selected_map_index == i);
+
+        draw_circular_image(graphics, map_thumbnails[i], x, y, size, is_selected);
+    }
+}
+
 void Renderer::draw_difficulty_selection(
     engine::IGraphicsPlugin* graphics,
     const TexturePack& textures,
