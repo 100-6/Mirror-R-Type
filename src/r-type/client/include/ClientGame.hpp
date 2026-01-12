@@ -100,6 +100,7 @@ private:
     Entity wave_tracker_;
     float current_time_;  // Temps écoulé depuis démarrage (pour extrapolation)
     uint16_t current_map_id_ = 1;  // Current map (1=Nebula, 2=Asteroid, 3=Bydo)
+    int last_known_score_ = 0;  // Last known score of local player (for game over screen)
 
     // Background entities (legacy, kept for menu)
     Entity background1_;
