@@ -22,13 +22,13 @@ void SkinSelectorDialog::initialize() {
     float center_y = screen_height_ / 2.0f;
 
     // Title
-    auto title = std::make_unique<UILabel>(center_x, center_y - 200, "Select Your Ship", 28);
+    auto title = std::make_unique<UILabel>(center_x, center_y - 225, "Select Your Ship", 28);
     title->set_alignment(UILabel::Alignment::CENTER);
     title->set_color(engine::Color{220, 210, 255, 255});
     labels_.push_back(std::move(title));
 
     // Subtitle with color/type legend
-    auto subtitle = std::make_unique<UILabel>(center_x, center_y - 165, "Colors: Green | Red | Blue   -   Types: Scout | Fighter | Cruiser | Bomber | Carrier", 14);
+    auto subtitle = std::make_unique<UILabel>(center_x + 70, center_y - 195, "Colors: Green | Red | Blue - Types: Scout | Fighter | Cruiser | Bomber | Carrier", 14);
     subtitle->set_alignment(UILabel::Alignment::CENTER);
     subtitle->set_color(engine::Color{160, 150, 200, 200});
     labels_.push_back(std::move(subtitle));
@@ -217,9 +217,9 @@ void SkinSelectorDialog::draw(engine::IGraphicsPlugin* graphics) {
                 ShipType type = static_cast<ShipType>(col);
                 engine::Sprite ship_sprite = spaceship_manager_->create_ship_sprite(color, type, 1.0f);
 
-                // Center sprite in cell
-                float sprite_x = cell_x + (CELL_SIZE - ship_sprite.size.x) / 2.0f;
-                float sprite_y = cell_y + (CELL_SIZE - ship_sprite.size.y) / 2.0f;
+                // Sprite origin is set to center in SpaceshipManager, so we invoke draw at the cell center
+                float sprite_x = cell_x + CELL_SIZE / 2.0f;
+                float sprite_y = cell_y + CELL_SIZE / 2.0f;
 
                 graphics->draw_sprite(ship_sprite, {sprite_x, sprite_y});
             }
