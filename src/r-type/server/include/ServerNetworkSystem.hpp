@@ -75,6 +75,11 @@ public:
      */
     void queue_entity_destroy(Entity entity);
 
+    /**
+     * @brief Queue a powerup collected event for broadcasting
+     */
+    void queue_powerup_collected(uint32_t player_id, protocol::PowerupType type);
+
     uint32_t get_tick_count() const { return tick_count_; }
 
     /**
@@ -115,6 +120,7 @@ private:
     void broadcast_pending_projectiles();
     void broadcast_pending_explosions();
     void broadcast_pending_scores();
+    void broadcast_pending_powerups();
     void spawn_projectile(Registry& registry, Entity owner, float x, float y);
     void spawn_enemy_projectile(Registry& registry, Entity owner, float x, float y);
     void update_enemy_shooting(Registry& registry, float dt);
@@ -133,12 +139,14 @@ private:
     std::queue<protocol::ServerProjectileSpawnPayload> pending_projectiles_;
     std::queue<protocol::ServerExplosionPayload> pending_explosions_;
     std::queue<protocol::ServerScoreUpdatePayload> pending_scores_;
+    std::queue<protocol::ServerPowerupCollectedPayload> pending_powerups_;
 
     std::mutex spawns_mutex_;
     std::mutex destroys_mutex_;
     std::mutex projectiles_mutex_;
     std::mutex explosions_mutex_;
     std::mutex scores_mutex_;
+    std::mutex powerups_mutex_;
 
     std::unordered_map<uint32_t, float> shoot_cooldowns_;
     std::unordered_map<uint32_t, float> switch_cooldowns_;
@@ -152,6 +160,7 @@ private:
     core::EventBus::SubscriptionId shotFiredSubId_;
     core::EventBus::SubscriptionId enemyKilledSubId_;
     core::EventBus::SubscriptionId explosionSubId_;
+    core::EventBus::SubscriptionId bonusCollectedSubId_;
 
     std::unordered_map<uint32_t, Entity>* player_entities_ = nullptr;
 };

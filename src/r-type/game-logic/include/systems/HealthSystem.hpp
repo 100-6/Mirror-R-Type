@@ -10,6 +10,7 @@
 
 #include "ecs/systems/ISystem.hpp"
 #include "core/event/EventBus.hpp"
+#include "components/GameComponents.hpp"
 
 class HealthSystem : public ISystem {
 public:
@@ -22,6 +23,11 @@ public:
 
 private:
     core::EventBus::SubscriptionId damageSubId_;
+
+    /**
+     * @brief Spawn a bonus at a specific position
+     */
+    void spawnBonusAtPosition(Registry& registry, BonusType type, float x, float y);
 };
 
 #endif /* !HEALTHSYSTEM_HPP_ */

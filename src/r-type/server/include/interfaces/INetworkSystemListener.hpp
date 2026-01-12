@@ -54,6 +54,11 @@ public:
      * @brief Called when score is updated
      */
     virtual void on_score_updated(uint32_t session_id, const std::vector<uint8_t>& score_data) = 0;
+
+    /**
+     * @brief Called when a powerup is collected
+     */
+    virtual void on_powerup_collected(uint32_t session_id, const std::vector<uint8_t>& powerup_data) = 0;
 };
 
 }

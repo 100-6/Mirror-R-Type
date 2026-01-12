@@ -138,12 +138,30 @@ Sprite EntityManager::build_sprite(protocol::EntityType type, bool is_local_play
         case protocol::EntityType::POWERUP_SPEED:
         case protocol::EntityType::POWERUP_SCORE:
             sprite.texture = textures_.get_projectile();
-            sprite.layer = 4;
-            sprite.tint = engine::Color{120, 255, 120, 255};
-            sprite.source_rect = {32.0f, 0.0f, 16.0f, 16.0f};
-            sprite.width = shared::config::BONUS_SIZE;
-            sprite.height = shared::config::BONUS_SIZE;
+            sprite.layer = 5;
+            sprite.source_rect = {0.0f, 0.0f, 16.0f, 16.0f};
+            sprite.width = 80.0f;  // Grande taille pour les bonus droppés
+            sprite.height = 80.0f;
             use_fixed_dimensions = true;
+            // Couleur basée sur le subtype (qui contient le BonusType)
+            // 0 = HEALTH (vert), 1 = SHIELD (violet), 2 = SPEED (bleu), 3 = BONUS_WEAPON (jaune)
+            switch (subtype) {
+                case 0: // HEALTH - Vert
+                    sprite.tint = engine::Color::Green;
+                    break;
+                case 1: // SHIELD - Violet
+                    sprite.tint = engine::Color::Purple;
+                    break;
+                case 2: // SPEED - Bleu
+                    sprite.tint = engine::Color::SpeedBlue;
+                    break;
+                case 3: // BONUS_WEAPON - Jaune
+                    sprite.tint = engine::Color::Yellow;
+                    break;
+                default:
+                    sprite.tint = engine::Color{120, 255, 120, 255}; // Vert par défaut
+                    break;
+            }
             break;
         default:
             break;
@@ -247,7 +265,7 @@ Entity EntityManager::spawn_or_update_entity(uint32_t server_id, protocol::Entit
     bool highlight_as_local = (server_id == local_player_entity_id_) || local_subtype_match;
 
     // Mark projectiles, players, and moving entities for local integration (smooth movement)
-    if (!highlight_as_local && (type == protocol::EntityType::PROJECTILE_PLAYER || 
+    if (!highlight_as_local && (type == protocol::EntityType::PROJECTILE_PLAYER ||
         type == protocol::EntityType::PROJECTILE_ENEMY ||
         type == protocol::EntityType::PLAYER ||
         type == protocol::EntityType::ENEMY_BASIC ||
@@ -289,6 +307,41 @@ Entity EntityManager::spawn_or_update_entity(uint32_t server_id, protocol::Entit
         colliders[entity].height = collider_dims.height;
     } else {
         registry_.add_component(entity, Collider{collider_dims.width, collider_dims.height});
+    }
+
+    // Ensure bonus metadata for powerups so client-side collection can trigger visuals
+    auto& bonuses = registry_.get_components<Bonus>();
+    const bool is_powerup = (type == protocol::EntityType::POWERUP_HEALTH ||
+        type == protocol::EntityType::POWERUP_SHIELD ||
+        type == protocol::EntityType::POWERUP_SPEED ||
+        type == protocol::EntityType::POWERUP_SCORE);
+    if (is_powerup && type != protocol::EntityType::POWERUP_SCORE) {
+        BonusType bonus_type = BonusType::HEALTH;
+        switch (subtype) {
+            case 0:
+                bonus_type = BonusType::HEALTH;
+                break;
+            case 1:
+                bonus_type = BonusType::SHIELD;
+                break;
+            case 2:
+                bonus_type = BonusType::SPEED;
+                break;
+            case 3:
+                bonus_type = BonusType::BONUS_WEAPON;
+                break;
+            default:
+                bonus_type = BonusType::HEALTH;
+                break;
+        }
+        if (bonuses.has_entity(entity)) {
+            bonuses[entity].type = bonus_type;
+            bonuses[entity].radius = rtype::shared::config::BONUS_SIZE / 2.0f;
+        } else {
+            registry_.add_component(entity, Bonus{bonus_type, rtype::shared::config::BONUS_SIZE / 2.0f});
+        }
+    } else if (bonuses.has_entity(entity)) {
+        registry_.remove_component<Bonus>(entity);
     }
 
     // Update health
@@ -344,8 +397,10 @@ Entity EntityManager::spawn_or_update_entity(uint32_t server_id, protocol::Entit
             registry_.add_component(entity, anim);
         }
         ensure_player_name_tag(server_id, x, y);
+        // Note: Le vaisseau bonus n'est plus créé automatiquement ici
+        // Il sera créé quand le joueur collectera le bonus BONUS_WEAPON
     }
-    
+
     // Créer un effet de feu pour les nouveaux projectiles joueur
     if (type == protocol::EntityType::PROJECTILE_PLAYER && is_new) {
         // Ajouter l'animation de balle au projectile
@@ -433,7 +488,9 @@ void EntityManager::remove_entity(uint32_t server_id) {
     if (it == server_to_local_.end())
         return;
 
-    registry_.kill_entity(it->second);
+    Entity entity_to_remove = it->second;
+
+    registry_.kill_entity(entity_to_remove);
     server_types_.erase(server_id);
     stale_counters_.erase(server_id);
     locally_integrated_.erase(server_id);

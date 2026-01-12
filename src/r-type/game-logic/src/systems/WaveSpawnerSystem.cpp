@@ -313,7 +313,7 @@ void WaveSpawnerSystem::spawnEntity(Registry& registry, const WaveSpawnData& spa
 {
     switch (spawnData.entityType) {
         case EntitySpawnType::ENEMY:
-            spawnEnemy(registry, spawnData.enemyType, spawnData.positionX, spawnData.positionY);
+            spawnEnemy(registry, spawnData.enemyType, spawnData.positionX, spawnData.positionY, spawnData.bonusDrop);
             break;
 
         case EntitySpawnType::WALL:
@@ -330,7 +330,7 @@ void WaveSpawnerSystem::spawnEntity(Registry& registry, const WaveSpawnData& spa
     }
 }
 
-Entity WaveSpawnerSystem::spawnEnemy(Registry& registry, EnemyType type, float x, float y)
+Entity WaveSpawnerSystem::spawnEnemy(Registry& registry, EnemyType type, float x, float y, const BonusDrop& bonusDrop)
 {
     Entity e = registry.spawn_entity();
 
@@ -365,9 +365,14 @@ Entity WaveSpawnerSystem::spawnEnemy(Registry& registry, EnemyType type, float x
     registry.add_component(e, Velocity{-speed, 0.0f});
     registry.add_component(e, Sprite{tex, size.x, size.y, 0.0f, tint, 0.0f, 0.0f, 0});
     registry.add_component(e, Collider{size.x, size.y});
-    registry.add_component(e, Enemy{});
+    registry.add_component(e, Enemy{bonusDrop});
     registry.add_component(e, AI{type, detection, cooldown, 0.0f, speed});
     registry.add_component(e, Health{health, health});
+
+    if (bonusDrop.enabled) {
+        std::cout << "[WaveSpawnerSystem] Enemy " << e << " has bonusDrop enabled (type: "
+                  << static_cast<int>(bonusDrop.bonusType) << ", chance: " << bonusDrop.dropChance << ")" << std::endl;
+    }
 
     // Score based on enemy type
     int scoreValue = WAVE_DEFAULT_ENEMY_TYPE;

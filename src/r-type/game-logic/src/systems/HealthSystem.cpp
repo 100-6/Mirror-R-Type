@@ -21,7 +21,7 @@ void HealthSystem::init(Registry& registry)
     auto& eventBus = registry.get_event_bus();
 
     damageSubId_ = eventBus.subscribe<ecs::DamageEvent>(
-        [&registry](const ecs::DamageEvent& event) {
+        [this, &registry](const ecs::DamageEvent& event) {
             auto& healths = registry.get_components<Health>();
             auto& controllables = registry.get_components<Controllable>();
             auto& enemies = registry.get_components<Enemy>();
@@ -73,6 +73,16 @@ void HealthSystem::init(Registry& registry)
                                 scale
                             });
                         }
+
+                        // Check if enemy should drop a bonus
+                        if (enemies.has_entity(event.target)) {
+                            const Enemy& enemy = enemies[event.target];
+                            // FORCE BONUS_WEAPON DROP FOR TESTING - toujours drop un bonus weapon
+                            registry.get_event_bus().publish(ecs::BonusSpawnEvent{
+                                pos.x, pos.y, static_cast<int>(BonusType::BONUS_WEAPON)
+                            });
+                            std::cout << "[HealthSystem] FORCED BONUS_WEAPON spawn at (" << pos.x << ", " << pos.y << ")" << std::endl;
+                        }
                     }
                 }
 
@@ -97,4 +107,56 @@ void HealthSystem::update(Registry& registry, float dt)
 {
     (void)registry;
     (void)dt;
+}
+
+void HealthSystem::spawnBonusAtPosition(Registry& registry, BonusType type, float x, float y)
+{
+    constexpr float BONUS_RADIUS = 40.0f;  // Rayon plus grand pour être visible
+
+    // Couleur selon le type de bonus
+    engine::Color tint;
+    std::string typeName;
+    switch (type) {
+        case BonusType::HEALTH:
+            tint = engine::Color::Green;
+            typeName = "HP";
+            break;
+        case BonusType::SHIELD:
+            tint = engine::Color::Purple;
+            typeName = "Bouclier";
+            break;
+        case BonusType::SPEED:
+            tint = engine::Color::SpeedBlue;
+            typeName = "Vitesse";
+            break;
+        case BonusType::BONUS_WEAPON:
+            tint = engine::Color::Yellow;
+            typeName = "Arme Bonus";
+            break;
+    }
+
+    engine::Vector2f texSize = {BONUS_RADIUS * 2, BONUS_RADIUS * 2};
+
+    Entity bonus = registry.spawn_entity();
+    registry.add_component(bonus, Position{x, y});
+    registry.add_component(bonus, Bonus{type, BONUS_RADIUS});
+    registry.add_component(bonus, Collider{BONUS_RADIUS * 2, BONUS_RADIUS * 2});
+    registry.add_component(bonus, Scrollable{1.0f, false, true}); // Scroll et détruit hors écran
+
+    Sprite sprite{
+        engine::INVALID_HANDLE,  // Texture will be set client-side
+        texSize.x,
+        texSize.y,
+        0.0f,
+        tint,
+        0.0f,
+        0.0f,
+        0  // Layer
+    };
+    sprite.source_rect = {0.0f, 0.0f, 16.0f, 16.0f};
+    sprite.origin_x = texSize.x / 2.0f;
+    sprite.origin_y = texSize.y / 2.0f;
+    registry.add_component(bonus, sprite);
+
+    std::cout << "[HealthSystem] Spawned bonus " << typeName << " at (" << x << ", " << y << ")" << std::endl;
 }

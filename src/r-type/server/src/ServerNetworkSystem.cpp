@@ -91,6 +91,21 @@ void ServerNetworkSystem::init(Registry& registry)
                 pending_explosions_.push(payload);
             }
         });
+
+    // Subscribe to bonus collected events for network sync
+    bonusCollectedSubId_ = registry.get_event_bus().subscribe<ecs::BonusCollectedEvent>(
+        [this](const ecs::BonusCollectedEvent& event) {
+            // Map BonusType to PowerupType
+            protocol::PowerupType powerupType = protocol::PowerupType::WEAPON_UPGRADE;
+            switch (event.bonusType) {
+                case 0: powerupType = protocol::PowerupType::HEALTH; break;
+                case 1: powerupType = protocol::PowerupType::SHIELD; break;
+                case 2: powerupType = protocol::PowerupType::SPEED; break;
+                case 3: powerupType = protocol::PowerupType::WEAPON_UPGRADE; break;
+                default: powerupType = protocol::PowerupType::WEAPON_UPGRADE; break;
+            }
+            queue_powerup_collected(static_cast<uint32_t>(event.player), powerupType);
+        });
 }
 
 void ServerNetworkSystem::update(Registry& registry, float dt)
@@ -122,6 +137,9 @@ void ServerNetworkSystem::update(Registry& registry, float dt)
         snapshot_timer_ = 0.0f;
         tick_count_++;
     }
+
+    // Broadcast pending powerup events
+    broadcast_pending_powerups();
 }
 
 void ServerNetworkSystem::shutdown()
@@ -153,6 +171,19 @@ void ServerNetworkSystem::queue_entity_destroy(Entity entity)
 {
     std::lock_guard lock(destroys_mutex_);
     pending_destroys_.push(entity);
+}
+
+void ServerNetworkSystem::queue_powerup_collected(uint32_t player_id, protocol::PowerupType type)
+{
+    protocol::ServerPowerupCollectedPayload payload;
+    payload.player_id = ByteOrder::host_to_net32(player_id);
+    payload.powerup_type = type;
+    payload.new_weapon_level = 1;
+
+    std::lock_guard lock(powerups_mutex_);
+    pending_powerups_.push(payload);
+    std::cout << "[ServerNetworkSystem] Queued powerup collected: player=" << player_id
+              << " type=" << static_cast<int>(type) << std::endl;
 }
 
 void ServerNetworkSystem::process_pending_inputs(Registry& registry)
@@ -324,6 +355,26 @@ void ServerNetworkSystem::broadcast_pending_scores()
         payload.insert(payload.end(), bytes, bytes + sizeof(score));
         listener_->on_score_updated(session_id_, payload);
         pending_scores_.pop();
+    }
+}
+
+void ServerNetworkSystem::broadcast_pending_powerups()
+{
+    if (!listener_)
+        return;
+    while (!pending_powerups_.empty()) {
+        const auto& powerup = pending_powerups_.front();
+        std::vector<uint8_t> payload;
+        const uint8_t* bytes = reinterpret_cast<const uint8_t*>(&powerup);
+        payload.insert(payload.end(), bytes, bytes + sizeof(powerup));
+
+        // Send multiple times to ensure delivery (UDP can lose packets)
+        for (int i = 0; i < 5; ++i) {
+            listener_->on_powerup_collected(session_id_, payload);
+        }
+
+        pending_powerups_.pop();
+        std::cout << "[ServerNetworkSystem] Broadcast powerup collected to clients (5x for reliability)\n";
     }
 }
 

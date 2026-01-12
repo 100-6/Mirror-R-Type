@@ -40,6 +40,9 @@ inline constexpr const char* MAP_THUMBNAIL_BYDO = "assets/sprite/maps/bydo-map.p
 // ========== PLAYERS ==========
 inline constexpr const char* PLAYER_SPRITESHEET = "assets/sprite/players/spaceships.png";
 
+// ========== BONUS WEAPONS ==========
+inline constexpr const char* BONUS_WEAPON_SPRITE = "assets/sprite/vaisseau_bonus.png";
+
 // ========== ENEMIES ==========
 inline constexpr const char* ENEMY_BASIC = "assets/sprite/enemies/enemy.png";
 

@@ -8,6 +8,7 @@
 #include "systems/LocalPredictionSystem.hpp"
 #include "systems/ColliderDebugSystem.hpp"
 #include "systems/CollisionSystem.hpp"
+#include "systems/BonusSystem.hpp"
 #include "systems/MapConfigLoader.hpp"
 #include "protocol/NetworkConfig.hpp"
 #include "protocol/Payloads.hpp"
@@ -204,6 +205,9 @@ void ClientGame::setup_registry() {
     registry_->register_component<Projectile>();
     registry_->register_component<Enemy>();
     registry_->register_component<NoFriction>();
+    registry_->register_component<BonusWeapon>();
+    registry_->register_component<BonusLifetime>();
+    registry_->register_component<ToDestroy>();
     // Client-side extrapolation component
     registry_->register_component<LastServerState>();
 }
@@ -231,6 +235,9 @@ void ClientGame::setup_systems() {
     registry_->register_system<RenderSystem>(*graphics_plugin_);
     registry_->register_system<ColliderDebugSystem>(*graphics_plugin_);
     registry_->register_system<HUDSystem>(*graphics_plugin_, screen_width_, screen_height_);
+
+    // Bonus system - handles bonus collection and effects (with graphics for sprite loading)
+    registry_->register_system<BonusSystem>(graphics_plugin_, screen_width_, screen_height_);
 }
 
 void ClientGame::setup_background() {
@@ -492,6 +499,72 @@ void ClientGame::setup_network_callbacks() {
                 scores[entity].value = score.new_total_score;
             }
         }
+    });
+
+    network_client_->set_on_powerup_collected([this](const protocol::ServerPowerupCollectedPayload& powerup) {
+        // Only handle WEAPON_UPGRADE type (bonus weapon)
+        if (powerup.powerup_type != protocol::PowerupType::WEAPON_UPGRADE)
+            return;
+
+        std::cout << "[ClientGame] Received BONUS_WEAPON collected for player " << powerup.player_id << std::endl;
+
+        // Find the player entity
+        if (!entity_manager_->has_entity(powerup.player_id))
+            return;
+
+        Entity playerEntity = entity_manager_->get_entity(powerup.player_id);
+        auto& bonusWeapons = registry_->get_components<BonusWeapon>();
+        auto& positions = registry_->get_components<Position>();
+
+        // Check if player already has bonus weapon
+        if (bonusWeapons.has_entity(playerEntity)) {
+            std::cout << "[ClientGame] Player already has bonus weapon, ignoring" << std::endl;
+            return;
+        }
+
+        if (!positions.has_entity(playerEntity))
+            return;
+
+        const Position& playerPos = positions[playerEntity];
+
+        // Create the bonus weapon entity with sprite
+        Entity bonusWeaponEntity = registry_->spawn_entity();
+
+        // Size: percentage of original image (442x257)
+        constexpr float BONUS_SCALE_PERCENT = 15.0f;
+        float bonusWidth = 442.0f * (BONUS_SCALE_PERCENT / 100.0f);
+        float bonusHeight = 257.0f * (BONUS_SCALE_PERCENT / 100.0f);
+
+        // Position offset relative to player
+        float bonusOffsetX = 120.0f;
+        float bonusOffsetY = -70.0f;
+
+        registry_->add_component(bonusWeaponEntity, Position{playerPos.x + bonusOffsetX, playerPos.y + bonusOffsetY});
+        registry_->add_component(bonusWeaponEntity, Attached{playerEntity, bonusOffsetX, bonusOffsetY, 4.0f});
+
+        // Create sprite with bonus weapon texture
+        engine::TextureHandle bonusTex = texture_manager_->get_bonus_weapon();
+        Sprite bonusWeaponSprite{
+            bonusTex,
+            bonusWidth,
+            bonusHeight,
+            0.0f,
+            engine::Color::White,
+            0.0f,
+            0.0f,
+            15  // layer
+        };
+        bonusWeaponSprite.source_rect = {0.0f, 0.0f, 442.0f, 257.0f};
+        registry_->add_component(bonusWeaponEntity, bonusWeaponSprite);
+
+        // Mark player as having bonus weapon
+        registry_->add_component(playerEntity, BonusWeapon{bonusWeaponEntity, 0.0f, true});
+
+        std::cout << "[ClientGame] Created bonus weapon sprite for player " << powerup.player_id
+                  << " entity=" << bonusWeaponEntity
+                  << " at (" << (playerPos.x + bonusOffsetX) << "," << (playerPos.y + bonusOffsetY) << ")"
+                  << " size=" << bonusWidth << "x" << bonusHeight
+                  << " tex=" << bonusTex << std::endl;
     });
 
     network_client_->set_on_projectile_spawn([this](const protocol::ServerProjectileSpawnPayload& proj) {
