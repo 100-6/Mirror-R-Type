@@ -235,7 +235,7 @@ void ClientGame::setup_systems() {
 
     registry_->register_system<RenderSystem>(*graphics_plugin_);
     registry_->register_system<ColliderDebugSystem>(*graphics_plugin_);
-    registry_->register_system<HUDSystem>(*graphics_plugin_, screen_width_, screen_height_);
+    registry_->register_system<HUDSystem>(*graphics_plugin_, input_plugin_, screen_width_, screen_height_);
 }
 
 void ClientGame::setup_background() {
@@ -943,8 +943,25 @@ void ClientGame::run() {
                 auto& render_sys = registry_->get_system<RenderSystem>();
                 render_sys.set_skip_clear(true);
             }
-            
+
+            // Render HUD background image BEFORE systems (so text renders on top)
+            if (!hud_loaded_) {
+                hud_texture_ = graphics_plugin_->load_texture("assets/sprite/ui-hud.png");
+                hud_loaded_ = true;
+            }
+
+            if (hud_loaded_) {
+                engine::Sprite hud_sprite;
+                hud_sprite.texture_handle = hud_texture_;
+                hud_sprite.size = {static_cast<float>(screen_width_), static_cast<float>(screen_height_)};
+                hud_sprite.origin = {0.0f, 0.0f};
+                hud_sprite.tint = {255, 255, 255, 230};  // 230 alpha for slight transparency
+
+                graphics_plugin_->draw_sprite(hud_sprite, {0.0f, 0.0f});
+            }
+
             // Run ECS systems (RenderSystem will NOT clear since skip_clear is set)
+            // HUDSystem will render text on top of the HUD background image
             registry_->run_systems(dt);
         }
 
