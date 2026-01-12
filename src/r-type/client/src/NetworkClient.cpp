@@ -252,11 +252,11 @@ void NetworkClient::handle_packet(const engine::NetworkPacket& packet) {
 
     auto packet_type = static_cast<protocol::PacketType>(header.type);
 
-    // Log all non-snapshot packets to debug spawn issues
-    if (packet_type != protocol::PacketType::SERVER_SNAPSHOT &&
-        packet_type != protocol::PacketType::SERVER_DELTA_SNAPSHOT) {
-        std::cout << "[NetworkClient] Processing packet type: " << (int)packet_type << "\n";
-    }
+    // Log all non-snapshot packets to debug spawn issues (disabled for cleaner output)
+    // if (packet_type != protocol::PacketType::SERVER_SNAPSHOT &&
+    //     packet_type != protocol::PacketType::SERVER_DELTA_SNAPSHOT) {
+    //     std::cout << "[NetworkClient] Processing packet type: " << (int)packet_type << "\n";
+    // }
 
     switch (packet_type) {
         case protocol::PacketType::SERVER_ACCEPT:

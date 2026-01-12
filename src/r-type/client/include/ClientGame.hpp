@@ -105,6 +105,10 @@ private:
     Entity background1_;
     Entity background2_;
 
+    // HUD overlay
+    engine::TextureHandle hud_texture_;
+    bool hud_loaded_ = false;
+
     // Initialization helpers
     bool load_plugins();
     bool load_textures();

@@ -10,8 +10,9 @@
 #include <iomanip>
 #include <iostream>
 
-HUDSystem::HUDSystem(engine::IGraphicsPlugin& plugin, int screenWidth, int screenHeight)
+HUDSystem::HUDSystem(engine::IGraphicsPlugin& plugin, engine::IInputPlugin* inputPlugin, int screenWidth, int screenHeight)
     : m_graphicsPlugin(plugin)
+    , m_inputPlugin(inputPlugin)
     , m_screenWidth(screenWidth)
     , m_screenHeight(screenHeight)
 {
@@ -28,12 +29,12 @@ void HUDSystem::init(Registry& registry) {
 
     // Create health bar panel background
     m_healthPanelEntity = registry.spawn_entity();
-    registry.add_component(m_healthPanelEntity, Position{MARGIN, MARGIN});
+    registry.add_component(m_healthPanelEntity, Position{750.0f, 962.0f});
     registry.add_component(m_healthPanelEntity, UIPanel{
         HEALTH_BAR_WIDTH + 2 * PANEL_PADDING,  // width
         HEALTH_BAR_HEIGHT + 2 * PANEL_PADDING,  // height
         engine::Color{20, 20, 30, 200},         // backgroundColor
-        engine::Color{100, 100, 120, 255},      // borderColor
+        engine::Color{150, 100, 255, 255},      // borderColor (violet)
         2.0f,                                    // borderThickness
         true,                                    // active
         100                                      // layer
@@ -41,15 +42,15 @@ void HUDSystem::init(Registry& registry) {
 
     // Create health bar
     m_healthBarEntity = registry.spawn_entity();
-    registry.add_component(m_healthBarEntity, Position{MARGIN + PANEL_PADDING, MARGIN + PANEL_PADDING});
+    registry.add_component(m_healthBarEntity, Position{750.0f + PANEL_PADDING, 962.0f + PANEL_PADDING});
     registry.add_component(m_healthBarEntity, UIBar{
         HEALTH_BAR_WIDTH,                       // width
         HEALTH_BAR_HEIGHT,                      // height
         100.0f,                                  // currentValue
         100.0f,                                  // maxValue
         engine::Color{40, 40, 50, 255},         // backgroundColor
-        engine::Color{0, 255, 0, 255},          // fillColor
-        engine::Color{150, 150, 180, 255},      // borderColor
+        engine::Color{150, 100, 255, 255},      // fillColor (violet)
+        engine::Color{150, 100, 255, 255},      // borderColor (violet)
         2.0f,                                    // borderThickness
         true,                                    // active
         101                                      // layer
@@ -58,24 +59,24 @@ void HUDSystem::init(Registry& registry) {
     // Create health text
     m_healthTextEntity = registry.spawn_entity();
     registry.add_component(m_healthTextEntity, Position{
-        MARGIN + PANEL_PADDING + HEALTH_BAR_WIDTH / 2.0f - 50.0f,
-        MARGIN + PANEL_PADDING + 5.0f
+        750.0f + PANEL_PADDING + HEALTH_BAR_WIDTH / 2.0f - 50.0f,
+        962.0f + PANEL_PADDING + 5.0f
     });
     registry.add_component(m_healthTextEntity, UIText{
         "100 / 100",                            // text
-        engine::Color::White,                    // color
-        engine::Color{0, 0, 0, 180},            // shadowColor
+        engine::Color{0, 0, 0, 255},            // color (noir/black)
+        engine::Color{255, 255, 255, 80},       // shadowColor (white shadow)
         24,                                      // fontSize
         true,                                    // hasShadow
-        2.0f,                                    // shadowOffsetX
-        2.0f,                                    // shadowOffsetY
+        1.0f,                                    // shadowOffsetX
+        1.0f,                                    // shadowOffsetY
         true,                                    // active
         102                                      // layer
     });
 
     // Create "HEALTH" label
     m_healthLabelEntity = registry.spawn_entity();
-    registry.add_component(m_healthLabelEntity, Position{MARGIN + PANEL_PADDING, MARGIN + PANEL_PADDING - 20.0f});
+    registry.add_component(m_healthLabelEntity, Position{750.0f + PANEL_PADDING, 962.0f + PANEL_PADDING - 20.0f});
     registry.add_component(m_healthLabelEntity, UIText{
         "HEALTH",
         engine::Color{150, 150, 180, 255},
@@ -90,13 +91,13 @@ void HUDSystem::init(Registry& registry) {
 
     // Create score panel
     m_scorePanelEntity = registry.spawn_entity();
-    float scoreX = m_screenWidth - MARGIN - 350.0f;
-    registry.add_component(m_scorePanelEntity, Position{scoreX, MARGIN});
+    float scoreX = 1290.0f;
+    registry.add_component(m_scorePanelEntity, Position{scoreX, 93.0f});
     registry.add_component(m_scorePanelEntity, UIPanel{
         320.0f,                                  // width
         70.0f,                                   // height
         engine::Color{20, 20, 30, 200},
-        engine::Color{255, 215, 0, 255},        // Gold border
+        engine::Color{150, 100, 255, 255},      // borderColor (violet)
         3.0f,
         true,
         100
@@ -104,10 +105,10 @@ void HUDSystem::init(Registry& registry) {
 
     // Create score text
     m_scoreTextEntity = registry.spawn_entity();
-    registry.add_component(m_scoreTextEntity, Position{scoreX + 15.0f, MARGIN + 35.0f});
+    registry.add_component(m_scoreTextEntity, Position{scoreX + 15.0f, 93.0f + 35.0f});
     registry.add_component(m_scoreTextEntity, UIText{
         "00000000",
-        engine::Color{255, 215, 0, 255},        // Gold
+        engine::Color{150, 100, 255, 255},      // color (violet)
         engine::Color{0, 0, 0, 200},
         32,
         true,
@@ -119,7 +120,7 @@ void HUDSystem::init(Registry& registry) {
 
     // Create "SCORE" label
     m_scoreLabelEntity = registry.spawn_entity();
-    registry.add_component(m_scoreLabelEntity, Position{scoreX + 15.0f, MARGIN + 10.0f});
+    registry.add_component(m_scoreLabelEntity, Position{scoreX + 15.0f, 93.0f + 10.0f});
     registry.add_component(m_scoreLabelEntity, UIText{
         "SCORE",
         engine::Color{180, 180, 200, 255},
@@ -132,34 +133,7 @@ void HUDSystem::init(Registry& registry) {
         102
     });
 
-    // Create wave panel (center-top)
-    float waveX = (m_screenWidth / 2.0f) - 150.0f;
-    m_wavePanelEntity = registry.spawn_entity();
-    registry.add_component(m_wavePanelEntity, Position{waveX, MARGIN});
-    registry.add_component(m_wavePanelEntity, UIPanel{
-        300.0f,                                  // width
-        60.0f,                                   // height
-        engine::Color{20, 20, 30, 200},
-        engine::Color{100, 150, 255, 255},      // Blue border
-        3.0f,
-        true,
-        100
-    });
-
-    // Create wave text
-    m_waveTextEntity = registry.spawn_entity();
-    registry.add_component(m_waveTextEntity, Position{waveX + 150.0f - 80.0f, MARGIN + 15.0f});
-    registry.add_component(m_waveTextEntity, UIText{
-        "WAVE 0 / 0",
-        engine::Color{255, 255, 255, 255},
-        engine::Color{0, 0, 0, 200},
-        28,
-        true,
-        2.0f,
-        2.0f,
-        true,
-        102
-    });
+    // Wave text will be rendered directly in update() instead of using UIText entity
 
     std::cout << "✓ HUD UI entities created successfully!" << std::endl;
 }
@@ -182,6 +156,90 @@ void HUDSystem::update(Registry& registry, float dt) {
     auto& controllables = registry.get_components<Controllable>();
     auto& uipanels = registry.get_components<UIPanel>();
     auto& gameStates = registry.get_components<GameState>();
+    auto& positions = registry.get_components<Position>();
+
+    // EDIT MODE for positioning HUD elements
+    if (m_editMode && m_inputPlugin) {
+        // Select element with 1/2/3
+        if (m_inputPlugin->is_key_pressed(engine::Key::Num1)) {
+            m_selectedElement = 0;  // HEALTH
+            std::cout << "[HUD Edit Mode] Selected HEALTH" << std::endl;
+        }
+        if (m_inputPlugin->is_key_pressed(engine::Key::Num2)) {
+            m_selectedElement = 1;  // SCORE
+            std::cout << "[HUD Edit Mode] Selected SCORE" << std::endl;
+        }
+        if (m_inputPlugin->is_key_pressed(engine::Key::Num3)) {
+            m_selectedElement = 2;  // WAVE
+            std::cout << "[HUD Edit Mode] Selected WAVE" << std::endl;
+        }
+
+        // Get the entity to move based on selection
+        Entity selectedEntity = 0;
+        if (m_selectedElement == 0) selectedEntity = m_healthPanelEntity;
+        else if (m_selectedElement == 1) selectedEntity = m_scorePanelEntity;
+        else if (m_selectedElement == 2) selectedEntity = m_waveTextEntity;  // Move text directly instead of panel
+
+        if (positions.has_entity(selectedEntity)) {
+            Position& pos = positions[selectedEntity];
+            float originalX = pos.x;
+            float originalY = pos.y;
+
+            // Move with arrow keys or numpad (4=left, 6=right, 8=up, 2=down)
+            if (m_inputPlugin->is_key_pressed(engine::Key::Left) || m_inputPlugin->is_key_pressed(engine::Key::Numpad4)) {
+                pos.x -= m_moveSpeed;
+            }
+            if (m_inputPlugin->is_key_pressed(engine::Key::Right) || m_inputPlugin->is_key_pressed(engine::Key::Numpad6)) {
+                pos.x += m_moveSpeed;
+            }
+            if (m_inputPlugin->is_key_pressed(engine::Key::Up) || m_inputPlugin->is_key_pressed(engine::Key::Numpad8)) {
+                pos.y -= m_moveSpeed;
+            }
+            if (m_inputPlugin->is_key_pressed(engine::Key::Down) || m_inputPlugin->is_key_pressed(engine::Key::Numpad2)) {
+                pos.y += m_moveSpeed;
+            }
+
+            // Print coordinates with P
+            if (m_inputPlugin->is_key_pressed(engine::Key::P)) {
+                std::cout << "\n[HUD Edit Mode] Current Positions:" << std::endl;
+                if (m_selectedElement == 0) {
+                    std::cout << "HEALTH: x=" << pos.x << " y=" << pos.y << std::endl;
+                } else if (m_selectedElement == 1) {
+                    std::cout << "SCORE: x=" << pos.x << " y=" << pos.y << std::endl;
+                } else if (m_selectedElement == 2) {
+                    std::cout << "WAVE: x=" << pos.x << " y=" << pos.y << std::endl;
+                }
+            }
+        }
+
+        // Draw visual indicator for selected element
+        if (positions.has_entity(selectedEntity)) {
+            const Position& pos = positions[selectedEntity];
+            float width = 150, height = 30;  // Default size for text
+
+            if (uipanels.has_entity(selectedEntity)) {
+                const UIPanel& panel = uipanels[selectedEntity];
+                width = panel.width;
+                height = panel.height;
+            }
+
+            // Draw red outline around selected element
+            engine::Rectangle outline{pos.x - 5, pos.y - 5, width + 10, height + 10};
+            m_graphicsPlugin.draw_rectangle(outline, {255, 0, 0, 255});
+
+            // Draw label
+            std::string label = "";
+            if (m_selectedElement == 0) label = "HEALTH (Selected)";
+            else if (m_selectedElement == 1) label = "SCORE (Selected)";
+            else if (m_selectedElement == 2) label = "WAVE TEXT (Selected)";
+
+            m_graphicsPlugin.draw_text(label, {pos.x, pos.y - 30}, {255, 0, 0, 255}, engine::INVALID_HANDLE, 20);
+        }
+
+        // Draw instructions
+        m_graphicsPlugin.draw_text("Edit Mode: 1/2/3=Select | Arrows or Numpad 4826=Move | P=Print Coords",
+                                   {10, static_cast<float>(m_screenHeight - 30)}, {255, 255, 0, 255}, engine::INVALID_HANDLE, 16);
+    }
 
     // Check if game is over, victory, or not started - hide HUD elements
     bool hideHUD = false;
@@ -223,12 +281,7 @@ void HUDSystem::update(Registry& registry, float dt) {
     if (uitexts.has_entity(m_scoreLabelEntity)) {
         uitexts[m_scoreLabelEntity].active = !hideHUD;
     }
-    if (uipanels.has_entity(m_wavePanelEntity)) {
-        uipanels[m_wavePanelEntity].active = !hideHUD;
-    }
-    if (uitexts.has_entity(m_waveTextEntity)) {
-        uitexts[m_waveTextEntity].active = !hideHUD;
-    }
+    // Wave text is now rendered directly, no need to toggle entity
 
     // If HUD is hidden, don't update values
     if (hideHUD) {
@@ -269,9 +322,8 @@ void HUDSystem::update(Registry& registry, float dt) {
             healthBar.currentValue = m_healthBarAnimated;
             healthBar.maxValue = static_cast<float>(health.max);
 
-            // Dynamic color based on health percentage
-            float healthPercent = health.current / static_cast<float>(health.max);
-            healthBar.fillColor = getHealthColor(healthPercent);
+            // Keep violet color always
+            healthBar.fillColor = engine::Color{150, 100, 255, 255};
 
             // Update health text
             if (uitexts.has_entity(m_healthTextEntity)) {
@@ -282,7 +334,7 @@ void HUDSystem::update(Registry& registry, float dt) {
             // Player is dead - animate health to 0
             m_healthBarAnimated = lerp(m_healthBarAnimated, 0.0f, dt * 5.0f);
             healthBar.currentValue = m_healthBarAnimated;
-            healthBar.fillColor = getHealthColor(0.0f);  // Red color
+            healthBar.fillColor = engine::Color{150, 100, 255, 255};  // Keep violet even at 0
 
             // Update health text to show 0
             if (uitexts.has_entity(m_healthTextEntity)) {
@@ -308,34 +360,31 @@ void HUDSystem::update(Registry& registry, float dt) {
     }
 
     // Update wave indicator
+    // Render wave indicator directly with custom styling (no UIText entity)
     for (size_t i = 0; i < waveControllers.size(); ++i) {
         Entity waveEntity = waveControllers.get_entity_at(i);
         const WaveController& waveCtrl = waveControllers[waveEntity];
 
-        if (uitexts.has_entity(m_waveTextEntity)) {
-            UIText& waveText = uitexts[m_waveTextEntity];
-            auto& positions = registry.get_components<Position>();
-            float waveX = (m_screenWidth / 2.0f) - 150.0f;
+        // Position for wave display
+        float waveX = 105.0f;
+        float waveY = 95.0f;
 
-            if (waveCtrl.currentWaveNumber > 0) {
-                waveText.text = "WAVE " + std::to_string(waveCtrl.currentWaveNumber) +
-                               " / " + std::to_string(waveCtrl.totalWaveCount);
-                waveText.color = engine::Color{255, 255, 255, 255}; // White
-
-                if (positions.has_entity(m_waveTextEntity)) {
-                    Position& textPos = positions[m_waveTextEntity];
-                    textPos.x = waveX + 150.0f - 80.0f;
-                }
-            } else {
-                waveText.text = "PREPARING...";
-                waveText.color = engine::Color{200, 200, 200, 255}; // Gray
-
-                if (positions.has_entity(m_waveTextEntity)) {
-                    Position& textPos = positions[m_waveTextEntity];
-                    textPos.x = waveX + 150.0f - 70.0f;
-                }
-            }
+        std::string waveText;
+        if (waveCtrl.currentWaveNumber > 0) {
+            waveText = "WAVE " + std::to_string(waveCtrl.currentWaveNumber) +
+                       " / " + std::to_string(waveCtrl.totalWaveCount);
+        } else {
+            waveText = "PREPARING...";
         }
+
+        // Draw shadow for depth
+        engine::Vector2f shadowPos{waveX + 2, waveY + 2};
+        m_graphicsPlugin.draw_text(waveText, shadowPos, {0, 0, 0, 200}, engine::INVALID_HANDLE, 32);
+
+        // Draw main text in violet
+        engine::Vector2f textPos{waveX, waveY};
+        m_graphicsPlugin.draw_text(waveText, textPos, {150, 100, 255, 255}, engine::INVALID_HANDLE, 32);
+
         break; // Only one WaveController
     }
 }
