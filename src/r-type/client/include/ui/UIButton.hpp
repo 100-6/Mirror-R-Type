@@ -25,6 +25,7 @@ public:
     bool is_hovered() const { return hovered_; }
     bool is_enabled() const { return enabled_; }
     bool is_selected() const { return selected_; }
+    bool has_callback() const { return on_click_ != nullptr; }
     float get_x() const { return x_; }
     float get_y() const { return y_; }
     float get_width() const { return width_; }

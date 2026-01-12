@@ -1,14 +1,17 @@
 #include "ScreenManager.hpp"
+#include <string>
 
 namespace rtype::client {
 
 ScreenManager::ScreenManager(Registry& registry, int screen_width, int screen_height,
-                             engine::TextureHandle background_tex, engine::TextureHandle menu_bg_tex)
+                             engine::TextureHandle background_tex, engine::TextureHandle menu_bg_tex,
+                             engine::IGraphicsPlugin* graphics_plugin)
     : registry_(registry)
     , screen_width_(screen_width)
     , screen_height_(screen_height)
     , background_texture_(background_tex)
     , menu_background_texture_(menu_bg_tex)
+    , graphics_plugin_(graphics_plugin)
     , current_screen_(GameScreen::WAITING) {
 }
 
@@ -74,23 +77,16 @@ void ScreenManager::initialize() {
         200
     });
 
-    // Result screen text (hidden initially)
-    result_screen_text_ = registry_.spawn_entity();
-    registry_.add_component(result_screen_text_, Position{
-        static_cast<float>(screen_width_) / 2.0f - 150.0f,
-        static_cast<float>(screen_height_) / 2.0f - 50.0f
-    });
-    registry_.add_component(result_screen_text_, UIText{
-        "",
-        engine::Color::White,
-        engine::Color{0, 0, 0, 200},
-        48,
-        true,
-        4.0f,
-        4.0f,
-        false,
-        201
-    });
+    // Create back to menu button (centered at bottom)
+    float button_width = 300.0f;
+    float button_height = 60.0f;
+    float button_x = (screen_width_ - button_width) / 2.0f;
+    float button_y = screen_height_ - 130.0f;
+
+    back_to_menu_button_ = std::make_unique<rtype::UIButton>(
+        button_x, button_y, button_width, button_height, "Back to Menu"
+    );
+    back_to_menu_button_->set_enabled(false);  // Initially disabled
 }
 
 void ScreenManager::set_screen(GameScreen screen) {
@@ -130,17 +126,33 @@ void ScreenManager::show_waiting_screen() {
         texts[waiting_screen_text_].active = true;
 }
 
-void ScreenManager::show_result(bool victory) {
+void ScreenManager::load_result_textures() {
+    if (!result_textures_loaded_) {
+        win_background_texture_ = graphics_plugin_->load_texture("assets/sprite/backgrounds/win-screen.png");
+        loose_background_texture_ = graphics_plugin_->load_texture("assets/sprite/backgrounds/loose-screen.png");
+        result_textures_loaded_ = true;
+    }
+}
+
+void ScreenManager::show_result(bool victory, int final_score) {
     auto& sprites = registry_.get_components<Sprite>();
-    auto& texts = registry_.get_components<UIText>();
     auto& positions = registry_.get_components<Position>();
+
+    // Store the final score
+    final_score_ = final_score;
+
+    // Load result textures if not already loaded
+    load_result_textures();
+
+    // Choose the correct background texture based on victory/defeat
+    engine::TextureHandle bg_texture = victory ? win_background_texture_ : loose_background_texture_;
 
     // Recreate background sprite if needed
     if (!sprites.has_entity(result_screen_bg_) || !positions.has_entity(result_screen_bg_)) {
         result_screen_bg_ = registry_.spawn_entity();
         registry_.add_component(result_screen_bg_, Position{0.0f, 0.0f});
         registry_.add_component(result_screen_bg_, Sprite{
-            menu_background_texture_,
+            bg_texture,
             static_cast<float>(screen_width_),
             static_cast<float>(screen_height_),
             0.0f,
@@ -150,36 +162,51 @@ void ScreenManager::show_result(bool victory) {
             200
         });
     } else {
+        sprites[result_screen_bg_].texture = bg_texture;
         sprites[result_screen_bg_].tint = engine::Color::White;
     }
 
-    // Recreate result text if needed
-    if (!texts.has_entity(result_screen_text_) || !positions.has_entity(result_screen_text_)) {
-        result_screen_text_ = registry_.spawn_entity();
-        registry_.add_component(result_screen_text_, Position{
-            static_cast<float>(screen_width_) / 2.0f - 150.0f,
-            static_cast<float>(screen_height_) / 2.0f - 50.0f
-        });
-        registry_.add_component(result_screen_text_, UIText{
-            victory ? "VICTOIRE !" : "DEFAITE...",
-            victory ? engine::Color{100, 255, 100, 255} : engine::Color{255, 100, 100, 255},
-            engine::Color{0, 0, 0, 200},
-            48,
-            true,
-            4.0f,
-            4.0f,
-            true,
-            201
-        });
-    } else {
-        texts[result_screen_text_].text = victory ? "VICTOIRE !" : "DEFAITE...";
-        texts[result_screen_text_].color = victory
-            ? engine::Color{100, 255, 100, 255}
-            : engine::Color{255, 100, 100, 255};
-        texts[result_screen_text_].active = true;
-    }
+    // Enable the back to menu button
+    back_to_menu_button_->set_enabled(true);
 
     current_screen_ = victory ? GameScreen::VICTORY : GameScreen::DEFEAT;
+}
+
+void ScreenManager::update_result_screen(engine::IGraphicsPlugin* graphics, engine::IInputPlugin* input) {
+    if (current_screen_ == GameScreen::VICTORY || current_screen_ == GameScreen::DEFEAT) {
+        // Set callback if not already set
+        if (!back_to_menu_button_->has_callback()) {
+            back_to_menu_button_->set_on_click([this]() {
+                if (back_to_menu_callback_) {
+                    back_to_menu_callback_();
+                }
+            });
+        }
+
+        back_to_menu_button_->update(graphics, input);
+    }
+}
+
+void ScreenManager::draw_result_screen(engine::IGraphicsPlugin* graphics) {
+    if (current_screen_ == GameScreen::VICTORY || current_screen_ == GameScreen::DEFEAT) {
+        // Draw final score in large text centered
+        std::string score_text = "SCORE: " + std::to_string(final_score_);
+
+        // Position: centered horizontally, lower on screen
+        float text_x = screen_width_ / 2.0f - 340.0f;  // Better centered for large text
+        float text_y = 460.0f;
+
+        // Draw shadow for depth
+        engine::Vector2f shadow_pos{text_x + 6, text_y + 6};
+        graphics->draw_text(score_text, shadow_pos, {0, 0, 0, 200}, engine::INVALID_HANDLE, 120);
+
+        // Draw main text in violet
+        engine::Vector2f text_pos{text_x, text_y};
+        graphics->draw_text(score_text, text_pos, {150, 100, 255, 255}, engine::INVALID_HANDLE, 120);
+
+        // Draw button
+        back_to_menu_button_->draw(graphics);
+    }
 }
 
 }

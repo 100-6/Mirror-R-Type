@@ -563,7 +563,20 @@ void EntityManager::update_name_tags() {
     auto& positions = registry_.get_components<Position>();
     auto& sprites = registry_.get_components<Sprite>();
     auto& texts = registry_.get_components<UIText>();
+    auto& gameStates = registry_.get_components<GameState>();
     std::vector<uint32_t> orphan_tags;
+
+    // Check if game is over or victory - hide player names
+    bool hideNames = false;
+    for (size_t i = 0; i < gameStates.size(); ++i) {
+        Entity entity = gameStates.get_entity_at(i);
+        const GameState& state = gameStates[entity];
+        if (state.currentState == GameStateType::GAME_OVER ||
+            state.currentState == GameStateType::VICTORY) {
+            hideNames = true;
+            break;
+        }
+    }
 
     for (const auto& [server_id, text_entity] : player_name_tags_) {
         auto ent_it = server_to_local_.find(server_id);
@@ -576,6 +589,9 @@ void EntityManager::update_name_tags() {
         if (!positions.has_entity(player_entity) || !positions.has_entity(text_entity) ||
             !texts.has_entity(text_entity))
             continue;
+
+        // Hide or show name tag based on game state
+        texts[text_entity].active = !hideNames;
 
         const Position& player_pos = positions[player_entity];
         float sprite_height = 0.0f;

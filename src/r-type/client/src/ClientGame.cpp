@@ -14,6 +14,7 @@
 #include "plugin_manager/PluginPaths.hpp"
 #include "ecs/events/InputEvents.hpp"
 #include "ClientComponents.hpp"
+#include "components/GameComponents.hpp"
 #include <iostream>
 #include <chrono>
 #include <cmath>
@@ -67,9 +68,17 @@ bool ClientGame::initialize(const std::string& host, uint16_t tcp_port, const st
     screen_manager_ = std::make_unique<ScreenManager>(
         *registry_, screen_width_, screen_height_,
         texture_manager_->get_background(),
-        texture_manager_->get_menu_background()
+        texture_manager_->get_menu_background(),
+        graphics_plugin_
     );
     screen_manager_->initialize();
+
+    // Set callback for back to menu button
+    screen_manager_->set_back_to_menu_callback([this]() {
+        // Reset to main menu
+        menu_manager_->set_screen(GameScreen::MAIN_MENU);
+        screen_manager_->set_screen(GameScreen::MAIN_MENU);
+    });
 
     entity_manager_ = std::make_unique<EntityManager>(
         *registry_, *texture_manager_, screen_width_, screen_height_
@@ -211,6 +220,10 @@ void ClientGame::setup_registry() {
     registry_->register_component<NoFriction>();
     // Client-side extrapolation component
     registry_->register_component<LastServerState>();
+
+    // Create GameState entity for HUD visibility control
+    Entity gameStateEntity = registry_->spawn_entity();
+    registry_->add_component(gameStateEntity, GameState{GameStateType::PLAYING});
 }
 
 void ClientGame::setup_systems() {
@@ -694,7 +707,29 @@ void ClientGame::setup_network_callbacks() {
         bool victory = result.result == protocol::GameResult::VICTORY;
         status_overlay_->set_session(victory ? "Victory" : "Defeat");
         status_overlay_->refresh();
-        screen_manager_->show_result(victory);
+
+        // Get final score from local player
+        int final_score = 0;
+        auto& scores = registry_->get_components<Score>();
+        auto& localPlayers = registry_->get_components<LocalPlayer>();
+
+        for (size_t i = 0; i < localPlayers.size(); ++i) {
+            Entity playerEntity = localPlayers.get_entity_at(i);
+            if (scores.has_entity(playerEntity)) {
+                final_score = scores[playerEntity].value;
+                break;
+            }
+        }
+
+        // Set GameState to trigger HUD hiding
+        auto& gameStates = registry_->get_components<GameState>();
+        for (size_t i = 0; i < gameStates.size(); ++i) {
+            Entity entity = gameStates.get_entity_at(i);
+            gameStates[entity].currentState = victory ? GameStateType::VICTORY : GameStateType::GAME_OVER;
+            gameStates[entity].finalScore = final_score;
+        }
+
+        screen_manager_->show_result(victory, final_score);
     });
 
     network_client_->set_on_disconnected([this]() {
@@ -902,7 +937,8 @@ void ClientGame::run() {
 
             menu_manager_->draw(graphics_plugin_);
         } else if (in_result) {
-            // Result screen (victory/defeat) - only render, no game logic
+            // Result screen (victory/defeat) - update button and render
+            screen_manager_->update_result_screen(graphics_plugin_, input_plugin_);
             registry_->run_systems(dt);
         } else {
             // Game screen - run game systems
@@ -974,6 +1010,11 @@ void ClientGame::run() {
 
             // Render overlay
             debug_network_overlay_->render(*graphics_plugin_);
+        }
+
+        // Render result screen button (if on victory/defeat screen)
+        if (in_result) {
+            screen_manager_->draw_result_screen(graphics_plugin_);
         }
 
         graphics_plugin_->display();
