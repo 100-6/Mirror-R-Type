@@ -222,7 +222,6 @@ struct NetworkId {
     uint32_t server_entity_id = 0;  // Server-side entity ID for network sync
 };
 
-// Local player marker (client-side only) - used by HUD to find the right player
-struct LocalPlayer {};
+
 
 #endif /* !GAME_COMPONENTS_HPP_ */

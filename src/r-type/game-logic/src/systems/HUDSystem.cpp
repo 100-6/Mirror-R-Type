@@ -179,6 +179,7 @@ void HUDSystem::update(Registry& registry, float dt) {
     auto& uibars = registry.get_components<UIBar>();
     auto& uitexts = registry.get_components<UIText>();
     auto& waveControllers = registry.get_components<WaveController>();
+    auto& controllables = registry.get_components<Controllable>();
     auto& uipanels = registry.get_components<UIPanel>();
     auto& gameStates = registry.get_components<GameState>();
 
@@ -238,7 +239,7 @@ void HUDSystem::update(Registry& registry, float dt) {
     Entity playerEntity = 0;
     bool playerFound = false;
 
-    auto& localPlayers = registry.get_components<LocalPlayer>();
+
     for (size_t i = 0; i < localPlayers.size(); ++i) {
         playerEntity = localPlayers.get_entity_at(i);
         playerFound = true;

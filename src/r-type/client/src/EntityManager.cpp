@@ -366,7 +366,7 @@ Entity EntityManager::spawn_or_update_entity(uint32_t server_id, protocol::Entit
     }
 
     // Mark local player with LocalPlayer component for HUD to find
-    auto& localPlayers = registry_.get_components<LocalPlayer>();
+
     if (type == protocol::EntityType::PLAYER && highlight_as_local) {
         if (!localPlayers.has_entity(entity)) {
             registry_.add_component(entity, LocalPlayer{});
