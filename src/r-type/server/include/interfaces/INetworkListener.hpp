@@ -121,6 +121,20 @@ public:
      * @param payload Skin change data
      */
     virtual void on_client_set_player_skin(uint32_t client_id, const protocol::ClientSetPlayerSkinPayload& payload) = 0;
+
+    /**
+     * @brief Called when a client sends admin authentication
+     * @param client_id TCP client ID
+     * @param payload Admin auth data (password hash, username)
+     */
+    virtual void on_admin_auth(uint32_t client_id, const protocol::ClientAdminAuthPayload& payload) = 0;
+
+    /**
+     * @brief Called when a client sends admin command
+     * @param client_id TCP client ID
+     * @param payload Admin command data (command string)
+     */
+    virtual void on_admin_command(uint32_t client_id, const protocol::ClientAdminCommandPayload& payload) = 0;
 };
 
 }

@@ -13,12 +13,27 @@
 #include <iostream>
 #include <chrono>
 #include <thread>
+#include <sstream>
+#include <iomanip>
 
 namespace rtype::server {
 
 using netutils::ByteOrder;
 
-Server::Server(uint16_t tcp_port, uint16_t udp_port, bool listen_on_all_interfaces)
+namespace {
+std::string hash_password(const std::string& password)
+{
+    std::hash<std::string> hasher;
+    size_t hash_value = hasher(password);
+
+    std::ostringstream oss;
+    oss << std::hex << hash_value;
+    return oss.str();
+}
+}
+
+Server::Server(uint16_t tcp_port, uint16_t udp_port,
+               bool listen_on_all_interfaces, const std::string& admin_password)
     : network_plugin_(nullptr)
     , tcp_port_(tcp_port)
     , udp_port_(udp_port)
@@ -26,7 +41,13 @@ Server::Server(uint16_t tcp_port, uint16_t udp_port, bool listen_on_all_interfac
     , running_(false)
     , next_player_id_(1)
     , next_session_id_(1)
+    , total_connections_(0)
 {
+    if (!admin_password.empty()) {
+        std::string password_hash = hash_password(admin_password);
+        admin_manager_ = std::make_unique<AdminManager>(this, password_hash);
+        std::cout << "[Server] Admin system enabled\n";
+    }
 }
 
 Server::~Server()
@@ -67,10 +88,16 @@ bool Server::start()
     network_plugin_->set_on_client_disconnected([this](uint32_t client_id) {
         on_tcp_client_disconnected(client_id);
     });
+
+    server_start_time_ = std::chrono::steady_clock::now();
+
     running_ = true;
     std::cout << "[Server] Server started successfully\n";
     std::cout << "[Server] TCP port " << tcp_port_ << " - Connections, Lobby\n";
     std::cout << "[Server] UDP port " << udp_port_ << " - Gameplay\n";
+    if (admin_manager_) {
+        std::cout << "[Server] Admin interface enabled\n";
+    }
     std::cout << "[Server] Waiting for connections...\n";
     return true;
 }
@@ -953,6 +980,185 @@ void Server::broadcast_all_session_events()
             scores.pop();
         }
     }
+}
+
+std::vector<Server::AdminPlayerInfo> Server::get_connected_players() const
+{
+    std::lock_guard lock(connected_clients_mutex_);
+    std::vector<AdminPlayerInfo> result;
+
+    for (const auto& [client_id, info] : connected_clients_) {
+        result.push_back({
+            info.player_id,
+            info.client_id,
+            info.player_name,
+            info.in_game,
+            info.session_id
+        });
+    }
+    return result;
+}
+
+bool Server::kick_player(uint32_t player_id, const std::string& reason)
+{
+    std::lock_guard lock(connected_clients_mutex_);
+
+    auto it = player_to_client_.find(player_id);
+    if (it == player_to_client_.end())
+        return false;
+
+    uint32_t client_id = it->second;
+    std::cout << "[Server] Kicking player " << player_id << " (client " << client_id << "): " << reason << "\n";
+    protocol::ServerKickNotificationPayload kick_notification;
+    kick_notification.set_reason(reason);
+    packet_sender_->send_tcp_packet(client_id,
+                                   protocol::PacketType::SERVER_KICK_NOTIFICATION,
+                                   serialize(kick_notification));
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    network_plugin_->disconnect_client(client_id);
+    return true;
+}
+
+Server::ServerStats Server::get_server_stats() const
+{
+    auto now = std::chrono::steady_clock::now();
+    auto uptime = std::chrono::duration_cast<std::chrono::seconds>(
+        now - server_start_time_
+    ).count();
+    std::lock_guard lock(connected_clients_mutex_);
+    auto session_ids = session_manager_->get_active_session_ids();
+
+    return {
+        static_cast<uint32_t>(uptime),
+        static_cast<uint32_t>(connected_clients_.size()),
+        static_cast<uint32_t>(session_ids.size()),
+        total_connections_
+    };
+}
+
+uint32_t Server::pause_all_sessions()
+{
+    uint32_t count = 0;
+    auto session_ids = session_manager_->get_active_session_ids();
+
+    for (uint32_t session_id : session_ids) {
+        auto* session = session_manager_->get_session(session_id);
+        if (session) {
+            session->pause();
+            count++;
+        }
+    }
+    std::cout << "[Server] Paused " << count << " game session(s)\n";
+    return count;
+}
+
+uint32_t Server::resume_all_sessions()
+{
+    uint32_t count = 0;
+    auto session_ids = session_manager_->get_active_session_ids();
+
+    for (uint32_t session_id : session_ids) {
+        auto* session = session_manager_->get_session(session_id);
+        if (session) {
+            session->resume();
+            count++;
+        }
+    }
+    std::cout << "[Server] Resumed " << count << " game session(s)\n";
+    return count;
+}
+
+uint32_t Server::clear_enemies_all_sessions()
+{
+    uint32_t count = 0;
+    auto session_ids = session_manager_->get_active_session_ids();
+
+    for (uint32_t session_id : session_ids) {
+        auto* session = session_manager_->get_session(session_id);
+        if (session) {
+            session->clear_enemies();
+            count++;
+        }
+    }
+    std::cout << "[Server] Cleared enemies from " << count << " session(s)\n";
+    return count;
+}
+
+bool Server::clear_enemies_in_session(uint32_t session_id)
+{
+    auto* session = session_manager_->get_session(session_id);
+    if (!session) {
+        std::cout << "[Server] Session " << session_id << " not found\n";
+        return false;
+    }
+
+    session->clear_enemies();
+    std::cout << "[Server] Cleared enemies from session " << session_id << "\n";
+    return true;
+}
+
+void Server::on_admin_auth(uint32_t client_id,
+                           const protocol::ClientAdminAuthPayload& payload)
+{
+    std::string password_hash(payload.password_hash,
+                             strnlen(payload.password_hash, sizeof(payload.password_hash)));
+    std::string username(payload.username,
+                        strnlen(payload.username, sizeof(payload.username)));
+    protocol::ServerAdminAuthResultPayload response;
+
+    if (!admin_manager_) {
+        response.success = 0;
+        response.set_failure_reason("Admin system not enabled on server");
+    } else if (!admin_manager_->verify_password(password_hash)) {
+        response.success = 0;
+        response.set_failure_reason("Invalid password");
+        std::cout << "[Server] Failed admin auth from client " << client_id << "\n";
+    } else {
+        response.success = 1;
+        response.admin_level = ByteOrder::host_to_net32(1);
+        std::lock_guard lock(connected_clients_mutex_);
+        auto it = connected_clients_.find(client_id);
+        if (it != connected_clients_.end()) {
+            it->second.is_admin = true;
+            it->second.admin_username = username;
+        }
+        std::cout << "[Server] Admin authenticated: " << username << "\n";
+    }
+    packet_sender_->send_tcp_packet(client_id,
+                                   protocol::PacketType::SERVER_ADMIN_AUTH_RESULT,
+                                   serialize(response));
+}
+
+void Server::on_admin_command(uint32_t client_id,
+                              const protocol::ClientAdminCommandPayload& payload)
+{
+    uint32_t admin_id = ByteOrder::net_to_host32(payload.admin_id);
+    std::string command = payload.get_command();
+    bool is_admin = false;
+
+    {
+        std::lock_guard lock(connected_clients_mutex_);
+        auto it = connected_clients_.find(client_id);
+        if (it != connected_clients_.end())
+            is_admin = it->second.is_admin;
+    }
+    protocol::ServerAdminCommandResultPayload response;
+    if (!is_admin) {
+        response.success = 0;
+        response.set_message("Not authenticated as admin");
+    } else if (!admin_manager_) {
+        response.success = 0;
+        response.set_message("Admin system not enabled");
+    } else {
+        auto result = admin_manager_->execute_command(admin_id, command);
+        response.success = result.success ? 1 : 0;
+        response.set_message(result.message);
+        std::cout << "[Server] Admin command: " << command
+                  << " -> " << (result.success ? "OK" : "FAILED") << "\n";
+    }
+    packet_sender_->send_tcp_packet(client_id,
+                                   protocol::PacketType::SERVER_ADMIN_COMMAND_RESULT,
+                                   serialize(response));
 }
 
 }

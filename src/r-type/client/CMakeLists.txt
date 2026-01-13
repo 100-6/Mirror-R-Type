@@ -15,6 +15,7 @@ set(RTYPE_CLIENT_SOURCES
     src/ui/UIButton.cpp
     src/ui/UITextField.cpp
     src/ui/UILabel.cpp
+    src/ui/ConsoleOverlay.cpp
     # Screen classes
     src/screens/MainMenuScreen.cpp
     src/screens/CreateRoomScreen.cpp

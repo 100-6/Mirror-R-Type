@@ -181,6 +181,24 @@ void UITextField::handle_text_input(engine::IInputPlugin* input) {
             key_repeat_timer_ -= 0.016f;
             return;
         }
+
+        if (input->is_key_pressed(engine::Key::Num8)) {
+            if (last_key_ != engine::Key::Num8 || key_repeat_timer_ <= 0.0f) {
+                bool shift = input->is_key_pressed(engine::Key::LShift) ||
+                            input->is_key_pressed(engine::Key::RShift);
+                if (shift) {
+                    text_ += '_';
+                    if (on_change_) {
+                        on_change_(text_);
+                    }
+                    last_key_ = engine::Key::Num8;
+                    key_repeat_timer_ = KEY_REPEAT_DELAY;
+                }
+            }
+            key_repeat_timer_ -= 0.016f;
+            if (input->is_key_pressed(engine::Key::LShift) || input->is_key_pressed(engine::Key::RShift))
+                return;
+        }
     }
 
     // Reset if no key is pressed

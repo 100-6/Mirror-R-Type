@@ -31,6 +31,9 @@
 #include "interfaces/ILobbyListener.hpp"
 #include "interfaces/IGameSessionListener.hpp"
 
+#include "AdminManager.hpp"
+#include <chrono>
+
 namespace rtype::server {
 
 /**
@@ -55,13 +58,39 @@ class Server : public INetworkListener, public ILobbyListener, public IGameSessi
 public:
     explicit Server(uint16_t tcp_port = config::DEFAULT_TCP_PORT,
                     uint16_t udp_port = config::DEFAULT_UDP_PORT,
-                    bool listen_on_all_interfaces = false);
+                    bool listen_on_all_interfaces = false,
+                    const std::string& admin_password = "");
     ~Server();
 
     bool start();
     void stop();
     void run();
     bool is_running() const { return running_; }
+
+    struct AdminPlayerInfo {
+        uint32_t player_id;
+        uint32_t client_id;
+        std::string player_name;
+        bool in_game;
+        uint32_t session_id;
+    };
+
+    struct ServerStats {
+        uint32_t uptime_seconds;
+        uint32_t connected_players;
+        uint32_t active_sessions;
+        uint32_t total_connections;
+    };
+
+    std::vector<AdminPlayerInfo> get_connected_players() const;
+    bool kick_player(uint32_t player_id, const std::string& reason);
+    ServerStats get_server_stats() const;
+
+    // Tier 2 - Game control methods
+    uint32_t pause_all_sessions();
+    uint32_t resume_all_sessions();
+    uint32_t clear_enemies_all_sessions();
+    bool clear_enemies_in_session(uint32_t session_id);
 
 private:
     void on_client_connect(uint32_t client_id, const protocol::ClientConnectPayload& payload) override;
@@ -79,6 +108,9 @@ private:
     void on_client_start_game(uint32_t client_id, const protocol::ClientStartGamePayload& payload) override;
     void on_client_set_player_name(uint32_t client_id, const protocol::ClientSetPlayerNamePayload& payload) override;
     void on_client_set_player_skin(uint32_t client_id, const protocol::ClientSetPlayerSkinPayload& payload) override;
+
+    void on_admin_auth(uint32_t client_id, const protocol::ClientAdminAuthPayload& payload) override;
+    void on_admin_command(uint32_t client_id, const protocol::ClientAdminCommandPayload& payload) override;
 
     void on_lobby_state_changed(uint32_t lobby_id, const std::vector<uint8_t>& payload) override;
     void on_countdown_tick(uint32_t lobby_id, uint8_t seconds_remaining) override;
@@ -118,7 +150,7 @@ private:
     bool listen_on_all_interfaces_;
     std::atomic<bool> running_;
 
-    std::mutex connected_clients_mutex_;
+    mutable std::mutex connected_clients_mutex_;
     std::unordered_map<uint32_t, PlayerInfo> connected_clients_;
     std::unordered_map<uint32_t, uint32_t> player_to_client_;
     uint32_t next_player_id_;
@@ -126,6 +158,10 @@ private:
     LobbyManager lobby_manager_;
     RoomManager room_manager_;
     uint32_t next_session_id_;
+
+    std::unique_ptr<AdminManager> admin_manager_;
+    std::chrono::steady_clock::time_point server_start_time_;
+    uint32_t total_connections_;
 };
 
 }

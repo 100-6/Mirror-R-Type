@@ -1,6 +1,7 @@
 add_executable(r-type_server
     src/main.cpp
     src/Server.cpp
+    src/AdminManager.cpp
     src/NetworkHandler.cpp
     src/PacketSender.cpp
     src/GameSessionManager.cpp

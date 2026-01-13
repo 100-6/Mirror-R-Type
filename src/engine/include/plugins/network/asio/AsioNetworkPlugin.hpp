@@ -49,6 +49,7 @@ public:
     bool start_server(uint16_t tcp_port, uint16_t udp_port, bool listen_on_all_interfaces);
     void stop_server() override;
     bool is_server_running() const override;
+    void disconnect_client(ClientId client_id) override;
 
     // Client operations
     bool connect_tcp(const std::string& host, uint16_t port) override;
