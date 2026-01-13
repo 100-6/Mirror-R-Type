@@ -9,6 +9,7 @@
 #include "systems/ColliderDebugSystem.hpp"
 #include "systems/CollisionSystem.hpp"
 #include "systems/BonusSystem.hpp"
+#include "systems/BonusWeaponSystem.hpp"
 #include "systems/MapConfigLoader.hpp"
 #include "protocol/NetworkConfig.hpp"
 #include "protocol/Payloads.hpp"
@@ -264,6 +265,9 @@ void ClientGame::setup_systems() {
 
     // Bonus system - handles bonus collection and effects (with graphics for sprite loading)
     registry_->register_system<BonusSystem>(graphics_plugin_, screen_width_, screen_height_);
+
+    // Bonus Weapon system - handles companion turret that follows player
+    registry_->register_system<BonusWeaponSystem>(graphics_plugin_);
 }
 
 void ClientGame::setup_background() {

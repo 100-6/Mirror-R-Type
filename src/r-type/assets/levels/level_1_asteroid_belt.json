@@ -135,7 +135,19 @@
           },
           "formation": "tank_introduction",
           "spawns": [
-            {"type": "enemy", "enemyType": "tank", "positionX": 5000, "positionY": 400, "count": 1, "pattern": "single"},
+            {
+              "type": "enemy",
+              "enemyType": "tank",
+              "positionX": 5000,
+              "positionY": 400,
+              "count": 1,
+              "pattern": "single",
+              "bonusDrop": {
+                "enabled": true,
+                "bonusType": "health",
+                "dropChance": 0.8
+              }
+            },
             {"type": "enemy", "enemyType": "basic", "positionX": 5100, "positionY": 250, "count": 2, "pattern": "line", "spacing": 100},
             {"type": "enemy", "enemyType": "basic", "positionX": 5100, "positionY": 550, "count": 2, "pattern": "line", "spacing": 100}
           ]

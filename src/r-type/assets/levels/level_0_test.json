@@ -40,7 +40,20 @@
           "trigger": {"scrollDistance": 900, "timeDelay": 0},
           "formation": "test_wave_3",
           "spawns": [
-            {"type": "enemy", "enemyType": "basic", "positionX": 2100, "positionY": 500, "count": 1, "pattern": "single", "spacing": 0}
+            {
+              "type": "enemy",
+              "enemyType": "basic",
+              "positionX": 2100,
+              "positionY": 500,
+              "count": 1,
+              "pattern": "single",
+              "spacing": 0,
+              "bonusDrop": {
+                "enabled": true,
+                "bonusType": "shield",
+                "dropChance": 1.0
+              }
+            }
           ]
         }
       ]

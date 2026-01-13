@@ -83,7 +83,20 @@
           "trigger": {"scrollDistance": 2800, "timeDelay": 0},
           "formation": "mixed_chaos",
           "spawns": [
-            {"type": "enemy", "enemyType": "tank", "positionX": 2900, "positionY": 400, "count": 2, "pattern": "line", "spacing": 200},
+            {
+              "type": "enemy",
+              "enemyType": "tank",
+              "positionX": 2900,
+              "positionY": 400,
+              "count": 2,
+              "pattern": "line",
+              "spacing": 200,
+              "bonusDrop": {
+                "enabled": true,
+                "bonusType": "bonus_weapon",
+                "dropChance": 1.0
+              }
+            },
             {"type": "enemy", "enemyType": "fast", "positionX": 3000, "positionY": 250, "count": 3, "pattern": "line", "spacing": 90},
             {"type": "enemy", "enemyType": "fast", "positionX": 3000, "positionY": 700, "count": 3, "pattern": "line", "spacing": 90}
           ]
