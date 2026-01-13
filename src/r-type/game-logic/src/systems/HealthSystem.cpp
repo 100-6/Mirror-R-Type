@@ -74,14 +74,30 @@ void HealthSystem::init(Registry& registry)
                             });
                         }
 
-                        // Check if enemy should drop a bonus
-                        if (enemies.has_entity(event.target)) {
-                            const Enemy& enemy = enemies[event.target];
-                            // FORCE BONUS_WEAPON DROP FOR TESTING - toujours drop un bonus weapon
+                        // Random chance to drop a bonus (20% chance)
+                        std::uniform_real_distribution<float> drop_chance(0.0f, 1.0f);
+                        constexpr float BONUS_DROP_RATE = 0.20f;  // 20% chance to drop
+
+                        if (drop_chance(rng) <= BONUS_DROP_RATE) {
+                            // Choose random bonus type: only HEALTH and BONUS_WEAPON
+                            std::uniform_int_distribution<int> bonus_type_dist(0, 1);
+                            int bonus_type_id = bonus_type_dist(rng);
+                            BonusType bonus_type;
+                            std::string bonus_name;
+
+                            if (bonus_type_id == 0) {
+                                bonus_type = BonusType::HEALTH;
+                                bonus_name = "HEALTH";
+                            } else {
+                                bonus_type = BonusType::BONUS_WEAPON;
+                                bonus_name = "BONUS_WEAPON";
+                            }
+
                             registry.get_event_bus().publish(ecs::BonusSpawnEvent{
-                                pos.x, pos.y, static_cast<int>(BonusType::BONUS_WEAPON)
+                                pos.x, pos.y, static_cast<int>(bonus_type)
                             });
-                            std::cout << "[HealthSystem] FORCED BONUS_WEAPON spawn at (" << pos.x << ", " << pos.y << ")" << std::endl;
+                            std::cout << "[HealthSystem] Enemy dropped " << bonus_name
+                                      << " bonus at (" << pos.x << ", " << pos.y << ")" << std::endl;
                         }
                     }
                 }

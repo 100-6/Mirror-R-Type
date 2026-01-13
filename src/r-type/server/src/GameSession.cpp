@@ -53,6 +53,7 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
     , is_active_(true)
     , tick_count_(0)
     , current_scroll_(0.0f)
+    , scroll_speed_(config::GAME_SCROLL_SPEED)
     , session_start_time_(std::chrono::steady_clock::now())
 {
     std::cout << "[GameSession " << session_id_ << "] Created (mode: " << static_cast<int>(game_mode)
@@ -63,6 +64,7 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
     registry_.register_component<Health>();
     registry_.register_component<Controllable>();
     registry_.register_component<Enemy>();
+    registry_.register_component<AI>();
     registry_.register_component<NoFriction>();
     registry_.register_component<ToDestroy>();
     registry_.register_component<Collider>();
@@ -116,6 +118,20 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
                 if (player.entity == event.entity && player.is_alive) {
                     std::cout << "[GameSession " << session_id_ << "] Player " << player_id << " died!\n";
                     player.is_alive = false;
+
+                    // Destroy companion turret (BonusWeapon) if player has one
+                    auto& bonusWeapons = registry_.get_components<BonusWeapon>();
+                    if (bonusWeapons.has_entity(event.entity)) {
+                        const BonusWeapon& bonusWeapon = bonusWeapons[event.entity];
+                        if (bonusWeapon.weaponEntity != static_cast<size_t>(-1)) {
+                            Entity companionEntity = static_cast<Entity>(bonusWeapon.weaponEntity);
+                            registry_.add_component(companionEntity, ToDestroy{});
+                            if (network_system_)
+                                network_system_->queue_entity_destroy(companionEntity);
+                            std::cout << "[GameSession " << session_id_ << "] Destroyed companion turret for player " << player_id << "\n";
+                        }
+                    }
+
                     if (network_system_)
                         network_system_->queue_entity_destroy(event.entity);
                     check_game_over();
@@ -136,7 +152,8 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
             BonusType type = static_cast<BonusType>(event.bonusType);
             registry_.add_component(bonus, Bonus{type, config::BONUS_SIZE / 2.0f});
             registry_.add_component(bonus, NoFriction{});
-            registry_.add_component(bonus, BonusLifetime{10.0f});
+            registry_.add_component(bonus, Scrollable{1.0f, false, true}); // Scroll and destroy when off-screen
+            registry_.add_component(bonus, BonusLifetime{15.0f}); // 15 seconds max lifetime
 
             // Determine EntityType for network
             EntityType entityType = EntityType::BONUS_HEALTH;
@@ -168,27 +185,29 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
     load_map_segments(map_id);
 }
 
-void GameSession::add_player(uint32_t player_id, const std::string& player_name)
+void GameSession::add_player(uint32_t player_id, const std::string& player_name, uint8_t skin_id)
 {
     if (players_.find(player_id) != players_.end()) {
         std::cerr << "[GameSession " << session_id_ << "] Player " << player_id << " already in session\n";
         return;
     }
-    GamePlayer player(player_id, player_name);
+    GamePlayer player(player_id, player_name, skin_id);
     spawn_player_entity(player);
     players_[player_id] = player;
     player_entities_[player_id] = player.entity;
     std::cout << "[GameSession " << session_id_ << "] Player " << player_id << " (" << player_name
-              << ") added (entity ID: " << player.entity << ")\n";
+              << ") added with skin " << static_cast<int>(skin_id) << " (entity ID: " << player.entity << ")\n";
     if (network_system_) {
         float spawn_y = config::PLAYER_SPAWN_Y_BASE + ((players_.size() - 1) * config::PLAYER_SPAWN_Y_OFFSET);
+        // Encode both player_id and skin_id in subtype: high 4 bits = player_id, low 4 bits = skin_id
+        uint8_t subtype = static_cast<uint8_t>(((player_id & 0x0F) << 4) | (skin_id & 0x0F));
         network_system_->queue_entity_spawn(
             player.entity,
             EntityType::PLAYER,
             config::PLAYER_SPAWN_X,
             spawn_y,
             config::PLAYER_MAX_HEALTH,
-            static_cast<uint8_t>(player_id)
+            subtype
         );
     }
 }
@@ -220,7 +239,7 @@ void GameSession::update(float delta_time)
     if (!is_active_)
         return;
     tick_count_++;
-    current_scroll_ += config::GAME_SCROLL_SPEED * delta_time;
+    current_scroll_ += scroll_speed_ * delta_time;
     
     // Spawn walls from map tiles as they come into view
     spawn_walls_in_view();
@@ -323,6 +342,7 @@ void GameSession::on_spawn_enemy(const std::string& enemy_type, float x, float y
     float height = config::ENEMY_BASIC_HEIGHT;
     EntityType entity_type = EntityType::ENEMY_BASIC;
     protocol::EnemySubtype subtype = protocol::EnemySubtype::BASIC;
+    EnemyType ai_type = EnemyType::Basic;
 
     if (enemy_type == "fast") {
         velocity_x = -config::ENEMY_FAST_SPEED;
@@ -331,6 +351,7 @@ void GameSession::on_spawn_enemy(const std::string& enemy_type, float x, float y
         height = config::ENEMY_FAST_HEIGHT;
         entity_type = EntityType::ENEMY_FAST;
         subtype = protocol::EnemySubtype::FAST;
+        ai_type = EnemyType::Fast;
     } else if (enemy_type == "tank") {
         velocity_x = -config::ENEMY_TANK_SPEED;
         health = config::ENEMY_TANK_HEALTH;
@@ -338,6 +359,7 @@ void GameSession::on_spawn_enemy(const std::string& enemy_type, float x, float y
         height = config::ENEMY_TANK_HEIGHT;
         entity_type = EntityType::ENEMY_TANK;
         subtype = protocol::EnemySubtype::TANK;
+        ai_type = EnemyType::Tank;
     } else if (enemy_type == "boss") {
         velocity_x = -config::ENEMY_BOSS_SPEED;
         health = config::ENEMY_BOSS_HEALTH;
@@ -345,12 +367,19 @@ void GameSession::on_spawn_enemy(const std::string& enemy_type, float x, float y
         height = config::ENEMY_BOSS_HEIGHT;
         entity_type = EntityType::ENEMY_BOSS;
         subtype = protocol::EnemySubtype::BOSS;
+        ai_type = EnemyType::Boss;
     }
     float center_x = x + width / 2.0f;
     float center_y = y + height / 2.0f;
     registry_.add_component(enemy, Position{center_x, center_y});
     registry_.add_component(enemy, Velocity{velocity_x, 0.0f});
     registry_.add_component(enemy, Health{static_cast<int>(health), static_cast<int>(health)});
+
+    // Add AI component for enemy type detection in snapshots
+    AI ai;
+    ai.type = ai_type;
+    ai.moveSpeed = std::abs(velocity_x);
+    registry_.add_component(enemy, ai);
 
     // Convert BonusDropConfig to BonusDrop component
     BonusDrop drop;
@@ -378,7 +407,7 @@ void GameSession::on_spawn_enemy(const std::string& enemy_type, float x, float y
     std::cout << "\n";
 
     if (network_system_)
-        network_system_->queue_entity_spawn(enemy, entity_type, x, y, health, static_cast<uint8_t>(subtype));
+        network_system_->queue_entity_spawn(enemy, entity_type, center_x, center_y, health, static_cast<uint8_t>(subtype));
 }
 
 void GameSession::on_spawn_wall(float x, float y)
@@ -388,36 +417,25 @@ void GameSession::on_spawn_wall(float x, float y)
     float center_y = y + config::WALL_HEIGHT / 2.0f;
 
     registry_.add_component(wall, Position{center_x, center_y});
-    registry_.add_component(wall, Velocity{-config::GAME_SCROLL_SPEED, 0.0f});
+    registry_.add_component(wall, Velocity{-scroll_speed_, 0.0f});
     registry_.add_component(wall, Collider{config::WALL_WIDTH, config::WALL_HEIGHT});
     registry_.add_component(wall, Wall{});
     registry_.add_component(wall, NoFriction{});
     registry_.add_component(wall, Health{65535, 65535});
     std::cout << "[GameSession " << session_id_ << "] Spawned wall " << wall << " at (" << x << ", " << y << ")\n";
-    if (network_system_)
-        network_system_->queue_entity_spawn(wall, EntityType::WALL, x, y, 65535, 0);
+
+    // DO NOT send walls to client - client loads walls from tilemap via ChunkManager
+    // Server uses these walls for server-side collision validation only
+    // if (network_system_)
+    //     network_system_->queue_entity_spawn(wall, EntityType::WALL, center_x, center_y, 65535, 0);
 }
 
 void GameSession::on_spawn_powerup(const std::string& bonus_type, float x, float y)
 {
-    Entity powerup = registry_.spawn_entity();
-    float center_x = x + config::BONUS_SIZE / 2.0f;
-    float center_y = y + config::BONUS_SIZE / 2.0f;
-
-    registry_.add_component(powerup, Position{center_x, center_y});
-    registry_.add_component(powerup, Velocity{-config::GAME_SCROLL_SPEED, 0.0f});
-    registry_.add_component(powerup, Collider{config::BONUS_SIZE, config::BONUS_SIZE});
-    registry_.add_component(powerup, Bonus{});
-    registry_.add_component(powerup, NoFriction{});
-    std::cout << "[GameSession " << session_id_ << "] Spawned " << bonus_type << " powerup " << powerup
-              << " at (" << x << ", " << y << ")\n";
-    EntityType entity_type = EntityType::BONUS_HEALTH;
-    if (bonus_type == "shield")
-        entity_type = EntityType::BONUS_SHIELD;
-    else if (bonus_type == "speed")
-        entity_type = EntityType::BONUS_SPEED;
-    if (network_system_)
-        network_system_->queue_entity_spawn(powerup, entity_type, x, y, 0, 0);
+    // Disabled: powerups only come from enemy drops now
+    (void)bonus_type;
+    (void)x;
+    (void)y;
 }
 
 void GameSession::on_snapshot_ready(uint32_t session_id, const std::vector<uint8_t>& snapshot)
@@ -523,9 +541,11 @@ void GameSession::resync_client(uint32_t player_id, uint32_t tcp_client_id)
             uint16_t health = 100;
             if (healths.has_entity(player.entity))
                 health = healths[player.entity].current;
+            // Encode both player_id and skin_id in subtype: high 4 bits = player_id, low 4 bits = skin_id
+            uint8_t subtype = static_cast<uint8_t>(((pid & 0x0F) << 4) | (player.skin_id & 0x0F));
             network_system_->queue_entity_spawn(
                 player.entity, EntityType::PLAYER,
-                pos.x, pos.y, health, static_cast<uint8_t>(pid)
+                pos.x, pos.y, health, subtype
             );
             entity_count++;
         }
@@ -583,6 +603,9 @@ void GameSession::load_map_segments(uint16_t map_id)
 
     try {
         map_config_ = rtype::MapConfigLoader::loadMapById(map_folder);
+        scroll_speed_ = (map_config_.baseScrollSpeed > 0.0f)
+            ? map_config_.baseScrollSpeed
+            : config::GAME_SCROLL_SPEED;
         tile_size_ = map_config_.tileSize;
 
         std::string segments_dir = map_config_.basePath + "/segments";
@@ -665,15 +688,17 @@ void GameSession::spawn_walls_in_view()
 
                 Entity wall = registry_.spawn_entity();
                 registry_.add_component(wall, Position{center_x, center_y});
-                registry_.add_component(wall, Velocity{-config::GAME_SCROLL_SPEED, 0.0f});
+                registry_.add_component(wall, Velocity{-scroll_speed_, 0.0f});
                 registry_.add_component(wall, Collider{wall_width, wall_height});
                 registry_.add_component(wall, Wall{});
                 registry_.add_component(wall, NoFriction{});
                 registry_.add_component(wall, Health{65535, 65535});
 
-                if (network_system_)
-                    network_system_->queue_entity_spawn(wall, EntityType::WALL,
-                        tile_world_x, static_cast<float>(y * tile_size_), 65535, 0);
+                // DO NOT send walls to client - client loads walls from tilemap via ChunkManager
+                // Server uses these walls for server-side collision validation only
+                // if (network_system_)
+                //     network_system_->queue_entity_spawn(wall, EntityType::WALL,
+                //         center_x, center_y, 65535, 0);
             }
         }
 

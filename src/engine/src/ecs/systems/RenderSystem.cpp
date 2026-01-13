@@ -75,24 +75,6 @@ void RenderSystem::update(Registry& registry, float dt)
             return a.layer < b.layer;
         });
 
-    // DEBUG: Log sprites with layer 15 (bonus weapon layer)
-    static int debug_counter = 0;
-    debug_counter++;
-    if (debug_counter % 120 == 0) { // Log every 2 seconds
-        for (const auto& render_data : render_queue) {
-            const Sprite& s = sprites.get_data_by_entity_id(render_data.entity);
-            if (s.layer == 15) { // Bonus weapon layer
-                const Position& p = positions.get_data_by_entity_id(render_data.entity);
-                std::cout << "[RenderSystem] BONUS WEAPON SPRITE: entity=" << render_data.entity
-                          << " pos=(" << p.x << "," << p.y << ")"
-                          << " size=" << s.width << "x" << s.height
-                          << " tex=" << s.texture
-                          << " source_rect=(" << s.source_rect.x << "," << s.source_rect.y
-                          << "," << s.source_rect.width << "," << s.source_rect.height << ")"
-                          << std::endl;
-            }
-        }
-    }
 
     // Dessiner toutes les entités dans l'ordre des layers
     for (const auto& render_data : render_queue) {

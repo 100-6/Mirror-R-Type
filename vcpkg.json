@@ -9,6 +9,7 @@
     "glfw3",
     "raylib",
     "gtest",
+    "lz4",
     "miniaudio",
     "nlohmann-json"
   ],

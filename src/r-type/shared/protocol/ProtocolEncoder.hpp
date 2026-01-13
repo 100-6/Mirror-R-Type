@@ -3,6 +3,8 @@
 #include "PacketHeader.hpp"
 #include "PacketTypes.hpp"
 #include "Payloads.hpp"
+#include "compression/PacketCompressor.hpp"
+#include "compression/CompressionStats.hpp"
 #include <vector>
 #include <cstring>
 #include <stdexcept>
@@ -26,24 +28,85 @@ namespace rtype::protocol {
 class ProtocolEncoder {
 public:
     /**
-     * @brief Encode a packet with header and payload
+     * @brief Encode a packet with header and payload (with optional compression)
+     *
+     * Automatically compresses payload if:
+     * - Packet type is compressible
+     * - Payload size meets minimum threshold
+     * - Compression provides sufficient gain
+     *
+     * Records compression statistics for monitoring.
      *
      * @param type Packet type
      * @param payload Pointer to payload data
      * @param payload_size Size of payload in bytes
      * @param sequence_number Sequence number for the packet
-     * @return Encoded packet as byte vector
+     * @return Encoded packet as byte vector (header + possibly compressed payload)
      * @throws std::invalid_argument if payload is too large
      */
     static std::vector<uint8_t> encode_packet(PacketType type, const void* payload,
                                                size_t payload_size, uint32_t sequence_number) {
         if (payload_size > MAX_PAYLOAD_SIZE)
             throw std::invalid_argument("Payload size exceeds maximum allowed size");
-        std::vector<uint8_t> buffer(HEADER_SIZE + payload_size);
-        PacketHeader header(static_cast<uint8_t>(type), static_cast<uint16_t>(payload_size), sequence_number);
+
+        // Handle empty payload case (avoid nullptr dereference)
+        std::vector<uint8_t> payload_vec;
+        if (payload_size > 0 && payload != nullptr) {
+            payload_vec.assign(
+                static_cast<const uint8_t*>(payload),
+                static_cast<const uint8_t*>(payload) + payload_size
+            );
+        }
+
+        bool used_compression = false;
+        uint32_t original_size = static_cast<uint32_t>(payload_size);
+        std::vector<uint8_t> final_payload = payload_vec;
+
+        if (PacketCompressor::should_compress(type, payload_size)) {
+            auto compression_result = PacketCompressor::compress(payload_vec);
+            if (compression_result.used_compression) {
+                final_payload = std::move(compression_result.data);
+                used_compression = true;
+                CompressionStats::record_compression(
+                    compression_result.original_size,
+                    compression_result.compressed_size,
+                    compression_result.compression_time,
+                    true
+                );
+            } else {
+                CompressionStats::record_compression(
+                    compression_result.original_size,
+                    compression_result.original_size,
+                    compression_result.compression_time,
+                    false
+                );
+            }
+        } else
+            CompressionStats::record_compression(original_size, original_size, std::chrono::microseconds(0), false);
+        uint8_t flags = used_compression ? PACKET_FLAG_COMPRESSED : 0;
+        PacketHeader header(
+            static_cast<uint8_t>(type),
+            static_cast<uint16_t>(final_payload.size()),
+            sequence_number,
+            flags
+        );
+        if (used_compression)
+            header.uncompressed_size = original_size;
+        size_t total_size = header.get_header_size() + final_payload.size();
+        std::vector<uint8_t> buffer(total_size);
+
+        // DEBUG: Log packet encoding details
+        #ifdef DEBUG_PROTOCOL_ENCODING
+        std::cout << "[ProtocolEncoder] Encoding packet: type=" << static_cast<int>(type)
+                  << ", header_size=" << header.get_header_size()
+                  << ", payload_size=" << final_payload.size()
+                  << ", total_size=" << total_size
+                  << ", flags=" << static_cast<int>(flags) << "\n";
+        #endif
+
         encode_header(header, buffer.data());
-        if (payload_size > 0 && payload != nullptr)
-            std::memcpy(buffer.data() + HEADER_SIZE, payload, payload_size);
+        if (!final_payload.empty())
+            std::memcpy(buffer.data() + header.get_header_size(), final_payload.data(), final_payload.size());
         return buffer;
     }
 
@@ -51,16 +114,21 @@ public:
      * @brief Encode header to network byte order
      *
      * @param header Header structure in host byte order
-     * @param buffer Output buffer (must be at least HEADER_SIZE bytes)
+     * @param buffer Output buffer (must be at least get_header_size() bytes)
      */
     static void encode_header(const PacketHeader& header, uint8_t* buffer) {
         buffer[0] = header.version;
         buffer[1] = header.type;
+        buffer[2] = header.flags;
         uint16_t payload_length_be = htons(header.payload_length);
         uint32_t sequence_number_be = htonl(header.sequence_number);
 
-        std::memcpy(buffer + 2, &payload_length_be, sizeof(uint16_t));
-        std::memcpy(buffer + 4, &sequence_number_be, sizeof(uint32_t));
+        std::memcpy(buffer + 3, &payload_length_be, sizeof(uint16_t));
+        std::memcpy(buffer + 5, &sequence_number_be, sizeof(uint32_t));
+        if (header.flags & PACKET_FLAG_COMPRESSED) {
+            uint32_t uncompressed_size_be = htonl(header.uncompressed_size);
+            std::memcpy(buffer + 9, &uncompressed_size_be, sizeof(uint32_t));
+        }
     }
 
     /**
@@ -77,13 +145,22 @@ public:
         PacketHeader header;
         header.version = buffer[0];
         header.type = buffer[1];
+        header.flags = buffer[2];
         uint16_t payload_length_be;
         uint32_t sequence_number_be;
 
-        std::memcpy(&payload_length_be, buffer + 2, sizeof(uint16_t));
-        std::memcpy(&sequence_number_be, buffer + 4, sizeof(uint32_t));
+        std::memcpy(&payload_length_be, buffer + 3, sizeof(uint16_t));
+        std::memcpy(&sequence_number_be, buffer + 5, sizeof(uint32_t));
         header.payload_length = ntohs(payload_length_be);
         header.sequence_number = ntohl(sequence_number_be);
+        if (header.flags & PACKET_FLAG_COMPRESSED) {
+            if (buffer_size < HEADER_SIZE + COMPRESSED_HEADER_EXTRA)
+                throw std::invalid_argument("Buffer too small for compressed header");
+            uint32_t uncompressed_size_be;
+            std::memcpy(&uncompressed_size_be, buffer + 9, sizeof(uint32_t));
+            header.uncompressed_size = ntohl(uncompressed_size_be);
+        } else
+            header.uncompressed_size = 0;
         return header;
     }
 
@@ -119,7 +196,32 @@ public:
     static const uint8_t* get_payload(const uint8_t* buffer, size_t buffer_size) {
         if (!validate_packet(buffer, buffer_size))
             throw std::invalid_argument("Invalid packet");
-        return buffer + HEADER_SIZE;
+        PacketHeader header = decode_header(buffer, buffer_size);
+
+        return buffer + header.get_header_size();
+    }
+
+    /**
+     * @brief Get decompressed payload from packet buffer
+     *
+     * If packet is compressed, decompresses it. Otherwise returns raw payload.
+     *
+     * @param buffer Packet buffer
+     * @param buffer_size Size of buffer
+     * @return Decompressed payload as byte vector
+     * @throws std::invalid_argument if packet is invalid
+     * @throws std::runtime_error if decompression fails
+     */
+    static std::vector<uint8_t> get_decompressed_payload(const uint8_t* buffer, size_t buffer_size) {
+        if (!validate_packet(buffer, buffer_size))
+            throw std::invalid_argument("Invalid packet");
+        PacketHeader header = decode_header(buffer, buffer_size);
+        const uint8_t* payload_start = buffer + header.get_header_size();
+        size_t payload_size = header.payload_length;
+
+        if (header.is_compressed())
+            return PacketCompressor::decompress(payload_start, payload_size, header.uncompressed_size);
+        return std::vector<uint8_t>(payload_start, payload_start + payload_size);
     }
 
     /**

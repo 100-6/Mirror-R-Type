@@ -78,8 +78,12 @@ Sprite EntityManager::build_sprite(protocol::EntityType type, bool is_local_play
 
     switch (type) {
         case protocol::EntityType::PLAYER: {
-            // Utiliser le SpaceshipManager pour obtenir un vaisseau aléatoire avec source_rect
-            engine::Sprite ship_sprite = textures_.get_random_ship_sprite(4.0f);
+            // Use skin_id from subtype to select the correct ship sprite
+            // skin_id formula: skin_id = color * 5 + type (0-14 range)
+            uint8_t skin_id = subtype % 15;  // Clamp to valid range
+            ShipColor color = static_cast<ShipColor>(skin_id / 5);
+            ShipType ship_type = static_cast<ShipType>(skin_id % 5);
+            engine::Sprite ship_sprite = textures_.get_ship_manager().create_ship_sprite(color, ship_type, 4.0f);
             sprite.texture = ship_sprite.texture_handle;
             
             // Copier le source_rect pour le découpage de la spritesheet
@@ -202,6 +206,17 @@ Sprite EntityManager::build_sprite(protocol::EntityType type, bool is_local_play
 }
 
 std::string EntityManager::get_player_label(uint32_t server_id) {
+    // First, try to find the player_id for this server_id
+    auto pid_it = server_to_player_id_.find(server_id);
+    if (pid_it != server_to_player_id_.end()) {
+        uint32_t player_id = pid_it->second;
+        auto name_it = player_names_.find(player_id);
+        if (name_it != player_names_.end() && !name_it->second.empty()) {
+            return name_it->second;
+        }
+        return std::string("Player ") + std::to_string(player_id);
+    }
+    // Fallback: try server_id directly
     auto it = player_names_.find(server_id);
     if (it != player_names_.end() && !it->second.empty())
         return it->second;
@@ -241,6 +256,7 @@ Entity EntityManager::spawn_or_update_entity(uint32_t server_id, protocol::Entit
                                              float x, float y, uint16_t health, uint8_t subtype) {
     Entity entity;
     const bool is_new = server_to_local_.find(server_id) == server_to_local_.end();
+    const uint32_t previous_local_server_id = local_player_entity_id_;
 
     if (is_new) {
         entity = registry_.spawn_entity();
@@ -253,16 +269,42 @@ Entity EntityManager::spawn_or_update_entity(uint32_t server_id, protocol::Entit
     server_types_[server_id] = type;
     stale_counters_[server_id] = 0;
 
+    // For player entities, decode subtype: high 4 bits = player_id, low 4 bits = skin_id
+    uint8_t decoded_player_id = 0;
+    uint8_t decoded_skin_id = 0;
+    if (type == protocol::EntityType::PLAYER && subtype != 0) {
+        decoded_player_id = (subtype >> 4) & 0x0F;
+        decoded_skin_id = subtype & 0x0F;
+        server_to_player_id_[server_id] = decoded_player_id;
+    }
+
     // Check if this is the local player
     bool local_subtype_match = false;
     if (type == protocol::EntityType::PLAYER && local_player_id_ != 0) {
-        uint8_t local_id_byte = static_cast<uint8_t>(local_player_id_ & 0xFFu);
-        if (subtype == local_id_byte) {
+        uint8_t local_id_byte = static_cast<uint8_t>(local_player_id_ & 0x0Fu);
+        if (decoded_player_id == local_id_byte) {
             local_player_entity_id_ = server_id;
             local_subtype_match = true;
         }
     }
     bool highlight_as_local = (server_id == local_player_entity_id_) || local_subtype_match;
+
+    auto& localPlayers = registry_.get_components<LocalPlayer>();
+    const uint32_t invalid_local_server = std::numeric_limits<uint32_t>::max();
+    if (highlight_as_local) {
+        if (previous_local_server_id != invalid_local_server &&
+            previous_local_server_id != local_player_entity_id_) {
+            auto prev_it = server_to_local_.find(previous_local_server_id);
+            if (prev_it != server_to_local_.end() && localPlayers.has_entity(prev_it->second)) {
+                registry_.remove_component<LocalPlayer>(prev_it->second);
+            }
+        }
+        if (!localPlayers.has_entity(entity)) {
+            registry_.add_component(entity, LocalPlayer{});
+        }
+    } else if (localPlayers.has_entity(entity)) {
+        registry_.remove_component<LocalPlayer>(entity);
+    }
 
     // Mark projectiles, players, and moving entities for local integration (smooth movement)
     if (!highlight_as_local && (type == protocol::EntityType::PROJECTILE_PLAYER ||
@@ -290,8 +332,9 @@ Entity EntityManager::spawn_or_update_entity(uint32_t server_id, protocol::Entit
         registry_.add_component(entity, Position{x, y});
     }
 
-    // Update sprite
-    Sprite sprite = build_sprite(type, highlight_as_local, subtype);
+    // Update sprite - use decoded_skin_id for players, raw subtype for others
+    uint8_t sprite_subtype = (type == protocol::EntityType::PLAYER) ? decoded_skin_id : subtype;
+    Sprite sprite = build_sprite(type, highlight_as_local, sprite_subtype);
     auto& sprites = registry_.get_components<Sprite>();
     if (sprites.has_entity(entity)) {
         sprites[entity] = sprite;
@@ -340,6 +383,12 @@ Entity EntityManager::spawn_or_update_entity(uint32_t server_id, protocol::Entit
         } else {
             registry_.add_component(entity, Bonus{bonus_type, rtype::shared::config::BONUS_SIZE / 2.0f});
         }
+
+        // Add velocity so bonus scrolls with the game (moves left)
+        auto& velocities = registry_.get_components<Velocity>();
+        if (!velocities.has_entity(entity)) {
+            registry_.add_component(entity, Velocity{-rtype::shared::config::GAME_SCROLL_SPEED, 0.0f});
+        }
     } else if (bonuses.has_entity(entity)) {
         registry_.remove_component<Bonus>(entity);
     }
@@ -382,6 +431,17 @@ Entity EntityManager::spawn_or_update_entity(uint32_t server_id, protocol::Entit
     } else if (controllables.has_entity(entity)) {
         // Remove from non-player entities
         registry_.remove_component<Controllable>(entity);
+    }
+
+    // Mark local player with LocalPlayer component for HUD to find
+
+    if (type == protocol::EntityType::PLAYER && highlight_as_local) {
+        if (!localPlayers.has_entity(entity)) {
+            registry_.add_component(entity, LocalPlayer{});
+        }
+    } else if (localPlayers.has_entity(entity)) {
+        // Remove from non-local-player entities
+        registry_.remove_component<LocalPlayer>(entity);
     }
 
     // Handle player animation
@@ -490,11 +550,56 @@ void EntityManager::remove_entity(uint32_t server_id) {
 
     Entity entity_to_remove = it->second;
 
+    // Check if this entity has a BonusWeapon (companion turret) attached
+    // If so, destroy the companion turret entity as well
+    auto& bonusWeapons = registry_.get_components<BonusWeapon>();
+    if (bonusWeapons.has_entity(entity_to_remove)) {
+        const BonusWeapon& bonusWeapon = bonusWeapons[entity_to_remove];
+        if (bonusWeapon.weaponEntity != static_cast<size_t>(-1)) {
+            Entity companionEntity = static_cast<Entity>(bonusWeapon.weaponEntity);
+            // Remove all components from companion to stop rendering
+            auto& sprites = registry_.get_components<Sprite>();
+            auto& positions = registry_.get_components<Position>();
+            auto& attacheds = registry_.get_components<Attached>();
+            if (sprites.has_entity(companionEntity))
+                registry_.remove_component<Sprite>(companionEntity);
+            if (positions.has_entity(companionEntity))
+                registry_.remove_component<Position>(companionEntity);
+            if (attacheds.has_entity(companionEntity))
+                registry_.remove_component<Attached>(companionEntity);
+            registry_.kill_entity(companionEntity);
+            std::cout << "[EntityManager] Destroyed companion turret entity " << companionEntity
+                      << " for player " << server_id << std::endl;
+        }
+        // Remove the BonusWeapon component from the player
+        registry_.remove_component<BonusWeapon>(entity_to_remove);
+    }
+
+    // Also check for any entities attached to this one and destroy them
+    auto& attacheds = registry_.get_components<Attached>();
+    std::vector<Entity> attached_to_destroy;
+    for (size_t i = 0; i < attacheds.size(); ++i) {
+        Entity attached_entity = attacheds.get_entity_at(i);
+        const Attached& attached = attacheds[attached_entity];
+        if (attached.parentEntity == entity_to_remove) {
+            attached_to_destroy.push_back(attached_entity);
+        }
+    }
+    for (Entity attached_entity : attached_to_destroy) {
+        auto& sprites = registry_.get_components<Sprite>();
+        if (sprites.has_entity(attached_entity))
+            registry_.remove_component<Sprite>(attached_entity);
+        registry_.kill_entity(attached_entity);
+        std::cout << "[EntityManager] Destroyed attached entity " << attached_entity
+                  << " for parent " << server_id << std::endl;
+    }
+
     registry_.kill_entity(entity_to_remove);
     server_types_.erase(server_id);
     stale_counters_.erase(server_id);
     locally_integrated_.erase(server_id);
     snapshot_updated_.erase(server_id);
+    server_to_player_id_.erase(server_id);
     server_to_local_.erase(it);
 
     if (local_player_entity_id_ == server_id)
@@ -516,6 +621,7 @@ void EntityManager::clear_all() {
     stale_counters_.clear();
     locally_integrated_.clear();
     snapshot_updated_.clear();
+    server_to_player_id_.clear();
     local_player_entity_id_ = std::numeric_limits<uint32_t>::max();
 
     for (const auto& tag_pair : player_name_tags_)
@@ -530,6 +636,25 @@ void EntityManager::process_snapshot_update(const std::unordered_set<uint32_t>& 
         uint32_t server_id = pair.first;
         if (updated_ids.count(server_id))
             continue;
+
+        // Skip stale check for entities that are locally integrated (predicted client-side)
+        // This includes walls, powerups/bonuses that scroll predictably
+        if (locally_integrated_.count(server_id))
+            continue;
+
+        // Also skip stale check for powerups/bonuses based on their type
+        auto type_it = server_types_.find(server_id);
+        if (type_it != server_types_.end()) {
+            protocol::EntityType type = type_it->second;
+            // Powerups/bonuses are not in snapshots - they scroll predictably like walls
+            if (type == protocol::EntityType::POWERUP_HEALTH ||
+                type == protocol::EntityType::POWERUP_SHIELD ||
+                type == protocol::EntityType::POWERUP_SPEED ||
+                type == protocol::EntityType::POWERUP_SCORE ||
+                type == protocol::EntityType::WALL) {
+                continue;
+            }
+        }
 
         auto counter_it = stale_counters_.find(server_id);
         if (counter_it == stale_counters_.end()) {
@@ -578,13 +703,21 @@ void EntityManager::update_projectiles(float delta_time) {
         pos.x += vel.x * delta_time;
         pos.y += vel.y * delta_time;
 
-        // Only despawn projectiles that go out of bounds
+        // Despawn projectiles and powerups that go out of bounds
         auto type_it = server_types_.find(server_id);
-        bool is_projectile = type_it != server_types_.end() && 
-                            (type_it->second == protocol::EntityType::PROJECTILE_PLAYER || 
-                             type_it->second == protocol::EntityType::PROJECTILE_ENEMY);
+        if (type_it == server_types_.end())
+            continue;
 
-        if (is_projectile && 
+        protocol::EntityType etype = type_it->second;
+        bool is_projectile = (etype == protocol::EntityType::PROJECTILE_PLAYER ||
+                              etype == protocol::EntityType::PROJECTILE_ENEMY);
+        bool is_powerup = (etype == protocol::EntityType::POWERUP_HEALTH ||
+                           etype == protocol::EntityType::POWERUP_SHIELD ||
+                           etype == protocol::EntityType::POWERUP_SPEED ||
+                           etype == protocol::EntityType::POWERUP_SCORE);
+
+        // Despawn if out of bounds (projectiles and powerups)
+        if ((is_projectile || is_powerup) &&
             (pos.x < -PROJECTILE_DESPAWN_MARGIN ||
             pos.x > screen_width_ + PROJECTILE_DESPAWN_MARGIN ||
             pos.y < -PROJECTILE_DESPAWN_MARGIN ||
@@ -602,7 +735,20 @@ void EntityManager::update_name_tags() {
     auto& positions = registry_.get_components<Position>();
     auto& sprites = registry_.get_components<Sprite>();
     auto& texts = registry_.get_components<UIText>();
+    auto& gameStates = registry_.get_components<GameState>();
     std::vector<uint32_t> orphan_tags;
+
+    // Check if game is over or victory - hide player names
+    bool hideNames = false;
+    for (size_t i = 0; i < gameStates.size(); ++i) {
+        Entity entity = gameStates.get_entity_at(i);
+        const GameState& state = gameStates[entity];
+        if (state.currentState == GameStateType::GAME_OVER ||
+            state.currentState == GameStateType::VICTORY) {
+            hideNames = true;
+            break;
+        }
+    }
 
     for (const auto& [server_id, text_entity] : player_name_tags_) {
         auto ent_it = server_to_local_.find(server_id);
@@ -615,6 +761,9 @@ void EntityManager::update_name_tags() {
         if (!positions.has_entity(player_entity) || !positions.has_entity(text_entity) ||
             !texts.has_entity(text_entity))
             continue;
+
+        // Hide or show name tag based on game state
+        texts[text_entity].active = !hideNames;
 
         const Position& player_pos = positions[player_entity];
         float sprite_height = 0.0f;

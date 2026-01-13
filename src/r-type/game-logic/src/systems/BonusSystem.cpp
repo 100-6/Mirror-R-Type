@@ -422,28 +422,7 @@ void BonusSystem::updateBonusLifetimes(Registry& registry, float dt)
 
 void BonusSystem::update(Registry& registry, float dt)
 {
-    // Mettre à jour les timers de spawn
-    healthSpawnTimer_ += dt;
-    shieldSpawnTimer_ += dt;
-    speedSpawnTimer_ += dt;
-
-    // Spawn des bonus HP (toutes les 45s)
-    if (healthSpawnTimer_ >= HEALTH_SPAWN_INTERVAL) {
-        spawnBonus(registry, BonusType::HEALTH);
-        healthSpawnTimer_ = 0.0f;
-    }
-
-    // Spawn des bonus bouclier (toutes les 30s)
-    if (shieldSpawnTimer_ >= SHIELD_SPAWN_INTERVAL) {
-        spawnBonus(registry, BonusType::SHIELD);
-        shieldSpawnTimer_ = 0.0f;
-    }
-
-    // Spawn des bonus vitesse (toutes les 60s)
-    if (speedSpawnTimer_ >= SPEED_SPAWN_INTERVAL) {
-        spawnBonus(registry, BonusType::SPEED);
-        speedSpawnTimer_ = 0.0f;
-    }
+    // Periodic bonus spawns disabled - bonuses only come from enemy drops now
 
     // Gérer la collecte des bonus
     handleBonusCollection(registry);

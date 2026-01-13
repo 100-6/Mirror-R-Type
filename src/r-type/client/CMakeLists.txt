@@ -20,6 +20,7 @@ set(RTYPE_CLIENT_SOURCES
     src/screens/BrowseRoomsScreen.cpp
     src/screens/RoomLobbyScreen.cpp
     src/screens/PasswordDialog.cpp
+    src/screens/SkinSelectorDialog.cpp
     # CreateRoom module
     src/screens/createroom/CreateRoomInput.cpp
     src/screens/createroom/CreateRoomRenderer.cpp
@@ -29,6 +30,9 @@ set(RTYPE_CLIENT_SOURCES
     src/SpaceshipManager.cpp
     src/systems/LocalPredictionSystem.cpp
     src/systems/ColliderDebugSystem.cpp
+    src/systems/ClientPredictionSystem.cpp
+    src/systems/InterpolationSystem.cpp
+    src/DebugNetworkOverlay.cpp
 )
 
 add_executable(r-type_client ${RTYPE_CLIENT_SOURCES})
@@ -44,6 +48,7 @@ target_link_libraries(r-type_client
     PRIVATE
         game_engine
         rtype_logic
+        rtype_protocol
 )
 
 # Link Winsock on Windows
@@ -79,6 +84,7 @@ target_include_directories(r-type_test_client
 target_link_libraries(r-type_test_client
     PRIVATE
         game_engine
+        rtype_protocol
 )
 
 # Link Winsock on Windows

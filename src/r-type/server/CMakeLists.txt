@@ -26,6 +26,7 @@ target_link_libraries(r-type_server
     PRIVATE
         game_engine
         rtype_logic
+        rtype_protocol
         Threads::Threads
 )
 
@@ -34,6 +35,6 @@ if(WIN32)
 endif()
 
 set_target_properties(r-type_server PROPERTIES
-    INSTALL_RPATH "$ORIGIN"
+    INSTALL_RPATH "$ORIGIN:$ORIGIN/vcpkg_installed/x64-linux-dynamic/lib:$ORIGIN/vcpkg_installed/x64-linux-dynamic/debug/lib"
     BUILD_WITH_INSTALL_RPATH TRUE
 )

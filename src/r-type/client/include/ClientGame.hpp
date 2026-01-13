@@ -18,6 +18,9 @@
 #include "MenuManager.hpp"
 #include "systems/ChunkManagerSystem.hpp"
 #include "systems/ParallaxBackgroundSystem.hpp"
+#include "systems/ClientPredictionSystem.hpp"
+#include "systems/InterpolationSystem.hpp"
+#include "DebugNetworkOverlay.hpp"
 
 namespace rtype::client {
 
@@ -81,9 +84,15 @@ private:
     std::unique_ptr<rtype::ChunkManagerSystem> chunk_manager_;
     float map_scroll_x_ = 0.0f;
     std::string current_map_id_str_ = "nebula_outpost";  // Current map ID
+    float server_scroll_speed_ = 60.0f;
 
     // Network client
     std::unique_ptr<rtype::client::NetworkClient> network_client_;
+
+    // Lag compensation system
+    std::unique_ptr<rtype::client::ClientPredictionSystem> prediction_system_;
+    std::unique_ptr<rtype::client::InterpolationSystem> interpolation_system_;
+    std::unique_ptr<rtype::client::DebugNetworkOverlay> debug_network_overlay_;
 
     // Game state
     std::atomic<bool> running_;
@@ -91,10 +100,15 @@ private:
     Entity wave_tracker_;
     float current_time_;  // Temps écoulé depuis démarrage (pour extrapolation)
     uint16_t current_map_id_ = 1;  // Current map (1=Nebula, 2=Asteroid, 3=Bydo)
+    int last_known_score_ = 0;  // Last known score of local player (for game over screen)
 
     // Background entities (legacy, kept for menu)
     Entity background1_;
     Entity background2_;
+
+    // HUD overlay
+    engine::TextureHandle hud_texture_;
+    bool hud_loaded_ = false;
 
     // Initialization helpers
     bool load_plugins();

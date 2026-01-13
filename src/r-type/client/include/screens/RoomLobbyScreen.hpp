@@ -4,6 +4,7 @@
 #include "protocol/Payloads.hpp"
 #include "ScreenManager.hpp"
 #include "SpaceshipManager.hpp"
+#include "screens/SkinSelectorDialog.hpp"
 #include <functional>
 #include <string>
 #include <vector>
@@ -18,6 +19,7 @@ struct LobbyPlayer {
     uint32_t player_id = 0;
     std::string name = "";
     uint8_t ship_type = 0;  // 0-14 for different ship types (3 colors × 5 types from Spaceships.png)
+    int slot_index = -1;    // Assigned slot in lobby (0 = host, 1+ = others in join order)
     bool is_ready = false;
     bool is_connected = false;
 };
@@ -56,9 +58,16 @@ public:
     uint32_t get_room_id() const { return room_id_; }
     uint8_t get_min_players() const { return min_players_to_start_; }
 
+    // Update player name (called when server broadcasts name change)
+    void update_player_name(uint32_t player_id, const std::string& new_name);
+
+    // Update player skin (called when server broadcasts skin change)
+    void update_player_skin(uint32_t player_id, uint8_t skin_id);
+
 private:
     void draw_player_slot(engine::IGraphicsPlugin* graphics, int slot_index,
                          float x, float y, float width, float height);
+    void draw_name_input(engine::IGraphicsPlugin* graphics);
     std::vector<std::unique_ptr<UILabel>> labels_;
     std::vector<std::unique_ptr<UIButton>> buttons_;
 
@@ -106,7 +115,29 @@ private:
     float start_button_width_ = 300.0f;  // Increased from 200
     float start_button_height_ = 70.0f;  // Increased from 50
 
-    int selected_button_ = 0;  // 0=leave, 1=decrease, 2=increase, 3=start
+    // Name change button
+    float change_name_button_x_ = 1650.0f;
+    float change_name_button_y_ = 45.0f;
+    float change_name_button_width_ = 240.0f;
+    float change_name_button_height_ = 60.0f;
+
+    // Skin change button (below name change button)
+    float change_skin_button_x_ = 1650.0f;
+    float change_skin_button_y_ = 120.0f;
+    float change_skin_button_width_ = 240.0f;
+    float change_skin_button_height_ = 60.0f;
+
+    int selected_button_ = 0;  // 0=leave, 1=decrease, 2=increase, 3=start, 4=change_name, 5=change_skin
+
+    // Skin selector dialog
+    std::unique_ptr<SkinSelectorDialog> skin_selector_dialog_;
+    uint8_t local_player_skin_ = 0;
+
+    // Name editing state
+    bool editing_name_ = false;
+    std::string name_input_buffer_ = "";
+    float cursor_blink_timer_ = 0.0f;
+    bool cursor_visible_ = true;
 };
 
 }  // namespace rtype::client

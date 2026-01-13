@@ -36,4 +36,5 @@ target_link_libraries(rtype_logic
     PUBLIC
         game_engine
         nlohmann_json::nlohmann_json
+        rtype_protocol
 )

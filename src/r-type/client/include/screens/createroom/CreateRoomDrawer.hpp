@@ -29,6 +29,16 @@ public:
 
 
     /**
+     * @brief Draw map selection step (circular images)
+     */
+    static void draw_map_selection_step(
+        const std::vector<engine::TextureHandle>& map_thumbnails,
+        size_t selected_map_index,
+        float screen_width,
+        engine::IGraphicsPlugin* graphics
+    );
+
+    /**
      * @brief Draw difficulty step (circular images only)
      */
     static void draw_difficulty_step(

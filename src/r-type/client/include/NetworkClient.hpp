@@ -129,6 +129,18 @@ public:
     void send_start_game();
 
     /**
+     * @brief Change player name in lobby
+     * @param new_name New player name (max 31 chars)
+     */
+    void send_set_player_name(const std::string& new_name);
+
+    /**
+     * @brief Change player skin in lobby
+     * @param skin_id Skin ID (0-14 for 3 colors x 5 ship types)
+     */
+    void send_set_player_skin(uint8_t skin_id);
+
+    /**
      * @brief Send player input (via UDP if connected, TCP otherwise)
      * @param input_flags Input bitfield
      * @param client_tick Current client tick
@@ -171,9 +183,9 @@ public:
 
     /**
      * @brief Set callback for game start
-     * @param callback Function receiving session_id, udp_port, and map_id
+     * @param callback Function receiving session_id, udp_port, map_id and scroll speed
      */
-    void set_on_game_start(std::function<void(uint32_t session_id, uint16_t udp_port, uint16_t map_id)> callback);
+    void set_on_game_start(std::function<void(uint32_t session_id, uint16_t udp_port, uint16_t map_id, float scroll_speed)> callback);
 
     /**
      * @brief Set callback for entity spawn
@@ -267,6 +279,18 @@ public:
      */
     void set_on_room_error(std::function<void(const protocol::ServerRoomErrorPayload&)> callback);
 
+    /**
+     * @brief Set callback for player name updates in room
+     * @param callback Function receiving name update payload
+     */
+    void set_on_player_name_updated(std::function<void(const protocol::ServerPlayerNameUpdatedPayload&)> callback);
+
+    /**
+     * @brief Set callback for player skin updates in room
+     * @param callback Function receiving skin update payload
+     */
+    void set_on_player_skin_updated(std::function<void(const protocol::ServerPlayerSkinUpdatedPayload&)> callback);
+
     // ============== Getters ==============
 
     uint32_t get_player_id() const { return player_id_; }
@@ -274,6 +298,7 @@ public:
     uint32_t get_lobby_id() const { return lobby_id_; }
     bool is_in_lobby() const { return in_lobby_; }
     bool is_in_game() const { return in_game_; }
+    uint32_t get_last_input_sequence() const { return input_sequence_number_ - 1; }  // Returns last sent sequence
 
 private:
     void handle_packet(const engine::NetworkPacket& packet);
@@ -300,6 +325,8 @@ private:
     void handle_room_left(const std::vector<uint8_t>& payload);
     void handle_room_list(const std::vector<uint8_t>& payload);
     void handle_room_error(const std::vector<uint8_t>& payload);
+    void handle_player_name_updated(const std::vector<uint8_t>& payload);
+    void handle_player_skin_updated(const std::vector<uint8_t>& payload);
 
     // UDP connection after game start
     void connect_udp(uint16_t udp_port);
@@ -328,12 +355,19 @@ private:
     uint32_t last_ping_timestamp_ = 0;
     int server_ping_ms_ = -1;
 
+    // Input sequence tracking (for lag compensation)
+    uint32_t input_sequence_number_ = 0;
+
+    // Packet sequence tracking (for compression/ordering)
+    uint32_t tcp_sequence_number_ = 0;
+    uint32_t udp_sequence_number_ = 0;
+
     // Callbacks
     std::function<void(uint32_t)> on_accepted_;
     std::function<void(uint8_t, const std::string&)> on_rejected_;
     std::function<void(const protocol::ServerLobbyStatePayload&, const std::vector<protocol::PlayerLobbyEntry>&)> on_lobby_state_;
     std::function<void(uint8_t)> on_countdown_;
-    std::function<void(uint32_t, uint16_t, uint16_t)> on_game_start_;
+    std::function<void(uint32_t, uint16_t, uint16_t, float)> on_game_start_;
     std::function<void(const protocol::ServerEntitySpawnPayload&)> on_entity_spawn_;
     std::function<void(const protocol::ServerEntityDestroyPayload&)> on_entity_destroy_;
     std::function<void(const protocol::ServerProjectileSpawnPayload&)> on_projectile_spawn_;
@@ -350,6 +384,8 @@ private:
     std::function<void(const protocol::ServerRoomLeftPayload&)> on_room_left_;
     std::function<void(const std::vector<protocol::RoomInfo>&)> on_room_list_;
     std::function<void(const protocol::ServerRoomErrorPayload&)> on_room_error_;
+    std::function<void(const protocol::ServerPlayerNameUpdatedPayload&)> on_player_name_updated_;
+    std::function<void(const protocol::ServerPlayerSkinUpdatedPayload&)> on_player_skin_updated_;
 };
 
 }

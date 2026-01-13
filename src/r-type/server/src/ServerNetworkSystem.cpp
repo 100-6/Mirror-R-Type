@@ -138,7 +138,9 @@ void ServerNetworkSystem::update(Registry& registry, float dt)
         tick_count_++;
     }
 
-    // Broadcast pending powerup events
+    // Broadcast pending events to clients
+    broadcast_pending_spawns();
+    broadcast_pending_destroys();
     broadcast_pending_powerups();
 }
 
@@ -195,6 +197,11 @@ void ServerNetworkSystem::process_pending_inputs(Registry& registry)
     while (!pending_inputs_.empty()) {
         auto [player_id, input] = pending_inputs_.front();
         pending_inputs_.pop();
+
+        // Store last processed sequence number for lag compensation
+        uint32_t sequence = ntohl(input.sequence_number);
+        last_processed_input_seq_[player_id] = sequence;
+
         auto it = player_entities_->find(player_id);
         if (it == player_entities_->end())
             continue;
@@ -250,6 +257,10 @@ void ServerNetworkSystem::send_state_snapshot(Registry& registry)
 
 std::vector<uint8_t> ServerNetworkSystem::serialize_snapshot(Registry& registry)
 {
+    // Maximum entities that fit in a single snapshot packet
+    // MAX_PAYLOAD_SIZE = 1387 bytes, header = 6 bytes, EntityState = 25 bytes
+    constexpr size_t MAX_ENTITIES_PER_SNAPSHOT = 55;
+
     protocol::ServerSnapshotPayload snapshot;
     snapshot.server_tick = ByteOrder::host_to_net32(tick_count_);
     std::vector<uint8_t> payload;
@@ -260,16 +271,77 @@ std::vector<uint8_t> ServerNetworkSystem::serialize_snapshot(Registry& registry)
     auto& velocities = registry.get_components<Velocity>();
     auto& healths = registry.get_components<Health>();
     auto& to_destroy = registry.get_components<ToDestroy>();
-    uint16_t entity_count = 0;
-    std::vector<protocol::EntityState> entity_states;
+    auto& enemies = registry.get_components<Enemy>();
+    auto& ais = registry.get_components<AI>();
+    auto& projectiles = registry.get_components<Projectile>();
+    auto& walls = registry.get_components<Wall>();
+    auto& controllables = registry.get_components<Controllable>();
+
+    // Collect entities by priority: players first, then projectiles, then enemies
+    // Walls are excluded from snapshots - they are spawned once and scroll predictably
+    std::vector<Entity> priority_entities;
+    std::vector<Entity> projectile_entities;
+    std::vector<Entity> enemy_entities;
+
     for (size_t i = 0; i < positions.size(); ++i) {
         Entity entity = positions.get_entity_at(i);
         if (to_destroy.has_entity(entity))
             continue;
-        Position& pos = positions.get_data_at(i);
+
+        if (controllables.has_entity(entity)) {
+            priority_entities.push_back(entity);  // Players - highest priority
+        } else if (projectiles.has_entity(entity)) {
+            projectile_entities.push_back(entity);  // Projectiles - high priority
+        } else if (enemies.has_entity(entity)) {
+            enemy_entities.push_back(entity);  // Enemies - medium priority
+        }
+        // Walls are NOT included in snapshots - they scroll predictably
+    }
+
+    std::vector<protocol::EntityState> entity_states;
+    entity_states.reserve(MAX_ENTITIES_PER_SNAPSHOT);
+
+    auto add_entity_state = [&](Entity entity) {
+        if (entity_states.size() >= MAX_ENTITIES_PER_SNAPSHOT)
+            return;
+        if (!positions.has_entity(entity))
+            return;
+
+        Position& pos = positions[entity];
         protocol::EntityState state;
         state.entity_id = ByteOrder::host_to_net32(entity);
-        state.entity_type = protocol::EntityType::PLAYER;
+
+        // Determine entity type
+        if (controllables.has_entity(entity)) {
+            state.entity_type = protocol::EntityType::PLAYER;
+        } else if (enemies.has_entity(entity)) {
+            if (ais.has_entity(entity)) {
+                switch (ais[entity].type) {
+                    case EnemyType::Fast:
+                        state.entity_type = protocol::EntityType::ENEMY_FAST;
+                        break;
+                    case EnemyType::Tank:
+                        state.entity_type = protocol::EntityType::ENEMY_TANK;
+                        break;
+                    case EnemyType::Boss:
+                        state.entity_type = protocol::EntityType::ENEMY_BOSS;
+                        break;
+                    default:
+                        state.entity_type = protocol::EntityType::ENEMY_BASIC;
+                        break;
+                }
+            } else {
+                state.entity_type = protocol::EntityType::ENEMY_BASIC;
+            }
+        } else if (projectiles.has_entity(entity)) {
+            const Projectile& proj = projectiles[entity];
+            state.entity_type = (proj.faction == ProjectileFaction::Player)
+                ? protocol::EntityType::PROJECTILE_PLAYER
+                : protocol::EntityType::PROJECTILE_ENEMY;
+        } else {
+            return;  // Unknown entity type
+        }
+
         state.position_x = pos.x;
         state.position_y = pos.y;
         if (velocities.has_entity(entity)) {
@@ -287,9 +359,33 @@ std::vector<uint8_t> ServerNetworkSystem::serialize_snapshot(Registry& registry)
             state.health = 0;
         }
         state.flags = 0;
+        state.last_ack_sequence = 0;
+
+        // Include last acknowledged input for players
+        if (player_entities_ && controllables.has_entity(entity)) {
+            for (const auto& [player_id, player_entity] : *player_entities_) {
+                if (player_entity == entity) {
+                    auto it = last_processed_input_seq_.find(player_id);
+                    if (it != last_processed_input_seq_.end()) {
+                        state.last_ack_sequence = ByteOrder::host_to_net32(it->second);
+                    }
+                    break;
+                }
+            }
+        }
+
         entity_states.push_back(state);
-        entity_count++;
-    }
+    };
+
+    // Add entities in priority order
+    for (Entity e : priority_entities)
+        add_entity_state(e);
+    for (Entity e : projectile_entities)
+        add_entity_state(e);
+    for (Entity e : enemy_entities)
+        add_entity_state(e);
+
+    uint16_t entity_count = static_cast<uint16_t>(entity_states.size());
     snapshot.entity_count = ByteOrder::host_to_net16(entity_count);
     Memory::copy(payload.data(), &snapshot, sizeof(snapshot));
     for (const auto& state : entity_states) {

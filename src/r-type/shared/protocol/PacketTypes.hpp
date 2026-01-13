@@ -42,6 +42,8 @@ enum class PacketType : uint8_t {
     CLIENT_LEAVE_ROOM = 0x22,
     CLIENT_REQUEST_ROOM_LIST = 0x23,
     CLIENT_START_GAME = 0x24,
+    CLIENT_SET_PLAYER_NAME = 0x25,  // Change player name in lobby
+    CLIENT_SET_PLAYER_SKIN = 0x26,  // Change player skin in lobby
 
     // ========== Server → Client ==========
     // Connection & Lobby (0x81-0x8A)
@@ -62,6 +64,8 @@ enum class PacketType : uint8_t {
     SERVER_ROOM_LEFT = 0x93,
     SERVER_ROOM_STATE_UPDATE = 0x94,
     SERVER_ROOM_ERROR = 0x95,
+    SERVER_PLAYER_NAME_UPDATED = 0x96,  // Player name changed in room
+    SERVER_PLAYER_SKIN_UPDATED = 0x97,  // Player skin changed in room
 
     // World State (0xA0-0xAF)
     SERVER_SNAPSHOT = 0xA0,
@@ -396,6 +400,14 @@ inline std::string packet_type_to_string(PacketType type) {
         return "SERVER_PLAYER_RESPAWN";
     case PacketType::SERVER_GAME_OVER:
         return "SERVER_GAME_OVER";
+    case PacketType::CLIENT_SET_PLAYER_NAME:
+        return "CLIENT_SET_PLAYER_NAME";
+    case PacketType::CLIENT_SET_PLAYER_SKIN:
+        return "CLIENT_SET_PLAYER_SKIN";
+    case PacketType::SERVER_PLAYER_NAME_UPDATED:
+        return "SERVER_PLAYER_NAME_UPDATED";
+    case PacketType::SERVER_PLAYER_SKIN_UPDATED:
+        return "SERVER_PLAYER_SKIN_UPDATED";
     default:
         return "UNKNOWN";
     }
