@@ -12,6 +12,7 @@
 #include "ecs/Registry.hpp"
 #include "components/GameComponents.hpp"
 #include "plugin_manager/IGraphicsPlugin.hpp"
+#include "core/event/EventBus.hpp"
 #include <optional>
 #include <random>
 
@@ -40,7 +41,10 @@ private:
     static constexpr float SPEED_SPAWN_INTERVAL = 60.0f;
 
     // Rayon des bonus
-    static constexpr float BONUS_RADIUS = 20.0f;
+    static constexpr float BONUS_RADIUS = 40.0f;  // Plus grand pour être visible
+
+    // Durée de vie des bonus droppés
+    static constexpr float BONUS_LIFETIME = 10.0f;
 
     // Paramètres du bouclier
     static constexpr float SHIELD_RADIUS_OFFSET = 15.0f;
@@ -54,13 +58,19 @@ private:
 
     // Texture pour les bonus
     engine::TextureHandle bonusTex_ = engine::INVALID_HANDLE;
+    engine::TextureHandle bonusWeaponTex_ = engine::INVALID_HANDLE;
 
     // Random generator
     std::mt19937 rng_;
 
+    // Event subscription
+    core::EventBus::SubscriptionId bonusSpawnSubId_;
+
     void spawnBonus(Registry& registry, BonusType type);
+    void spawnBonusAt(Registry& registry, BonusType type, float x, float y, float lifetime = 0.0f);
     void handleBonusCollection(Registry& registry);
     void updateSpeedBoosts(Registry& registry, float dt);
+    void updateBonusLifetimes(Registry& registry, float dt);
     bool checkCircleCollision(float x1, float y1, float r1, float x2, float y2, float w2, float h2);
 };
 

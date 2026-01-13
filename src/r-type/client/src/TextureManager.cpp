@@ -16,7 +16,8 @@ TextureManager::TextureManager(engine::IGraphicsPlugin& graphics)
     , shot_frame_1_(engine::INVALID_HANDLE)
     , shot_frame_2_(engine::INVALID_HANDLE)
     , bullet_animation_(engine::INVALID_HANDLE)
-    , explosion_(engine::INVALID_HANDLE) {
+    , explosion_(engine::INVALID_HANDLE)
+    , bonus_weapon_(engine::INVALID_HANDLE) {
     player_frames_.fill(engine::INVALID_HANDLE);
 }
 
@@ -55,6 +56,12 @@ bool TextureManager::load_all() {
     bullet_animation_ = bullet_sheet;
     projectile_ = bullet_sheet;
     explosion_ = graphics_.load_texture(EXPLOSION_ANIMATION);
+
+    // Load bonus weapon sprite
+    bonus_weapon_ = graphics_.load_texture(BONUS_WEAPON_SPRITE);
+    if (bonus_weapon_ == engine::INVALID_HANDLE) {
+        std::cerr << "[TextureManager] Warning: Bonus weapon sprite failed to load\n";
+    }
 
     // Check critical textures
     if (background_ == engine::INVALID_HANDLE ||

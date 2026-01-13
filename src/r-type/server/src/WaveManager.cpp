@@ -55,6 +55,17 @@ bool WaveManager::load_from_file(const std::string& filepath)
                         spawn.count = spawn_json.value("count", 1);
                         spawn.pattern = spawn_json.value("pattern", "single");
                         spawn.spacing = spawn_json.value("spacing", 0.0f);
+
+                        // Parse bonusDrop for enemies
+                        if (spawn_json.contains("bonusDrop")) {
+                            const auto& drop_json = spawn_json["bonusDrop"];
+                            spawn.bonus_drop.enabled = true;
+                            spawn.bonus_drop.bonus_type = drop_json.value("type", "health");
+                            spawn.bonus_drop.drop_chance = drop_json.value("dropChance", 1.0f);
+                            std::cout << "[WaveManager] Enemy at (" << spawn.position_x << ", " << spawn.position_y
+                                      << ") has bonusDrop: " << spawn.bonus_drop.bonus_type << "\n";
+                        }
+
                         wave.spawns.push_back(spawn);
                     }
                 }
@@ -168,14 +179,18 @@ void WaveManager::spawn_from_config(const SpawnConfig& spawn)
 
     if (spawn.type == "enemy") {
         std::cout << "[WaveManager] Spawning enemy: type=" << spawn.enemy_type
-                  << " pattern=" << spawn.pattern << " count=" << spawn.count << "\n";
+                  << " pattern=" << spawn.pattern << " count=" << spawn.count;
+        if (spawn.bonus_drop.enabled) {
+            std::cout << " (drops " << spawn.bonus_drop.bonus_type << ")";
+        }
+        std::cout << "\n";
 
         if (spawn.pattern == "single") {
-            listener_->on_spawn_enemy(spawn.enemy_type, spawn.position_x, spawn.position_y);
+            listener_->on_spawn_enemy(spawn.enemy_type, spawn.position_x, spawn.position_y, spawn.bonus_drop);
         } else if (spawn.pattern == "line") {
             for (uint32_t i = 0; i < spawn.count; ++i) {
                 float y = spawn.position_y + (i * spawn.spacing);
-                listener_->on_spawn_enemy(spawn.enemy_type, spawn.position_x, y);
+                listener_->on_spawn_enemy(spawn.enemy_type, spawn.position_x, y, spawn.bonus_drop);
             }
         } else if (spawn.pattern == "formation") {
             uint32_t cols = static_cast<uint32_t>(std::sqrt(spawn.count));
@@ -185,7 +200,7 @@ void WaveManager::spawn_from_config(const SpawnConfig& spawn)
                     if (r * cols + c >= spawn.count) break;
                     float x = spawn.position_x + (c * spawn.spacing);
                     float y = spawn.position_y + (r * spawn.spacing);
-                    listener_->on_spawn_enemy(spawn.enemy_type, x, y);
+                    listener_->on_spawn_enemy(spawn.enemy_type, x, y, spawn.bonus_drop);
                 }
             }
         }

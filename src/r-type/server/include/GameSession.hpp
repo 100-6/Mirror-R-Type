@@ -99,7 +99,7 @@ public:
 private:
     void on_wave_started(const Wave& wave) override;
     void on_wave_completed(const Wave& wave) override;
-    void on_spawn_enemy(const std::string& enemy_type, float x, float y) override;
+    void on_spawn_enemy(const std::string& enemy_type, float x, float y, const BonusDropConfig& bonus_drop) override;
     void on_spawn_wall(float x, float y) override;
     void on_spawn_powerup(const std::string& bonus_type, float x, float y) override;
 
@@ -109,6 +109,7 @@ private:
     void on_projectile_spawned(uint32_t session_id, const std::vector<uint8_t>& projectile_data) override;
     void on_explosion_triggered(uint32_t session_id, const std::vector<uint8_t>& explosion_data) override;
     void on_score_updated(uint32_t session_id, const std::vector<uint8_t>& score_data) override;
+    void on_powerup_collected(uint32_t session_id, const std::vector<uint8_t>& powerup_data) override;
 
     void spawn_player_entity(GamePlayer& player);
     void check_game_over();

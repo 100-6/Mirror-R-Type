@@ -91,6 +91,21 @@ void ServerNetworkSystem::init(Registry& registry)
                 pending_explosions_.push(payload);
             }
         });
+
+    // Subscribe to bonus collected events for network sync
+    bonusCollectedSubId_ = registry.get_event_bus().subscribe<ecs::BonusCollectedEvent>(
+        [this](const ecs::BonusCollectedEvent& event) {
+            // Map BonusType to PowerupType
+            protocol::PowerupType powerupType = protocol::PowerupType::WEAPON_UPGRADE;
+            switch (event.bonusType) {
+                case 0: powerupType = protocol::PowerupType::HEALTH; break;
+                case 1: powerupType = protocol::PowerupType::SHIELD; break;
+                case 2: powerupType = protocol::PowerupType::SPEED; break;
+                case 3: powerupType = protocol::PowerupType::WEAPON_UPGRADE; break;
+                default: powerupType = protocol::PowerupType::WEAPON_UPGRADE; break;
+            }
+            queue_powerup_collected(static_cast<uint32_t>(event.player), powerupType);
+        });
 }
 
 void ServerNetworkSystem::update(Registry& registry, float dt)
@@ -122,6 +137,11 @@ void ServerNetworkSystem::update(Registry& registry, float dt)
         snapshot_timer_ = 0.0f;
         tick_count_++;
     }
+
+    // Broadcast pending events to clients
+    broadcast_pending_spawns();
+    broadcast_pending_destroys();
+    broadcast_pending_powerups();
 }
 
 void ServerNetworkSystem::shutdown()
@@ -153,6 +173,19 @@ void ServerNetworkSystem::queue_entity_destroy(Entity entity)
 {
     std::lock_guard lock(destroys_mutex_);
     pending_destroys_.push(entity);
+}
+
+void ServerNetworkSystem::queue_powerup_collected(uint32_t player_id, protocol::PowerupType type)
+{
+    protocol::ServerPowerupCollectedPayload payload;
+    payload.player_id = ByteOrder::host_to_net32(player_id);
+    payload.powerup_type = type;
+    payload.new_weapon_level = 1;
+
+    std::lock_guard lock(powerups_mutex_);
+    pending_powerups_.push(payload);
+    std::cout << "[ServerNetworkSystem] Queued powerup collected: player=" << player_id
+              << " type=" << static_cast<int>(type) << std::endl;
 }
 
 void ServerNetworkSystem::process_pending_inputs(Registry& registry)
@@ -224,6 +257,10 @@ void ServerNetworkSystem::send_state_snapshot(Registry& registry)
 
 std::vector<uint8_t> ServerNetworkSystem::serialize_snapshot(Registry& registry)
 {
+    // Maximum entities that fit in a single snapshot packet
+    // MAX_PAYLOAD_SIZE = 1387 bytes, header = 6 bytes, EntityState = 25 bytes
+    constexpr size_t MAX_ENTITIES_PER_SNAPSHOT = 55;
+
     protocol::ServerSnapshotPayload snapshot;
     snapshot.server_tick = ByteOrder::host_to_net32(tick_count_);
     std::vector<uint8_t> payload;
@@ -234,16 +271,77 @@ std::vector<uint8_t> ServerNetworkSystem::serialize_snapshot(Registry& registry)
     auto& velocities = registry.get_components<Velocity>();
     auto& healths = registry.get_components<Health>();
     auto& to_destroy = registry.get_components<ToDestroy>();
-    uint16_t entity_count = 0;
-    std::vector<protocol::EntityState> entity_states;
+    auto& enemies = registry.get_components<Enemy>();
+    auto& ais = registry.get_components<AI>();
+    auto& projectiles = registry.get_components<Projectile>();
+    auto& walls = registry.get_components<Wall>();
+    auto& controllables = registry.get_components<Controllable>();
+
+    // Collect entities by priority: players first, then projectiles, then enemies
+    // Walls are excluded from snapshots - they are spawned once and scroll predictably
+    std::vector<Entity> priority_entities;
+    std::vector<Entity> projectile_entities;
+    std::vector<Entity> enemy_entities;
+
     for (size_t i = 0; i < positions.size(); ++i) {
         Entity entity = positions.get_entity_at(i);
         if (to_destroy.has_entity(entity))
             continue;
-        Position& pos = positions.get_data_at(i);
+
+        if (controllables.has_entity(entity)) {
+            priority_entities.push_back(entity);  // Players - highest priority
+        } else if (projectiles.has_entity(entity)) {
+            projectile_entities.push_back(entity);  // Projectiles - high priority
+        } else if (enemies.has_entity(entity)) {
+            enemy_entities.push_back(entity);  // Enemies - medium priority
+        }
+        // Walls are NOT included in snapshots - they scroll predictably
+    }
+
+    std::vector<protocol::EntityState> entity_states;
+    entity_states.reserve(MAX_ENTITIES_PER_SNAPSHOT);
+
+    auto add_entity_state = [&](Entity entity) {
+        if (entity_states.size() >= MAX_ENTITIES_PER_SNAPSHOT)
+            return;
+        if (!positions.has_entity(entity))
+            return;
+
+        Position& pos = positions[entity];
         protocol::EntityState state;
         state.entity_id = ByteOrder::host_to_net32(entity);
-        state.entity_type = protocol::EntityType::PLAYER;
+
+        // Determine entity type
+        if (controllables.has_entity(entity)) {
+            state.entity_type = protocol::EntityType::PLAYER;
+        } else if (enemies.has_entity(entity)) {
+            if (ais.has_entity(entity)) {
+                switch (ais[entity].type) {
+                    case EnemyType::Fast:
+                        state.entity_type = protocol::EntityType::ENEMY_FAST;
+                        break;
+                    case EnemyType::Tank:
+                        state.entity_type = protocol::EntityType::ENEMY_TANK;
+                        break;
+                    case EnemyType::Boss:
+                        state.entity_type = protocol::EntityType::ENEMY_BOSS;
+                        break;
+                    default:
+                        state.entity_type = protocol::EntityType::ENEMY_BASIC;
+                        break;
+                }
+            } else {
+                state.entity_type = protocol::EntityType::ENEMY_BASIC;
+            }
+        } else if (projectiles.has_entity(entity)) {
+            const Projectile& proj = projectiles[entity];
+            state.entity_type = (proj.faction == ProjectileFaction::Player)
+                ? protocol::EntityType::PROJECTILE_PLAYER
+                : protocol::EntityType::PROJECTILE_ENEMY;
+        } else {
+            return;  // Unknown entity type
+        }
+
         state.position_x = pos.x;
         state.position_y = pos.y;
         if (velocities.has_entity(entity)) {
@@ -261,10 +359,10 @@ std::vector<uint8_t> ServerNetworkSystem::serialize_snapshot(Registry& registry)
             state.health = 0;
         }
         state.flags = 0;
-
-        // Include last acknowledged input sequence for player entities (for reconciliation)
         state.last_ack_sequence = 0;
-        if (player_entities_) {
+
+        // Include last acknowledged input for players
+        if (player_entities_ && controllables.has_entity(entity)) {
             for (const auto& [player_id, player_entity] : *player_entities_) {
                 if (player_entity == entity) {
                     auto it = last_processed_input_seq_.find(player_id);
@@ -277,8 +375,17 @@ std::vector<uint8_t> ServerNetworkSystem::serialize_snapshot(Registry& registry)
         }
 
         entity_states.push_back(state);
-        entity_count++;
-    }
+    };
+
+    // Add entities in priority order
+    for (Entity e : priority_entities)
+        add_entity_state(e);
+    for (Entity e : projectile_entities)
+        add_entity_state(e);
+    for (Entity e : enemy_entities)
+        add_entity_state(e);
+
+    uint16_t entity_count = static_cast<uint16_t>(entity_states.size());
     snapshot.entity_count = ByteOrder::host_to_net16(entity_count);
     Memory::copy(payload.data(), &snapshot, sizeof(snapshot));
     for (const auto& state : entity_states) {
@@ -344,6 +451,26 @@ void ServerNetworkSystem::broadcast_pending_scores()
         payload.insert(payload.end(), bytes, bytes + sizeof(score));
         listener_->on_score_updated(session_id_, payload);
         pending_scores_.pop();
+    }
+}
+
+void ServerNetworkSystem::broadcast_pending_powerups()
+{
+    if (!listener_)
+        return;
+    while (!pending_powerups_.empty()) {
+        const auto& powerup = pending_powerups_.front();
+        std::vector<uint8_t> payload;
+        const uint8_t* bytes = reinterpret_cast<const uint8_t*>(&powerup);
+        payload.insert(payload.end(), bytes, bytes + sizeof(powerup));
+
+        // Send multiple times to ensure delivery (UDP can lose packets)
+        for (int i = 0; i < 5; ++i) {
+            listener_->on_powerup_collected(session_id_, payload);
+        }
+
+        pending_powerups_.pop();
+        std::cout << "[ServerNetworkSystem] Broadcast powerup collected to clients (5x for reliability)\n";
     }
 }
 

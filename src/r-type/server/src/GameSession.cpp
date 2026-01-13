@@ -18,6 +18,8 @@
 #include "ServerConfig.hpp"
 #include "systems/ShootingSystem.hpp"
 #include "systems/BonusSystem.hpp"
+#include "systems/BonusWeaponSystem.hpp"
+#include "systems/AttachmentSystem.hpp"
 #include "systems/ScoreSystem.hpp"
 #include "components/CombatHelpers.hpp"
 
@@ -36,6 +38,7 @@
 #include "ecs/CoreComponents.hpp"
 #include "components/GameComponents.hpp"
 #include "ecs/events/InputEvents.hpp"
+#include "ecs/events/GameEvents.hpp"
 
 namespace rtype::server {
 using netutils::ByteOrder;
@@ -61,6 +64,7 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
     registry_.register_component<Health>();
     registry_.register_component<Controllable>();
     registry_.register_component<Enemy>();
+    registry_.register_component<AI>();
     registry_.register_component<NoFriction>();
     registry_.register_component<ToDestroy>();
     registry_.register_component<Collider>();
@@ -79,17 +83,23 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
     registry_.register_component<TextEffect>();
     registry_.register_component<ShotAnimation>();
     registry_.register_component<CircleEffect>();
+    registry_.register_component<BonusWeapon>();
+    registry_.register_component<BonusLifetime>();
 
     registry_.register_system<MovementSystem>();
     registry_.register_system<PhysiqueSystem>();
+    registry_.register_system<AttachmentSystem>();
     registry_.register_system<CollisionSystem>();
     registry_.register_system<HealthSystem>();
     registry_.register_system<ShootingSystem>();
     registry_.register_system<BonusSystem>();
+    registry_.register_system<BonusWeaponSystem>();
     registry_.register_system<ScoreSystem>();
 
+    registry_.get_system<HealthSystem>().init(registry_);
     registry_.get_system<ShootingSystem>().init(registry_);
     registry_.get_system<BonusSystem>().init(registry_);
+    registry_.get_system<BonusWeaponSystem>().init(registry_);
     registry_.get_system<ScoreSystem>().init(registry_);
 
     registry_.register_system<ServerNetworkSystem>(session_id_, config::SNAPSHOT_INTERVAL);
@@ -108,6 +118,20 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
                 if (player.entity == event.entity && player.is_alive) {
                     std::cout << "[GameSession " << session_id_ << "] Player " << player_id << " died!\n";
                     player.is_alive = false;
+
+                    // Destroy companion turret (BonusWeapon) if player has one
+                    auto& bonusWeapons = registry_.get_components<BonusWeapon>();
+                    if (bonusWeapons.has_entity(event.entity)) {
+                        const BonusWeapon& bonusWeapon = bonusWeapons[event.entity];
+                        if (bonusWeapon.weaponEntity != static_cast<size_t>(-1)) {
+                            Entity companionEntity = static_cast<Entity>(bonusWeapon.weaponEntity);
+                            registry_.add_component(companionEntity, ToDestroy{});
+                            if (network_system_)
+                                network_system_->queue_entity_destroy(companionEntity);
+                            std::cout << "[GameSession " << session_id_ << "] Destroyed companion turret for player " << player_id << "\n";
+                        }
+                    }
+
                     if (network_system_)
                         network_system_->queue_entity_destroy(event.entity);
                     check_game_over();
@@ -115,6 +139,39 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
                 }
             }
         });
+
+    // Subscribe to bonus spawn events to sync with clients
+    registry_.get_event_bus().subscribe<ecs::BonusSpawnEvent>(
+        [this](const ecs::BonusSpawnEvent& event) {
+            // Create bonus entity for network sync
+            Entity bonus = registry_.spawn_entity();
+            registry_.add_component(bonus, Position{event.x, event.y});
+            registry_.add_component(bonus, Velocity{-config::GAME_SCROLL_SPEED, 0.0f});
+            registry_.add_component(bonus, Collider{config::BONUS_SIZE, config::BONUS_SIZE});
+
+            BonusType type = static_cast<BonusType>(event.bonusType);
+            registry_.add_component(bonus, Bonus{type, config::BONUS_SIZE / 2.0f});
+            registry_.add_component(bonus, NoFriction{});
+            registry_.add_component(bonus, Scrollable{1.0f, false, true}); // Scroll and destroy when off-screen
+            registry_.add_component(bonus, BonusLifetime{15.0f}); // 15 seconds max lifetime
+
+            // Determine EntityType for network
+            EntityType entityType = EntityType::BONUS_HEALTH;
+            if (type == BonusType::SHIELD) {
+                entityType = EntityType::BONUS_SHIELD;
+            } else if (type == BonusType::SPEED) {
+                entityType = EntityType::BONUS_SPEED;
+            } else if (type == BonusType::BONUS_WEAPON) {
+                entityType = EntityType::BONUS_HEALTH; // Use health type for now, client will handle color
+            }
+
+            std::cout << "[GameSession " << session_id_ << "] Spawned bonus at ("
+                      << event.x << ", " << event.y << ") type=" << event.bonusType << "\n";
+
+            if (network_system_)
+                network_system_->queue_entity_spawn(bonus, entityType, event.x, event.y, 0, static_cast<uint8_t>(event.bonusType));
+        });
+
     std::string wave_file = WaveManager::get_map_file(map_id);
     if (wave_manager_.load_from_file(wave_file)) {
         std::cout << "[GameSession " << session_id_ << "] Loaded " << wave_manager_.get_total_waves()
@@ -189,6 +246,7 @@ void GameSession::update(float delta_time)
     
     wave_manager_.update(delta_time, current_scroll_);
     registry_.get_system<BonusSystem>().update(registry_, delta_time);
+    registry_.get_system<BonusWeaponSystem>().update(registry_, delta_time);
     registry_.get_system<ShootingSystem>().update(registry_, delta_time);
     registry_.run_systems(delta_time);
     check_offscreen_enemies();
@@ -232,6 +290,7 @@ void GameSession::spawn_player_entity(GamePlayer& player)
     registry_.add_component(entity, Score{0});
     Weapon weapon = create_weapon(WeaponType::BASIC, engine::INVALID_HANDLE);
     registry_.add_component(entity, weapon);
+
     std::cout << "[GameSession " << session_id_ << "] Spawned player entity " << entity
               << " at (" << spawn_x << ", " << spawn_y << ")\n";
 }
@@ -274,7 +333,7 @@ void GameSession::on_wave_completed(const Wave& wave)
     listener_->on_wave_complete(session_id_, serialize(payload));
 }
 
-void GameSession::on_spawn_enemy(const std::string& enemy_type, float x, float y)
+void GameSession::on_spawn_enemy(const std::string& enemy_type, float x, float y, const BonusDropConfig& bonus_drop)
 {
     Entity enemy = registry_.spawn_entity();
     float velocity_x = -config::ENEMY_BASIC_SPEED;
@@ -283,6 +342,7 @@ void GameSession::on_spawn_enemy(const std::string& enemy_type, float x, float y
     float height = config::ENEMY_BASIC_HEIGHT;
     EntityType entity_type = EntityType::ENEMY_BASIC;
     protocol::EnemySubtype subtype = protocol::EnemySubtype::BASIC;
+    EnemyType ai_type = EnemyType::Basic;
 
     if (enemy_type == "fast") {
         velocity_x = -config::ENEMY_FAST_SPEED;
@@ -291,6 +351,7 @@ void GameSession::on_spawn_enemy(const std::string& enemy_type, float x, float y
         height = config::ENEMY_FAST_HEIGHT;
         entity_type = EntityType::ENEMY_FAST;
         subtype = protocol::EnemySubtype::FAST;
+        ai_type = EnemyType::Fast;
     } else if (enemy_type == "tank") {
         velocity_x = -config::ENEMY_TANK_SPEED;
         health = config::ENEMY_TANK_HEALTH;
@@ -298,6 +359,7 @@ void GameSession::on_spawn_enemy(const std::string& enemy_type, float x, float y
         height = config::ENEMY_TANK_HEIGHT;
         entity_type = EntityType::ENEMY_TANK;
         subtype = protocol::EnemySubtype::TANK;
+        ai_type = EnemyType::Tank;
     } else if (enemy_type == "boss") {
         velocity_x = -config::ENEMY_BOSS_SPEED;
         health = config::ENEMY_BOSS_HEALTH;
@@ -305,17 +367,45 @@ void GameSession::on_spawn_enemy(const std::string& enemy_type, float x, float y
         height = config::ENEMY_BOSS_HEIGHT;
         entity_type = EntityType::ENEMY_BOSS;
         subtype = protocol::EnemySubtype::BOSS;
+        ai_type = EnemyType::Boss;
     }
     float center_x = x + width / 2.0f;
     float center_y = y + height / 2.0f;
     registry_.add_component(enemy, Position{center_x, center_y});
     registry_.add_component(enemy, Velocity{velocity_x, 0.0f});
     registry_.add_component(enemy, Health{static_cast<int>(health), static_cast<int>(health)});
-    registry_.add_component(enemy, Enemy{});
+
+    // Add AI component for enemy type detection in snapshots
+    AI ai;
+    ai.type = ai_type;
+    ai.moveSpeed = std::abs(velocity_x);
+    registry_.add_component(enemy, ai);
+
+    // Convert BonusDropConfig to BonusDrop component
+    BonusDrop drop;
+    drop.enabled = bonus_drop.enabled;
+    drop.dropChance = bonus_drop.drop_chance;
+    if (bonus_drop.bonus_type == "health") {
+        drop.bonusType = BonusType::HEALTH;
+    } else if (bonus_drop.bonus_type == "shield") {
+        drop.bonusType = BonusType::SHIELD;
+    } else if (bonus_drop.bonus_type == "speed") {
+        drop.bonusType = BonusType::SPEED;
+    } else if (bonus_drop.bonus_type == "bonus_weapon") {
+        drop.bonusType = BonusType::BONUS_WEAPON;
+    }
+
+    registry_.add_component(enemy, Enemy{drop});
     registry_.add_component(enemy, NoFriction{});
     registry_.add_component(enemy, Collider{width, height});
+
     std::cout << "[GameSession " << session_id_ << "] Spawned " << enemy_type << " enemy " << enemy
-              << " at (" << x << ", " << y << ")\n";
+              << " at (" << x << ", " << y << ")";
+    if (bonus_drop.enabled) {
+        std::cout << " with bonusDrop: " << bonus_drop.bonus_type;
+    }
+    std::cout << "\n";
+
     if (network_system_)
         network_system_->queue_entity_spawn(enemy, entity_type, center_x, center_y, health, static_cast<uint8_t>(subtype));
 }
@@ -342,24 +432,10 @@ void GameSession::on_spawn_wall(float x, float y)
 
 void GameSession::on_spawn_powerup(const std::string& bonus_type, float x, float y)
 {
-    Entity powerup = registry_.spawn_entity();
-    float center_x = x + config::BONUS_SIZE / 2.0f;
-    float center_y = y + config::BONUS_SIZE / 2.0f;
-
-    registry_.add_component(powerup, Position{center_x, center_y});
-    registry_.add_component(powerup, Velocity{-scroll_speed_, 0.0f});
-    registry_.add_component(powerup, Collider{config::BONUS_SIZE, config::BONUS_SIZE});
-    registry_.add_component(powerup, Bonus{});
-    registry_.add_component(powerup, NoFriction{});
-    std::cout << "[GameSession " << session_id_ << "] Spawned " << bonus_type << " powerup " << powerup
-              << " at (" << x << ", " << y << ")\n";
-    EntityType entity_type = EntityType::BONUS_HEALTH;
-    if (bonus_type == "shield")
-        entity_type = EntityType::BONUS_SHIELD;
-    else if (bonus_type == "speed")
-        entity_type = EntityType::BONUS_SPEED;
-    if (network_system_)
-        network_system_->queue_entity_spawn(powerup, entity_type, center_x, center_y, 0, 0);
+    // Disabled: powerups only come from enemy drops now
+    (void)bonus_type;
+    (void)x;
+    (void)y;
 }
 
 void GameSession::on_snapshot_ready(uint32_t session_id, const std::vector<uint8_t>& snapshot)
@@ -396,6 +472,12 @@ void GameSession::on_score_updated(uint32_t session_id, const std::vector<uint8_
 {
     if (listener_)
         listener_->on_score_update(session_id, score_data);
+}
+
+void GameSession::on_powerup_collected(uint32_t session_id, const std::vector<uint8_t>& powerup_data)
+{
+    if (listener_)
+        listener_->on_powerup_collected(session_id, powerup_data);
 }
 
 void GameSession::check_game_over()

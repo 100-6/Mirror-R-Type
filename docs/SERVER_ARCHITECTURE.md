@@ -370,9 +370,15 @@ Le `GameSessionManager` nettoie automatiquement les sessions inactives à chaque
 ### Optimisations
 
 1. **Delta Snapshots**: Seules les entités qui ont changé sont envoyées
-2. **UDP pour gameplay**: Réduction de la latence
-3. **Pooling d'entités**: Réutilisation des entités détruites
-4. **Spatial partitioning**: Pour les collisions (dans GameSession)
+2. **Entity Prioritization**: Les snapshots priorisent les entités critiques:
+   - **PLAYER** (priorité maximale) - toujours inclus
+   - **PROJECTILE** (haute priorité) - inclus pour un gameplay précis
+   - **ENEMY** (priorité moyenne) - inclus pour la synchronisation
+   - **WALL** exclus des snapshots (défilement prédictible côté client)
+3. **Snapshot Size Limit**: Maximum 55 entités par snapshot (payload 1387 bytes / 25 bytes par EntityState)
+4. **UDP pour gameplay**: Réduction de la latence
+5. **Pooling d'entités**: Réutilisation des entités détruites
+6. **Spatial partitioning**: Pour les collisions (dans GameSession)
 
 ## Déploiement
 

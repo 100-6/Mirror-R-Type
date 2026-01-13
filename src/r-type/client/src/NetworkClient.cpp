@@ -312,6 +312,9 @@ void NetworkClient::handle_packet(const engine::NetworkPacket& packet) {
         case protocol::PacketType::SERVER_SCORE_UPDATE:
             handle_score_update(payload);
             break;
+        case protocol::PacketType::SERVER_POWERUP_COLLECTED:
+            handle_powerup_collected(payload);
+            break;
         case protocol::PacketType::SERVER_GAME_OVER:
             handle_game_over(payload);
             break;
@@ -482,9 +485,8 @@ void NetworkClient::handle_game_start(const std::vector<uint8_t>& payload) {
 }
 
 void NetworkClient::handle_entity_spawn(const std::vector<uint8_t>& payload) {
-    if (payload.size() < sizeof(protocol::ServerEntitySpawnPayload)) {
+    if (payload.size() < sizeof(protocol::ServerEntitySpawnPayload))
         return;
-    }
 
     protocol::ServerEntitySpawnPayload spawn;
     std::memcpy(&spawn, payload.data(), sizeof(spawn));
@@ -612,6 +614,22 @@ void NetworkClient::handle_score_update(const std::vector<uint8_t>& payload) {
 
     if (on_score_update_)
         on_score_update_(score_update);
+}
+
+void NetworkClient::handle_powerup_collected(const std::vector<uint8_t>& payload) {
+    if (payload.size() < sizeof(protocol::ServerPowerupCollectedPayload)) {
+        return;
+    }
+
+    protocol::ServerPowerupCollectedPayload powerup;
+    std::memcpy(&powerup, payload.data(), sizeof(powerup));
+    powerup.player_id = ntohl(powerup.player_id);
+
+    std::cout << "[NetworkClient] Powerup collected by player " << powerup.player_id
+              << " type=" << static_cast<int>(powerup.powerup_type) << "\n";
+
+    if (on_powerup_collected_)
+        on_powerup_collected_(powerup);
 }
 
 void NetworkClient::handle_room_created(const std::vector<uint8_t>& payload) {
@@ -893,6 +911,10 @@ void NetworkClient::set_on_wave_complete(std::function<void(const protocol::Serv
 
 void NetworkClient::set_on_score_update(std::function<void(const protocol::ServerScoreUpdatePayload&)> callback) {
     on_score_update_ = callback;
+}
+
+void NetworkClient::set_on_powerup_collected(std::function<void(const protocol::ServerPowerupCollectedPayload&)> callback) {
+    on_powerup_collected_ = callback;
 }
 
 void NetworkClient::set_on_room_created(std::function<void(const protocol::ServerRoomCreatedPayload&)> callback) {

@@ -17,6 +17,12 @@
 
 namespace rtype::server {
 
+struct BonusDropConfig {
+    bool enabled = false;
+    std::string bonus_type = "health";  // "health", "shield", "speed", "bonus_weapon"
+    float drop_chance = 1.0f;
+};
+
 struct SpawnConfig {
     std::string type;           // "enemy", "wall", or "powerup"
     std::string enemy_type;     // "basic", "fast", "tank", "boss" (for enemies)
@@ -26,6 +32,7 @@ struct SpawnConfig {
     uint32_t count;
     std::string pattern;        // "single", "line", "formation"
     float spacing;
+    BonusDropConfig bonus_drop; // Optional bonus drop on death (for enemies)
 };
 
 struct WaveTrigger {

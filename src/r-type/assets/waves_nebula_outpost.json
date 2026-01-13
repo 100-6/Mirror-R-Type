@@ -19,7 +19,11 @@
           "positionY": 180,
           "count": 1,
           "pattern": "single",
-          "spacing": 0
+          "spacing": 0,
+          "bonusDrop": {
+            "type": "bonus_weapon",
+            "dropChance": 1.0
+          }
         },
         {
           "type": "enemy",
@@ -28,7 +32,11 @@
           "positionY": 450,
           "count": 1,
           "pattern": "single",
-          "spacing": 0
+          "spacing": 0,
+          "bonusDrop": {
+            "type": "health",
+            "dropChance": 1.0
+          }
         },
         {
           "type": "enemy",
@@ -37,7 +45,11 @@
           "positionY": 720,
           "count": 1,
           "pattern": "single",
-          "spacing": 0
+          "spacing": 0,
+          "bonusDrop": {
+            "type": "shield",
+            "dropChance": 1.0
+          }
         }
       ]
     },
@@ -55,7 +67,11 @@
           "positionY": 150,
           "count": 1,
           "pattern": "single",
-          "spacing": 0
+          "spacing": 0,
+          "bonusDrop": {
+            "type": "speed",
+            "dropChance": 1.0
+          }
         },
         {
           "type": "enemy",
@@ -64,7 +80,11 @@
           "positionY": 580,
           "count": 1,
           "pattern": "single",
-          "spacing": 0
+          "spacing": 0,
+          "bonusDrop": {
+            "type": "health",
+            "dropChance": 1.0
+          }
         },
         {
           "type": "enemy",
@@ -73,7 +93,11 @@
           "positionY": 320,
           "count": 1,
           "pattern": "single",
-          "spacing": 0
+          "spacing": 0,
+          "bonusDrop": {
+            "type": "bonus_weapon",
+            "dropChance": 1.0
+          }
         },
         {
           "type": "enemy",
@@ -82,16 +106,11 @@
           "positionY": 700,
           "count": 1,
           "pattern": "single",
-          "spacing": 0
-        },
-        {
-          "type": "powerup",
-          "bonusType": "health",
-          "positionX": 2900,
-          "positionY": 500,
-          "count": 1,
-          "pattern": "single",
-          "spacing": 0
+          "spacing": 0,
+          "bonusDrop": {
+            "type": "shield",
+            "dropChance": 1.0
+          }
         }
       ]
     },
@@ -109,7 +128,11 @@
           "positionY": 280,
           "count": 1,
           "pattern": "single",
-          "spacing": 0
+          "spacing": 0,
+          "bonusDrop": {
+            "type": "health",
+            "dropChance": 1.0
+          }
         },
         {
           "type": "enemy",
@@ -118,7 +141,11 @@
           "positionY": 420,
           "count": 1,
           "pattern": "single",
-          "spacing": 0
+          "spacing": 0,
+          "bonusDrop": {
+            "type": "speed",
+            "dropChance": 1.0
+          }
         },
         {
           "type": "enemy",
@@ -127,7 +154,11 @@
           "positionY": 180,
           "count": 1,
           "pattern": "single",
-          "spacing": 0
+          "spacing": 0,
+          "bonusDrop": {
+            "type": "bonus_weapon",
+            "dropChance": 1.0
+          }
         },
         {
           "type": "enemy",
@@ -136,7 +167,11 @@
           "positionY": 650,
           "count": 1,
           "pattern": "single",
-          "spacing": 0
+          "spacing": 0,
+          "bonusDrop": {
+            "type": "shield",
+            "dropChance": 1.0
+          }
         },
         {
           "type": "enemy",
@@ -145,7 +180,11 @@
           "positionY": 350,
           "count": 1,
           "pattern": "single",
-          "spacing": 0
+          "spacing": 0,
+          "bonusDrop": {
+            "type": "health",
+            "dropChance": 1.0
+          }
         }
       ]
     },
@@ -163,7 +202,11 @@
           "positionY": 480,
           "count": 1,
           "pattern": "single",
-          "spacing": 0
+          "spacing": 0,
+          "bonusDrop": {
+            "type": "speed",
+            "dropChance": 1.0
+          }
         },
         {
           "type": "enemy",
@@ -172,7 +215,11 @@
           "positionY": 150,
           "count": 1,
           "pattern": "single",
-          "spacing": 0
+          "spacing": 0,
+          "bonusDrop": {
+            "type": "health",
+            "dropChance": 1.0
+          }
         },
         {
           "type": "enemy",
@@ -181,7 +228,11 @@
           "positionY": 580,
           "count": 1,
           "pattern": "single",
-          "spacing": 0
+          "spacing": 0,
+          "bonusDrop": {
+            "type": "bonus_weapon",
+            "dropChance": 1.0
+          }
         },
         {
           "type": "enemy",
@@ -190,7 +241,11 @@
           "positionY": 320,
           "count": 1,
           "pattern": "single",
-          "spacing": 0
+          "spacing": 0,
+          "bonusDrop": {
+            "type": "shield",
+            "dropChance": 1.0
+          }
         },
         {
           "type": "enemy",
@@ -199,16 +254,11 @@
           "positionY": 450,
           "count": 1,
           "pattern": "single",
-          "spacing": 0
-        },
-        {
-          "type": "powerup",
-          "bonusType": "shield",
-          "positionX": 4000,
-          "positionY": 550,
-          "count": 1,
-          "pattern": "single",
-          "spacing": 0
+          "spacing": 0,
+          "bonusDrop": {
+            "type": "health",
+            "dropChance": 1.0
+          }
         }
       ]
     },
@@ -226,7 +276,11 @@
           "positionY": 250,
           "count": 1,
           "pattern": "single",
-          "spacing": 0
+          "spacing": 0,
+          "bonusDrop": {
+            "type": "bonus_weapon",
+            "dropChance": 1.0
+          }
         },
         {
           "type": "enemy",
@@ -235,7 +289,11 @@
           "positionY": 620,
           "count": 1,
           "pattern": "single",
-          "spacing": 0
+          "spacing": 0,
+          "bonusDrop": {
+            "type": "health",
+            "dropChance": 1.0
+          }
         },
         {
           "type": "enemy",
@@ -244,7 +302,11 @@
           "positionY": 350,
           "count": 1,
           "pattern": "single",
-          "spacing": 0
+          "spacing": 0,
+          "bonusDrop": {
+            "type": "speed",
+            "dropChance": 1.0
+          }
         },
         {
           "type": "enemy",
@@ -253,7 +315,11 @@
           "positionY": 180,
           "count": 1,
           "pattern": "single",
-          "spacing": 0
+          "spacing": 0,
+          "bonusDrop": {
+            "type": "shield",
+            "dropChance": 1.0
+          }
         },
         {
           "type": "enemy",
@@ -262,7 +328,11 @@
           "positionY": 520,
           "count": 1,
           "pattern": "single",
-          "spacing": 0
+          "spacing": 0,
+          "bonusDrop": {
+            "type": "health",
+            "dropChance": 1.0
+          }
         },
         {
           "type": "enemy",
@@ -271,7 +341,11 @@
           "positionY": 680,
           "count": 1,
           "pattern": "single",
-          "spacing": 0
+          "spacing": 0,
+          "bonusDrop": {
+            "type": "bonus_weapon",
+            "dropChance": 1.0
+          }
         }
       ]
     },
@@ -289,7 +363,11 @@
           "positionY": 280,
           "count": 1,
           "pattern": "single",
-          "spacing": 0
+          "spacing": 0,
+          "bonusDrop": {
+            "type": "health",
+            "dropChance": 1.0
+          }
         },
         {
           "type": "enemy",
@@ -298,7 +376,11 @@
           "positionY": 720,
           "count": 1,
           "pattern": "single",
-          "spacing": 0
+          "spacing": 0,
+          "bonusDrop": {
+            "type": "speed",
+            "dropChance": 1.0
+          }
         },
         {
           "type": "enemy",
@@ -307,7 +389,11 @@
           "positionY": 180,
           "count": 1,
           "pattern": "single",
-          "spacing": 0
+          "spacing": 0,
+          "bonusDrop": {
+            "type": "shield",
+            "dropChance": 1.0
+          }
         },
         {
           "type": "enemy",
@@ -316,7 +402,11 @@
           "positionY": 420,
           "count": 1,
           "pattern": "single",
-          "spacing": 0
+          "spacing": 0,
+          "bonusDrop": {
+            "type": "bonus_weapon",
+            "dropChance": 1.0
+          }
         },
         {
           "type": "enemy",
@@ -325,7 +415,11 @@
           "positionY": 600,
           "count": 1,
           "pattern": "single",
-          "spacing": 0
+          "spacing": 0,
+          "bonusDrop": {
+            "type": "health",
+            "dropChance": 1.0
+          }
         },
         {
           "type": "enemy",
@@ -334,16 +428,11 @@
           "positionY": 320,
           "count": 1,
           "pattern": "single",
-          "spacing": 0
-        },
-        {
-          "type": "powerup",
-          "bonusType": "health",
-          "positionX": 5300,
-          "positionY": 450,
-          "count": 1,
-          "pattern": "single",
-          "spacing": 0
+          "spacing": 0,
+          "bonusDrop": {
+            "type": "speed",
+            "dropChance": 1.0
+          }
         }
       ]
     },
@@ -361,7 +450,11 @@
           "positionY": 450,
           "count": 1,
           "pattern": "single",
-          "spacing": 0
+          "spacing": 0,
+          "bonusDrop": {
+            "type": "bonus_weapon",
+            "dropChance": 1.0
+          }
         },
         {
           "type": "enemy",
@@ -370,7 +463,11 @@
           "positionY": 250,
           "count": 1,
           "pattern": "single",
-          "spacing": 0
+          "spacing": 0,
+          "bonusDrop": {
+            "type": "health",
+            "dropChance": 1.0
+          }
         },
         {
           "type": "enemy",
@@ -379,7 +476,11 @@
           "positionY": 380,
           "count": 1,
           "pattern": "single",
-          "spacing": 0
+          "spacing": 0,
+          "bonusDrop": {
+            "type": "shield",
+            "dropChance": 1.0
+          }
         },
         {
           "type": "enemy",
@@ -388,7 +489,11 @@
           "positionY": 180,
           "count": 1,
           "pattern": "single",
-          "spacing": 0
+          "spacing": 0,
+          "bonusDrop": {
+            "type": "speed",
+            "dropChance": 1.0
+          }
         },
         {
           "type": "enemy",
@@ -397,7 +502,11 @@
           "positionY": 520,
           "count": 1,
           "pattern": "single",
-          "spacing": 0
+          "spacing": 0,
+          "bonusDrop": {
+            "type": "bonus_weapon",
+            "dropChance": 1.0
+          }
         },
         {
           "type": "enemy",
@@ -406,7 +515,11 @@
           "positionY": 680,
           "count": 1,
           "pattern": "single",
-          "spacing": 0
+          "spacing": 0,
+          "bonusDrop": {
+            "type": "health",
+            "dropChance": 1.0
+          }
         },
         {
           "type": "enemy",
@@ -415,16 +528,11 @@
           "positionY": 350,
           "count": 1,
           "pattern": "single",
-          "spacing": 0
-        },
-        {
-          "type": "powerup",
-          "bonusType": "shield",
-          "positionX": 5950,
-          "positionY": 500,
-          "count": 1,
-          "pattern": "single",
-          "spacing": 0
+          "spacing": 0,
+          "bonusDrop": {
+            "type": "shield",
+            "dropChance": 1.0
+          }
         }
       ]
     }

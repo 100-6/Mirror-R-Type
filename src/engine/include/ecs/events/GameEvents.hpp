@@ -58,4 +58,30 @@ struct ExplosionEvent : public core::Event {
         , scale(s) {}
 };
 
+/**
+ * @brief Event fired when a bonus should be spawned (typically when an enemy dies with bonusDrop)
+ */
+struct BonusSpawnEvent : public core::Event {
+    float x;
+    float y;
+    int bonusType;  // Cast to BonusType enum
+
+    BonusSpawnEvent(float px, float py, int type)
+        : x(px)
+        , y(py)
+        , bonusType(type) {}
+};
+
+/**
+ * @brief Event fired when a bonus is collected by a player (for network sync)
+ */
+struct BonusCollectedEvent : public core::Event {
+    Entity player;
+    int bonusType;  // Cast to BonusType enum
+
+    BonusCollectedEvent(Entity p, int type)
+        : player(p)
+        , bonusType(type) {}
+};
+
 }

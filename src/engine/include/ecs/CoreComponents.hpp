@@ -82,6 +82,7 @@ struct Attached {
     size_t parentEntity = 0;
     float offsetX = 0.0f;
     float offsetY = 0.0f;
+    float smoothFactor = 0.0f;  // 0.0 = suivi direct, > 0.0 = suivi avec latence (valeur typique: 5.0-15.0)
 };
 
 // Tags Génériques

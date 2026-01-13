@@ -157,6 +157,27 @@ WaveConfiguration loadWaveConfig(const std::string& filepath) {
                 }
             }
 
+            // Parse bonus drop (for enemies)
+            if (spawnData.entityType == EntitySpawnType::ENEMY && spawnJson.contains("bonusDrop")) {
+                const auto& dropJson = spawnJson["bonusDrop"];
+                spawnData.bonusDrop.enabled = true;
+
+                if (dropJson.contains("type")) {
+                    std::string dropTypeStr = dropJson["type"].get<std::string>();
+                    spawnData.bonusDrop.bonusType = parseBonusType(dropTypeStr);
+                    std::cout << "[WaveConfigLoader] Parsed bonusDrop type: " << dropTypeStr << std::endl;
+                }
+
+                if (dropJson.contains("dropChance")) {
+                    spawnData.bonusDrop.dropChance = dropJson["dropChance"].get<float>();
+                    // Clamp to valid range [0.0, 1.0]
+                    if (spawnData.bonusDrop.dropChance < 0.0f) spawnData.bonusDrop.dropChance = 0.0f;
+                    if (spawnData.bonusDrop.dropChance > 1.0f) spawnData.bonusDrop.dropChance = 1.0f;
+                }
+                std::cout << "[WaveConfigLoader] Enemy at (" << spawnData.positionX << ", " << spawnData.positionY
+                          << ") has bonusDrop enabled" << std::endl;
+            }
+
             wave.spawnData.push_back(spawnData);
         }
 

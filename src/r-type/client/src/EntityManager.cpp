@@ -142,12 +142,30 @@ Sprite EntityManager::build_sprite(protocol::EntityType type, bool is_local_play
         case protocol::EntityType::POWERUP_SPEED:
         case protocol::EntityType::POWERUP_SCORE:
             sprite.texture = textures_.get_projectile();
-            sprite.layer = 4;
-            sprite.tint = engine::Color{120, 255, 120, 255};
-            sprite.source_rect = {32.0f, 0.0f, 16.0f, 16.0f};
-            sprite.width = shared::config::BONUS_SIZE;
-            sprite.height = shared::config::BONUS_SIZE;
+            sprite.layer = 5;
+            sprite.source_rect = {0.0f, 0.0f, 16.0f, 16.0f};
+            sprite.width = 80.0f;  // Grande taille pour les bonus droppés
+            sprite.height = 80.0f;
             use_fixed_dimensions = true;
+            // Couleur basée sur le subtype (qui contient le BonusType)
+            // 0 = HEALTH (vert), 1 = SHIELD (violet), 2 = SPEED (bleu), 3 = BONUS_WEAPON (jaune)
+            switch (subtype) {
+                case 0: // HEALTH - Vert
+                    sprite.tint = engine::Color::Green;
+                    break;
+                case 1: // SHIELD - Violet
+                    sprite.tint = engine::Color::Purple;
+                    break;
+                case 2: // SPEED - Bleu
+                    sprite.tint = engine::Color::SpeedBlue;
+                    break;
+                case 3: // BONUS_WEAPON - Jaune
+                    sprite.tint = engine::Color::Yellow;
+                    break;
+                default:
+                    sprite.tint = engine::Color{120, 255, 120, 255}; // Vert par défaut
+                    break;
+            }
             break;
         default:
             break;
@@ -289,7 +307,7 @@ Entity EntityManager::spawn_or_update_entity(uint32_t server_id, protocol::Entit
     }
 
     // Mark projectiles, players, and moving entities for local integration (smooth movement)
-    if (!highlight_as_local && (type == protocol::EntityType::PROJECTILE_PLAYER || 
+    if (!highlight_as_local && (type == protocol::EntityType::PROJECTILE_PLAYER ||
         type == protocol::EntityType::PROJECTILE_ENEMY ||
         type == protocol::EntityType::PLAYER ||
         type == protocol::EntityType::ENEMY_BASIC ||
@@ -332,6 +350,47 @@ Entity EntityManager::spawn_or_update_entity(uint32_t server_id, protocol::Entit
         colliders[entity].height = collider_dims.height;
     } else {
         registry_.add_component(entity, Collider{collider_dims.width, collider_dims.height});
+    }
+
+    // Ensure bonus metadata for powerups so client-side collection can trigger visuals
+    auto& bonuses = registry_.get_components<Bonus>();
+    const bool is_powerup = (type == protocol::EntityType::POWERUP_HEALTH ||
+        type == protocol::EntityType::POWERUP_SHIELD ||
+        type == protocol::EntityType::POWERUP_SPEED ||
+        type == protocol::EntityType::POWERUP_SCORE);
+    if (is_powerup && type != protocol::EntityType::POWERUP_SCORE) {
+        BonusType bonus_type = BonusType::HEALTH;
+        switch (subtype) {
+            case 0:
+                bonus_type = BonusType::HEALTH;
+                break;
+            case 1:
+                bonus_type = BonusType::SHIELD;
+                break;
+            case 2:
+                bonus_type = BonusType::SPEED;
+                break;
+            case 3:
+                bonus_type = BonusType::BONUS_WEAPON;
+                break;
+            default:
+                bonus_type = BonusType::HEALTH;
+                break;
+        }
+        if (bonuses.has_entity(entity)) {
+            bonuses[entity].type = bonus_type;
+            bonuses[entity].radius = rtype::shared::config::BONUS_SIZE / 2.0f;
+        } else {
+            registry_.add_component(entity, Bonus{bonus_type, rtype::shared::config::BONUS_SIZE / 2.0f});
+        }
+
+        // Add velocity so bonus scrolls with the game (moves left)
+        auto& velocities = registry_.get_components<Velocity>();
+        if (!velocities.has_entity(entity)) {
+            registry_.add_component(entity, Velocity{-rtype::shared::config::GAME_SCROLL_SPEED, 0.0f});
+        }
+    } else if (bonuses.has_entity(entity)) {
+        registry_.remove_component<Bonus>(entity);
     }
 
     // Update health
@@ -398,8 +457,10 @@ Entity EntityManager::spawn_or_update_entity(uint32_t server_id, protocol::Entit
             registry_.add_component(entity, anim);
         }
         ensure_player_name_tag(server_id, x, y);
+        // Note: Le vaisseau bonus n'est plus créé automatiquement ici
+        // Il sera créé quand le joueur collectera le bonus BONUS_WEAPON
     }
-    
+
     // Créer un effet de feu pour les nouveaux projectiles joueur
     if (type == protocol::EntityType::PROJECTILE_PLAYER && is_new) {
         // Ajouter l'animation de balle au projectile
@@ -487,7 +548,53 @@ void EntityManager::remove_entity(uint32_t server_id) {
     if (it == server_to_local_.end())
         return;
 
-    registry_.kill_entity(it->second);
+    Entity entity_to_remove = it->second;
+
+    // Check if this entity has a BonusWeapon (companion turret) attached
+    // If so, destroy the companion turret entity as well
+    auto& bonusWeapons = registry_.get_components<BonusWeapon>();
+    if (bonusWeapons.has_entity(entity_to_remove)) {
+        const BonusWeapon& bonusWeapon = bonusWeapons[entity_to_remove];
+        if (bonusWeapon.weaponEntity != static_cast<size_t>(-1)) {
+            Entity companionEntity = static_cast<Entity>(bonusWeapon.weaponEntity);
+            // Remove all components from companion to stop rendering
+            auto& sprites = registry_.get_components<Sprite>();
+            auto& positions = registry_.get_components<Position>();
+            auto& attacheds = registry_.get_components<Attached>();
+            if (sprites.has_entity(companionEntity))
+                registry_.remove_component<Sprite>(companionEntity);
+            if (positions.has_entity(companionEntity))
+                registry_.remove_component<Position>(companionEntity);
+            if (attacheds.has_entity(companionEntity))
+                registry_.remove_component<Attached>(companionEntity);
+            registry_.kill_entity(companionEntity);
+            std::cout << "[EntityManager] Destroyed companion turret entity " << companionEntity
+                      << " for player " << server_id << std::endl;
+        }
+        // Remove the BonusWeapon component from the player
+        registry_.remove_component<BonusWeapon>(entity_to_remove);
+    }
+
+    // Also check for any entities attached to this one and destroy them
+    auto& attacheds = registry_.get_components<Attached>();
+    std::vector<Entity> attached_to_destroy;
+    for (size_t i = 0; i < attacheds.size(); ++i) {
+        Entity attached_entity = attacheds.get_entity_at(i);
+        const Attached& attached = attacheds[attached_entity];
+        if (attached.parentEntity == entity_to_remove) {
+            attached_to_destroy.push_back(attached_entity);
+        }
+    }
+    for (Entity attached_entity : attached_to_destroy) {
+        auto& sprites = registry_.get_components<Sprite>();
+        if (sprites.has_entity(attached_entity))
+            registry_.remove_component<Sprite>(attached_entity);
+        registry_.kill_entity(attached_entity);
+        std::cout << "[EntityManager] Destroyed attached entity " << attached_entity
+                  << " for parent " << server_id << std::endl;
+    }
+
+    registry_.kill_entity(entity_to_remove);
     server_types_.erase(server_id);
     stale_counters_.erase(server_id);
     locally_integrated_.erase(server_id);
@@ -529,6 +636,25 @@ void EntityManager::process_snapshot_update(const std::unordered_set<uint32_t>& 
         uint32_t server_id = pair.first;
         if (updated_ids.count(server_id))
             continue;
+
+        // Skip stale check for entities that are locally integrated (predicted client-side)
+        // This includes walls, powerups/bonuses that scroll predictably
+        if (locally_integrated_.count(server_id))
+            continue;
+
+        // Also skip stale check for powerups/bonuses based on their type
+        auto type_it = server_types_.find(server_id);
+        if (type_it != server_types_.end()) {
+            protocol::EntityType type = type_it->second;
+            // Powerups/bonuses are not in snapshots - they scroll predictably like walls
+            if (type == protocol::EntityType::POWERUP_HEALTH ||
+                type == protocol::EntityType::POWERUP_SHIELD ||
+                type == protocol::EntityType::POWERUP_SPEED ||
+                type == protocol::EntityType::POWERUP_SCORE ||
+                type == protocol::EntityType::WALL) {
+                continue;
+            }
+        }
 
         auto counter_it = stale_counters_.find(server_id);
         if (counter_it == stale_counters_.end()) {
@@ -577,13 +703,21 @@ void EntityManager::update_projectiles(float delta_time) {
         pos.x += vel.x * delta_time;
         pos.y += vel.y * delta_time;
 
-        // Only despawn projectiles that go out of bounds
+        // Despawn projectiles and powerups that go out of bounds
         auto type_it = server_types_.find(server_id);
-        bool is_projectile = type_it != server_types_.end() && 
-                            (type_it->second == protocol::EntityType::PROJECTILE_PLAYER || 
-                             type_it->second == protocol::EntityType::PROJECTILE_ENEMY);
+        if (type_it == server_types_.end())
+            continue;
 
-        if (is_projectile && 
+        protocol::EntityType etype = type_it->second;
+        bool is_projectile = (etype == protocol::EntityType::PROJECTILE_PLAYER ||
+                              etype == protocol::EntityType::PROJECTILE_ENEMY);
+        bool is_powerup = (etype == protocol::EntityType::POWERUP_HEALTH ||
+                           etype == protocol::EntityType::POWERUP_SHIELD ||
+                           etype == protocol::EntityType::POWERUP_SPEED ||
+                           etype == protocol::EntityType::POWERUP_SCORE);
+
+        // Despawn if out of bounds (projectiles and powerups)
+        if ((is_projectile || is_powerup) &&
             (pos.x < -PROJECTILE_DESPAWN_MARGIN ||
             pos.x > screen_width_ + PROJECTILE_DESPAWN_MARGIN ||
             pos.y < -PROJECTILE_DESPAWN_MARGIN ||

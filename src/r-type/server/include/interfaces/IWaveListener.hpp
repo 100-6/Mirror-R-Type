@@ -12,8 +12,9 @@
 
 namespace rtype::server {
 
-// Forward declaration
+// Forward declarations
 struct Wave;
+struct BonusDropConfig;
 
 /**
  * @brief Interface for receiving wave events
@@ -44,8 +45,9 @@ public:
      * @param enemy_type Type of enemy ("basic", "fast", "tank", "boss")
      * @param x Spawn X position
      * @param y Spawn Y position
+     * @param bonus_drop Optional bonus drop configuration
      */
-    virtual void on_spawn_enemy(const std::string& enemy_type, float x, float y) = 0;
+    virtual void on_spawn_enemy(const std::string& enemy_type, float x, float y, const BonusDropConfig& bonus_drop) = 0;
 
     /**
      * @brief Called when a wall should spawn

@@ -929,7 +929,7 @@ This packet has no payload. The header is sufficient.
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
    |       Entity Count            |                               |
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+                               +
-   |                   Entity State Array (20 bytes each)          |
+   |                   Entity State Array (25 bytes each)          |
    |                             ...                               |
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ```
@@ -940,7 +940,7 @@ This packet has no payload. The header is sufficient.
 | Entity Count  | 2 bytes  | Number of entities in snapshot      |
 | Entity States | Variable | Array of entity states              |
 
-**Entity State Format (20 bytes each)**:
+**Entity State Format (25 bytes each)**:
 
 ```
     0                   1                   2                   3
@@ -956,20 +956,23 @@ This packet has no payload. The header is sufficient.
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
    |  Velocity Y   |         Health            |      Flags        |
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |     Flags     |
+   |     Flags     |              Last Ack Sequence                |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   | Last Ack Seq  |
    +-+-+-+-+-+-+-+-+
 ```
 
-| Field       | Size    | Offset | Description                            |
-|-------------|---------|--------|----------------------------------------|
-| Entity ID   | 4 bytes | 0      | Unique entity identifier               |
-| Entity Type | 1 byte  | 4      | Entity type code                       |
-| Position X  | 4 bytes | 5      | X position (IEEE 754 float)            |
-| Position Y  | 4 bytes | 9      | Y position (IEEE 754 float)            |
-| Velocity X  | 2 bytes | 13     | X velocity (int16, scaled by 100)      |
-| Velocity Y  | 2 bytes | 15     | Y velocity (int16, scaled by 100)      |
-| Health      | 2 bytes | 17     | Current health points                  |
-| Flags       | 2 bytes | 19     | Entity state flags bitfield            |
+| Field            | Size    | Offset | Description                            |
+|------------------|---------|--------|----------------------------------------|
+| Entity ID        | 4 bytes | 0      | Unique entity identifier               |
+| Entity Type      | 1 byte  | 4      | Entity type code                       |
+| Position X       | 4 bytes | 5      | X position (IEEE 754 float)            |
+| Position Y       | 4 bytes | 9      | Y position (IEEE 754 float)            |
+| Velocity X       | 2 bytes | 13     | X velocity (int16, scaled by 10)       |
+| Velocity Y       | 2 bytes | 15     | Y velocity (int16, scaled by 10)       |
+| Health           | 2 bytes | 17     | Current health points                  |
+| Flags            | 2 bytes | 19     | Entity state flags bitfield            |
+| Last Ack Seq     | 4 bytes | 21     | Last processed input sequence (for lag compensation, 0 for non-player entities) |
 
 **Entity Type Codes**:
 - `0x01`: PLAYER
@@ -992,9 +995,17 @@ This packet has no payload. The header is sufficient.
 - Bit 2: DAMAGED (visual feedback)
 - Bits 3-15: Reserved
 
-**Total Size**: 6 + (20 × Entity Count) bytes
+**Total Size**: 6 + (25 × Entity Count) bytes
 
-**Maximum Entities**: With 1392 byte payload limit: (1392 - 6) / 20 = 69 entities per snapshot
+**Maximum Entities**: With 1387 byte payload limit: (1387 - 6) / 25 = 55 entities per snapshot
+
+**Entity Priority**: When the number of entities exceeds the maximum, servers MUST prioritize entities in the following order:
+1. **PLAYER** entities (highest priority) - MUST always be included
+2. **PROJECTILE_PLAYER** and **PROJECTILE_ENEMY** entities (high priority) - SHOULD be included for accurate gameplay
+3. **ENEMY_*** entities (medium priority) - SHOULD be included
+4. **WALL** entities (lowest priority) - MAY be excluded as they scroll predictably
+
+**Rationale**: Wall entities scroll at a constant speed and are spawned via SERVER_ENTITY_SPAWN. Clients can predict their positions locally, making them unnecessary in state snapshots. This optimization ensures that critical gameplay entities (players, projectiles, enemies) are always synchronized.
 
 **Frequency**: Servers SHOULD send snapshots at 20-30 Hz to conserve bandwidth.
 
