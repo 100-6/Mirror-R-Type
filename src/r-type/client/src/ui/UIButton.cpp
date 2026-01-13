@@ -227,6 +227,12 @@ void UIButton::draw(engine::IGraphicsPlugin* graphics) {
     if (text_ == "+" || text_ == "-") {
         // Single character buttons need special handling
         char_width = font_size * 0.5f;
+    } else if (text_.find("Back to Menu") != std::string::npos) {
+        // "Back to Menu" button needs better centering
+        char_width = font_size * 0.58f;
+    } else if (text_.find("Settings") != std::string::npos) {
+        // "Settings" button needs better centering
+        char_width = font_size * 0.58f;
     } else if (text_.find("Leave") != std::string::npos) {
         // "Leave" button
         char_width = font_size * 0.55f;

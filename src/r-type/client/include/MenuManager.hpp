@@ -12,6 +12,7 @@
 #include "screens/BrowseRoomsScreen.hpp"
 #include "screens/RoomLobbyScreen.hpp"
 #include "screens/PasswordDialog.hpp"
+#include "screens/SettingsScreen.hpp"
 #include "protocol/Payloads.hpp"
 
 namespace rtype::client {
@@ -68,6 +69,11 @@ public:
     void on_lobby_state(const protocol::ServerLobbyStatePayload& state,
                         const std::vector<protocol::PlayerLobbyEntry>& players);
 
+    /**
+     * @brief Get settings screen (for accessing key bindings)
+     */
+    SettingsScreen* get_settings_screen() { return settings_screen_.get(); }
+
 private:
     NetworkClient& network_client_;
     int screen_width_;
@@ -80,6 +86,7 @@ private:
     std::unique_ptr<BrowseRoomsScreen> browse_rooms_screen_;
     std::unique_ptr<RoomLobbyScreen> room_lobby_screen_;
     std::unique_ptr<PasswordDialog> password_dialog_;
+    std::unique_ptr<SettingsScreen> settings_screen_;
 
     // Room state tracking (for periodic refresh)
     float room_list_refresh_timer_ = 0.0f;

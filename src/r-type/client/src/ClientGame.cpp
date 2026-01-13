@@ -100,8 +100,6 @@ bool ClientGame::initialize(const std::string& host, uint16_t tcp_port, const st
         *registry_, screen_manager_->get_status_entity()
     );
 
-    input_handler_ = std::make_unique<InputHandler>(*input_plugin_);
-
     network_client_ = std::make_unique<rtype::client::NetworkClient>(*network_plugin_);
     setup_network_callbacks();
 
@@ -112,6 +110,12 @@ bool ClientGame::initialize(const std::string& host, uint16_t tcp_port, const st
     // Initialize menu manager
     menu_manager_ = std::make_unique<MenuManager>(*network_client_, screen_width_, screen_height_);
     menu_manager_->initialize();
+
+    // Create input handler with key bindings from settings
+    input_handler_ = std::make_unique<InputHandler>(
+        *input_plugin_,
+        menu_manager_->get_settings_screen() ? &menu_manager_->get_settings_screen()->get_key_bindings() : nullptr
+    );
 
     status_overlay_->set_connection("Connecting to " + host_ + ":" + std::to_string(tcp_port_));
     status_overlay_->refresh();
@@ -935,7 +939,8 @@ void ClientGame::run() {
         bool in_menu = (current_screen == GameScreen::MAIN_MENU ||
                        current_screen == GameScreen::CREATE_ROOM ||
                        current_screen == GameScreen::BROWSE_ROOMS ||
-                       current_screen == GameScreen::ROOM_LOBBY);
+                       current_screen == GameScreen::ROOM_LOBBY ||
+                       current_screen == GameScreen::SETTINGS);
         bool in_result = (current_screen == GameScreen::VICTORY ||
                          current_screen == GameScreen::DEFEAT);
         entity_manager_->update_projectiles(dt);
