@@ -28,6 +28,16 @@ public:
 
 
     /**
+     * @brief Update map selection step (circular click detection)
+     */
+    static void update_map_step(
+        size_t& current_map_index,
+        size_t num_maps,
+        float screen_width,
+        engine::IInputPlugin* input
+    );
+
+    /**
      * @brief Update difficulty step (circular click detection)
      */
     static void update_difficulty_step(

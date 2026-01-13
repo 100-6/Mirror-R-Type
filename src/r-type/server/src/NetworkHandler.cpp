@@ -22,8 +22,12 @@ void NetworkHandler::process_packets()
     auto packets = network_plugin_->receive();
 
     for (const auto& packet : packets) {
+        std::cout << "[NetworkHandler] DEBUG: Received packet from client " << packet.sender_id
+                  << ", size=" << packet.data.size() << " bytes\n";
+
         if (packet.data.size() < protocol::HEADER_SIZE) {
-            std::cerr << "[NetworkHandler] Packet too small from client " << packet.sender_id << "\n";
+            std::cerr << "[NetworkHandler] Packet too small from client " << packet.sender_id
+                      << " (got " << packet.data.size() << " bytes, expected " << protocol::HEADER_SIZE << ")\n";
             continue;
         }
 
@@ -36,10 +40,16 @@ void NetworkHandler::process_packets()
             continue;
         }
 
-        std::vector<uint8_t> payload(
-            packet.data.begin() + protocol::HEADER_SIZE,
-            packet.data.begin() + protocol::HEADER_SIZE + header.payload_length
-        );
+        // Decompress payload if needed (handles both compressed and uncompressed packets)
+        std::vector<uint8_t> payload;
+        try {
+            payload = protocol::ProtocolEncoder::get_decompressed_payload(
+                packet.data.data(), packet.data.size());
+        } catch (const std::exception& e) {
+            std::cerr << "[NetworkHandler] Failed to decompress packet from client " << packet.sender_id
+                      << ": " << e.what() << "\n";
+            continue;
+        }
 
         route_packet(packet.sender_id, header, payload, packet.protocol);
     }
@@ -168,6 +178,16 @@ void NetworkHandler::handle_tcp_packet(uint32_t client_id, protocol::PacketType 
             protocol::ClientSetPlayerNamePayload data;
             Memory::copy_to_struct(data, payload.data());
             listener_->on_client_set_player_name(client_id, data);
+            break;
+        }
+        case protocol::PacketType::CLIENT_SET_PLAYER_SKIN: {
+            if (payload.size() != sizeof(protocol::ClientSetPlayerSkinPayload)) {
+                std::cerr << "[NetworkHandler] Invalid CLIENT_SET_PLAYER_SKIN payload size\n";
+                return;
+            }
+            protocol::ClientSetPlayerSkinPayload data;
+            Memory::copy_to_struct(data, payload.data());
+            listener_->on_client_set_player_skin(client_id, data);
             break;
         }
         default:

@@ -2,6 +2,7 @@
 
 #include "plugin_manager/IGraphicsPlugin.hpp"
 #include "protocol/Payloads.hpp"
+#include <vector>
 
 
 
@@ -64,6 +65,16 @@ public:
     );
 
 
+
+    /**
+     * @brief Draw circular map selection images with dynamic thumbnails
+     */
+    static void draw_map_selection(
+        engine::IGraphicsPlugin* graphics,
+        const std::vector<engine::TextureHandle>& map_thumbnails,
+        int screen_width,
+        size_t selected_map_index
+    );
 
     /**
      * @brief Draw circular difficulty selection images

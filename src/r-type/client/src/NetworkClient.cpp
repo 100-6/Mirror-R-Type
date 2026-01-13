@@ -81,7 +81,7 @@ void NetworkClient::send_connect(const std::string& player_name) {
     payload.client_version = 0x01;
     payload.set_player_name(player_name);
 
-    std::cout << "[NetworkClient] Sending connect request as '" << player_name << "'\n";
+    std::cout << "[NetworkClient] **NEW CODE VERSION** Sending connect request as '" << player_name << "'\n";
     send_tcp_packet(protocol::PacketType::CLIENT_CONNECT, serialize_payload(&payload, sizeof(payload)));
 }
 
@@ -196,6 +196,15 @@ void NetworkClient::send_set_player_name(const std::string& new_name) {
     send_tcp_packet(protocol::PacketType::CLIENT_SET_PLAYER_NAME, serialize_payload(&payload, sizeof(payload)));
 }
 
+void NetworkClient::send_set_player_skin(uint8_t skin_id) {
+    protocol::ClientSetPlayerSkinPayload payload;
+    payload.player_id = htonl(player_id_);
+    payload.skin_id = skin_id;
+
+    std::cout << "[NetworkClient] Changing player skin to " << static_cast<int>(skin_id) << "\n";
+    send_tcp_packet(protocol::PacketType::CLIENT_SET_PLAYER_SKIN, serialize_payload(&payload, sizeof(payload)));
+}
+
 void NetworkClient::send_input(uint16_t input_flags, uint32_t client_tick) {
     protocol::ClientInputPayload payload;
     payload.player_id = htonl(player_id_);
@@ -245,10 +254,15 @@ void NetworkClient::handle_packet(const engine::NetworkPacket& packet) {
         return;
     }
 
-    std::vector<uint8_t> payload(
-        packet.data.begin() + protocol::HEADER_SIZE,
-        packet.data.begin() + protocol::HEADER_SIZE + header.payload_length
-    );
+    // Decompress payload if needed (handles both compressed and uncompressed packets)
+    std::vector<uint8_t> payload;
+    try {
+        payload = protocol::ProtocolEncoder::get_decompressed_payload(
+            packet.data.data(), packet.data.size());
+    } catch (const std::exception& e) {
+        std::cerr << "[NetworkClient] Failed to decompress packet: " << e.what() << "\n";
+        return;
+    }
 
     auto packet_type = static_cast<protocol::PacketType>(header.type);
 
@@ -298,6 +312,9 @@ void NetworkClient::handle_packet(const engine::NetworkPacket& packet) {
         case protocol::PacketType::SERVER_SCORE_UPDATE:
             handle_score_update(payload);
             break;
+        case protocol::PacketType::SERVER_POWERUP_COLLECTED:
+            handle_powerup_collected(payload);
+            break;
         case protocol::PacketType::SERVER_GAME_OVER:
             handle_game_over(payload);
             break;
@@ -318,6 +335,9 @@ void NetworkClient::handle_packet(const engine::NetworkPacket& packet) {
             break;
         case protocol::PacketType::SERVER_PLAYER_NAME_UPDATED:
             handle_player_name_updated(payload);
+            break;
+        case protocol::PacketType::SERVER_PLAYER_SKIN_UPDATED:
+            handle_player_skin_updated(payload);
             break;
         case protocol::PacketType::SERVER_SNAPSHOT:
         case protocol::PacketType::SERVER_DELTA_SNAPSHOT:
@@ -465,9 +485,8 @@ void NetworkClient::handle_game_start(const std::vector<uint8_t>& payload) {
 }
 
 void NetworkClient::handle_entity_spawn(const std::vector<uint8_t>& payload) {
-    if (payload.size() < sizeof(protocol::ServerEntitySpawnPayload)) {
+    if (payload.size() < sizeof(protocol::ServerEntitySpawnPayload))
         return;
-    }
 
     protocol::ServerEntitySpawnPayload spawn;
     std::memcpy(&spawn, payload.data(), sizeof(spawn));
@@ -597,6 +616,22 @@ void NetworkClient::handle_score_update(const std::vector<uint8_t>& payload) {
         on_score_update_(score_update);
 }
 
+void NetworkClient::handle_powerup_collected(const std::vector<uint8_t>& payload) {
+    if (payload.size() < sizeof(protocol::ServerPowerupCollectedPayload)) {
+        return;
+    }
+
+    protocol::ServerPowerupCollectedPayload powerup;
+    std::memcpy(&powerup, payload.data(), sizeof(powerup));
+    powerup.player_id = ntohl(powerup.player_id);
+
+    std::cout << "[NetworkClient] Powerup collected by player " << powerup.player_id
+              << " type=" << static_cast<int>(powerup.powerup_type) << "\n";
+
+    if (on_powerup_collected_)
+        on_powerup_collected_(powerup);
+}
+
 void NetworkClient::handle_room_created(const std::vector<uint8_t>& payload) {
     if (payload.size() < sizeof(protocol::ServerRoomCreatedPayload)) {
         return;
@@ -720,6 +755,23 @@ void NetworkClient::handle_player_name_updated(const std::vector<uint8_t>& paylo
         on_player_name_updated_(name_updated);
 }
 
+void NetworkClient::handle_player_skin_updated(const std::vector<uint8_t>& payload) {
+    if (payload.size() < sizeof(protocol::ServerPlayerSkinUpdatedPayload)) {
+        return;
+    }
+
+    protocol::ServerPlayerSkinUpdatedPayload skin_updated;
+    std::memcpy(&skin_updated, payload.data(), sizeof(skin_updated));
+    skin_updated.player_id = ntohl(skin_updated.player_id);
+    skin_updated.room_id = ntohl(skin_updated.room_id);
+
+    std::cout << "[NetworkClient] Player " << skin_updated.player_id
+              << " changed skin to " << static_cast<int>(skin_updated.skin_id) << "\n";
+
+    if (on_player_skin_updated_)
+        on_player_skin_updated_(skin_updated);
+}
+
 // ============== UDP Connection ==============
 
 void NetworkClient::connect_udp(uint16_t udp_port) {
@@ -754,15 +806,18 @@ void NetworkClient::send_tcp_packet(protocol::PacketType type, const std::vector
         return;
     }
 
-    protocol::PacketHeader header;
-    header.version = 0x01;
-    header.type = static_cast<uint8_t>(type);
-    header.payload_length = static_cast<uint16_t>(payload.size());
-    header.sequence_number = 0;
+    // Use ProtocolEncoder to handle compression automatically
+    // Pass nullptr if payload is empty to avoid undefined behavior
+    const void* payload_ptr = payload.empty() ? nullptr : payload.data();
+    std::vector<uint8_t> packet_data = protocol::ProtocolEncoder::encode_packet(
+        type,
+        payload_ptr,
+        payload.size(),
+        tcp_sequence_number_++
+    );
 
-    std::vector<uint8_t> packet_data(protocol::HEADER_SIZE);
-    protocol::ProtocolEncoder::encode_header(header, packet_data.data());
-    packet_data.insert(packet_data.end(), payload.begin(), payload.end());
+    std::cout << "[NetworkClient] DEBUG: Sending TCP packet type=" << static_cast<int>(type)
+              << ", total_size=" << packet_data.size() << " bytes, payload_size=" << payload.size() << "\n";
 
     engine::NetworkPacket packet;
     packet.data = packet_data;
@@ -775,15 +830,15 @@ void NetworkClient::send_udp_packet(protocol::PacketType type, const std::vector
         return;
     }
 
-    protocol::PacketHeader header;
-    header.version = 0x01;
-    header.type = static_cast<uint8_t>(type);
-    header.payload_length = static_cast<uint16_t>(payload.size());
-    header.sequence_number = 0;
-
-    std::vector<uint8_t> packet_data(protocol::HEADER_SIZE);
-    protocol::ProtocolEncoder::encode_header(header, packet_data.data());
-    packet_data.insert(packet_data.end(), payload.begin(), payload.end());
+    // Use ProtocolEncoder to handle compression automatically
+    // Pass nullptr if payload is empty to avoid undefined behavior
+    const void* payload_ptr = payload.empty() ? nullptr : payload.data();
+    std::vector<uint8_t> packet_data = protocol::ProtocolEncoder::encode_packet(
+        type,
+        payload_ptr,
+        payload.size(),
+        udp_sequence_number_++
+    );
 
     engine::NetworkPacket packet;
     packet.data = packet_data;
@@ -858,6 +913,10 @@ void NetworkClient::set_on_score_update(std::function<void(const protocol::Serve
     on_score_update_ = callback;
 }
 
+void NetworkClient::set_on_powerup_collected(std::function<void(const protocol::ServerPowerupCollectedPayload&)> callback) {
+    on_powerup_collected_ = callback;
+}
+
 void NetworkClient::set_on_room_created(std::function<void(const protocol::ServerRoomCreatedPayload&)> callback) {
     on_room_created_ = callback;
 }
@@ -880,6 +939,10 @@ void NetworkClient::set_on_room_error(std::function<void(const protocol::ServerR
 
 void NetworkClient::set_on_player_name_updated(std::function<void(const protocol::ServerPlayerNameUpdatedPayload&)> callback) {
     on_player_name_updated_ = callback;
+}
+
+void NetworkClient::set_on_player_skin_updated(std::function<void(const protocol::ServerPlayerSkinUpdatedPayload&)> callback) {
+    on_player_skin_updated_ = callback;
 }
 
 }

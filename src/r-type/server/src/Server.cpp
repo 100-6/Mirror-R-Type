@@ -263,9 +263,71 @@ void Server::on_client_input(uint32_t client_id, const protocol::ClientInputPayl
 
 void Server::on_lobby_state_changed(uint32_t lobby_id, const std::vector<uint8_t>& payload)
 {
-    std::cout << "[Server] Broadcasting lobby state for lobby " << lobby_id << "\n";
-    packet_sender_->broadcast_tcp_to_lobby(lobby_id, protocol::PacketType::SERVER_LOBBY_STATE,
-                                          payload, lobby_manager_, connected_clients_);
+    std::cout << "[Server] Broadcasting lobby state for lobby/room " << lobby_id << "\n";
+
+    // If payload is empty (from RoomManager), build it ourselves with player info
+    std::vector<uint8_t> actual_payload = payload;
+    if (actual_payload.empty()) {
+        const auto* room = room_manager_.get_room(lobby_id);
+        if (room) {
+            // Build room state with player info
+            protocol::ServerLobbyStatePayload header;
+            header.lobby_id = ByteOrder::host_to_net32(lobby_id);
+            header.game_mode = protocol::GameMode::DUO;
+            header.difficulty = protocol::Difficulty::NORMAL;
+            header.current_player_count = static_cast<uint8_t>(room->player_ids.size());
+            header.required_player_count = room->max_players;
+
+            // Start with header
+            const uint8_t* header_bytes = reinterpret_cast<const uint8_t*>(&header);
+            actual_payload.assign(header_bytes, header_bytes + sizeof(header));
+
+            // Add each player entry
+            for (uint32_t player_id : room->player_ids) {
+                protocol::PlayerLobbyEntry entry;
+                entry.player_id = ByteOrder::host_to_net32(player_id);
+
+                // Get player info from connected_clients_
+                auto client_it = player_to_client_.find(player_id);
+                if (client_it != player_to_client_.end()) {
+                    auto info_it = connected_clients_.find(client_it->second);
+                    if (info_it != connected_clients_.end()) {
+                        entry.set_name(info_it->second.player_name);
+                        entry.skin_id = info_it->second.skin_id;
+                    } else {
+                        entry.set_name("Player " + std::to_string(player_id));
+                        entry.skin_id = 0;
+                    }
+                } else {
+                    entry.set_name("Player " + std::to_string(player_id));
+                    entry.skin_id = 0;
+                }
+                entry.player_level = 0;
+
+                const uint8_t* entry_bytes = reinterpret_cast<const uint8_t*>(&entry);
+                actual_payload.insert(actual_payload.end(), entry_bytes, entry_bytes + sizeof(entry));
+            }
+        }
+    }
+
+    if (!actual_payload.empty()) {
+        // Broadcast to room members
+        const auto* room = room_manager_.get_room(lobby_id);
+        if (room) {
+            for (uint32_t player_id : room->player_ids) {
+                auto client_it = player_to_client_.find(player_id);
+                if (client_it != player_to_client_.end()) {
+                    packet_sender_->send_tcp_packet(client_it->second,
+                                                   protocol::PacketType::SERVER_LOBBY_STATE,
+                                                   actual_payload);
+                }
+            }
+        } else {
+            // Fallback to lobby broadcast
+            packet_sender_->broadcast_tcp_to_lobby(lobby_id, protocol::PacketType::SERVER_LOBBY_STATE,
+                                                  actual_payload, lobby_manager_, connected_clients_);
+        }
+    }
 }
 
 void Server::on_countdown_tick(uint32_t lobby_id, uint8_t seconds_remaining)
@@ -329,7 +391,7 @@ void Server::on_game_start(uint32_t lobby_id, const std::vector<uint32_t>& playe
         player_info.lobby_id = 0;
         player_info.in_game = true;
         player_info.session_id = session_id;
-        session->add_player(player_id, player_info.player_name);
+        session->add_player(player_id, player_info.player_name, player_info.skin_id);
         protocol::ServerGameStartPayload game_start;
         game_start.game_session_id = ByteOrder::host_to_net32(session_id);
         game_start.game_mode = game_mode;
@@ -452,6 +514,17 @@ void Server::on_score_update(uint32_t session_id, const std::vector<uint8_t>& sc
         return;
     packet_sender_->broadcast_udp_to_session(session_id, protocol::PacketType::SERVER_SCORE_UPDATE,
                                             score_data, session->get_player_ids(), connected_clients_);
+}
+
+void Server::on_powerup_collected(uint32_t session_id, const std::vector<uint8_t>& powerup_data)
+{
+    auto* session = session_manager_->get_session(session_id);
+
+    if (!session)
+        return;
+    std::cout << "[Server] Broadcasting powerup collected to session " << session_id << std::endl;
+    packet_sender_->broadcast_udp_to_session(session_id, protocol::PacketType::SERVER_POWERUP_COLLECTED,
+                                            powerup_data, session->get_player_ids(), connected_clients_);
 }
 
 void Server::on_game_over(uint32_t session_id, const std::vector<uint32_t>& player_ids, bool is_victory)
@@ -765,6 +838,50 @@ void Server::on_client_set_player_name(uint32_t client_id, const protocol::Clien
             if (room_client_it != player_to_client_.end()) {
                 packet_sender_->send_tcp_packet(room_client_it->second,
                                                protocol::PacketType::SERVER_PLAYER_NAME_UPDATED,
+                                               serialize(update));
+            }
+        }
+    }
+}
+
+void Server::on_client_set_player_skin(uint32_t client_id, const protocol::ClientSetPlayerSkinPayload& payload)
+{
+    auto it = connected_clients_.find(client_id);
+
+    if (it == connected_clients_.end()) {
+        std::cerr << "[Server] SET_PLAYER_SKIN from unknown client " << client_id << "\n";
+        return;
+    }
+    uint32_t player_id = ByteOrder::net_to_host32(payload.player_id);
+    if (player_id != it->second.player_id) {
+        std::cerr << "[Server] Player ID mismatch in SET_PLAYER_SKIN\n";
+        return;
+    }
+    // Validate skin_id (0-14 for 3 colors x 5 ship types)
+    uint8_t skin_id = payload.skin_id;
+    if (skin_id > 14) {
+        std::cerr << "[Server] Invalid skin_id " << static_cast<int>(skin_id) << ", clamping to 14\n";
+        skin_id = 14;
+    }
+    uint8_t old_skin = it->second.skin_id;
+    it->second.skin_id = skin_id;
+    std::cout << "[Server] Player " << player_id << " changed skin from " << static_cast<int>(old_skin)
+              << " to " << static_cast<int>(skin_id) << "\n";
+
+    // Broadcast skin change to room members if player is in a room
+    uint32_t room_id = room_manager_.get_player_room(player_id);
+    if (room_id != 0) {
+        protocol::ServerPlayerSkinUpdatedPayload update;
+        update.player_id = ByteOrder::host_to_net32(player_id);
+        update.skin_id = skin_id;
+        update.room_id = ByteOrder::host_to_net32(room_id);
+
+        auto room_players = room_manager_.get_room_players(room_id);
+        for (uint32_t room_player_id : room_players) {
+            auto room_client_it = player_to_client_.find(room_player_id);
+            if (room_client_it != player_to_client_.end()) {
+                packet_sender_->send_tcp_packet(room_client_it->second,
+                                               protocol::PacketType::SERVER_PLAYER_SKIN_UPDATED,
                                                serialize(update));
             }
         }

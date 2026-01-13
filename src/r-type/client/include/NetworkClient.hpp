@@ -135,6 +135,12 @@ public:
     void send_set_player_name(const std::string& new_name);
 
     /**
+     * @brief Change player skin in lobby
+     * @param skin_id Skin ID (0-14 for 3 colors x 5 ship types)
+     */
+    void send_set_player_skin(uint8_t skin_id);
+
+    /**
      * @brief Send player input (via UDP if connected, TCP otherwise)
      * @param input_flags Input bitfield
      * @param client_tick Current client tick
@@ -239,6 +245,11 @@ public:
     void set_on_score_update(std::function<void(const protocol::ServerScoreUpdatePayload&)> callback);
 
     /**
+     * @brief Set callback for powerup collected events
+     */
+    void set_on_powerup_collected(std::function<void(const protocol::ServerPowerupCollectedPayload&)> callback);
+
+    /**
      * @brief Set callback for room creation response
      * @param callback Function receiving room_created payload
      */
@@ -274,6 +285,12 @@ public:
      */
     void set_on_player_name_updated(std::function<void(const protocol::ServerPlayerNameUpdatedPayload&)> callback);
 
+    /**
+     * @brief Set callback for player skin updates in room
+     * @param callback Function receiving skin update payload
+     */
+    void set_on_player_skin_updated(std::function<void(const protocol::ServerPlayerSkinUpdatedPayload&)> callback);
+
     // ============== Getters ==============
 
     uint32_t get_player_id() const { return player_id_; }
@@ -302,12 +319,14 @@ private:
     void handle_wave_start(const std::vector<uint8_t>& payload);
     void handle_wave_complete(const std::vector<uint8_t>& payload);
     void handle_score_update(const std::vector<uint8_t>& payload);
+    void handle_powerup_collected(const std::vector<uint8_t>& payload);
     void handle_room_created(const std::vector<uint8_t>& payload);
     void handle_room_joined(const std::vector<uint8_t>& payload);
     void handle_room_left(const std::vector<uint8_t>& payload);
     void handle_room_list(const std::vector<uint8_t>& payload);
     void handle_room_error(const std::vector<uint8_t>& payload);
     void handle_player_name_updated(const std::vector<uint8_t>& payload);
+    void handle_player_skin_updated(const std::vector<uint8_t>& payload);
 
     // UDP connection after game start
     void connect_udp(uint16_t udp_port);
@@ -339,6 +358,10 @@ private:
     // Input sequence tracking (for lag compensation)
     uint32_t input_sequence_number_ = 0;
 
+    // Packet sequence tracking (for compression/ordering)
+    uint32_t tcp_sequence_number_ = 0;
+    uint32_t udp_sequence_number_ = 0;
+
     // Callbacks
     std::function<void(uint32_t)> on_accepted_;
     std::function<void(uint8_t, const std::string&)> on_rejected_;
@@ -355,12 +378,14 @@ private:
     std::function<void(const protocol::ServerWaveStartPayload&)> on_wave_start_;
     std::function<void(const protocol::ServerWaveCompletePayload&)> on_wave_complete_;
     std::function<void(const protocol::ServerScoreUpdatePayload&)> on_score_update_;
+    std::function<void(const protocol::ServerPowerupCollectedPayload&)> on_powerup_collected_;
     std::function<void(const protocol::ServerRoomCreatedPayload&)> on_room_created_;
     std::function<void(const protocol::ServerRoomJoinedPayload&)> on_room_joined_;
     std::function<void(const protocol::ServerRoomLeftPayload&)> on_room_left_;
     std::function<void(const std::vector<protocol::RoomInfo>&)> on_room_list_;
     std::function<void(const protocol::ServerRoomErrorPayload&)> on_room_error_;
     std::function<void(const protocol::ServerPlayerNameUpdatedPayload&)> on_player_name_updated_;
+    std::function<void(const protocol::ServerPlayerSkinUpdatedPayload&)> on_player_skin_updated_;
 };
 
 }

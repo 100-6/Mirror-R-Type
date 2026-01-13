@@ -40,8 +40,8 @@ constexpr float WORLD_HEIGHT = 1080.0f;
 // === Player / Projectile dimensions ===
 constexpr float PLAYER_WIDTH = 128.0f;
 constexpr float PLAYER_HEIGHT = 128.0f;
-constexpr float PROJECTILE_WIDTH = 28.0f;
-constexpr float PROJECTILE_HEIGHT = 12.0f;
+constexpr float PROJECTILE_WIDTH = 52.0f;
+constexpr float PROJECTILE_HEIGHT = 24.0f;
 
 // === Projectile behaviour ===
 constexpr float PROJECTILE_SPEED = 500.0f;                              // pixels per second

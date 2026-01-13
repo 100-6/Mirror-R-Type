@@ -78,6 +78,7 @@ private:
     void on_client_request_room_list(uint32_t client_id) override;
     void on_client_start_game(uint32_t client_id, const protocol::ClientStartGamePayload& payload) override;
     void on_client_set_player_name(uint32_t client_id, const protocol::ClientSetPlayerNamePayload& payload) override;
+    void on_client_set_player_skin(uint32_t client_id, const protocol::ClientSetPlayerSkinPayload& payload) override;
 
     void on_lobby_state_changed(uint32_t lobby_id, const std::vector<uint8_t>& payload) override;
     void on_countdown_tick(uint32_t lobby_id, uint8_t seconds_remaining) override;
@@ -92,6 +93,7 @@ private:
     void on_wave_complete(uint32_t session_id, const std::vector<uint8_t>& wave_data) override;
     void on_game_over(uint32_t session_id, const std::vector<uint32_t>& player_ids, bool is_victory) override;
     void on_score_update(uint32_t session_id, const std::vector<uint8_t>& score_data) override;
+    void on_powerup_collected(uint32_t session_id, const std::vector<uint8_t>& powerup_data) override;
 
     void on_tcp_client_disconnected(uint32_t client_id);
     uint32_t generate_player_id();

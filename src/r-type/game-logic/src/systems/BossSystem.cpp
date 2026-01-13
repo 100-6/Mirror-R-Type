@@ -41,10 +41,8 @@ void BossSystem::update(Registry& registry, float dt)
         Entity boss_entity = boss_phases.get_entity_at(i);
         BossPhase& phase = boss_phases.get_data_at(i);
 
-        // Verify this is actually a boss
-        if (!enemies.has_entity(boss_entity)) continue;
-        const Enemy& enemy = enemies[boss_entity];
-        if (!enemy.is_boss) continue;
+        // BossPhase component already identifies this as a boss
+        // (no need to check is_boss flag anymore)
 
         // Check if boss has health component
         if (!healths.has_entity(boss_entity)) continue;

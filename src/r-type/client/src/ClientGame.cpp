@@ -8,6 +8,7 @@
 #include "systems/LocalPredictionSystem.hpp"
 #include "systems/ColliderDebugSystem.hpp"
 #include "systems/CollisionSystem.hpp"
+#include "systems/BonusSystem.hpp"
 #include "systems/MapConfigLoader.hpp"
 #include "protocol/NetworkConfig.hpp"
 #include "protocol/Payloads.hpp"
@@ -226,6 +227,9 @@ void ClientGame::setup_registry() {
     registry_->register_component<Projectile>();
     registry_->register_component<Enemy>();
     registry_->register_component<NoFriction>();
+    registry_->register_component<BonusWeapon>();
+    registry_->register_component<BonusLifetime>();
+    registry_->register_component<ToDestroy>();
     // Client-side extrapolation component
     registry_->register_component<LastServerState>();
 
@@ -257,6 +261,9 @@ void ClientGame::setup_systems() {
     registry_->register_system<RenderSystem>(*graphics_plugin_);
     registry_->register_system<ColliderDebugSystem>(*graphics_plugin_);
     registry_->register_system<HUDSystem>(*graphics_plugin_, input_plugin_, screen_width_, screen_height_);
+
+    // Bonus system - handles bonus collection and effects (with graphics for sprite loading)
+    registry_->register_system<BonusSystem>(graphics_plugin_, screen_width_, screen_height_);
 }
 
 void ClientGame::setup_background() {
@@ -435,6 +442,11 @@ void ClientGame::setup_network_callbacks() {
                 name = "Player " + std::to_string(entry.player_id);
             entity_manager_->set_player_name(entry.player_id, name);
         }
+
+        // Update RoomLobbyScreen with all players (names + skins)
+        if (menu_manager_) {
+            menu_manager_->on_lobby_state(state, players_info);
+        }
     });
 
     network_client_->set_on_countdown([this](uint8_t seconds) {
@@ -504,9 +516,15 @@ void ClientGame::setup_network_callbacks() {
         std::string name(payload.new_name, strnlen(payload.new_name, sizeof(payload.new_name)));
         uint32_t playerId = payload.player_id;
         entity_manager_->set_player_name(playerId, name);
-        
+
         if (menu_manager_) {
             menu_manager_->on_player_name_updated(payload);
+        }
+    });
+
+    network_client_->set_on_player_skin_updated([this](const protocol::ServerPlayerSkinUpdatedPayload& payload) {
+        if (menu_manager_) {
+            menu_manager_->on_player_skin_updated(payload);
         }
     });
 
@@ -556,6 +574,72 @@ void ClientGame::setup_network_callbacks() {
                 last_known_score_ = static_cast<int>(score.new_total_score);
             }
         }
+    });
+
+    network_client_->set_on_powerup_collected([this](const protocol::ServerPowerupCollectedPayload& powerup) {
+        // Only handle WEAPON_UPGRADE type (bonus weapon)
+        if (powerup.powerup_type != protocol::PowerupType::WEAPON_UPGRADE)
+            return;
+
+        std::cout << "[ClientGame] Received BONUS_WEAPON collected for player " << powerup.player_id << std::endl;
+
+        // Find the player entity
+        if (!entity_manager_->has_entity(powerup.player_id))
+            return;
+
+        Entity playerEntity = entity_manager_->get_entity(powerup.player_id);
+        auto& bonusWeapons = registry_->get_components<BonusWeapon>();
+        auto& positions = registry_->get_components<Position>();
+
+        // Check if player already has bonus weapon
+        if (bonusWeapons.has_entity(playerEntity)) {
+            std::cout << "[ClientGame] Player already has bonus weapon, ignoring" << std::endl;
+            return;
+        }
+
+        if (!positions.has_entity(playerEntity))
+            return;
+
+        const Position& playerPos = positions[playerEntity];
+
+        // Create the bonus weapon entity with sprite
+        Entity bonusWeaponEntity = registry_->spawn_entity();
+
+        // Size: percentage of original image (442x257)
+        constexpr float BONUS_SCALE_PERCENT = 15.0f;
+        float bonusWidth = 442.0f * (BONUS_SCALE_PERCENT / 100.0f);
+        float bonusHeight = 257.0f * (BONUS_SCALE_PERCENT / 100.0f);
+
+        // Position offset relative to player
+        float bonusOffsetX = 120.0f;
+        float bonusOffsetY = -70.0f;
+
+        registry_->add_component(bonusWeaponEntity, Position{playerPos.x + bonusOffsetX, playerPos.y + bonusOffsetY});
+        registry_->add_component(bonusWeaponEntity, Attached{playerEntity, bonusOffsetX, bonusOffsetY, 4.0f});
+
+        // Create sprite with bonus weapon texture
+        engine::TextureHandle bonusTex = texture_manager_->get_bonus_weapon();
+        Sprite bonusWeaponSprite{
+            bonusTex,
+            bonusWidth,
+            bonusHeight,
+            0.0f,
+            engine::Color::White,
+            0.0f,
+            0.0f,
+            15  // layer
+        };
+        bonusWeaponSprite.source_rect = {0.0f, 0.0f, 442.0f, 257.0f};
+        registry_->add_component(bonusWeaponEntity, bonusWeaponSprite);
+
+        // Mark player as having bonus weapon
+        registry_->add_component(playerEntity, BonusWeapon{bonusWeaponEntity, 0.0f, true});
+
+        std::cout << "[ClientGame] Created bonus weapon sprite for player " << powerup.player_id
+                  << " entity=" << bonusWeaponEntity
+                  << " at (" << (playerPos.x + bonusOffsetX) << "," << (playerPos.y + bonusOffsetY) << ")"
+                  << " size=" << bonusWidth << "x" << bonusHeight
+                  << " tex=" << bonusTex << std::endl;
     });
 
     network_client_->set_on_projectile_spawn([this](const protocol::ServerProjectileSpawnPayload& proj) {
@@ -1020,13 +1104,13 @@ void ClientGame::run() {
                 render_sys.set_skip_clear(true);
             }
 
-            // Render HUD background image BEFORE systems (so text renders on top)
+            // Render HUD background image BEFORE entities (so entities render on top)
             if (!hud_loaded_) {
                 hud_texture_ = graphics_plugin_->load_texture("assets/sprite/ui-hud.png");
                 hud_loaded_ = true;
             }
 
-            if (hud_loaded_) {
+            if (hud_loaded_ && hud_texture_ != engine::INVALID_HANDLE) {
                 engine::Sprite hud_sprite;
                 hud_sprite.texture_handle = hud_texture_;
                 hud_sprite.size = {static_cast<float>(screen_width_), static_cast<float>(screen_height_)};

@@ -75,6 +75,7 @@ void RenderSystem::update(Registry& registry, float dt)
             return a.layer < b.layer;
         });
 
+
     // Dessiner toutes les entités dans l'ordre des layers
     for (const auto& render_data : render_queue) {
         const Position& pos = positions.get_data_by_entity_id(render_data.entity);

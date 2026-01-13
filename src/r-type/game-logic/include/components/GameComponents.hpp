@@ -64,10 +64,24 @@ struct FireRate {
     float time_since_last_fire = 999.0f;
 };
 
+// Forward declarations for bonus system
+enum class BonusType {
+    HEALTH,       // +20 HP (vert)
+    SHIELD,       // Protection 1 hit (violet)
+    SPEED,        // +50% vitesse pendant 20s (bleu)
+    BONUS_WEAPON  // Arme bonus qui tire automatiquement
+};
+
+struct BonusDrop {
+    bool enabled = false;                     // Whether this enemy drops a bonus
+    BonusType bonusType = BonusType::HEALTH; // Type of bonus to drop
+    float dropChance = 1.0f;                  // Probability of drop (0.0 to 1.0)
+};
+
 // Tags Spécifiques R-Type
 
 struct Enemy {
-    bool is_boss = false;  // True if this enemy is a boss (for boss-specific behavior)
+    BonusDrop bonusDrop;  // Information about bonus drop on death
 };
 
 struct LocalPlayer {};
@@ -138,11 +152,7 @@ struct Score
 
 // Bonus System
 
-enum class BonusType {
-    HEALTH,     // +20 HP (vert)
-    SHIELD,     // Protection 1 hit (violet)
-    SPEED       // +50% vitesse pendant 20s (bleu)
-};
+// BonusType enum is defined above (before Enemy struct)
 
 // Wave System
 
@@ -161,6 +171,8 @@ enum class EntitySpawnType {
     POWERUP
 };
 
+// BonusDrop struct is defined above (before Enemy struct)
+
 struct WaveSpawnData {
     EntitySpawnType entityType = EntitySpawnType::ENEMY;
     EnemyType enemyType = EnemyType::Basic;  // Used if entityType is ENEMY
@@ -170,6 +182,7 @@ struct WaveSpawnData {
     int count = 1;                            // Number of entities to spawn
     SpawnPattern pattern = SpawnPattern::SINGLE;
     float spacing = 0.0f;                     // Spacing between entities in pattern
+    BonusDrop bonusDrop;                      // Optional bonus drop on death (for enemies)
 };
 
 struct WaveTrigger {
@@ -192,6 +205,10 @@ struct Bonus {
     float radius = 20.0f;
 };
 
+struct BonusLifetime {
+    float timeRemaining = 10.0f;  // Durée de vie en secondes
+};
+
 struct Shield {
     bool active = true;  // Se désactive après 1 hit
 };
@@ -200,6 +217,14 @@ struct SpeedBoost {
     float timeRemaining = 20.0f;      // Durée restante
     float multiplier = 1.5f;          // +50% vitesse
     float originalSpeed = 0.0f;       // Vitesse originale pour restauration
+};
+
+// Bonus Weapon System
+
+struct BonusWeapon {
+    size_t weaponEntity = -1;         // Entity du vaisseau bonus attaché
+    float timeSinceLastFire = 0.0f;   // Cooldown du tir
+    bool active = true;                // Arme active ou non
 };
 
 // Game State System

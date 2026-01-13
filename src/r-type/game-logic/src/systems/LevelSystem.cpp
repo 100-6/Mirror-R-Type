@@ -56,9 +56,14 @@ void LevelSystem::update(Registry& registry, float dt)
                     // Waves complete but enemies still alive - wait for them to die
                     if (static_cast<int>(lc.state_timer) % 5 == 0) {  // Log every 5 seconds
                         auto& enemies = registry.get_components<Enemy>();
+                        auto& boss_phases = registry.get_components<BossPhase>();
                         size_t enemy_count = 0;
                         for (size_t i = 0; i < enemies.size(); ++i) {
-                            if (!enemies.get_data_at(i).is_boss) enemy_count++;
+                            Entity entity = enemies.get_entity_at(i);
+                            // Count only non-boss enemies (entities without BossPhase)
+                            if (!boss_phases.has_entity(entity)) {
+                                enemy_count++;
+                            }
                         }
                         std::cout << "[LevelSystem] Waiting for " << enemy_count << " enemies to be defeated...\n";
                     }
@@ -135,12 +140,13 @@ bool LevelSystem::all_phases_complete(Registry& registry, const LevelController&
 bool LevelSystem::no_enemies_remaining(Registry& registry)
 {
     auto& enemies = registry.get_components<Enemy>();
+    auto& boss_phases = registry.get_components<BossPhase>();
 
-    // Count non-boss enemies
+    // Count non-boss enemies (entities without BossPhase component)
     size_t enemy_count = 0;
     for (size_t i = 0; i < enemies.size(); ++i) {
-        const Enemy& enemy = enemies.get_data_at(i);
-        if (!enemy.is_boss) {
+        Entity entity = enemies.get_entity_at(i);
+        if (!boss_phases.has_entity(entity)) {
             enemy_count++;
         }
     }

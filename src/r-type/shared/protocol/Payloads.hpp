@@ -175,15 +175,16 @@ static_assert(sizeof(ClientLeaveLobbyPayload) == 8, "ClientLeaveLobbyPayload mus
 
 /**
  * @brief Player entry in SERVER_LOBBY_STATE
- * Size: 38 bytes
+ * Size: 39 bytes
  */
 PACK_START
 struct PACKED PlayerLobbyEntry {
     uint32_t player_id;
     char player_name[32];
     uint16_t player_level;
+    uint8_t skin_id;  // 0-14 (3 colors x 5 ship types)
 
-    PlayerLobbyEntry() : player_id(0), player_level(0) {
+    PlayerLobbyEntry() : player_id(0), player_level(0), skin_id(0) {
         std::memset(player_name, 0, sizeof(player_name));
     }
 
@@ -194,11 +195,11 @@ struct PACKED PlayerLobbyEntry {
 };
 PACK_END
 
-static_assert(sizeof(PlayerLobbyEntry) == 38, "PlayerLobbyEntry must be 38 bytes");
+static_assert(sizeof(PlayerLobbyEntry) == 39, "PlayerLobbyEntry must be 39 bytes");
 
 /**
  * @brief SERVER_LOBBY_STATE payload header (0x87)
- * Base size: 8 bytes + (38 × player_count) bytes
+ * Base size: 8 bytes + (39 × player_count) bytes
  */
 PACK_START
 struct PACKED ServerLobbyStatePayload {
@@ -889,5 +890,38 @@ struct PACKED ServerPlayerNameUpdatedPayload {
 PACK_END
 
 static_assert(sizeof(ServerPlayerNameUpdatedPayload) == 40, "ServerPlayerNameUpdatedPayload must be 40 bytes");
+
+/**
+ * @brief CLIENT_SET_PLAYER_SKIN payload (0x26)
+ * Used to change player skin while in lobby
+ * Total size: 5 bytes
+ */
+PACK_START
+struct PACKED ClientSetPlayerSkinPayload {
+    uint32_t player_id;
+    uint8_t skin_id;  // 0-14 (3 colors x 5 ship types)
+
+    ClientSetPlayerSkinPayload() : player_id(0), skin_id(0) {}
+};
+PACK_END
+
+static_assert(sizeof(ClientSetPlayerSkinPayload) == 5, "ClientSetPlayerSkinPayload must be 5 bytes");
+
+/**
+ * @brief SERVER_PLAYER_SKIN_UPDATED payload (0x97)
+ * Broadcast to room members when a player changes their skin
+ * Total size: 9 bytes
+ */
+PACK_START
+struct PACKED ServerPlayerSkinUpdatedPayload {
+    uint32_t player_id;
+    uint8_t skin_id;
+    uint32_t room_id;
+
+    ServerPlayerSkinUpdatedPayload() : player_id(0), skin_id(0), room_id(0) {}
+};
+PACK_END
+
+static_assert(sizeof(ServerPlayerSkinUpdatedPayload) == 9, "ServerPlayerSkinUpdatedPayload must be 9 bytes");
 
 }

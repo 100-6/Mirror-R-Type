@@ -15,6 +15,7 @@ add_library(rtype_logic
     src/systems/CheckpointSystem.cpp
     src/utils/WaveConfigLoader.cpp
     src/systems/BonusSystem.cpp
+    src/systems/BonusWeaponSystem.cpp
     src/systems/HUDSystem.cpp
     src/systems/GameStateSystem.cpp
     src/systems/AttachmentSystem.cpp
@@ -38,4 +39,5 @@ target_link_libraries(rtype_logic
     PUBLIC
         game_engine
         nlohmann_json::nlohmann_json
+        rtype_protocol
 )
