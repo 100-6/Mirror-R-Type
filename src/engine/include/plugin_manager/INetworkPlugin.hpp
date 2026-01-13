@@ -91,6 +91,13 @@ public:
      */
     virtual bool is_server_running() const = 0;
 
+    /**
+     * @brief Disconnect a specific client from the server
+     * @param client_id The TCP client ID to disconnect
+     * @note This will close both TCP and UDP connections for the client
+     */
+    virtual void disconnect_client(ClientId client_id) = 0;
+
     // ============== Client Operations ==============
 
     /**

@@ -32,7 +32,8 @@ void print_help(const char* program_name)
     std::cout << "OPTIONS:\n";
     std::cout << "  -h, --help              Show this help message and exit\n";
     std::cout << "  -n, --network           Listen on all network interfaces (0.0.0.0)\n";
-    std::cout << "                          By default, server listens on localhost only (127.0.0.1)\n\n";
+    std::cout << "                          By default, server listens on localhost only (127.0.0.1)\n";
+    std::cout << "  --admin-password <pwd>  Enable admin interface with specified password\n\n";
     std::cout << "ARGUMENTS:\n";
     std::cout << "  TCP_PORT                TCP port for connections and lobby management\n";
     std::cout << "                          Default: " << rtype::server::config::DEFAULT_TCP_PORT << "\n\n";
@@ -44,6 +45,8 @@ void print_help(const char* program_name)
     std::cout << "      (TCP:" << rtype::server::config::DEFAULT_TCP_PORT << ", UDP:" << rtype::server::config::DEFAULT_UDP_PORT << ")\n\n";
     std::cout << "  " << program_name << " -n\n";
     std::cout << "      Start server on all interfaces (0.0.0.0) with default ports\n\n";
+    std::cout << "  " << program_name << " --admin-password secret123\n";
+    std::cout << "      Start server with admin interface enabled (password: secret123)\n\n";
     std::cout << "  " << program_name << " 4242 4243\n";
     std::cout << "      Start server on localhost with TCP:4242 and UDP:4243\n\n";
     std::cout << "  " << program_name << " 4242 4243 -n\n";
@@ -52,6 +55,10 @@ void print_help(const char* program_name)
     std::cout << "  The server uses a hybrid TCP/UDP architecture:\n";
     std::cout << "  - TCP: Reliable connection, lobby, chat, game start/end\n";
     std::cout << "  - UDP: Real-time game state (position, velocity, actions)\n\n";
+    std::cout << "ADMIN FEATURES:\n";
+    std::cout << "  When admin is enabled (--admin-password), you can:\n";
+    std::cout << "  - Use in-game console (~ key) after authentication\n";
+    std::cout << "  - Execute commands: help, list, kick, info, shutdown\n\n";
     std::cout << "NOTES:\n";
     std::cout << "  - Use -n/--network flag to make server accessible from other machines\n";
     std::cout << "  - Press Ctrl+C to stop the server gracefully\n";
@@ -88,40 +95,53 @@ bool parse_network_flag(int argc, char* argv[])
 }
 
 /**
- * @brief Parse TCP port from command line arguments
+ * @brief Parse admin password from command line arguments
  */
-bool parse_tcp_port(int argc, char* argv[], int port_arg_idx, uint16_t& tcp_port)
+std::string parse_admin_password(int argc, char* argv[])
 {
-    if (argc > port_arg_idx) {
-        std::string port_str = argv[port_arg_idx];
-        if (port_str != "--network" && port_str != "-n") {
-            try {
-                tcp_port = static_cast<uint16_t>(std::stoi(port_str));
-            } catch (const std::exception& e) {
-                std::cerr << "Error: Invalid TCP port number: " << port_str << "\n";
-                std::cerr << "Use --help for usage information\n";
-                return false;
-            }
-        }
+    for (int i = 1; i < argc - 1; ++i) {
+        std::string arg = argv[i];
+        if (arg == "--admin-password")
+            return argv[i + 1];
     }
-    return true;
+    return "";
 }
 
 /**
- * @brief Parse UDP port from command line arguments
+ * @brief Check if a string is a flag (starts with - or --)
  */
-bool parse_udp_port(int argc, char* argv[], int port_arg_idx, uint16_t& udp_port)
+bool is_flag(const std::string& arg)
 {
-    if (argc > port_arg_idx + 1) {
-        std::string port_str = argv[port_arg_idx + 1];
-        if (port_str != "--network" && port_str != "-n") {
-            try {
-                udp_port = static_cast<uint16_t>(std::stoi(port_str));
-            } catch (const std::exception& e) {
-                std::cerr << "Error: Invalid UDP port number: " << port_str << "\n";
-                std::cerr << "Use --help for usage information\n";
-                return false;
-            }
+    return !arg.empty() && arg[0] == '-';
+}
+
+/**
+ * @brief Parse TCP and UDP ports from command line arguments
+ * Skips all flags and their values to find port numbers
+ */
+bool parse_ports(int argc, char* argv[], uint16_t& tcp_port, uint16_t& udp_port)
+{
+    int port_count = 0;
+
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "--admin-password" || arg == "--config") {
+            i++;
+            continue;
+        }
+        if (is_flag(arg))
+            continue;
+        try {
+            uint16_t port = static_cast<uint16_t>(std::stoi(arg));
+            if (port_count == 0)
+                tcp_port = port;
+            else if (port_count == 1)
+                udp_port = port;
+            port_count++;
+        } catch (const std::exception& e) {
+            std::cerr << "Error: Invalid port number: " << arg << "\n";
+            std::cerr << "Use --help for usage information\n";
+            return false;
         }
     }
     return true;
@@ -150,9 +170,11 @@ void print_server_info(bool listen_on_all_interfaces)
 /**
  * @brief Initialize and run the server
  */
-int run_server(uint16_t tcp_port, uint16_t udp_port, bool listen_on_all_interfaces)
+int run_server(uint16_t tcp_port, uint16_t udp_port, bool listen_on_all_interfaces, const std::string& admin_password)
 {
-    g_server = std::make_unique<rtype::server::Server>(tcp_port, udp_port, listen_on_all_interfaces);
+    g_server = std::make_unique<rtype::server::Server>(tcp_port, udp_port,
+                                                        listen_on_all_interfaces,
+                                                        admin_password);
 
     if (!g_server->start()) {
         std::cerr << "[Server] Failed to start server\n";
@@ -169,21 +191,15 @@ int main(int argc, char* argv[])
     uint16_t tcp_port = rtype::server::config::DEFAULT_TCP_PORT;
     uint16_t udp_port = rtype::server::config::DEFAULT_UDP_PORT;
     bool listen_on_all_interfaces = false;
-    int port_arg_idx = 1;
+    std::string admin_password;
 
     if (check_help_flag(argc, argv))
         return 0;
     listen_on_all_interfaces = parse_network_flag(argc, argv);
-    if (argc > 1) {
-        std::string first_arg = argv[1];
-        if (first_arg == "--network" || first_arg == "-n")
-            port_arg_idx = 2;
-    }
-    if (!parse_tcp_port(argc, argv, port_arg_idx, tcp_port))
-        return 1;
-    if (!parse_udp_port(argc, argv, port_arg_idx, udp_port))
+    admin_password = parse_admin_password(argc, argv);
+    if (!parse_ports(argc, argv, tcp_port, udp_port))
         return 1;
     setup_signal_handlers();
     print_server_info(listen_on_all_interfaces);
-    return run_server(tcp_port, udp_port, listen_on_all_interfaces);
+    return run_server(tcp_port, udp_port, listen_on_all_interfaces, admin_password);
 }

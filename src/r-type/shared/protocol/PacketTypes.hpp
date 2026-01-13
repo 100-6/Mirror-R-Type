@@ -13,12 +13,13 @@ namespace rtype::protocol {
  * - 0x05-0x09: Lobby & Matchmaking (Client → Server)
  * - 0x10-0x1F: Player Input (Client → Server)
  * - 0x20-0x29: Room Management (Client → Server)
- * - 0x30-0x3F: Reserved for future client-to-server use
+ * - 0x30-0x3F: Admin Commands (Client → Server)
  * - 0x81-0x8A: Connection & Lobby (Server → Client)
  * - 0x90-0x9F: Room Management (Server → Client)
  * - 0xA0-0xAF: World State (Server → Client)
  * - 0xB0-0xBF: Entity Events (Server → Client)
  * - 0xC0-0xCF: Game Mechanics (Server → Client)
+ * - 0xD0-0xDF: Admin Responses (Server → Client)
  * - 0xF0-0xFF: System & Chat (Server → Client)
  */
 enum class PacketType : uint8_t {
@@ -44,6 +45,10 @@ enum class PacketType : uint8_t {
     CLIENT_START_GAME = 0x24,
     CLIENT_SET_PLAYER_NAME = 0x25,  // Change player name in lobby
     CLIENT_SET_PLAYER_SKIN = 0x26,  // Change player skin in lobby
+
+    // Admin Commands (0x30-0x3F)
+    CLIENT_ADMIN_AUTH = 0x30,           // Admin authentication request
+    CLIENT_ADMIN_COMMAND = 0x31,        // Admin command execution (kick, list, etc.)
 
     // ========== Server → Client ==========
     // Connection & Lobby (0x81-0x8A)
@@ -85,6 +90,12 @@ enum class PacketType : uint8_t {
     SERVER_WAVE_COMPLETE = 0xC3,
     SERVER_PLAYER_RESPAWN = 0xC5,
     SERVER_GAME_OVER = 0xC6,
+
+    // Admin Responses (0xD0-0xDF)
+    SERVER_ADMIN_AUTH_RESULT = 0xD0,    // Admin authentication result
+    SERVER_ADMIN_COMMAND_RESULT = 0xD1, // Admin command execution result
+    SERVER_ADMIN_NOTIFICATION = 0xD2,   // Admin notifications (player events, etc.)
+    SERVER_KICK_NOTIFICATION = 0xD3,    // Kick notification sent before disconnect
 };
 
 /**
@@ -404,10 +415,22 @@ inline std::string packet_type_to_string(PacketType type) {
         return "CLIENT_SET_PLAYER_NAME";
     case PacketType::CLIENT_SET_PLAYER_SKIN:
         return "CLIENT_SET_PLAYER_SKIN";
+    case PacketType::CLIENT_ADMIN_AUTH:
+        return "CLIENT_ADMIN_AUTH";
+    case PacketType::CLIENT_ADMIN_COMMAND:
+        return "CLIENT_ADMIN_COMMAND";
     case PacketType::SERVER_PLAYER_NAME_UPDATED:
         return "SERVER_PLAYER_NAME_UPDATED";
     case PacketType::SERVER_PLAYER_SKIN_UPDATED:
         return "SERVER_PLAYER_SKIN_UPDATED";
+    case PacketType::SERVER_ADMIN_AUTH_RESULT:
+        return "SERVER_ADMIN_AUTH_RESULT";
+    case PacketType::SERVER_ADMIN_COMMAND_RESULT:
+        return "SERVER_ADMIN_COMMAND_RESULT";
+    case PacketType::SERVER_ADMIN_NOTIFICATION:
+        return "SERVER_ADMIN_NOTIFICATION";
+    case PacketType::SERVER_KICK_NOTIFICATION:
+        return "SERVER_KICK_NOTIFICATION";
     default:
         return "UNKNOWN";
     }
