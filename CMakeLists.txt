@@ -74,6 +74,9 @@ add_subdirectory(src/engine)
 # Add R-Type game
 add_subdirectory(src/r-type)
 
+# Add Bagario game
+add_subdirectory(src/bagario)
+
 if (BUILD_TESTS)
     add_subdirectory(tests)
 endif()
