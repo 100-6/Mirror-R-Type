@@ -74,6 +74,11 @@ add_subdirectory(src/engine)
 # Add R-Type game
 add_subdirectory(src/r-type)
 
+option(BUILD_BAGARIO "Build Bagario game server" ON)
+if(BUILD_BAGARIO)
+    add_subdirectory(src/bagario)
+endif()
+
 if (BUILD_TESTS)
     add_subdirectory(tests)
 endif()
