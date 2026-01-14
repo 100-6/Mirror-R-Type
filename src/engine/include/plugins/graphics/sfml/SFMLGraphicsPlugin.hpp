@@ -64,6 +64,7 @@ public:
 
     // Resource loading
     TextureHandle load_texture(const std::string& path) override;
+    TextureHandle load_texture_from_memory(const uint8_t* data, size_t size) override;
     void unload_texture(TextureHandle handle) override;
     Vector2f get_texture_size(TextureHandle handle) const override;
     FontHandle load_font(const std::string& path) override;
@@ -75,6 +76,7 @@ public:
     // Camera/View
     void set_view(Vector2f center, Vector2f size) override;
     void reset_view() override;
+    void* get_window_handle() const override;
 
 private:
     struct TextureData {
@@ -103,6 +105,8 @@ private:
 
     // Default texture (pink/black checkerboard)
     TextureHandle default_texture_;
+    // Default font
+    FontHandle default_font_;
 
     // View state
     std::unique_ptr<sf::View> custom_view_;
@@ -112,6 +116,8 @@ private:
 
     // Helper to create default checkerboard texture
     void create_default_texture();
+    // Helper to create default font
+    void create_default_font();
 };
 
 }

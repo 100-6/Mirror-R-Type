@@ -74,6 +74,7 @@ public:
 
     // Resource loading (not used in tests)
     engine::TextureHandle load_texture(const std::string&) override { return 1; }
+    engine::TextureHandle load_texture_from_memory(const uint8_t*, size_t) override { return 1; }
     void unload_texture(engine::TextureHandle) override {}
     engine::Vector2f get_texture_size(engine::TextureHandle) const override {
         return {0.0f, 0.0f};
@@ -85,6 +86,7 @@ public:
     // Camera/View (not used in tests)
     void set_view(engine::Vector2f, engine::Vector2f) override {}
     void reset_view() override {}
+    void* get_window_handle() const override { return nullptr; }
 
     // Test helpers
     int get_draw_call_count() const { return draw_sprite_call_count_; }

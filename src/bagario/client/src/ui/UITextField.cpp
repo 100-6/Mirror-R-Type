@@ -143,6 +143,39 @@ void UITextField::handle_text_input(engine::IInputPlugin* input) {
                 return;
             }
         }
+
+        // Special characters for file paths
+        struct SpecialKey {
+            engine::Key key;
+            char normal;
+            char shifted;
+        };
+        static const SpecialKey special_keys[] = {
+            {engine::Key::Slash, '/', '?'},
+            {engine::Key::Period, '.', '>'},
+            {engine::Key::Hyphen, '-', '_'},
+            {engine::Key::Space, ' ', ' '},
+        };
+
+        for (const auto& sk : special_keys) {
+            if (input->is_key_pressed(sk.key)) {
+                if (last_key_ != sk.key || key_repeat_timer_ <= 0.0f) {
+                    char ch = sk.normal;
+                    if (input->is_key_pressed(engine::Key::LShift) ||
+                        input->is_key_pressed(engine::Key::RShift)) {
+                        ch = sk.shifted;
+                    }
+                    text_ += ch;
+                    if (on_change_) {
+                        on_change_(text_);
+                    }
+                    last_key_ = sk.key;
+                    key_repeat_timer_ = KEY_REPEAT_DELAY;
+                }
+                key_repeat_timer_ -= 0.016f;
+                return;
+            }
+        }
     }
 
     last_key_ = engine::Key::Unknown;

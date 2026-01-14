@@ -165,6 +165,17 @@ public:
     virtual TextureHandle load_texture(const std::string& path) = 0;
 
     /**
+     * @brief Load a texture from memory (raw image bytes)
+     * @param data Pointer to image data (PNG, JPG, etc. file bytes)
+     * @param size Size of the data in bytes
+     * @return Texture handle, or INVALID_HANDLE on failure
+     *
+     * This is useful for loading textures received over the network
+     * without writing to disk first.
+     */
+    virtual TextureHandle load_texture_from_memory(const uint8_t* data, size_t size) = 0;
+
+    /**
      * @brief Unload a texture
      * @param handle Texture handle to unload
      */
@@ -208,6 +219,12 @@ public:
      * @brief Reset the view to the default (window size)
      */
     virtual void reset_view() = 0;
+
+    /**
+     * @brief Get the internal window handle
+     * @return Pointer to the window handle (platform specific void*)
+     */
+    virtual void* get_window_handle() const = 0;
 };
 
 }

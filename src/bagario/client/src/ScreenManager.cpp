@@ -2,6 +2,7 @@
 #include "screens/BaseScreen.hpp"
 #include "screens/WelcomeScreen.hpp"
 #include "screens/SettingsScreen.hpp"
+#include "screens/SkinScreen.hpp"
 #include <iostream>
 
 namespace bagario {
@@ -31,6 +32,14 @@ void ScreenManager::initialize() {
     settings->initialize();
     settings_screen_ = std::move(settings);
 
+    // Create skin customization screen
+    auto skin = std::make_unique<SkinScreen>(game_state_, screen_width_, screen_height_);
+    skin->set_screen_change_callback([this](GameScreen screen) {
+        handle_screen_change(screen);
+    });
+    skin->initialize();
+    skin_screen_ = std::move(skin);
+
     current_screen_ = GameScreen::WELCOME;
 }
 
@@ -47,6 +56,9 @@ void ScreenManager::handle_screen_change(GameScreen new_screen) {
         case GameScreen::SETTINGS:
             if (settings_screen_) settings_screen_->on_exit();
             break;
+        case GameScreen::SKIN:
+            if (skin_screen_) skin_screen_->on_exit();
+            break;
         case GameScreen::PLAYING:
             // Will be implemented later
             break;
@@ -62,6 +74,9 @@ void ScreenManager::handle_screen_change(GameScreen new_screen) {
         case GameScreen::SETTINGS:
             if (settings_screen_) settings_screen_->on_enter();
             break;
+        case GameScreen::SKIN:
+            if (skin_screen_) skin_screen_->on_enter();
+            break;
         case GameScreen::PLAYING:
             std::cout << "[ScreenManager] Entering PLAYING screen (not implemented yet)\n";
             break;
@@ -76,6 +91,9 @@ void ScreenManager::update(engine::IGraphicsPlugin* graphics, engine::IInputPlug
         case GameScreen::SETTINGS:
             if (settings_screen_) settings_screen_->update(graphics, input);
             break;
+        case GameScreen::SKIN:
+            if (skin_screen_) skin_screen_->update(graphics, input);
+            break;
         case GameScreen::PLAYING:
             // Will be implemented later
             break;
@@ -89,6 +107,9 @@ void ScreenManager::draw(engine::IGraphicsPlugin* graphics) {
             break;
         case GameScreen::SETTINGS:
             if (settings_screen_) settings_screen_->draw(graphics);
+            break;
+        case GameScreen::SKIN:
+            if (skin_screen_) skin_screen_->draw(graphics);
             break;
         case GameScreen::PLAYING:
             // Will be implemented later

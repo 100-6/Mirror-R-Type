@@ -37,6 +37,9 @@ private:
     // Mouse wheel delta (accumulated per frame)
     float mouse_wheel_delta_ = 0.0f;
 
+    // Window handle for coordinate conversion
+    sf::Window* window_handle_ = nullptr;
+
     /**
      * @brief Initialize the key mapping
      */
@@ -81,7 +84,11 @@ public:
     float get_gamepad_axis(int gamepad_id, int axis) const override;
 
     // Update
+    // Update
     void update() override;
+    
+    // Window handle
+    void set_window_handle(void* handle) override;
 };
 
 #endif /* !SFMLINPUTPLUGIN_HPP_ */
