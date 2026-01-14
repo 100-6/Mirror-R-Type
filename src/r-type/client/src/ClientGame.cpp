@@ -413,7 +413,11 @@ void ClientGame::load_map(const std::string& mapId) {
     } else {
         std::cerr << "[ClientGame] Failed to initialize parallax layers\n";
     }
-    
+
+    // Reset chunk manager to clean up old wall entities before reinitializing
+    // This fixes collision issues on game restart where old hitboxes would persist
+    chunk_manager_->reset(*registry_);
+
     // Initialize chunk manager
     chunk_manager_->initWithConfig(config);
     
@@ -669,6 +673,23 @@ void ClientGame::setup_network_callbacks() {
         uint32_t local_player_id = entity_manager_->get_local_player_entity_id();
         if (interpolation_system_) {
             interpolation_system_->on_snapshot_received(server_tick, entities, local_player_id);
+        }
+
+        // Synchronize scroll position from server to fix wall collision desync
+        float server_scroll = header.scroll_x;
+        if (chunk_manager_) {
+            // Calculate drift between client and server scroll
+            float client_scroll = static_cast<float>(chunk_manager_->getScrollX());
+            float scroll_drift = server_scroll - client_scroll;
+
+            // If drift is significant (>2 pixels), apply correction
+            // Use smooth correction to avoid visual jumps
+            if (std::abs(scroll_drift) > 2.0f) {
+                // Apply 50% of the drift for smooth correction
+                float correction = scroll_drift * 0.5f;
+                chunk_manager_->advanceScroll(correction);
+                map_scroll_x_ += correction;
+            }
         }
 
         for (const auto& state : entities) {
