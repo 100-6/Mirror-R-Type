@@ -75,6 +75,7 @@ public:
     // Camera/View
     void set_view(Vector2f center, Vector2f size) override;
     void reset_view() override;
+    void* get_window_handle() const override;
 
 private:
     struct TextureData {
@@ -103,6 +104,8 @@ private:
 
     // Default texture (pink/black checkerboard)
     TextureHandle default_texture_;
+    // Default font
+    FontHandle default_font_;
 
     // View state
     std::unique_ptr<sf::View> custom_view_;
@@ -112,6 +115,8 @@ private:
 
     // Helper to create default checkerboard texture
     void create_default_texture();
+    // Helper to create default font
+    void create_default_font();
 };
 
 }

@@ -208,6 +208,12 @@ public:
      * @brief Reset the view to the default (window size)
      */
     virtual void reset_view() = 0;
+
+    /**
+     * @brief Get the internal window handle
+     * @return Pointer to the window handle (platform specific void*)
+     */
+    virtual void* get_window_handle() const = 0;
 };
 
 }

@@ -71,6 +71,19 @@ void WelcomeScreen::initialize() {
     });
     buttons_.push_back(std::move(settings_btn));
 
+    // Customize skin button
+    float customize_width = 180.0f;
+    float customize_height = 55.0f;
+    auto customize_btn = std::make_unique<UIButton>(
+        center_x - customize_width / 2.0f, 580.0f, customize_width, customize_height, "Customize");
+    customize_btn->set_on_click([this]() {
+        std::cout << "[WelcomeScreen] Customize clicked\n";
+        if (on_screen_change_) {
+            on_screen_change_(GameScreen::SKIN);
+        }
+    });
+    buttons_.push_back(std::move(customize_btn));
+
     // Footer/credits
     auto footer = std::make_unique<UILabel>(
         center_x, screen_height_ - 40.0f, "Made with love", 18);

@@ -77,6 +77,9 @@ class RaylibInputPlugin : public engine::IInputPlugin {
 
         // Update
         void update() override;
+
+        // Window handle (no-op)
+        void set_window_handle(void* handle) override;
 };
 
 #endif /* !RAYLIBINPUTPLUGIN_HPP_ */

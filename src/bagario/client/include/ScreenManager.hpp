@@ -16,6 +16,7 @@ class BaseScreen;
 enum class GameScreen {
     WELCOME,
     SETTINGS,
+    SKIN,
     PLAYING
 };
 
@@ -42,6 +43,7 @@ private:
 
     std::unique_ptr<BaseScreen> welcome_screen_;
     std::unique_ptr<BaseScreen> settings_screen_;
+    std::unique_ptr<BaseScreen> skin_screen_;
 
     void handle_screen_change(GameScreen new_screen);
 };

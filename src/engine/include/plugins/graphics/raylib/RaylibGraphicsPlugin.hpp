@@ -67,6 +67,7 @@ public:
     // Camera/View
     void set_view(Vector2f center, Vector2f size) override;
     void reset_view() override;
+    void* get_window_handle() const override;
 
 private:
     struct TextureData {

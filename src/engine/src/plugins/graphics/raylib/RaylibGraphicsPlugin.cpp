@@ -523,6 +523,10 @@ TextureHandle RaylibGraphicsPlugin::get_default_texture() const {
     return default_texture_;
 }
 
+void* RaylibGraphicsPlugin::get_window_handle() const {
+    return nullptr;
+}
+
 }
 
 // Plugin factory functions

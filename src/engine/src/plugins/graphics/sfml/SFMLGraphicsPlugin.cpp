@@ -36,6 +36,7 @@ SFMLGraphicsPlugin::SFMLGraphicsPlugin()
     , next_texture_handle_(1)  // Start at 1, 0 is INVALID_HANDLE
     , next_font_handle_(1)
     , default_texture_(INVALID_HANDLE)
+    , default_font_(INVALID_HANDLE)
     , custom_view_(nullptr)
     , view_center_{0.0f, 0.0f}
     , view_size_{0.0f, 0.0f}
@@ -89,6 +90,15 @@ bool SFMLGraphicsPlugin::is_initialized() const {
     return initialized_;
 }
 
+// Global pointer to window for inter-plugin communication
+static sf::RenderWindow* g_global_window_ptr = nullptr;
+
+extern "C" {
+    sf::RenderWindow* get_sfml_window_ptr() {
+        return g_global_window_ptr;
+    }
+}
+
 // Window management
 bool SFMLGraphicsPlugin::create_window(int width, int height, const char* title) {
     if (window_ && window_->isOpen()) {
@@ -109,6 +119,9 @@ bool SFMLGraphicsPlugin::create_window(int width, int height, const char* title)
         if (!window_->isOpen()) {
             return false;
         }
+
+        // Set global pointer
+        g_global_window_ptr = window_.get();
         
         // Set default view
         view_center_ = Vector2f(static_cast<float>(width) / 2.0f, static_cast<float>(height) / 2.0f);
@@ -119,6 +132,8 @@ bool SFMLGraphicsPlugin::create_window(int width, int height, const char* title)
         
         // Create default pink/black checkerboard texture
         create_default_texture();
+        // Create default font
+        create_default_font();
         
         return true;
     } catch (const std::exception& e) {
@@ -128,6 +143,7 @@ bool SFMLGraphicsPlugin::create_window(int width, int height, const char* title)
 }
 
 void SFMLGraphicsPlugin::close_window() {
+    g_global_window_ptr = nullptr;
     if (window_ && window_->isOpen()) {
         window_->close();
     }
@@ -259,7 +275,12 @@ void SFMLGraphicsPlugin::draw_text(const std::string& text, Vector2f position, C
     
     // SFML 3.0 requires a font to create text
     if (font_handle == INVALID_HANDLE) {
-        return;
+        // Fallback to default font
+        if (default_font_ != INVALID_HANDLE) {
+            font_handle = default_font_;
+        } else {
+            return;
+        }
     }
     
     auto it = fonts_.find(font_handle);
@@ -514,8 +535,34 @@ void SFMLGraphicsPlugin::create_default_texture() {
     std::cout << "  Default texture created successfully!" << std::endl;
 }
 
+void SFMLGraphicsPlugin::create_default_font() {
+    std::cout << "Loading default font..." << std::endl;
+    // Try to load from assets
+    // We assume the executable is run from root or build dir, so try a few paths
+    std::vector<std::string> paths = {
+        "assets/fonts/default.ttf",
+        "../assets/fonts/default.ttf",
+        "build/assets/fonts/default.ttf"
+    };
+
+    for (const auto& path : paths) {
+        try {
+            default_font_ = load_font(path);
+            std::cout << "  Default font loaded from: " << path << std::endl;
+            return;
+        } catch (...) {
+            continue;
+        }
+    }
+    std::cerr << "  WARNING: Failed to load default font from any known path. Text will be invisible." << std::endl;
+}
+
 TextureHandle SFMLGraphicsPlugin::get_default_texture() const {
     return default_texture_;
+}
+
+void* SFMLGraphicsPlugin::get_window_handle() const {
+    return window_.get();
 }
 
 }

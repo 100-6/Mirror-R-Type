@@ -45,7 +45,7 @@ int main(int argc, char* argv[]) {
     engine::IGraphicsPlugin* graphics = nullptr;
     try {
         graphics = plugin_manager.load_plugin<engine::IGraphicsPlugin>(
-            engine::PluginPaths::get_plugin_path(engine::PluginPaths::RAYLIB_GRAPHICS),
+            engine::PluginPaths::get_plugin_path(engine::PluginPaths::SFML_GRAPHICS),
             "create_graphics_plugin");
     } catch (const engine::PluginException& e) {
         std::cerr << "[Bagario] Failed to load graphics plugin: " << e.what() << "\n";
@@ -68,7 +68,7 @@ int main(int argc, char* argv[]) {
     engine::IInputPlugin* input = nullptr;
     try {
         input = plugin_manager.load_plugin<engine::IInputPlugin>(
-            engine::PluginPaths::get_plugin_path(engine::PluginPaths::RAYLIB_INPUT),
+            engine::PluginPaths::get_plugin_path(engine::PluginPaths::SFML_INPUT),
             "create_input_plugin");
     } catch (const engine::PluginException& e) {
         std::cerr << "[Bagario] Failed to load input plugin: " << e.what() << "\n";
@@ -81,6 +81,9 @@ int main(int argc, char* argv[]) {
         graphics->close_window();
         return 1;
     }
+
+    // Pass window handle to input plugin (critical for SFML to handle relative coords)
+    input->set_window_handle(graphics->get_window_handle());
 
     // Create and run game
     bagario::BagarioGame game(SCREEN_WIDTH, SCREEN_HEIGHT);

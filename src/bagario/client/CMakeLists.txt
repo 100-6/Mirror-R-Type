@@ -6,9 +6,11 @@ set(BAGARIO_CLIENT_SOURCES
     src/ScreenManager.cpp
     src/screens/WelcomeScreen.cpp
     src/screens/SettingsScreen.cpp
+    src/screens/SkinScreen.cpp
     src/ui/UIButton.cpp
     src/ui/UILabel.cpp
     src/ui/UITextField.cpp
+    src/ui/UIColorPicker.cpp
 )
 
 add_executable(bagario_client ${BAGARIO_CLIENT_SOURCES})

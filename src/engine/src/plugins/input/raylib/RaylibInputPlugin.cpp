@@ -186,6 +186,10 @@ void RaylibInputPlugin::update() {
     previous_mouse_state[engine::MouseButton::Middle] = is_mouse_button_pressed(engine::MouseButton::Middle);
 }
 
+void RaylibInputPlugin::set_window_handle([[maybe_unused]] void* handle) {
+    // Raylib manages its own window state globally
+}
+
 // ============== PLUGIN FACTORY ==============
 
 extern "C" {

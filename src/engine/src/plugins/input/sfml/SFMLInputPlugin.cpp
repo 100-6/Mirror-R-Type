@@ -171,6 +171,12 @@ bool SFMLInputPlugin::is_mouse_button_just_released(engine::MouseButton button) 
 }
 
 engine::Vector2f SFMLInputPlugin::get_mouse_position() const {
+    if (window_handle_) {
+        sf::Vector2i pos = sf::Mouse::getPosition(*window_handle_);
+        return {static_cast<float>(pos.x), static_cast<float>(pos.y)};
+    }
+
+    // Fallback to desktop coords if window not found
     sf::Vector2i pos = sf::Mouse::getPosition();
     return {static_cast<float>(pos.x), static_cast<float>(pos.y)};
 }
@@ -218,7 +224,15 @@ void SFMLInputPlugin::update() {
     sf::Joystick::update();
     
     // Reset mouse wheel delta (should be accumulated via event polling in graphics plugin)
+    // Reset mouse wheel delta (should be accumulated via event polling in graphics plugin)
     mouse_wheel_delta_ = 0.0f;
+}
+
+void SFMLInputPlugin::set_window_handle(void* handle) {
+    if (handle) {
+        window_handle_ = static_cast<sf::Window*>(handle);
+        std::cout << "SFMLInputPlugin: Window handle set successfully" << std::endl;
+    }
 }
 
 // ============== PLUGIN FACTORY ==============
