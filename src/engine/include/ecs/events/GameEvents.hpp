@@ -84,4 +84,52 @@ struct BonusCollectedEvent : public core::Event {
         , bonusType(type) {}
 };
 
+/**
+ * @brief Event fired when a companion turret should be spawned for a player
+ */
+struct CompanionSpawnEvent : public core::Event {
+    Entity player;
+    uint32_t playerId;  // Network player ID for client identification
+
+    CompanionSpawnEvent(Entity p, uint32_t id)
+        : player(p)
+        , playerId(id) {}
+};
+
+/**
+ * @brief Event fired when a companion turret should be destroyed (player died)
+ */
+struct CompanionDestroyEvent : public core::Event {
+    Entity player;
+
+    explicit CompanionDestroyEvent(Entity p)
+        : player(p) {}
+};
+
+/**
+ * @brief Event fired when a muzzle flash effect should be spawned
+ */
+struct MuzzleFlashSpawnEvent : public core::Event {
+    Entity shooter;       // Entity that fired (player or companion)
+    float projectileX;    // Position of the projectile
+    float projectileY;
+    bool isCompanion;     // True if shooter is a companion turret
+
+    MuzzleFlashSpawnEvent(Entity s, float px, float py, bool companion)
+        : shooter(s)
+        , projectileX(px)
+        , projectileY(py)
+        , isCompanion(companion) {}
+};
+
+/**
+ * @brief Event fired when a muzzle flash should be destroyed (companion destroyed)
+ */
+struct MuzzleFlashDestroyEvent : public core::Event {
+    Entity shooter;  // The shooter whose muzzle flash should be destroyed
+
+    explicit MuzzleFlashDestroyEvent(Entity s)
+        : shooter(s) {}
+};
+
 }

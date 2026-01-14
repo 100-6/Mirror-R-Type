@@ -35,12 +35,7 @@ void BonusSystem::init(Registry& registry)
             std::cerr << "BonusSystem: Failed to load bonus texture!" << std::endl;
         }
 
-        bonusWeaponTex_ = graphicsPlugin_->load_texture(assets::paths::BONUS_WEAPON_SPRITE);
-        if (bonusWeaponTex_ == engine::INVALID_HANDLE) {
-            std::cerr << "BonusSystem: Failed to load bonus weapon texture!" << std::endl;
-        } else {
-            std::cout << "BonusSystem: Loaded bonus weapon texture successfully" << std::endl;
-        }
+        // Note: Bonus weapon texture is handled by CompanionSystem (ECS architecture)
     }
 
     // S'abonner à l'événement de spawn de bonus (quand un ennemi meurt)
@@ -293,53 +288,14 @@ void BonusSystem::handleBonusCollection(Registry& registry)
 
                     case BonusType::BONUS_WEAPON:
                         {
-                            std::cout << "[BonusSystem] BONUS_WEAPON collected! graphicsPlugin_=" << graphicsPlugin_
-                                      << " bonusWeaponTex_=" << bonusWeaponTex_ << std::endl;
+                            std::cout << "[BonusSystem] BONUS_WEAPON collected by player " << playerEntity << std::endl;
 
                             auto& bonusWeapons = registry.get_components<BonusWeapon>();
                             if (!bonusWeapons.has_entity(playerEntity)) {
-                                // Créer l'arme bonus attachée au joueur
-                                Entity bonusWeaponEntity = registry.spawn_entity();
-
-                                // Taille en pourcentage de l'image originale (442x257)
-                                constexpr float BONUS_SCALE_PERCENT = 100.0f;  // <-- MODIFIER ICI (50 = 50%)
-                                float bonusWidth = 442.0f * (BONUS_SCALE_PERCENT / 100.0f);
-                                float bonusHeight = 257.0f * (BONUS_SCALE_PERCENT / 100.0f);
-
-                                // Positionner le vaisseau bonus À DROITE du joueur pour être visible
-                                float bonusOffsetX = 100.0f;  // À droite du joueur
-                                float bonusOffsetY = 0.0f;    // Même hauteur
-
-                                // Position initiale = position du joueur + offset
-                                registry.add_component(bonusWeaponEntity, Position{playerPos.x + bonusOffsetX, playerPos.y + bonusOffsetY});
-                                registry.add_component(bonusWeaponEntity, Attached{playerEntity, bonusOffsetX, bonusOffsetY, 4.0f});
-
-                                Sprite bonusWeaponSprite{
-                                    bonusWeaponTex_,         // Texture loaded in init()
-                                    bonusWidth,              // width
-                                    bonusHeight,             // height
-                                    0.0f,                    // rotation
-                                    engine::Color::White,    // tint
-                                    0.0f,                    // origin_x
-                                    0.0f,                    // origin_y
-                                    15                       // layer comme les autres entités de jeu
-                                };
-                                // Source rect: toute l'image 442x257
-                                bonusWeaponSprite.source_rect = {0.0f, 0.0f, 442.0f, 257.0f};
-                                registry.add_component(bonusWeaponEntity, bonusWeaponSprite);
-
-                                std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
-                                std::cout << "[BonusSystem] CREATED BONUS WEAPON SPRITE!" << std::endl;
-                                std::cout << "  Entity ID: " << bonusWeaponEntity << std::endl;
-                                std::cout << "  Position: (" << (playerPos.x + bonusOffsetX) << ", " << (playerPos.y + bonusOffsetY) << ")" << std::endl;
-                                std::cout << "  Texture handle: " << bonusWeaponTex_ << std::endl;
-                                std::cout << "  Size: " << bonusWidth << "x" << bonusHeight << std::endl;
-                                std::cout << "  Layer: 15" << std::endl;
-                                std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
-
-                                registry.add_component(playerEntity, BonusWeapon{bonusWeaponEntity, 0.0f, true});
-
-                                std::cout << "[BonusSystem] Joueur obtient l'arme bonus!" << std::endl;
+                                // Publish event to CompanionSystem (ECS architecture)
+                                // CompanionSystem will handle the companion turret creation
+                                registry.get_event_bus().publish(ecs::CompanionSpawnEvent{playerEntity, 0});
+                                std::cout << "[BonusSystem] Published CompanionSpawnEvent for player " << playerEntity << std::endl;
                             } else {
                                 std::cout << "[BonusSystem] Joueur a déjà l'arme bonus, bonus ignoré" << std::endl;
                             }

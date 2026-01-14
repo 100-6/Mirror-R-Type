@@ -172,6 +172,52 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
                 network_system_->queue_entity_spawn(bonus, entityType, event.x, event.y, 0, static_cast<uint8_t>(event.bonusType));
         });
 
+    // Subscribe to companion spawn events to create BonusWeapon component on server
+    registry_.get_event_bus().subscribe<ecs::CompanionSpawnEvent>(
+        [this](const ecs::CompanionSpawnEvent& event) {
+            auto& bonusWeapons = registry_.get_components<BonusWeapon>();
+            auto& positions = registry_.get_components<Position>();
+
+            // Check if player already has a companion
+            if (bonusWeapons.has_entity(event.player)) {
+                std::cout << "[GameSession " << session_id_ << "] Player " << event.player
+                          << " already has companion, ignoring spawn\n";
+                return;
+            }
+
+            if (!positions.has_entity(event.player)) {
+                std::cerr << "[GameSession " << session_id_ << "] Player has no position, cannot spawn companion\n";
+                return;
+            }
+
+            const Position& playerPos = positions[event.player];
+
+            // Create companion entity (server-side, no sprite needed)
+            Entity companionEntity = registry_.spawn_entity();
+
+            // Position offset relative to player
+            float bonusOffsetX = 120.0f;
+            float bonusOffsetY = -70.0f;
+
+            registry_.add_component(companionEntity, Position{
+                playerPos.x + bonusOffsetX,
+                playerPos.y + bonusOffsetY
+            });
+
+            registry_.add_component(companionEntity, Attached{
+                event.player,
+                bonusOffsetX,
+                bonusOffsetY,
+                4.0f  // Smooth follow factor
+            });
+
+            // Mark player as having a bonus weapon (stores companion entity reference)
+            registry_.add_component(event.player, BonusWeapon{companionEntity, 0.0f, true});
+
+            std::cout << "[GameSession " << session_id_ << "] Created server-side companion entity "
+                      << companionEntity << " for player " << event.player << "\n";
+        });
+
     std::string wave_file = WaveManager::get_map_file(map_id);
     if (wave_manager_.load_from_file(wave_file)) {
         std::cout << "[GameSession " << session_id_ << "] Loaded " << wave_manager_.get_total_waves()
