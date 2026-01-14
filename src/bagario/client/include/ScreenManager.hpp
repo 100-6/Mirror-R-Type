@@ -10,6 +10,10 @@ namespace bagario {
 
 class BaseScreen;
 
+namespace client {
+    class NetworkManager;
+}
+
 /**
  * @brief Game screen states
  */
@@ -35,6 +39,11 @@ public:
     GameScreen get_current_screen() const { return current_screen_; }
     void set_screen(GameScreen screen);
 
+    /**
+     * @brief Set the network manager for the playing screen
+     */
+    void set_network_manager(client::NetworkManager* network);
+
 private:
     LocalGameState& game_state_;
     int screen_width_;
@@ -44,6 +53,9 @@ private:
     std::unique_ptr<BaseScreen> welcome_screen_;
     std::unique_ptr<BaseScreen> settings_screen_;
     std::unique_ptr<BaseScreen> skin_screen_;
+    std::unique_ptr<BaseScreen> playing_screen_;
+
+    client::NetworkManager* network_manager_ = nullptr;
 
     void handle_screen_change(GameScreen new_screen);
 };

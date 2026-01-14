@@ -42,6 +42,9 @@ public:
     void broadcast_leaderboard(const protocol::ServerLeaderboardPayload& header,
                                const std::vector<protocol::LeaderboardEntry>& entries);
 
+    // Skin sync
+    void broadcast_player_skin(uint32_t player_id, const std::vector<uint8_t>& skin_data);
+
 private:
     template<typename T>
     std::vector<uint8_t> serialize_packet(protocol::PacketType type, const T& payload) const {

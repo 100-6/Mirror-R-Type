@@ -55,6 +55,27 @@ void BagarioPacketSender::broadcast_leaderboard(const protocol::ServerLeaderboar
     broadcast_udp(data);
 }
 
+void BagarioPacketSender::broadcast_player_skin(uint32_t player_id, const std::vector<uint8_t>& skin_data) {
+    // Build packet: [type][player_id][skin_data...]
+    std::vector<uint8_t> data;
+    data.reserve(1 + sizeof(protocol::ServerPlayerSkinPayload) + skin_data.size());
+
+    // Packet type
+    data.push_back(static_cast<uint8_t>(protocol::PacketType::SERVER_PLAYER_SKIN));
+
+    // Header (player_id)
+    protocol::ServerPlayerSkinPayload header;
+    header.player_id = player_id;
+    const uint8_t* header_bytes = reinterpret_cast<const uint8_t*>(&header);
+    data.insert(data.end(), header_bytes, header_bytes + sizeof(header));
+
+    // Skin data
+    data.insert(data.end(), skin_data.begin(), skin_data.end());
+
+    // Use TCP for reliability (skin data can be large)
+    broadcast_tcp(data);
+}
+
 std::vector<uint8_t> BagarioPacketSender::serialize_snapshot(
     const protocol::ServerSnapshotPayload& header,
     const std::vector<protocol::EntityState>& entities

@@ -1,6 +1,6 @@
 # Bagario Network Protocol Specification
 
-**Version:** 1.0
+**Version:** 1.1
 **Status:** Draft
 **Last Updated:** 2026-01-14
 
@@ -294,6 +294,48 @@ struct ClientEjectMassPayload {
 
 ---
 
+### 5.7 CLIENT_SET_SKIN (0x13)
+
+**Channel**: Reliable (0)
+**Size**: 4 + 17 + N bytes (minimum 21 bytes, variable)
+**Purpose**: Set player's custom skin appearance
+
+#### Payload Structure
+
+```cpp
+struct ClientSetSkinPayload {
+    uint32_t player_id;  // Player ID
+    // Followed by skin data (see below)
+};
+```
+
+#### Skin Data Format
+
+| Field           | Type     | Size    | Description                        |
+|-----------------|----------|---------|-------------------------------------|
+| pattern         | uint8_t  | 1 byte  | Skin pattern type                   |
+| primary_color   | uint32_t | 4 bytes | Primary color (RGBA)                |
+| secondary_color | uint32_t | 4 bytes | Secondary color (RGBA)              |
+| tertiary_color  | uint32_t | 4 bytes | Tertiary color (RGBA)               |
+| image_data_size | uint32_t | 4 bytes | Size of image data (0 if no image)  |
+| image_data      | bytes    | N bytes | Raw image data (only if size > 0)   |
+
+#### Pattern Types
+
+- `SOLID (0x00)`: Single color fill
+- `STRIPED (0x01)`: Striped pattern using primary/secondary colors
+- `SPOTTED (0x02)`: Spotted pattern
+- `GRADIENT (0x03)`: Gradient between colors
+
+#### Behavior
+
+1. Client SHOULD send this immediately after receiving `SERVER_ACCEPT`
+2. Server stores skin data for the player
+3. Server broadcasts `SERVER_PLAYER_SKIN` to all connected clients
+4. Client MAY send this again to update skin during gameplay
+
+---
+
 ## 6. Server Packets
 
 Server packets are sent from the game server to clients.
@@ -544,6 +586,41 @@ struct LeaderboardEntry {
 
 ---
 
+### 6.10 SERVER_PLAYER_SKIN (0xC2)
+
+**Channel**: Reliable (0)
+**Size**: 4 + 17 + N bytes (minimum 21 bytes, variable)
+**Purpose**: Broadcast a player's skin to all clients
+
+#### Payload Structure
+
+```cpp
+struct ServerPlayerSkinPayload {
+    uint32_t player_id;  // Player whose skin is being broadcast
+    // Followed by skin data (same format as CLIENT_SET_SKIN)
+};
+```
+
+#### Skin Data Format
+
+| Field           | Type     | Size    | Description                        |
+|-----------------|----------|---------|-------------------------------------|
+| pattern         | uint8_t  | 1 byte  | Skin pattern type                   |
+| primary_color   | uint32_t | 4 bytes | Primary color (RGBA)                |
+| secondary_color | uint32_t | 4 bytes | Secondary color (RGBA)              |
+| tertiary_color  | uint32_t | 4 bytes | Tertiary color (RGBA)               |
+| image_data_size | uint32_t | 4 bytes | Size of image data (0 if no image)  |
+| image_data      | bytes    | N bytes | Raw image data (only if size > 0)   |
+
+#### Behavior
+
+1. Server sends this to ALL clients when a player sets their skin
+2. Server SHOULD send existing player skins to newly connected clients
+3. Client MUST store skin data for rendering player cells
+4. Client uses this to display other players with their custom appearances
+
+---
+
 ## 7. Connection Flow
 
 ### 7.1 Connection Establishment
@@ -558,6 +635,10 @@ Client                                Server
   |<------- SERVER_ACCEPT (0x81) -------|  [If accepted]
   |        OR                            |
   |<------- SERVER_REJECT (0x82) -------|  [If rejected]
+  |                                      |
+  |------- CLIENT_SET_SKIN (0x13) ----->|  [Send custom skin]
+  |                                      |
+  |<----- SERVER_PLAYER_SKIN (0xC2) ----|  [Broadcast to all clients]
   |                                      |
 ```
 
@@ -719,6 +800,7 @@ Client predictions MUST be reconciled with server state.
 | 0x10 | 0x10 | CLIENT_INPUT             | 16           | Unreliable| C → S     |
 | 0x11 | 0x11 | CLIENT_SPLIT             | 4            | Reliable  | C → S     |
 | 0x12 | 0x12 | CLIENT_EJECT_MASS        | 12           | Reliable  | C → S     |
+| 0x13 | 0x13 | CLIENT_SET_SKIN          | 4 + 17 + n   | Reliable  | C → S     |
 | 0x81 | 0x81 | SERVER_ACCEPT            | 18           | Reliable  | S → C     |
 | 0x82 | 0x82 | SERVER_REJECT            | 65           | Reliable  | S → C     |
 | 0x85 | 0x85 | SERVER_PONG              | 8            | Unreliable| S → C     |
@@ -728,6 +810,7 @@ Client predictions MUST be reconciled with server state.
 | 0xB2 | 0xB2 | SERVER_CELL_MERGE        | TBD          | Reliable  | S → C     |
 | 0xC0 | 0xC0 | SERVER_PLAYER_EATEN      | 12           | Reliable  | S → C     |
 | 0xC1 | 0xC1 | SERVER_LEADERBOARD       | 1 + 40n      | Reliable  | S → C     |
+| 0xC2 | 0xC2 | SERVER_PLAYER_SKIN       | 4 + 17 + n   | Reliable  | S → C     |
 
 ---
 
@@ -751,6 +834,12 @@ Client predictions MUST be reconciled with server state.
 ---
 
 ## Appendix C: Changelog
+
+**Version 1.1 (2026-01-14)**:
+- Added CLIENT_SET_SKIN (0x13) for custom player skins
+- Added SERVER_PLAYER_SKIN (0xC2) for broadcasting skins to clients
+- Updated connection flow to include skin exchange
+- Documented skin data format (pattern, colors, optional image)
 
 **Version 1.0 (2026-01-14)**:
 - Initial protocol specification

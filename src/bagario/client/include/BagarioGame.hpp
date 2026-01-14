@@ -5,6 +5,7 @@
 #include "plugin_manager/IInputPlugin.hpp"
 #include "LocalGameState.hpp"
 #include "ScreenManager.hpp"
+#include "network/NetworkManager.hpp"
 #include <memory>
 
 namespace bagario {
@@ -37,6 +38,7 @@ private:
     Registry registry_;
     LocalGameState game_state_;
     std::unique_ptr<ScreenManager> screen_manager_;
+    std::unique_ptr<client::NetworkManager> network_manager_;
 };
 
 }  // namespace bagario

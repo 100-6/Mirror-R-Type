@@ -7,6 +7,7 @@
 #include <chrono>
 #include <random>
 #include <string>
+#include <vector>
 
 #include "plugin_manager/INetworkPlugin.hpp"
 #include "plugin_manager/PluginManager.hpp"
@@ -32,6 +33,7 @@ struct PlayerInfo {
     uint32_t color = 0xFFFFFFFF;
     bool in_game = false;
     std::chrono::steady_clock::time_point last_activity;
+    std::vector<uint8_t> skin_data;  // Serialized skin for network sync
 };
 
 /**
@@ -95,6 +97,7 @@ private:
     void handle_client_input(uint32_t client_id, const protocol::ClientInputPayload& payload);
     void handle_client_split(uint32_t client_id, const protocol::ClientSplitPayload& payload);
     void handle_client_eject_mass(uint32_t client_id, const protocol::ClientEjectMassPayload& payload);
+    void handle_client_set_skin(uint32_t client_id, uint32_t player_id, const std::vector<uint8_t>& skin_data);
 
     // Helper methods
     uint32_t generate_player_id();

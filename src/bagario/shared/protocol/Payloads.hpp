@@ -120,6 +120,28 @@ PACK_END
 static_assert(sizeof(ClientEjectMassPayload) == 12, "ClientEjectMassPayload must be 12 bytes");
 
 /**
+ * @brief CLIENT_SET_SKIN payload header (0x13)
+ * Variable size: 4 bytes header + skin data (17+ bytes)
+ *
+ * Skin data format (from PlayerSkin::serialize()):
+ * - 1 byte:  pattern (uint8_t)
+ * - 4 bytes: primary color (RGBA)
+ * - 4 bytes: secondary color (RGBA)
+ * - 4 bytes: tertiary color (RGBA)
+ * - 4 bytes: image_data_size (uint32_t, 0 if no image)
+ * - N bytes: raw image data (only if image_data_size > 0)
+ */
+PACK_START
+struct PACKED ClientSetSkinPayload {
+    uint32_t player_id;
+
+    ClientSetSkinPayload() : player_id(0) {}
+};
+PACK_END
+
+static_assert(sizeof(ClientSetSkinPayload) == 4, "ClientSetSkinPayload header must be 4 bytes");
+
+/**
  * @brief SERVER_ACCEPT payload (0x81)
  * Total size: 18 bytes
  */
@@ -333,5 +355,22 @@ struct PACKED ServerLeaderboardPayload {
 PACK_END
 
 static_assert(sizeof(ServerLeaderboardPayload) == 1, "ServerLeaderboardPayload base must be 1 byte");
+
+/**
+ * @brief SERVER_PLAYER_SKIN payload header (0xC2)
+ * Variable size: 4 bytes header + skin data (17+ bytes)
+ *
+ * Sent to all clients when a player sets their skin.
+ * Skin data format is same as ClientSetSkinPayload.
+ */
+PACK_START
+struct PACKED ServerPlayerSkinPayload {
+    uint32_t player_id;
+
+    ServerPlayerSkinPayload() : player_id(0) {}
+};
+PACK_END
+
+static_assert(sizeof(ServerPlayerSkinPayload) == 4, "ServerPlayerSkinPayload header must be 4 bytes");
 
 }

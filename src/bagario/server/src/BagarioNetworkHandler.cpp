@@ -61,6 +61,24 @@ void BagarioNetworkHandler::handle_packet(uint32_t client_id, const engine::Netw
                 m_callbacks.on_eject_mass(client_id, payload);
             break;
         }
+        case protocol::PacketType::CLIENT_SET_SKIN: {
+            // Variable-size packet: [type][player_id][skin_data...]
+            constexpr size_t MIN_SIZE = 1 + sizeof(protocol::ClientSetSkinPayload) + 17;  // 17 = min skin header
+            if (packet.data.size() >= MIN_SIZE && m_callbacks.on_set_skin) {
+                protocol::ClientSetSkinPayload header;
+                std::memcpy(&header, packet.data.data() + 1, sizeof(header));
+
+                // Extract skin data (everything after player_id)
+                size_t skin_offset = 1 + sizeof(header);
+                std::vector<uint8_t> skin_data(
+                    packet.data.begin() + skin_offset,
+                    packet.data.end()
+                );
+
+                m_callbacks.on_set_skin(client_id, header.player_id, skin_data);
+            }
+            break;
+        }
         default:
             std::cerr << "[BagarioNetworkHandler] Unknown packet type: 0x"
                       << std::hex << static_cast<int>(packet_type) << std::dec << std::endl;

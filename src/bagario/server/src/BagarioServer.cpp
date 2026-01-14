@@ -69,6 +69,9 @@ bool BagarioServer::start() {
     callbacks.on_eject_mass = [this](uint32_t client_id, const protocol::ClientEjectMassPayload& p) {
         handle_client_eject_mass(client_id, p);
     };
+    callbacks.on_set_skin = [this](uint32_t client_id, uint32_t player_id, const std::vector<uint8_t>& skin_data) {
+        handle_client_set_skin(client_id, player_id, skin_data);
+    };
     m_network_handler->set_callbacks(callbacks);
     SessionCallbacks session_callbacks;
     session_callbacks.on_entity_spawn = [this](const protocol::ServerEntitySpawnPayload& payload) {
@@ -249,6 +252,26 @@ void BagarioServer::handle_client_eject_mass(uint32_t client_id, const protocol:
     if (it == m_players.end())
         return;
     m_session->player_eject_mass(it->second.player_id, payload.direction_x, payload.direction_y);
+}
+
+void BagarioServer::handle_client_set_skin(uint32_t client_id, uint32_t player_id, const std::vector<uint8_t>& skin_data) {
+    // Validate that this client owns this player_id
+    {
+        std::lock_guard<std::mutex> lock(m_players_mutex);
+        auto it = m_players.find(client_id);
+
+        if (it == m_players.end() || it->second.player_id != player_id) {
+            std::cerr << "[BagarioServer] Invalid skin update from client " << client_id << std::endl;
+            return;
+        }
+
+        // Store skin data for this player
+        it->second.skin_data = skin_data;
+    }
+
+    // Broadcast skin to all other clients
+    m_packet_sender->broadcast_player_skin(player_id, skin_data);
+    std::cout << "[BagarioServer] Player " << player_id << " skin updated (" << skin_data.size() << " bytes)" << std::endl;
 }
 
 uint32_t BagarioServer::generate_player_id() {

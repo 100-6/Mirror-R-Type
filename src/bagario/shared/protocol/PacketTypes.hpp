@@ -24,6 +24,7 @@ enum class PacketType : uint8_t {
     CLIENT_INPUT = 0x10,
     CLIENT_SPLIT = 0x11,
     CLIENT_EJECT_MASS = 0x12,
+    CLIENT_SET_SKIN = 0x13,
 
     SERVER_ACCEPT = 0x81,
     SERVER_REJECT = 0x82,
@@ -37,6 +38,7 @@ enum class PacketType : uint8_t {
 
     SERVER_PLAYER_EATEN = 0xC0,
     SERVER_LEADERBOARD = 0xC1,
+    SERVER_PLAYER_SKIN = 0xC2,
 };
 
 /**
@@ -103,6 +105,8 @@ inline std::string packet_type_to_string(PacketType type) {
         return "CLIENT_SPLIT";
     case PacketType::CLIENT_EJECT_MASS:
         return "CLIENT_EJECT_MASS";
+    case PacketType::CLIENT_SET_SKIN:
+        return "CLIENT_SET_SKIN";
     case PacketType::SERVER_ACCEPT:
         return "SERVER_ACCEPT";
     case PacketType::SERVER_REJECT:
@@ -121,6 +125,8 @@ inline std::string packet_type_to_string(PacketType type) {
         return "SERVER_PLAYER_EATEN";
     case PacketType::SERVER_LEADERBOARD:
         return "SERVER_LEADERBOARD";
+    case PacketType::SERVER_PLAYER_SKIN:
+        return "SERVER_PLAYER_SKIN";
     default:
         return "UNKNOWN";
     }

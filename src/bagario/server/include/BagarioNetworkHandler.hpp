@@ -20,6 +20,7 @@ struct NetworkCallbacks {
     std::function<void(uint32_t, const protocol::ClientInputPayload&)> on_input;
     std::function<void(uint32_t, const protocol::ClientSplitPayload&)> on_split;
     std::function<void(uint32_t, const protocol::ClientEjectMassPayload&)> on_eject_mass;
+    std::function<void(uint32_t, uint32_t, const std::vector<uint8_t>&)> on_set_skin;  // client_id, player_id, skin_data
 };
 
 /**

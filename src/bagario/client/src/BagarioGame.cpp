@@ -21,8 +21,16 @@ bool BagarioGame::initialize(engine::IGraphicsPlugin* graphics, engine::IInputPl
         return false;
     }
 
+    // Initialize network manager
+    network_manager_ = std::make_unique<client::NetworkManager>();
+    if (!network_manager_->initialize()) {
+        std::cerr << "[BagarioGame] Warning: Failed to initialize network manager\n";
+        // Continue without network - menus will still work
+    }
+
     // Initialize screen manager
     screen_manager_ = std::make_unique<ScreenManager>(game_state_, screen_width_, screen_height_);
+    screen_manager_->set_network_manager(network_manager_.get());
     screen_manager_->initialize();
 
     std::cout << "[BagarioGame] Initialized successfully\n";
@@ -33,12 +41,6 @@ void BagarioGame::run() {
     std::cout << "[BagarioGame] Starting game loop\n";
 
     while (!should_close_ && graphics_->is_window_open()) {
-        // Handle escape key to exit
-        if (input_->is_key_pressed(engine::Key::Escape)) {
-            should_close_ = true;
-            break;
-        }
-
         update();
         draw();
     }
@@ -60,6 +62,10 @@ void BagarioGame::draw() {
 void BagarioGame::shutdown() {
     std::cout << "[BagarioGame] Shutting down\n";
     screen_manager_.reset();
+    if (network_manager_) {
+        network_manager_->shutdown();
+        network_manager_.reset();
+    }
 }
 
 }  // namespace bagario
