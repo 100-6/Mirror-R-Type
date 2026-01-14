@@ -2,6 +2,7 @@
 #include "NetworkClient.hpp"
 #include "ScreenManager.hpp"
 #include "AssetsPaths.hpp"
+#include "DebugSettings.hpp"
 #include <iostream>
 
 namespace rtype::client {
@@ -35,12 +36,13 @@ void SettingsScreen::rebuild_ui() {
     title->set_alignment(UILabel::Alignment::CENTER);
     labels_.push_back(std::move(title));
 
-    // Tab buttons
+    // Tab buttons (3 tabs: AUDIO, CONTROLS, DEBUG)
     float tab_y = 150.0f;
     float tab_width = 150.0f;
     float tab_height = 40.0f;
     float tab_spacing = 20.0f;
-    float tabs_start_x = center_x - (tab_width + tab_spacing / 2.0f);
+    float tabs_total_width = tab_width * 3.0f + tab_spacing * 2.0f;
+    float tabs_start_x = center_x - tabs_total_width / 2.0f;
 
     auto audio_tab = std::make_unique<UIButton>(
         tabs_start_x, tab_y, tab_width, tab_height, "AUDIO");
@@ -57,6 +59,14 @@ void SettingsScreen::rebuild_ui() {
     });
     controls_tab->set_selected(current_tab_ == SettingsTab::CONTROLS);
     buttons_.push_back(std::move(controls_tab));
+
+    auto debug_tab = std::make_unique<UIButton>(
+        tabs_start_x + (tab_width + tab_spacing) * 2.0f, tab_y, tab_width, tab_height, "DEBUG");
+    debug_tab->set_on_click([this]() {
+        switch_tab(SettingsTab::DEBUG);
+    });
+    debug_tab->set_selected(current_tab_ == SettingsTab::DEBUG);
+    buttons_.push_back(std::move(debug_tab));
 
     float content_start_y = 220.0f;
 
@@ -240,6 +250,57 @@ void SettingsScreen::rebuild_ui() {
         buttons_.push_back(std::move(reset_btn));
 
         std::cout << "[SettingsScreen] CONTROLS tab UI complete" << std::endl;
+    } else if (current_tab_ == SettingsTab::DEBUG) {
+        // Debug settings section
+        auto debug_title = std::make_unique<UILabel>(
+            center_x, content_start_y, "DEBUG OPTIONS", 40);
+        debug_title->set_color(engine::Color{200, 200, 200, 255});
+        debug_title->set_alignment(UILabel::Alignment::CENTER);
+        labels_.push_back(std::move(debug_title));
+
+        // Hitbox visualization toggle section
+        float debug_y = content_start_y + 80.0f;
+
+        auto debug_label = std::make_unique<UILabel>(
+            center_x - 250.0f, debug_y, "Hitbox Visualization", label_size);
+        debug_label->set_color(engine::Color{255, 255, 255, 255});
+        labels_.push_back(std::move(debug_label));
+
+        // Get current state from DebugSettings singleton
+        bool current_debug_state = DebugSettings::instance().is_hitbox_debug_enabled();
+
+        // Toggle button for hitbox debug
+        auto debug_toggle = std::make_unique<UIButton>(
+            center_x + 100.0f, debug_y - 10.0f, 150.0f, 50.0f,
+            current_debug_state ? "ENABLED" : "DISABLED");
+        debug_toggle->set_selected(current_debug_state);
+
+        // Store pointer before moving to capture it in lambda
+        UIButton* debug_toggle_ptr = debug_toggle.get();
+
+        debug_toggle->set_on_click([this, debug_toggle_ptr]() {
+            // Toggle debug mode via DebugSettings singleton
+            bool new_state = DebugSettings::instance().toggle_hitbox_debug();
+
+            std::cout << "[SettingsScreen] Hitbox debug toggled to: "
+                      << (new_state ? "ENABLED" : "DISABLED") << std::endl;
+
+            // Update button text and selected state immediately
+            debug_toggle_ptr->set_text(new_state ? "ENABLED" : "DISABLED");
+            debug_toggle_ptr->set_selected(new_state);
+        });
+        buttons_.push_back(std::move(debug_toggle));
+
+        // Info label about debug mode
+        auto info_label = std::make_unique<UILabel>(
+            center_x, debug_y + 70.0f,
+            "Press H in-game to toggle hitbox display",
+            20);
+        info_label->set_color(engine::Color{180, 180, 180, 255});
+        info_label->set_alignment(UILabel::Alignment::CENTER);
+        labels_.push_back(std::move(info_label));
+
+        std::cout << "[SettingsScreen] DEBUG tab UI complete" << std::endl;
     }
 
     // Back button - centered at bottom

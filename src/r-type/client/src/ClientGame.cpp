@@ -19,6 +19,7 @@
 #include "ecs/events/GameEvents.hpp"
 #include "ClientComponents.hpp"
 #include "components/GameComponents.hpp"
+#include "DebugSettings.hpp"
 #include <iostream>
 #include <chrono>
 #include <cmath>
@@ -142,6 +143,16 @@ bool ClientGame::initialize(const std::string& host, uint16_t tcp_port, const st
         *input_plugin_,
         menu_manager_->get_settings_screen() ? &menu_manager_->get_settings_screen()->get_key_bindings() : nullptr
     );
+
+    // Setup debug settings callback to sync with ColliderDebugSystem
+    DebugSettings::instance().set_state_change_callback([this](bool enabled) {
+        if (registry_ && registry_->has_system<ColliderDebugSystem>()) {
+            auto& debug_system = registry_->get_system<ColliderDebugSystem>();
+            debug_system.set_enabled(enabled);
+            std::cout << "[ClientGame] Debug callback: Hitbox debug "
+                      << (enabled ? "enabled" : "disabled") << "\n";
+        }
+    });
 
     status_overlay_->set_connection("Connecting to " + host_ + ":" + std::to_string(tcp_port_));
     status_overlay_->refresh();
@@ -290,6 +301,8 @@ void ClientGame::setup_systems() {
 
     registry_->register_system<RenderSystem>(*graphics_plugin_);
     registry_->register_system<ColliderDebugSystem>(*graphics_plugin_);
+    // Disable debug visualization by default (can be enabled in Settings > DEBUG)
+    registry_->get_system<ColliderDebugSystem>().set_enabled(false);
     registry_->register_system<HUDSystem>(*graphics_plugin_, input_plugin_, screen_width_, screen_height_);
 
     // Bonus system - handles bonus collection and effects (with graphics for sprite loading)
@@ -867,13 +880,10 @@ void ClientGame::run() {
             break;
         }
 
-        // Toggle collider debug visualization with H key
+        // Toggle hitbox debug with H key - automatically syncs via callback
         if (input_handler_->is_hitbox_toggle_pressed()) {
-            if (registry_->has_system<ColliderDebugSystem>()) {
-                auto& debug_system = registry_->get_system<ColliderDebugSystem>();
-                bool new_state = !debug_system.is_enabled();
-                debug_system.set_enabled(new_state);
-            }
+            DebugSettings::instance().toggle_hitbox_debug();
+            // Callback will automatically update ColliderDebugSystem
         }
 
         static bool tab_was_pressed = false;
