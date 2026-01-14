@@ -418,10 +418,43 @@ TextureHandle SFMLGraphicsPlugin::load_texture(const std::string& path) {
     
     // Generate handle
     TextureHandle handle = next_texture_handle_++;
-    
+
     // Store in cache
     textures_[handle] = std::move(data);
-    
+
+    return handle;
+}
+
+TextureHandle SFMLGraphicsPlugin::load_texture_from_memory(const uint8_t* data, size_t size) {
+    if (!initialized_) {
+        throw std::runtime_error("Plugin not initialized");
+    }
+
+    if (data == nullptr || size == 0) {
+        throw std::runtime_error("Invalid texture data");
+    }
+
+    auto texture = std::make_unique<sf::Texture>();
+
+    // SFML 3.0: loadFromMemory loads image data (PNG, JPG, etc.) from memory
+    if (!texture->loadFromMemory(data, size)) {
+        throw std::runtime_error("Failed to load texture from memory");
+    }
+
+    // Create texture data
+    TextureData tex_data;
+    tex_data.size = Vector2f(
+        static_cast<float>(texture->getSize().x),
+        static_cast<float>(texture->getSize().y)
+    );
+    tex_data.texture = std::move(texture);
+
+    // Generate handle
+    TextureHandle handle = next_texture_handle_++;
+
+    // Store in cache
+    textures_[handle] = std::move(tex_data);
+
     return handle;
 }
 
