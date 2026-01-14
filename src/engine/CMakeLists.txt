@@ -163,6 +163,10 @@ target_link_libraries(asio_network
         Boost::system
 )
 
+if(WIN32)
+    target_link_libraries(asio_network PRIVATE ws2_32 mswsock)
+endif()
+
 target_compile_definitions(asio_network PRIVATE PLUGIN_EXPORTS)
 
 # Set output to plugins directory with unified naming
@@ -239,4 +243,49 @@ if(WIN32)
     set_target_properties(raylib_input PROPERTIES SUFFIX ".dll")
 else()
     set_target_properties(raylib_input PROPERTIES SUFFIX ".so")
+endif()
+
+find_package(unofficial-enet CONFIG REQUIRED)
+
+add_library(enet_network SHARED
+    src/plugins/network/enet/EnetNetworkPlugin.cpp
+)
+
+target_include_directories(enet_network
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+target_link_libraries(enet_network
+    PRIVATE
+        unofficial::enet::enet
+)
+
+if(WIN32)
+    target_link_libraries(enet_network PRIVATE ws2_32 winmm)
+endif()
+
+target_compile_definitions(enet_network PRIVATE PLUGIN_EXPORTS)
+
+set_target_properties(enet_network PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/plugins"
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/plugins"
+    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/plugins"
+    OUTPUT_NAME "enet_network"
+    PREFIX ""
+)
+
+foreach(CONFIG_TYPE ${CMAKE_CONFIGURATION_TYPES})
+    string(TOUPPER ${CONFIG_TYPE} CONFIG_TYPE_UPPER)
+    set_target_properties(enet_network PROPERTIES
+        LIBRARY_OUTPUT_DIRECTORY_${CONFIG_TYPE_UPPER} "${CMAKE_BINARY_DIR}/plugins"
+        RUNTIME_OUTPUT_DIRECTORY_${CONFIG_TYPE_UPPER} "${CMAKE_BINARY_DIR}/plugins"
+        ARCHIVE_OUTPUT_DIRECTORY_${CONFIG_TYPE_UPPER} "${CMAKE_BINARY_DIR}/plugins"
+    )
+endforeach()
+
+if(WIN32)
+    set_target_properties(enet_network PROPERTIES SUFFIX ".dll")
+else()
+    set_target_properties(enet_network PROPERTIES SUFFIX ".so")
 endif()

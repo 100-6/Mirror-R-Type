@@ -107,6 +107,34 @@ public:
      * @param payload Input data (movement, shooting)
      */
     virtual void on_client_input(uint32_t client_id, const protocol::ClientInputPayload& payload) = 0;
+
+    /**
+     * @brief Called when a client wants to change their player name
+     * @param client_id TCP client ID
+     * @param payload Name change data
+     */
+    virtual void on_client_set_player_name(uint32_t client_id, const protocol::ClientSetPlayerNamePayload& payload) = 0;
+
+    /**
+     * @brief Called when a client wants to change their player skin
+     * @param client_id TCP client ID
+     * @param payload Skin change data
+     */
+    virtual void on_client_set_player_skin(uint32_t client_id, const protocol::ClientSetPlayerSkinPayload& payload) = 0;
+
+    /**
+     * @brief Called when a client sends admin authentication
+     * @param client_id TCP client ID
+     * @param payload Admin auth data (password hash, username)
+     */
+    virtual void on_admin_auth(uint32_t client_id, const protocol::ClientAdminAuthPayload& payload) = 0;
+
+    /**
+     * @brief Called when a client sends admin command
+     * @param client_id TCP client ID
+     * @param payload Admin command data (command string)
+     */
+    virtual void on_admin_command(uint32_t client_id, const protocol::ClientAdminCommandPayload& payload) = 0;
 };
 
 }

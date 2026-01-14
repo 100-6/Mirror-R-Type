@@ -7,6 +7,7 @@ set(RTYPE_CLIENT_SOURCES
     src/ClientGame.cpp
     src/TextureManager.cpp
     src/InputHandler.cpp
+    src/KeyBindings.cpp
     src/ScreenManager.cpp
     src/EntityManager.cpp
     src/StatusOverlay.cpp
@@ -14,14 +15,27 @@ set(RTYPE_CLIENT_SOURCES
     src/ui/UIButton.cpp
     src/ui/UITextField.cpp
     src/ui/UILabel.cpp
+    src/ui/ConsoleOverlay.cpp
     # Screen classes
     src/screens/MainMenuScreen.cpp
     src/screens/CreateRoomScreen.cpp
     src/screens/BrowseRoomsScreen.cpp
     src/screens/RoomLobbyScreen.cpp
     src/screens/PasswordDialog.cpp
+    src/screens/SkinSelectorDialog.cpp
+    src/screens/SettingsScreen.cpp
+    # CreateRoom module
+    src/screens/createroom/CreateRoomInput.cpp
+    src/screens/createroom/CreateRoomRenderer.cpp
+    src/screens/createroom/CreateRoomInitializer.cpp
+    src/screens/createroom/CreateRoomUpdater.cpp
+    src/screens/createroom/CreateRoomDrawer.cpp
     src/SpaceshipManager.cpp
     src/systems/LocalPredictionSystem.cpp
+    src/systems/ColliderDebugSystem.cpp
+    src/systems/ClientPredictionSystem.cpp
+    src/systems/InterpolationSystem.cpp
+    src/DebugNetworkOverlay.cpp
 )
 
 add_executable(r-type_client ${RTYPE_CLIENT_SOURCES})
@@ -37,6 +51,7 @@ target_link_libraries(r-type_client
     PRIVATE
         game_engine
         rtype_logic
+        rtype_protocol
 )
 
 # Link Winsock on Windows
@@ -72,6 +87,7 @@ target_include_directories(r-type_test_client
 target_link_libraries(r-type_test_client
     PRIVATE
         game_engine
+        rtype_protocol
 )
 
 # Link Winsock on Windows

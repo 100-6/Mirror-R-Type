@@ -20,8 +20,6 @@ using boost::system::error_code;
 
 namespace engine {
 
-// ============== Constructor / Destructor ==============
-
 AsioNetworkPlugin::AsioNetworkPlugin()
     : last_timeout_check_(std::chrono::steady_clock::now())
 {
@@ -33,8 +31,6 @@ AsioNetworkPlugin::~AsioNetworkPlugin()
     if (initialized_)
         shutdown();
 }
-
-// ============== IPlugin Interface ==============
 
 const char* AsioNetworkPlugin::get_name() const
 {
@@ -65,9 +61,73 @@ void AsioNetworkPlugin::shutdown()
     if (!initialized_)
         return;
 
-    stop_server();
-    disconnect();
+    // Mark as not running first to prevent new async operations
+    running_ = false;
+    tcp_connected_ = false;
+    udp_connected_ = false;
 
+    // Stop server if running (this doesn't touch io_context_)
+    if (is_server_) {
+        // Close TCP acceptor
+        if (tcp_acceptor_) {
+            boost::system::error_code ec;
+            tcp_acceptor_->close(ec);
+            tcp_acceptor_.reset();
+        }
+
+        // Close all TCP client sockets
+        {
+            std::lock_guard<std::mutex> lock(tcp_clients_mutex_);
+            for (auto& [id, client] : tcp_clients_) {
+                if (client.socket) {
+                    boost::system::error_code ec;
+                    client.socket->close(ec);
+                }
+            }
+            tcp_clients_.clear();
+        }
+
+        // Close server UDP socket
+        if (udp_socket_) {
+            boost::system::error_code ec;
+            udp_socket_->close(ec);
+            udp_socket_.reset();
+        }
+
+        // Clear UDP clients
+        {
+            std::lock_guard<std::mutex> lock(udp_clients_mutex_);
+            udp_clients_by_endpoint_.clear();
+            udp_clients_by_id_.clear();
+        }
+
+        // Clear associations
+        {
+            std::lock_guard<std::mutex> lock(association_mutex_);
+            tcp_to_udp_.clear();
+            udp_to_tcp_.clear();
+        }
+
+        is_server_ = false;
+    }
+
+    // Close client sockets
+    if (client_tcp_socket_) {
+        boost::system::error_code ec;
+        client_tcp_socket_->close(ec);
+        client_tcp_socket_.reset();
+    }
+
+    if (client_udp_socket_) {
+        boost::system::error_code ec;
+        client_udp_socket_->close(ec);
+        client_udp_socket_.reset();
+    }
+
+    server_udp_endpoint_.reset();
+    udp_recv_endpoint_.reset();
+
+    // Now stop the IO context and join the thread
     if (io_work_)
         io_work_.reset();
     if (io_context_)
@@ -78,10 +138,21 @@ void AsioNetworkPlugin::shutdown()
     io_context_.reset();
     io_thread_.reset();
 
+    // Clear packet queue
     {
         std::lock_guard<std::mutex> lock(packet_mutex_);
         while (!received_packets_.empty())
             received_packets_.pop();
+    }
+
+    // Clear callbacks to prevent dangling references
+    {
+        std::lock_guard<std::mutex> lock(callback_mutex_);
+        on_client_connected_ = nullptr;
+        on_client_disconnected_ = nullptr;
+        on_packet_received_ = nullptr;
+        on_connected_ = nullptr;
+        on_disconnected_ = nullptr;
     }
 
     initialized_ = false;
@@ -302,8 +373,9 @@ void AsioNetworkPlugin::start_tcp_receive(ClientId client_id)
                 return;
 
             auto& buffer = it->second.read_buffer;
-            uint16_t payload_len = (static_cast<uint16_t>(buffer[2]) << 8) |
-                                   static_cast<uint16_t>(buffer[3]);
+            // Payload length is at bytes 3-4 (after version, type, flags)
+            uint16_t payload_len = (static_cast<uint16_t>(buffer[3]) << 8) |
+                                   static_cast<uint16_t>(buffer[4]);
 
             if (payload_len == 0) {
                 // No payload, packet is complete
@@ -435,6 +507,10 @@ void AsioNetworkPlugin::start_udp_receive()
 
 void AsioNetworkPlugin::handle_udp_receive(const error_code& error, size_t bytes_transferred)
 {
+    // DEBUG: Log every UDP receive
+    std::cout << "[AsioNetworkPlugin] UDP raw receive: " << bytes_transferred << " bytes from " 
+              << udp_recv_endpoint_->address().to_string() << ":" << udp_recv_endpoint_->port() << std::endl;
+
     if (error) {
         if (error == boost::asio::error::operation_aborted)
             return;
@@ -615,39 +691,56 @@ void AsioNetworkPlugin::disconnect()
     tcp_connected_ = false;
     udp_connected_ = false;
 
+    // Close client sockets - this will cancel pending async operations
     if (client_tcp_socket_) {
-        error_code ec;
+        boost::system::error_code ec;
+        client_tcp_socket_->shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
         client_tcp_socket_->close(ec);
         client_tcp_socket_.reset();
     }
 
     if (client_udp_socket_) {
-        error_code ec;
+        boost::system::error_code ec;
         client_udp_socket_->close(ec);
         client_udp_socket_.reset();
     }
 
     server_udp_endpoint_.reset();
 
+    // If we're a client, stop the IO context and thread
     if (!is_server_) {
         running_ = false;
+        
+        // Release work guard first to allow io_context to finish
         if (io_work_)
             io_work_.reset();
+        
+        // Stop the context
         if (io_context_)
             io_context_->stop();
+        
+        // Wait for the thread to finish
         if (io_thread_ && io_thread_->joinable())
             io_thread_->join();
-        io_context_ = std::make_unique<io_context>();
+        
         io_thread_.reset();
+        
+        // Reset and recreate io_context for potential reconnection
+        io_context_.reset();
+        io_context_ = std::make_unique<boost::asio::io_context>();
     }
 
     if (was_connected) {
         std::cout << "[AsioNetworkPlugin] Disconnected" << std::endl;
+        
+        // Call callback without holding any locks that could cause deadlock
+        std::function<void()> callback;
         {
             std::lock_guard<std::mutex> lock(callback_mutex_);
-            if (on_disconnected_)
-                on_disconnected_();
+            callback = on_disconnected_;
         }
+        if (callback)
+            callback();
     }
 }
 
@@ -678,9 +771,9 @@ void AsioNetworkPlugin::start_client_tcp_receive()
                 return;
             }
 
-            // Get payload length
-            uint16_t payload_len = (static_cast<uint16_t>(client_tcp_read_buffer_[2]) << 8) |
-                                   static_cast<uint16_t>(client_tcp_read_buffer_[3]);
+            // Get payload length (at bytes 3-4 after version, type, flags)
+            uint16_t payload_len = (static_cast<uint16_t>(client_tcp_read_buffer_[3]) << 8) |
+                                   static_cast<uint16_t>(client_tcp_read_buffer_[4]);
 
             if (payload_len == 0) {
                 // No payload
@@ -1143,9 +1236,47 @@ void AsioNetworkPlugin::check_client_timeouts()
     }
 }
 
+void AsioNetworkPlugin::disconnect_client(ClientId client_id)
+{
+    if (!is_server_)
+        return;
+
+    std::cout << "[AsioNetworkPlugin] Disconnecting client " << client_id << std::endl;
+    {
+        std::lock_guard<std::mutex> lock(tcp_clients_mutex_);
+        auto it = tcp_clients_.find(client_id);
+        if (it != tcp_clients_.end()) {
+            if (it->second.socket) {
+                error_code ec;
+                it->second.socket->shutdown(tcp::socket::shutdown_both, ec);
+                it->second.socket->close(ec);
+            }
+            tcp_clients_.erase(it);
+        }
+    }
+    {
+        std::lock_guard<std::mutex> lock(association_mutex_);
+        auto udp_id_it = tcp_to_udp_.find(client_id);
+        if (udp_id_it != tcp_to_udp_.end()) {
+            ClientId udp_client_id = udp_id_it->second;
+            udp_to_tcp_.erase(udp_client_id);
+            tcp_to_udp_.erase(udp_id_it);
+        }
+    }
+    {
+        std::lock_guard<std::mutex> lock(udp_clients_mutex_);
+        auto udp_it = udp_clients_by_id_.find(client_id);
+        if (udp_it != udp_clients_by_id_.end()) {
+            std::string endpoint = udp_it->second;
+            udp_clients_by_endpoint_.erase(endpoint);
+            udp_clients_by_id_.erase(udp_it);
+        }
+    }
+    if (on_client_disconnected_)
+        on_client_disconnected_(client_id);
 }
 
-// ============== Plugin Factory ==============
+}
 
 extern "C" {
     PLUGIN_API engine::INetworkPlugin* create_network_plugin() {

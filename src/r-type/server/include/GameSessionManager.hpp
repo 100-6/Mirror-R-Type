@@ -11,7 +11,9 @@
 #include <unordered_map>
 #include <vector>
 #include <cstdint>
+#include <shared_mutex>
 #include "GameSession.hpp"
+#include "SessionThreadPool.hpp"
 #include "interfaces/IGameSessionListener.hpp"
 #include "protocol/PacketTypes.hpp"
 
@@ -27,7 +29,11 @@ namespace rtype::server {
  */
 class GameSessionManager {
 public:
-    GameSessionManager();
+    /**
+     * @brief Construct a GameSessionManager with a thread pool
+     * @param thread_pool_size Number of worker threads (default: 6)
+     */
+    explicit GameSessionManager(size_t thread_pool_size = 6);
 
     /**
      * @brief Set the listener for all session events
@@ -76,6 +82,8 @@ public:
 
 private:
     std::unordered_map<uint32_t, std::unique_ptr<GameSession>> sessions_;
+    mutable std::shared_mutex sessions_mutex_;
+    std::unique_ptr<SessionThreadPool> thread_pool_;
     IGameSessionListener* listener_ = nullptr;
 };
 

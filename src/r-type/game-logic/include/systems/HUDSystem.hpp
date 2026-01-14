@@ -13,6 +13,7 @@
 #include "components/GameComponents.hpp"
 #include "ecs/CoreComponents.hpp"
 #include "plugin_manager/IGraphicsPlugin.hpp"
+#include "plugin_manager/IInputPlugin.hpp"
 #include <string>
 #include <cmath>
 
@@ -32,10 +33,11 @@ public:
     /**
      * @brief Constructor
      * @param plugin Graphics plugin for rendering
+     * @param inputPlugin Input plugin for edit mode
      * @param screenWidth Width of the screen
      * @param screenHeight Height of the screen
      */
-    HUDSystem(engine::IGraphicsPlugin& plugin, int screenWidth, int screenHeight);
+    HUDSystem(engine::IGraphicsPlugin& plugin, engine::IInputPlugin* inputPlugin, int screenWidth, int screenHeight);
     ~HUDSystem() override = default;
 
     /**
@@ -58,6 +60,7 @@ public:
 
 private:
     engine::IGraphicsPlugin& m_graphicsPlugin;
+    engine::IInputPlugin* m_inputPlugin;
     int m_screenWidth;
     int m_screenHeight;
 
@@ -81,6 +84,11 @@ private:
     Entity m_scoreLabelEntity = 0;
     Entity m_wavePanelEntity = 0;
     Entity m_waveTextEntity = 0;
+
+    // Edit mode for HUD positioning
+    bool m_editMode = false;  // Set to true to enable edit mode
+    int m_selectedElement = 0;  // 0=HEALTH, 1=SCORE, 2=WAVE
+    float m_moveSpeed = 5.0f;  // Pixels to move per key press
 
     /**
      * @brief Get color for health percentage

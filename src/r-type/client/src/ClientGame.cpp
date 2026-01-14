@@ -6,14 +6,20 @@
 #include "ecs/systems/RenderSystem.hpp"
 #include "systems/HUDSystem.hpp"
 #include "systems/LocalPredictionSystem.hpp"
+#include "systems/ColliderDebugSystem.hpp"
+#include "systems/CollisionSystem.hpp"
+#include "systems/BonusSystem.hpp"
+#include "systems/MapConfigLoader.hpp"
 #include "protocol/NetworkConfig.hpp"
 #include "protocol/Payloads.hpp"
 #include "plugin_manager/PluginPaths.hpp"
 #include "ecs/events/InputEvents.hpp"
 #include "ClientComponents.hpp"
+#include "components/GameComponents.hpp"
 #include <iostream>
 #include <chrono>
 #include <cmath>
+#include <algorithm>
 
 #ifdef _WIN32
     #include <winsock2.h>
@@ -63,28 +69,76 @@ bool ClientGame::initialize(const std::string& host, uint16_t tcp_port, const st
     screen_manager_ = std::make_unique<ScreenManager>(
         *registry_, screen_width_, screen_height_,
         texture_manager_->get_background(),
-        texture_manager_->get_menu_background()
+        texture_manager_->get_menu_background(),
+        graphics_plugin_
     );
     screen_manager_->initialize();
+
+    // Set callback for back to menu button
+    screen_manager_->set_back_to_menu_callback([this]() {
+        // Reset GameState to PLAYING so player can start a new game
+        auto& gameStates = registry_->get_components<GameState>();
+        for (size_t i = 0; i < gameStates.size(); ++i) {
+            Entity entity = gameStates.get_entity_at(i);
+            gameStates[entity].currentState = GameStateType::PLAYING;
+            gameStates[entity].finalScore = 0;
+        }
+
+        // Reset to main menu
+        menu_manager_->set_screen(GameScreen::MAIN_MENU);
+        screen_manager_->set_screen(GameScreen::MAIN_MENU);
+    });
 
     entity_manager_ = std::make_unique<EntityManager>(
         *registry_, *texture_manager_, screen_width_, screen_height_
     );
 
     setup_systems();
+    setup_map_system();
 
     status_overlay_ = std::make_unique<StatusOverlay>(
         *registry_, screen_manager_->get_status_entity()
     );
 
-    input_handler_ = std::make_unique<InputHandler>(*input_plugin_);
-
     network_client_ = std::make_unique<rtype::client::NetworkClient>(*network_plugin_);
     setup_network_callbacks();
+
+    // Initialize lag compensation systems
+    interpolation_system_ = std::make_unique<InterpolationSystem>();
+    debug_network_overlay_ = std::make_unique<DebugNetworkOverlay>(false);
+
+    console_overlay_ = std::make_unique<ConsoleOverlay>(
+        static_cast<float>(screen_width_),
+        static_cast<float>(screen_height_)
+    );
+    console_overlay_->set_command_callback([this](const std::string& cmd) {
+        handle_console_command(cmd);
+    });
+    network_client_->set_on_admin_auth_result([this](bool success, const std::string& msg) {
+        if (success) {
+            admin_authenticated_ = true;
+            console_overlay_->add_success(msg);
+        } else {
+            admin_authenticated_ = false;
+            console_overlay_->add_error("Auth failed: " + msg);
+        }
+    });
+    network_client_->set_on_admin_command_result([this](bool success, const std::string& msg) {
+        if (success)
+            console_overlay_->add_success(msg);
+        else
+            console_overlay_->add_error(msg);
+    });
 
     // Initialize menu manager
     menu_manager_ = std::make_unique<MenuManager>(*network_client_, screen_width_, screen_height_);
     menu_manager_->initialize();
+
+    // Create input handler with key bindings from settings
+    input_handler_ = std::make_unique<InputHandler>(
+        *input_plugin_,
+        menu_manager_->get_settings_screen() ? &menu_manager_->get_settings_screen()->get_key_bindings() : nullptr
+    );
 
     status_overlay_->set_connection("Connecting to " + host_ + ":" + std::to_string(tcp_port_));
     status_overlay_->refresh();
@@ -178,6 +232,7 @@ void ClientGame::setup_registry() {
     registry_->register_component<Health>();
     registry_->register_component<Score>();
     registry_->register_component<Controllable>();
+    registry_->register_component<LocalPlayer>();
     registry_->register_component<Background>();
     registry_->register_component<Scrollable>();
     registry_->register_component<NetworkId>();
@@ -192,10 +247,22 @@ void ClientGame::setup_registry() {
     registry_->register_component<Invulnerability>();
     registry_->register_component<ShotAnimation>();
     registry_->register_component<BulletAnimation>();
+    registry_->register_component<ExplosionAnimation>();
     registry_->register_component<Attached>();
     registry_->register_component<Wall>();
+    registry_->register_component<Damage>();
+    registry_->register_component<Projectile>();
+    registry_->register_component<Enemy>();
+    registry_->register_component<NoFriction>();
+    registry_->register_component<BonusWeapon>();
+    registry_->register_component<BonusLifetime>();
+    registry_->register_component<ToDestroy>();
     // Client-side extrapolation component
     registry_->register_component<LastServerState>();
+
+    // Create GameState entity for HUD visibility control
+    Entity gameStateEntity = registry_->spawn_entity();
+    registry_->add_component(gameStateEntity, GameState{GameStateType::PLAYING});
 }
 
 void ClientGame::setup_systems() {
@@ -208,6 +275,7 @@ void ClientGame::setup_systems() {
     registry_->register_system<AttachmentSystem>();
     registry_->register_system<SpriteAnimationSystem>();
     registry_->register_system<MovementSystem>();
+    registry_->register_system<CollisionSystem>();
 
     if (entity_manager_) {
         registry_->register_system<LocalPredictionSystem>(
@@ -218,15 +286,19 @@ void ClientGame::setup_systems() {
     }
 
     registry_->register_system<RenderSystem>(*graphics_plugin_);
-    registry_->register_system<HUDSystem>(*graphics_plugin_, screen_width_, screen_height_);
+    registry_->register_system<ColliderDebugSystem>(*graphics_plugin_);
+    registry_->register_system<HUDSystem>(*graphics_plugin_, input_plugin_, screen_width_, screen_height_);
+
+    // Bonus system - handles bonus collection and effects (with graphics for sprite loading)
+    registry_->register_system<BonusSystem>(graphics_plugin_, screen_width_, screen_height_);
 }
 
 void ClientGame::setup_background() {
-    Entity background1 = registry_->spawn_entity();
-    registry_->add_component(background1, Position{0.0f, 0.0f});
-    registry_->add_component(background1, Background{});
-    registry_->add_component(background1, Scrollable{1.0f, true, false});
-    registry_->add_component(background1, ::Sprite{
+    background1_ = registry_->spawn_entity();
+    registry_->add_component(background1_, Position{0.0f, 0.0f});
+    registry_->add_component(background1_, Background{});
+    registry_->add_component(background1_, Scrollable{1.0f, true, false});
+    registry_->add_component(background1_, ::Sprite{
         texture_manager_->get_background(),
         static_cast<float>(screen_width_),
         static_cast<float>(screen_height_),
@@ -237,11 +309,11 @@ void ClientGame::setup_background() {
         -100
     });
 
-    Entity background2 = registry_->spawn_entity();
-    registry_->add_component(background2, Position{static_cast<float>(screen_width_), 0.0f});
-    registry_->add_component(background2, Background{});
-    registry_->add_component(background2, Scrollable{1.0f, true, false});
-    registry_->add_component(background2, ::Sprite{
+    background2_ = registry_->spawn_entity();
+    registry_->add_component(background2_, Position{static_cast<float>(screen_width_), 0.0f});
+    registry_->add_component(background2_, Background{});
+    registry_->add_component(background2_, Scrollable{1.0f, true, false});
+    registry_->add_component(background2_, ::Sprite{
         texture_manager_->get_background(),
         static_cast<float>(screen_width_),
         static_cast<float>(screen_height_),
@@ -262,11 +334,119 @@ void ClientGame::setup_background() {
     registry_->add_component(wave_tracker_, wave_ctrl);
 }
 
+void ClientGame::apply_map_theme(uint16_t map_id) {
+    current_map_id_ = map_id;
+
+    // Define color tint for each map
+    engine::Color tint;
+    switch (map_id) {
+        case 1:  // Nebula Outpost - default blue/cyan tint
+            tint = engine::Color{255, 255, 255, 255};  // No tint (original)
+            break;
+        case 2:  // Asteroid Belt - red/orange tint
+            tint = engine::Color{255, 150, 130, 255};
+            break;
+        case 3:  // Bydo Mothership - purple/violet tint
+            tint = engine::Color{200, 150, 255, 255};
+            break;
+        default:
+            tint = engine::Color{255, 255, 255, 255};
+            break;
+    }
+
+    // Apply tint to both background entities
+    auto& sprites = registry_->get_components<::Sprite>();
+    if (sprites.has_entity(background1_)) {
+        sprites[background1_].tint = tint;
+    }
+    if (sprites.has_entity(background2_)) {
+        sprites[background2_].tint = tint;
+    }
+
+    std::cout << "[ClientGame] Applied theme for map " << map_id << "\n";
+}
+
+void ClientGame::setup_map_system() {
+    if (!graphics_plugin_) {
+        std::cerr << "[ClientGame] Cannot setup map system: graphics plugin not available\n";
+        return;
+    }
+    
+    // Create systems (will be configured when game starts with specific map)
+    parallax_system_ = std::make_unique<rtype::ParallaxBackgroundSystem>(
+        *graphics_plugin_, screen_width_, screen_height_
+    );
+    
+    chunk_manager_ = std::make_unique<rtype::ChunkManagerSystem>(
+        *graphics_plugin_, screen_width_, screen_height_
+    );
+    
+    map_scroll_x_ = 0.0f;
+    std::cout << "[ClientGame] Map systems created (waiting for map selection)\n";
+}
+
+void ClientGame::load_map(const std::string& mapId) {
+    std::cout << "[ClientGame] load_map() called with mapId: " << mapId << std::endl;
+    
+    if (!parallax_system_ || !chunk_manager_) {
+        std::cerr << "[ClientGame] Map systems not initialized\n";
+        return;
+    }
+    
+    // Load map configuration by ID
+    rtype::MapConfig config = rtype::MapConfigLoader::loadMapById(mapId);
+    
+    // Initialize parallax layers
+    if (parallax_system_->initLayers(config.parallaxLayers)) {
+        std::cout << "[ClientGame] Parallax initialized: " << config.parallaxLayers.size() << " layers\n";
+    } else {
+        std::cerr << "[ClientGame] Failed to initialize parallax layers\n";
+    }
+    
+    // Initialize chunk manager
+    chunk_manager_->initWithConfig(config);
+    
+    // Load tile sheet
+    if (chunk_manager_->loadTileSheet(config.tileSheetPath)) {
+        std::cout << "[ClientGame] Tile sheet loaded: " << config.tileSheetPath << "\n";
+    } else {
+        std::cerr << "[ClientGame] Failed to load tile sheet\n";
+    }
+    
+    // Load map segments
+    std::string segmentsDir = config.basePath + "/segments";
+    auto segmentPaths = rtype::MapConfigLoader::getSegmentPaths(segmentsDir);
+    if (!segmentPaths.empty()) {
+        chunk_manager_->loadSegments(segmentPaths);
+        std::cout << "[ClientGame] Loaded " << segmentPaths.size() << " segments\n";
+    } else {
+        std::cerr << "[ClientGame] No segments found in " << segmentsDir << "\n";
+    }
+    
+    // Disable old background entities (they would render on top of new parallax)
+    auto& sprites = registry_->get_components<::Sprite>();
+    if (sprites.has_entity(background1_)) {
+        sprites[background1_].texture = engine::INVALID_HANDLE;
+    }
+    if (sprites.has_entity(background2_)) {
+        sprites[background2_].texture = engine::INVALID_HANDLE;
+    }
+    
+    map_scroll_x_ = 0.0f;
+    current_map_id_str_ = mapId;
+    std::cout << "[ClientGame] Map loaded: " << config.name << "\n";
+}
+
 void ClientGame::setup_network_callbacks() {
     network_client_->set_on_accepted([this](uint32_t player_id) {
         entity_manager_->set_local_player_id(player_id);
         status_overlay_->set_connection("Connected (Player " + std::to_string(player_id) + ")");
         status_overlay_->refresh();
+
+        // Initialize lag compensation system
+        prediction_system_ = std::make_unique<ClientPredictionSystem>(player_id);
+        std::cout << "[ClientGame] Lag compensation system initialized for player " << player_id << "\n";
+
         // Don't auto-join lobby anymore - user will choose from menu
     });
 
@@ -289,6 +469,11 @@ void ClientGame::setup_network_callbacks() {
                 name = "Player " + std::to_string(entry.player_id);
             entity_manager_->set_player_name(entry.player_id, name);
         }
+
+        // Update RoomLobbyScreen with all players (names + skins)
+        if (menu_manager_) {
+            menu_manager_->on_lobby_state(state, players_info);
+        }
     });
 
     network_client_->set_on_countdown([this](uint8_t seconds) {
@@ -296,17 +481,47 @@ void ClientGame::setup_network_callbacks() {
         status_overlay_->refresh();
     });
 
-    network_client_->set_on_game_start([this](uint32_t session_id, uint16_t udp_port) {
+    network_client_->set_on_game_start([this](uint32_t session_id, uint16_t udp_port, uint16_t map_id, float scroll_speed) {
         (void)udp_port;
         status_overlay_->set_session("In game (session " + std::to_string(session_id) + ")");
         status_overlay_->refresh();
         entity_manager_->clear_all();
         screen_manager_->set_screen(GameScreen::PLAYING);
+        server_scroll_speed_ = scroll_speed;
+
+        // Reset score at start of new game
+        last_known_score_ = 0;
+
+        // Convert numeric map ID to string ID
+        std::string mapIdStr;
+        switch (map_id) {
+            case 1: mapIdStr = "nebula_outpost"; break;
+            case 2: mapIdStr = "asteroid_belt"; break;
+            case 3: mapIdStr = "bydo_mothership"; break;
+            default: mapIdStr = "nebula_outpost"; break;
+        }
+
+        // Load the selected map
+        load_map(mapIdStr);
+        if (chunk_manager_) {
+            chunk_manager_->setScrollSpeed(server_scroll_speed_);
+        }
+
+        // Apply map-specific theme (background color)
+        apply_map_theme(map_id);
 
         auto& texts = registry_->get_components<UIText>();
         Entity status_entity = screen_manager_->get_status_entity();
         if (texts.has_entity(status_entity))
             texts[status_entity].active = false;
+
+        // Reset GameState to PLAYING for the new game
+        auto& gameStates = registry_->get_components<GameState>();
+        for (size_t i = 0; i < gameStates.size(); ++i) {
+            Entity entity = gameStates.get_entity_at(i);
+            gameStates[entity].currentState = GameStateType::PLAYING;
+            gameStates[entity].finalScore = 0;
+        }
 
         auto& wave_controllers = registry_->get_components<WaveController>();
         if (wave_controllers.has_entity(wave_tracker_)) {
@@ -315,6 +530,22 @@ void ClientGame::setup_network_callbacks() {
             ctrl.currentWaveIndex = 0;
             ctrl.allWavesCompleted = false;
             ctrl.totalScrollDistance = 0.0f;
+        }
+    });
+
+    network_client_->set_on_player_name_updated([this](const protocol::ServerPlayerNameUpdatedPayload& payload) {
+        std::string name(payload.new_name, strnlen(payload.new_name, sizeof(payload.new_name)));
+        uint32_t playerId = payload.player_id;
+        entity_manager_->set_player_name(playerId, name);
+
+        if (menu_manager_) {
+            menu_manager_->on_player_name_updated(payload);
+        }
+    });
+
+    network_client_->set_on_player_skin_updated([this](const protocol::ServerPlayerSkinUpdatedPayload& payload) {
+        if (menu_manager_) {
+            menu_manager_->on_player_skin_updated(payload);
         }
     });
 
@@ -360,8 +591,76 @@ void ClientGame::setup_network_callbacks() {
             auto& scores = registry_->get_components<Score>();
             if (scores.has_entity(entity)) {
                 scores[entity].value = score.new_total_score;
+                // Save the score for game over screen (in case entity is destroyed)
+                last_known_score_ = static_cast<int>(score.new_total_score);
             }
         }
+    });
+
+    network_client_->set_on_powerup_collected([this](const protocol::ServerPowerupCollectedPayload& powerup) {
+        // Only handle WEAPON_UPGRADE type (bonus weapon)
+        if (powerup.powerup_type != protocol::PowerupType::WEAPON_UPGRADE)
+            return;
+
+        std::cout << "[ClientGame] Received BONUS_WEAPON collected for player " << powerup.player_id << std::endl;
+
+        // Find the player entity
+        if (!entity_manager_->has_entity(powerup.player_id))
+            return;
+
+        Entity playerEntity = entity_manager_->get_entity(powerup.player_id);
+        auto& bonusWeapons = registry_->get_components<BonusWeapon>();
+        auto& positions = registry_->get_components<Position>();
+
+        // Check if player already has bonus weapon
+        if (bonusWeapons.has_entity(playerEntity)) {
+            std::cout << "[ClientGame] Player already has bonus weapon, ignoring" << std::endl;
+            return;
+        }
+
+        if (!positions.has_entity(playerEntity))
+            return;
+
+        const Position& playerPos = positions[playerEntity];
+
+        // Create the bonus weapon entity with sprite
+        Entity bonusWeaponEntity = registry_->spawn_entity();
+
+        // Size: percentage of original image (442x257)
+        constexpr float BONUS_SCALE_PERCENT = 15.0f;
+        float bonusWidth = 442.0f * (BONUS_SCALE_PERCENT / 100.0f);
+        float bonusHeight = 257.0f * (BONUS_SCALE_PERCENT / 100.0f);
+
+        // Position offset relative to player
+        float bonusOffsetX = 120.0f;
+        float bonusOffsetY = -70.0f;
+
+        registry_->add_component(bonusWeaponEntity, Position{playerPos.x + bonusOffsetX, playerPos.y + bonusOffsetY});
+        registry_->add_component(bonusWeaponEntity, Attached{playerEntity, bonusOffsetX, bonusOffsetY, 4.0f});
+
+        // Create sprite with bonus weapon texture
+        engine::TextureHandle bonusTex = texture_manager_->get_bonus_weapon();
+        Sprite bonusWeaponSprite{
+            bonusTex,
+            bonusWidth,
+            bonusHeight,
+            0.0f,
+            engine::Color::White,
+            0.0f,
+            0.0f,
+            15  // layer
+        };
+        bonusWeaponSprite.source_rect = {0.0f, 0.0f, 442.0f, 257.0f};
+        registry_->add_component(bonusWeaponEntity, bonusWeaponSprite);
+
+        // Mark player as having bonus weapon
+        registry_->add_component(playerEntity, BonusWeapon{bonusWeaponEntity, 0.0f, true});
+
+        std::cout << "[ClientGame] Created bonus weapon sprite for player " << powerup.player_id
+                  << " entity=" << bonusWeaponEntity
+                  << " at (" << (playerPos.x + bonusOffsetX) << "," << (playerPos.y + bonusOffsetY) << ")"
+                  << " size=" << bonusWidth << "x" << bonusHeight
+                  << " tex=" << bonusTex << std::endl;
     });
 
     network_client_->set_on_projectile_spawn([this](const protocol::ServerProjectileSpawnPayload& proj) {
@@ -385,15 +684,30 @@ void ClientGame::setup_network_callbacks() {
         }
     });
 
+    network_client_->set_on_explosion([this](const protocol::ServerExplosionPayload& explosion) {
+        if (!entity_manager_)
+            return;
+        float x = explosion.position_x;
+        float y = explosion.position_y;
+        float scale = explosion.effect_scale <= 0.0f ? 1.0f : explosion.effect_scale;
+        entity_manager_->spawn_explosion(x, y, scale);
+    });
+
     network_client_->set_on_snapshot([this](const protocol::ServerSnapshotPayload& header,
                                             const std::vector<protocol::EntityState>& entities) {
-        (void)header;
         auto& positions = registry_->get_components<Position>();
         auto& velocities = registry_->get_components<Velocity>();
         auto& healths = registry_->get_components<Health>();
         auto& last_states = registry_->get_components<LastServerState>();
         std::unordered_set<uint32_t> updated_ids;
         updated_ids.reserve(entities.size());
+
+        // Store snapshot in interpolation system for remote entities
+        uint32_t server_tick = ntohl(header.server_tick);
+        uint32_t local_player_id = entity_manager_->get_local_player_entity_id();
+        if (interpolation_system_) {
+            interpolation_system_->on_snapshot_received(server_tick, entities, local_player_id);
+        }
 
         for (const auto& state : entities) {
             uint32_t server_id = ntohl(state.entity_id);
@@ -421,14 +735,86 @@ void ClientGame::setup_network_callbacks() {
                     last_state.y = state.position_y;
                     last_state.timestamp = current_time_;
                 }
+
+                // SERVER RECONCILIATION for local player
+                if (prediction_system_ && positions.has_entity(entity)) {
+                    // Acknowledge inputs up to the last processed sequence
+                    uint32_t last_ack = ntohl(state.last_ack_sequence);
+                    if (last_ack > 0) {
+                        prediction_system_->acknowledge_input(last_ack);
+
+                        // Check prediction error
+                        Position& local_pos = positions[entity];
+                        float error_x = std::abs(local_pos.x - state.position_x);
+                        float error_y = std::abs(local_pos.y - state.position_y);
+                        float error_distance = std::sqrt(error_x * error_x + error_y * error_y);
+
+                        constexpr float ERROR_THRESHOLD = 10.0f;  // pixels (increased for smoother gameplay)
+                        constexpr float LARGE_ERROR_THRESHOLD = 50.0f;  // pixels (teleport if too far)
+
+                        if (error_distance > ERROR_THRESHOLD) {
+                            // Record correction for debug overlay
+                            if (debug_network_overlay_) {
+                                debug_network_overlay_->record_correction();
+                            }
+
+                            // If error is very large (>50px), teleport immediately (likely a collision or major desync)
+                            if (error_distance > LARGE_ERROR_THRESHOLD) {
+                                std::cout << "[RECONCILIATION] Large correction (teleport): " << error_distance
+                                          << " pixels (seq: " << last_ack << ")\n";
+                                local_pos.x = state.position_x;
+                                local_pos.y = state.position_y;
+                            } else {
+                                // Small-medium error: smooth correction over time (lerp)
+                                // Apply 30% of the correction per frame for smooth adjustment
+                                constexpr float CORRECTION_SPEED = 0.3f;
+                                float correction_x = (state.position_x - local_pos.x) * CORRECTION_SPEED;
+                                float correction_y = (state.position_y - local_pos.y) * CORRECTION_SPEED;
+
+                                local_pos.x += correction_x;
+                                local_pos.y += correction_y;
+
+                                // Only log significant corrections
+                                if (error_distance > 15.0f) {
+                                    std::cout << "[RECONCILIATION] Smooth correction: " << error_distance
+                                              << " pixels (applying " << (CORRECTION_SPEED * 100) << "%)\n";
+                                }
+                            }
+                        }
+
+                        // Update debug overlay positions
+                        if (debug_network_overlay_) {
+                            debug_network_overlay_->set_server_position(state.position_x, state.position_y);
+                            debug_network_overlay_->set_predicted_position(local_pos.x, local_pos.y);
+                        }
+                    }
+                }
             }
 
-            // Mettre à jour la position (pour toutes les entités)
-            if (positions.has_entity(entity)) {
-                positions[entity].x = state.position_x;
-                positions[entity].y = state.position_y;
-            } else {
-                registry_->add_component(entity, Position{state.position_x, state.position_y});
+            // Mettre à jour la position (pour les entités distantes, utiliser interpolation)
+            if (!is_local) {
+                // Try to get interpolated position first
+                float interp_x, interp_y;
+                bool has_interpolation = interpolation_system_ &&
+                    interpolation_system_->get_interpolated_position(server_id, server_tick, interp_x, interp_y);
+
+                if (has_interpolation) {
+                    // Use interpolated position for smooth movement
+                    if (positions.has_entity(entity)) {
+                        positions[entity].x = interp_x;
+                        positions[entity].y = interp_y;
+                    } else {
+                        registry_->add_component(entity, Position{interp_x, interp_y});
+                    }
+                } else {
+                    // Fallback: use direct server position if no interpolation data yet
+                    if (positions.has_entity(entity)) {
+                        positions[entity].x = state.position_x;
+                        positions[entity].y = state.position_y;
+                    } else {
+                        registry_->add_component(entity, Position{state.position_x, state.position_y});
+                    }
+                }
             }
 
             // Mettre à jour la vélocité SEULEMENT pour les autres joueurs
@@ -463,7 +849,32 @@ void ClientGame::setup_network_callbacks() {
         bool victory = result.result == protocol::GameResult::VICTORY;
         status_overlay_->set_session(victory ? "Victory" : "Defeat");
         status_overlay_->refresh();
-        screen_manager_->show_result(victory);
+
+        // Get final score from local player
+        // Try to get from entity first (if still alive), otherwise use cached value
+        int final_score = last_known_score_;
+        auto& scores = registry_->get_components<Score>();
+        auto& localPlayers = registry_->get_components<LocalPlayer>();
+
+        for (size_t i = 0; i < localPlayers.size(); ++i) {
+            Entity playerEntity = localPlayers.get_entity_at(i);
+            if (scores.has_entity(playerEntity)) {
+                final_score = scores[playerEntity].value;
+                // Update cached value
+                last_known_score_ = final_score;
+                break;
+            }
+        }
+
+        // Set GameState to trigger HUD hiding
+        auto& gameStates = registry_->get_components<GameState>();
+        for (size_t i = 0; i < gameStates.size(); ++i) {
+            Entity entity = gameStates.get_entity_at(i);
+            gameStates[entity].currentState = victory ? GameStateType::VICTORY : GameStateType::GAME_OVER;
+            gameStates[entity].finalScore = final_score;
+        }
+
+        screen_manager_->show_result(victory, final_score);
     });
 
     network_client_->set_on_disconnected([this]() {
@@ -494,6 +905,31 @@ void ClientGame::run() {
             break;
         }
 
+        // Toggle collider debug visualization with H key
+        if (input_handler_->is_hitbox_toggle_pressed()) {
+            if (registry_->has_system<ColliderDebugSystem>()) {
+                auto& debug_system = registry_->get_system<ColliderDebugSystem>();
+                bool new_state = !debug_system.is_enabled();
+                debug_system.set_enabled(new_state);
+            }
+        }
+
+        static bool tab_was_pressed = false;
+        bool tab_pressed = input_plugin_->is_key_pressed(engine::Key::Tab);
+        if (tab_pressed && !tab_was_pressed)
+            console_overlay_->toggle();
+        tab_was_pressed = tab_pressed;
+        if (console_overlay_->is_visible())
+            console_overlay_->update(graphics_plugin_, input_plugin_);
+        if (input_handler_->is_network_debug_toggle_pressed()) {
+            if (debug_network_overlay_) {
+                bool new_state = !debug_network_overlay_->is_enabled();
+                debug_network_overlay_->set_enabled(new_state);
+                std::cout << "[ClientGame] Network debug overlay "
+                          << (new_state ? "enabled" : "disabled") << "\n";
+            }
+        }
+
         if (network_client_->is_in_game() &&
             std::chrono::duration_cast<std::chrono::milliseconds>(now - last_input_send).count() >= 15) {
             uint16_t input_flags = input_handler_->gather_input();
@@ -501,7 +937,18 @@ void ClientGame::run() {
             // NOUVEAU: Appliquer la vélocité localement AVANT d'envoyer au serveur
             apply_input_to_local_player(input_flags);
 
+            // Send input to server
             network_client_->send_input(input_flags, client_tick_++);
+
+            // Store input in prediction system for reconciliation
+            if (prediction_system_) {
+                uint32_t sequence = network_client_->get_last_input_sequence();
+                uint32_t timestamp = static_cast<uint32_t>(
+                    std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count()
+                );
+                prediction_system_->on_input_sent(sequence, input_flags, timestamp);
+            }
+
             last_input_send = now;
         }
 
@@ -521,7 +968,10 @@ void ClientGame::run() {
         bool in_menu = (current_screen == GameScreen::MAIN_MENU ||
                        current_screen == GameScreen::CREATE_ROOM ||
                        current_screen == GameScreen::BROWSE_ROOMS ||
-                       current_screen == GameScreen::ROOM_LOBBY);
+                       current_screen == GameScreen::ROOM_LOBBY ||
+                       current_screen == GameScreen::SETTINGS);
+        bool in_result = (current_screen == GameScreen::VICTORY ||
+                         current_screen == GameScreen::DEFEAT);
         entity_manager_->update_projectiles(dt);
         entity_manager_->update_name_tags();
 
@@ -588,6 +1038,46 @@ void ClientGame::run() {
             }
         }
 
+        auto& explosionAnimations = registry_->get_components<ExplosionAnimation>();
+        for (size_t i = 0; i < explosionAnimations.size(); ++i) {
+            Entity entity = explosionAnimations.get_entity_at(i);
+            if (!explosionAnimations.has_entity(entity))
+                continue;
+
+            auto& explosionAnim = explosionAnimations[entity];
+            explosionAnim.timer += dt;
+
+            bool advance_frame = false;
+            if (explosionAnim.frameDuration > 0.0f) {
+                if (explosionAnim.timer >= explosionAnim.frameDuration) {
+                    explosionAnim.timer -= explosionAnim.frameDuration;
+                    advance_frame = true;
+                }
+            } else {
+                advance_frame = true;
+            }
+
+            if (advance_frame) {
+                explosionAnim.currentFrame++;
+
+                if (explosionAnim.currentFrame >= explosionAnim.totalFrames) {
+                    registry_->kill_entity(entity);
+                    continue;
+                }
+
+                if (sprites.has_entity(entity)) {
+                    auto& sprite = sprites[entity];
+                    int framesPerRow = std::max(1, explosionAnim.framesPerRow);
+                    int column = explosionAnim.currentFrame % framesPerRow;
+                    int row = explosionAnim.currentFrame / framesPerRow;
+                    sprite.source_rect.x = static_cast<float>(column * explosionAnim.frameWidth);
+                    sprite.source_rect.y = static_cast<float>(row * explosionAnim.frameHeight);
+                    sprite.source_rect.width = static_cast<float>(explosionAnim.frameWidth);
+                    sprite.source_rect.height = static_cast<float>(explosionAnim.frameHeight);
+                }
+            }
+        }
+
         if (in_menu) {
             // Menu screen - only update and draw menu
             menu_manager_->update(graphics_plugin_, input_plugin_);
@@ -598,21 +1088,88 @@ void ClientGame::run() {
             }
 
             menu_manager_->draw(graphics_plugin_);
+        } else if (in_result) {
+            // Result screen (victory/defeat) - update button and render
+            screen_manager_->update_result_screen(graphics_plugin_, input_plugin_);
+            registry_->run_systems(dt);
         } else {
             // Game screen - run game systems
-            entity_manager_->update_projectiles(dt);
-            entity_manager_->update_name_tags();
+            
+            // Update map scrolling
+            float scrollDelta = server_scroll_speed_ * dt;
+            map_scroll_x_ += scrollDelta;
+            
+            // Update parallax and chunk states
+            if (parallax_system_) {
+                parallax_system_->updateScroll(scrollDelta);
+            }
+            if (chunk_manager_) {
+                chunk_manager_->advanceScroll(scrollDelta);
+                chunk_manager_->update(*registry_, dt);
+            }
+            
+            if (registry_->has_system<LocalPredictionSystem>()) {
+                auto& prediction = registry_->get_system<LocalPredictionSystem>();
+                prediction.set_current_time(current_time_);
+            }
+            
+            // Clear screen first (RenderSystem will skip clear since we did it)
+            graphics_plugin_->clear(engine::Color{20, 20, 30, 255});
+            
+            // Render parallax background (behind everything)
+            if (parallax_system_ && parallax_system_->isInitialized()) {
+                parallax_system_->render();
+            }
+            
+            // Render tile chunks
+            if (chunk_manager_ && chunk_manager_->isInitialized()) {
+                chunk_manager_->render(map_scroll_x_);
+            }
+            
+            // Tell RenderSystem to skip clear (we already cleared + rendered background)
+            if (registry_->has_system<RenderSystem>()) {
+                auto& render_sys = registry_->get_system<RenderSystem>();
+                render_sys.set_skip_clear(true);
+            }
 
-        if (registry_->has_system<LocalPredictionSystem>()) {
-            auto& prediction = registry_->get_system<LocalPredictionSystem>();
-            prediction.set_current_time(current_time_);
-        }
-        registry_->run_systems(dt);
+            // Render HUD background image BEFORE entities (so entities render on top)
+            if (!hud_loaded_) {
+                hud_texture_ = graphics_plugin_->load_texture("assets/sprite/ui-hud.png");
+                hud_loaded_ = true;
+            }
+
+            if (hud_loaded_ && hud_texture_ != engine::INVALID_HANDLE) {
+                engine::Sprite hud_sprite;
+                hud_sprite.texture_handle = hud_texture_;
+                hud_sprite.size = {static_cast<float>(screen_width_), static_cast<float>(screen_height_)};
+                hud_sprite.origin = {0.0f, 0.0f};
+                hud_sprite.tint = {255, 255, 255, 230};  // 230 alpha for slight transparency
+
+                graphics_plugin_->draw_sprite(hud_sprite, {0.0f, 0.0f});
+            }
+
+            // Run ECS systems (RenderSystem will NOT clear since skip_clear is set)
+            // HUDSystem will render text on top of the HUD background image
             registry_->run_systems(dt);
         }
 
+        // Render debug network overlay (if enabled)
+        if (debug_network_overlay_ && prediction_system_) {
+            // Update metrics
+            float rtt = static_cast<float>(network_plugin_->get_server_ping());
+            size_t buffer_size = prediction_system_->get_pending_inputs().size();
+            debug_network_overlay_->update_metrics(rtt, 0, buffer_size);  // corrections_per_second updated elsewhere
+
+            // Render overlay
+            debug_network_overlay_->render(*graphics_plugin_);
+        }
+
+        if (in_result)
+            screen_manager_->draw_result_screen(graphics_plugin_);
+        if (console_overlay_)
+            console_overlay_->draw(graphics_plugin_);
         graphics_plugin_->display();
-        input_plugin_->update();
+        input_plugin_->update();  // Update at END of frame for proper just_pressed detection
     }
 }
 
@@ -653,6 +1210,33 @@ void ClientGame::apply_input_to_local_player(uint16_t input_flags) {
     if (input_flags & protocol::INPUT_DOWN)  dir_y += 1.0f;
 
     registry_->get_event_bus().publish(ecs::PlayerMoveEvent{player, dir_x, dir_y});
+}
+
+void ClientGame::handle_console_command(const std::string& command) {
+    if (command == "clear") {
+        console_overlay_->add_info("Console cleared");
+        return;
+    }
+
+    if (command == "auth" || command.substr(0, 5) == "auth ") {
+        std::string password;
+        if (command.length() > 5)
+            password = command.substr(5);
+        else if (!admin_password_.empty())
+            password = admin_password_;
+        else {
+            console_overlay_->add_error("Usage: auth <password>");
+            return;
+        }
+        network_client_->send_admin_auth(password);
+        console_overlay_->add_info("Authenticating...");
+        return;
+    }
+    if (!admin_authenticated_) {
+        console_overlay_->add_error("Not authenticated. Use: auth <password>");
+        return;
+    }
+    network_client_->send_admin_command(command);
 }
 
 }

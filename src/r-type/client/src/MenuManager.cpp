@@ -36,15 +36,14 @@ void MenuManager::initialize() {
         if (room_lobby_screen_) {
             room_lobby_screen_->set_countdown(seconds_remaining);
         }
-        std::cout << "[MenuManager] Countdown: " << static_cast<int>(seconds_remaining) << "s\n";
     });
-
     // Create all screen instances
     main_menu_screen_ = std::make_unique<MainMenuScreen>(network_client_, screen_width_, screen_height_);
     create_room_screen_ = std::make_unique<CreateRoomScreen>(network_client_, screen_width_, screen_height_);
     browse_rooms_screen_ = std::make_unique<BrowseRoomsScreen>(network_client_, screen_width_, screen_height_);
     room_lobby_screen_ = std::make_unique<RoomLobbyScreen>(network_client_, screen_width_, screen_height_);
     password_dialog_ = std::make_unique<PasswordDialog>(screen_width_, screen_height_);
+    settings_screen_ = std::make_unique<SettingsScreen>(network_client_, screen_width_, screen_height_);
 
     // Set screen change callbacks
     main_menu_screen_->set_screen_change_callback([this](GameScreen screen) {
@@ -60,6 +59,10 @@ void MenuManager::initialize() {
     });
 
     room_lobby_screen_->set_screen_change_callback([this](GameScreen screen) {
+        set_screen(screen);
+    });
+
+    settings_screen_->set_screen_change_callback([this](GameScreen screen) {
         set_screen(screen);
     });
 
@@ -82,6 +85,7 @@ void MenuManager::initialize() {
     browse_rooms_screen_->initialize();
     room_lobby_screen_->initialize();
     password_dialog_->initialize();
+    settings_screen_->initialize();
 }
 
 // =============================================================================
@@ -102,6 +106,9 @@ void MenuManager::set_screen(GameScreen screen) {
             break;
         case GameScreen::ROOM_LOBBY:
             if (room_lobby_screen_) room_lobby_screen_->on_exit();
+            break;
+        case GameScreen::SETTINGS:
+            if (settings_screen_) settings_screen_->on_exit();
             break;
         default:
             break;
@@ -128,6 +135,9 @@ void MenuManager::set_screen(GameScreen screen) {
             break;
         case GameScreen::ROOM_LOBBY:
             if (room_lobby_screen_) room_lobby_screen_->on_enter();
+            break;
+        case GameScreen::SETTINGS:
+            if (settings_screen_) settings_screen_->on_enter();
             break;
         default:
             break;
@@ -170,6 +180,9 @@ void MenuManager::update(engine::IGraphicsPlugin* graphics, engine::IInputPlugin
                 }
             }
             break;
+        case GameScreen::SETTINGS:
+            if (settings_screen_) settings_screen_->update(graphics, input);
+            break;
         default:
             break;
     }
@@ -189,6 +202,9 @@ void MenuManager::draw(engine::IGraphicsPlugin* graphics) {
             break;
         case GameScreen::ROOM_LOBBY:
             if (room_lobby_screen_) room_lobby_screen_->draw(graphics);
+            break;
+        case GameScreen::SETTINGS:
+            if (settings_screen_) settings_screen_->draw(graphics);
             break;
         default:
             break;
@@ -220,6 +236,10 @@ void MenuManager::on_room_created(const protocol::ServerRoomCreatedPayload& payl
             true  // Creator is the host
         );
         room_lobby_screen_->set_countdown(0);
+
+        // Add local player to lobby list for name updates
+        uint32_t player_id = network_client_.get_player_id();
+        room_lobby_screen_->add_player(player_id, "Player 1", 0);
     }
 
     // Request room list to get fresh data
@@ -242,6 +262,10 @@ void MenuManager::on_room_joined(const protocol::ServerRoomJoinedPayload& payloa
             false    // Joiner is not the host
         );
         room_lobby_screen_->set_countdown(0);
+
+        // Add local player to lobby list for name updates
+        uint32_t player_id = network_client_.get_player_id();
+        room_lobby_screen_->add_player(player_id, "Player", 0);
     }
 
     // Request updated room list
@@ -292,6 +316,39 @@ void MenuManager::on_room_error(const protocol::ServerRoomErrorPayload& payload)
     // Otherwise go back to main menu
     if (current_screen_ != GameScreen::ROOM_LOBBY) {
         set_screen(GameScreen::MAIN_MENU);
+    }
+}
+
+
+void MenuManager::on_player_name_updated(const protocol::ServerPlayerNameUpdatedPayload& payload)
+{
+    if (room_lobby_screen_) {
+        std::string new_name(payload.new_name,
+                            strnlen(payload.new_name, sizeof(payload.new_name)));
+        room_lobby_screen_->update_player_name(payload.player_id, new_name);
+    }
+}
+
+void MenuManager::on_player_skin_updated(const protocol::ServerPlayerSkinUpdatedPayload& payload)
+{
+    if (room_lobby_screen_) {
+        room_lobby_screen_->update_player_skin(payload.player_id, payload.skin_id);
+    }
+}
+
+void MenuManager::on_lobby_state(const protocol::ServerLobbyStatePayload& state,
+                                  const std::vector<protocol::PlayerLobbyEntry>& players)
+{
+    if (room_lobby_screen_) {
+        // Update all players from the lobby state
+        for (const auto& entry : players) {
+            std::string name(entry.player_name, strnlen(entry.player_name, sizeof(entry.player_name)));
+            if (name.empty()) {
+                name = "Player " + std::to_string(entry.player_id);
+            }
+            // add_player will update if exists, or add if not
+            room_lobby_screen_->add_player(entry.player_id, name, entry.skin_id);
+        }
     }
 }
 

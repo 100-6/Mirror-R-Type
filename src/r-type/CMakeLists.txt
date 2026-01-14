@@ -1,5 +1,8 @@
 # R-Type Game Project
 
+# Add shared protocol library
+add_subdirectory(shared)
+
 # Add game-specific logic library
 add_subdirectory(game-logic)
 

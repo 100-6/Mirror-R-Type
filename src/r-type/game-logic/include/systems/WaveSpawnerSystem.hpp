@@ -86,7 +86,7 @@ private:
     /**
      * @brief Spawn an enemy entity
      */
-    Entity spawnEnemy(Registry& registry, EnemyType type, float x, float y);
+    Entity spawnEnemy(Registry& registry, EnemyType type, float x, float y, const BonusDrop& bonusDrop = BonusDrop{});
 
     /**
      * @brief Spawn a wall entity

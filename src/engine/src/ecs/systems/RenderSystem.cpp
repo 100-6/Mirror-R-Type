@@ -31,8 +31,10 @@ void RenderSystem::update(Registry& registry, float dt)
 {
     (void)dt;
 
-    // Effacer l'écran (fond gris foncé)
-    graphics_plugin.clear(engine::Color{30, 30, 40, 255});
+    // Effacer l'écran (fond gris foncé) - skip if cleared externally
+    if (!skip_clear_) {
+        graphics_plugin.clear(engine::Color{30, 30, 40, 255});
+    }
 
     // Récupérer les composants Position et Sprite
     auto& positions = registry.get_components<Position>();
@@ -73,6 +75,7 @@ void RenderSystem::update(Registry& registry, float dt)
             return a.layer < b.layer;
         });
 
+
     // Dessiner toutes les entités dans l'ordre des layers
     for (const auto& render_data : render_queue) {
         const Position& pos = positions.get_data_by_entity_id(render_data.entity);
@@ -111,15 +114,9 @@ void RenderSystem::update(Registry& registry, float dt)
 
             const Position& pos = positions[entity];
 
-            // Calculer le centre (avec offset si collider présent)
+            // Position is already center-based, just apply offset
             float centerX = pos.x + circle.offsetX;
             float centerY = pos.y + circle.offsetY;
-
-            if (colliders.has_entity(entity)) {
-                const Collider& col = colliders[entity];
-                centerX = pos.x + col.width / 2.0f + circle.offsetX;
-                centerY = pos.y + col.height / 2.0f + circle.offsetY;
-            }
 
             graphics_plugin.draw_circle(engine::Vector2f{centerX, centerY}, circle.radius, circle.color);
         }

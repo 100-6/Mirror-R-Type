@@ -7,6 +7,7 @@
 
 #include "systems/WaveSpawnerSystem.hpp"
 #include "components/CombatHelpers.hpp"
+#include "AssetsPaths.hpp"
 #include <iostream>
 #include <cmath>
 #include <cstdlib>
@@ -24,7 +25,7 @@ void WaveSpawnerSystem::init(Registry& registry)
     // Create a WaveController entity to track wave state
     Entity waveController = registry.spawn_entity();
     registry.add_component(waveController, WaveController{
-        "assets/waves_simple.json",
+        "assets::paths::WAVES_CONFIG",
         0.0f,  // totalScrollDistance
         0,     // currentWaveIndex
         0,     // currentWaveNumber
@@ -33,7 +34,7 @@ void WaveSpawnerSystem::init(Registry& registry)
     });
 
     // Try to load default wave configuration
-    if (loadWaveConfiguration("assets/waves_simple.json")) {
+    if (loadWaveConfiguration("assets::paths::WAVES_CONFIG")) {
         std::cout << "WaveSpawnerSystem: Loaded wave configuration with walls" << std::endl;
         // Update total wave count in the component
         auto& waveControllers = registry.get_components<WaveController>();
@@ -312,7 +313,7 @@ void WaveSpawnerSystem::spawnEntity(Registry& registry, const WaveSpawnData& spa
 {
     switch (spawnData.entityType) {
         case EntitySpawnType::ENEMY:
-            spawnEnemy(registry, spawnData.enemyType, spawnData.positionX, spawnData.positionY);
+            spawnEnemy(registry, spawnData.enemyType, spawnData.positionX, spawnData.positionY, spawnData.bonusDrop);
             break;
 
         case EntitySpawnType::WALL:
@@ -329,7 +330,7 @@ void WaveSpawnerSystem::spawnEntity(Registry& registry, const WaveSpawnData& spa
     }
 }
 
-Entity WaveSpawnerSystem::spawnEnemy(Registry& registry, EnemyType type, float x, float y)
+Entity WaveSpawnerSystem::spawnEnemy(Registry& registry, EnemyType type, float x, float y, const BonusDrop& bonusDrop)
 {
     Entity e = registry.spawn_entity();
 
@@ -364,9 +365,14 @@ Entity WaveSpawnerSystem::spawnEnemy(Registry& registry, EnemyType type, float x
     registry.add_component(e, Velocity{-speed, 0.0f});
     registry.add_component(e, Sprite{tex, size.x, size.y, 0.0f, tint, 0.0f, 0.0f, 0});
     registry.add_component(e, Collider{size.x, size.y});
-    registry.add_component(e, Enemy{});
+    registry.add_component(e, Enemy{bonusDrop});
     registry.add_component(e, AI{type, detection, cooldown, 0.0f, speed});
     registry.add_component(e, Health{health, health});
+
+    if (bonusDrop.enabled) {
+        std::cout << "[WaveSpawnerSystem] Enemy " << e << " has bonusDrop enabled (type: "
+                  << static_cast<int>(bonusDrop.bonusType) << ", chance: " << bonusDrop.dropChance << ")" << std::endl;
+    }
 
     // Score based on enemy type
     int scoreValue = WAVE_DEFAULT_ENEMY_TYPE;
@@ -452,22 +458,27 @@ Entity WaveSpawnerSystem::spawnBonus(Registry& registry, BonusType type, float x
     }
 
     // Récupérer la taille du sprite bullet
-    engine::Vector2f bulletSize = graphics_.get_texture_size(bulletTex_);
+    const float bulletWidth = BONUS_RADIUS * 2.0f;
+    const float bulletHeight = BONUS_RADIUS * 2.0f;
 
     registry.add_component(e, Position{x, y});
     registry.add_component(e, Bonus{type, BONUS_RADIUS});
     registry.add_component(e, Collider{BONUS_RADIUS * 2, BONUS_RADIUS * 2});
     registry.add_component(e, Scrollable{1.0f, false, true}); // Scroll and destroy offscreen
-    registry.add_component(e, Sprite{
+    Sprite sprite{
         bulletTex_,
-        bulletSize.x,
-        bulletSize.y,
+        bulletWidth,
+        bulletHeight,
         0.0f,
         tint,
         0.0f,
         0.0f,
-        0  // Layer
-    });
+        0
+    };
+    sprite.source_rect = {0.0f, 0.0f, 16.0f, 16.0f};
+    sprite.origin_x = bulletWidth / 2.0f;
+    sprite.origin_y = bulletHeight / 2.0f;
+    registry.add_component(e, sprite);
 
     std::cout << "WaveSpawnerSystem: Spawned bonus " << typeName << " at (" << x << ", " << y << ")" << std::endl;
 
@@ -488,16 +499,17 @@ engine::TextureHandle WaveSpawnerSystem::getEnemyTexture(EnemyType type) const
 void WaveSpawnerSystem::loadTextures()
 {
     std::cout << "WaveSpawnerSystem: Loading textures..." << std::endl;
+    using namespace assets::paths;
 
-    basicEnemyTex_ = graphics_.load_texture("assets/sprite/enemy.png");
+    basicEnemyTex_ = graphics_.load_texture(ENEMY_BASIC);
     fastEnemyTex_ = basicEnemyTex_;  // Reuse for now
     tankEnemyTex_ = basicEnemyTex_;  // Reuse for now
     bossEnemyTex_ = basicEnemyTex_;  // Reuse for now
-    bulletTex_ = graphics_.load_texture("assets/sprite/bullet.png");
+    bulletTex_ = graphics_.load_texture(SHOT_ANIMATION);
 
     // Load wall/obstacle textures
-    wallTex_ = graphics_.load_texture("assets/sprite/lock.png");
-    obstacleTex_ = graphics_.load_texture("assets/sprite/lock.png");
+    wallTex_ = graphics_.load_texture(WALL);
+    obstacleTex_ = graphics_.load_texture(WALL);
 
     std::cout << "WaveSpawnerSystem: Textures loaded" << std::endl;
     std::cout << "  Wall/Obstacle textures: lock.png" << std::endl;

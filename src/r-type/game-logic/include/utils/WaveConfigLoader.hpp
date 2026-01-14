@@ -85,6 +85,7 @@ inline BonusType parseBonusType(const std::string& typeStr) {
     if (typeStr == "health") return BonusType::HEALTH;
     if (typeStr == "shield") return BonusType::SHIELD;
     if (typeStr == "speed") return BonusType::SPEED;
+    if (typeStr == "bonus_weapon") return BonusType::BONUS_WEAPON;
     return BonusType::HEALTH; // Default
 }
 

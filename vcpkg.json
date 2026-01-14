@@ -6,9 +6,11 @@
   "dependencies": [
     "boost-asio",
     "boost-system",
+    "enet",
     "glfw3",
     "raylib",
     "gtest",
+    "lz4",
     "miniaudio",
     "nlohmann-json"
   ],

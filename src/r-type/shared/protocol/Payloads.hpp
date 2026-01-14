@@ -175,15 +175,16 @@ static_assert(sizeof(ClientLeaveLobbyPayload) == 8, "ClientLeaveLobbyPayload mus
 
 /**
  * @brief Player entry in SERVER_LOBBY_STATE
- * Size: 38 bytes
+ * Size: 39 bytes
  */
 PACK_START
 struct PACKED PlayerLobbyEntry {
     uint32_t player_id;
     char player_name[32];
     uint16_t player_level;
+    uint8_t skin_id;  // 0-14 (3 colors x 5 ship types)
 
-    PlayerLobbyEntry() : player_id(0), player_level(0) {
+    PlayerLobbyEntry() : player_id(0), player_level(0), skin_id(0) {
         std::memset(player_name, 0, sizeof(player_name));
     }
 
@@ -194,11 +195,11 @@ struct PACKED PlayerLobbyEntry {
 };
 PACK_END
 
-static_assert(sizeof(PlayerLobbyEntry) == 38, "PlayerLobbyEntry must be 38 bytes");
+static_assert(sizeof(PlayerLobbyEntry) == 39, "PlayerLobbyEntry must be 39 bytes");
 
 /**
  * @brief SERVER_LOBBY_STATE payload header (0x87)
- * Base size: 8 bytes + (38 × player_count) bytes
+ * Base size: 8 bytes + (39 × player_count) bytes
  */
 PACK_START
 struct PACKED ServerLobbyStatePayload {
@@ -281,8 +282,8 @@ static_assert(sizeof(PlayerSpawnData) == 12, "PlayerSpawnData must be 12 bytes")
 
 /**
  * @brief SERVER_GAME_START payload header (0x8A)
- * Base size: 16 bytes + (12 × player_count) bytes
- * Contains UDP port for gameplay communication
+ * Base size: 18 bytes + (12 × player_count) bytes
+ * Contains UDP port for gameplay communication and map_id
  */
 PACK_START
 struct PACKED ServerGameStartPayload {
@@ -292,6 +293,8 @@ struct PACKED ServerGameStartPayload {
     uint32_t server_tick;
     uint32_t level_seed;
     uint16_t udp_port;  // UDP port for gameplay communication
+    uint16_t map_id;    // Map identifier (1=Nebula, 2=Asteroid, 3=Bydo)
+    float scroll_speed;
 
     ServerGameStartPayload()
         : game_session_id(0)
@@ -299,23 +302,26 @@ struct PACKED ServerGameStartPayload {
         , difficulty(Difficulty::NORMAL)
         , server_tick(0)
         , level_seed(0)
-        , udp_port(config::DEFAULT_UDP_PORT) {}
+        , udp_port(config::DEFAULT_UDP_PORT)
+        , map_id(1)
+        , scroll_speed(60.0f) {}
 };
 PACK_END
 
-static_assert(sizeof(ServerGameStartPayload) == 16, "ServerGameStartPayload base must be 16 bytes");
+static_assert(sizeof(ServerGameStartPayload) == 22, "ServerGameStartPayload base must be 22 bytes");
 
 /**
  * @brief CLIENT_INPUT payload (0x10)
- * Total size: 10 bytes
+ * Total size: 14 bytes (added sequence_number for lag compensation)
  */
 PACK_START
 struct PACKED ClientInputPayload {
     uint32_t player_id;
     uint16_t input_flags;
     uint32_t client_tick;
+    uint32_t sequence_number;  // For client prediction and reconciliation
 
-    ClientInputPayload() : player_id(0), input_flags(0), client_tick(0) {}
+    ClientInputPayload() : player_id(0), input_flags(0), client_tick(0), sequence_number(0) {}
 
     bool is_up_pressed() const { return (input_flags & INPUT_UP) != 0; }
     bool is_down_pressed() const { return (input_flags & INPUT_DOWN) != 0; }
@@ -328,11 +334,11 @@ struct PACKED ClientInputPayload {
 };
 PACK_END
 
-static_assert(sizeof(ClientInputPayload) == 10, "ClientInputPayload must be 10 bytes");
+static_assert(sizeof(ClientInputPayload) == 14, "ClientInputPayload must be 14 bytes");
 
 /**
  * @brief Entity state in SERVER_SNAPSHOT
- * Size: 21 bytes
+ * Size: 25 bytes (added last_ack_sequence for lag compensation)
  */
 PACK_START
 struct PACKED EntityState {
@@ -344,6 +350,7 @@ struct PACKED EntityState {
     int16_t velocity_y;
     uint16_t health;
     uint16_t flags;
+    uint32_t last_ack_sequence;  // Last processed input sequence (0 for non-player entities)
 
     EntityState()
         : entity_id(0)
@@ -353,7 +360,8 @@ struct PACKED EntityState {
         , velocity_x(0)
         , velocity_y(0)
         , health(100)
-        , flags(0) {}
+        , flags(0)
+        , last_ack_sequence(0) {}
 
     bool is_invulnerable() const { return (flags & ENTITY_INVULNERABLE) != 0; }
     bool is_charging() const { return (flags & ENTITY_CHARGING) != 0; }
@@ -361,7 +369,7 @@ struct PACKED EntityState {
 };
 PACK_END
 
-static_assert(sizeof(EntityState) == 21, "EntityState must be 21 bytes");
+static_assert(sizeof(EntityState) == 25, "EntityState must be 25 bytes");
 
 /**
  * @brief SERVER_SNAPSHOT payload header (0xA0)
@@ -458,6 +466,27 @@ struct PACKED ServerProjectileSpawnPayload {
 PACK_END
 
 static_assert(sizeof(ServerProjectileSpawnPayload) == 21, "ServerProjectileSpawnPayload must be 21 bytes");
+
+/**
+ * @brief SERVER_EXPLOSION_EVENT payload (0xB4)
+ * Total size: 16 bytes
+ */
+PACK_START
+struct PACKED ServerExplosionPayload {
+    uint32_t source_entity_id;
+    float position_x;
+    float position_y;
+    float effect_scale;
+
+    ServerExplosionPayload()
+        : source_entity_id(0)
+        , position_x(0.0f)
+        , position_y(0.0f)
+        , effect_scale(1.0f) {}
+};
+PACK_END
+
+static_assert(sizeof(ServerExplosionPayload) == 16, "ServerExplosionPayload must be 16 bytes");
 
 /**
  * @brief SERVER_POWERUP_COLLECTED payload (0xC0)
@@ -814,5 +843,239 @@ struct PACKED ServerRoomErrorPayload {
 PACK_END
 
 static_assert(sizeof(ServerRoomErrorPayload) == 65, "ServerRoomErrorPayload must be 65 bytes");
+
+/**
+ * @brief CLIENT_SET_PLAYER_NAME payload (0x25)
+ * Used to change player name while in lobby
+ * Total size: 36 bytes
+ */
+PACK_START
+struct PACKED ClientSetPlayerNamePayload {
+    uint32_t player_id;
+    char new_name[32];
+
+    ClientSetPlayerNamePayload() : player_id(0) {
+        std::memset(new_name, 0, sizeof(new_name));
+    }
+
+    void set_name(const std::string& name) {
+        std::memset(new_name, 0, sizeof(new_name));
+        std::strncpy(new_name, name.c_str(), sizeof(new_name) - 1);
+    }
+};
+PACK_END
+
+static_assert(sizeof(ClientSetPlayerNamePayload) == 36, "ClientSetPlayerNamePayload must be 36 bytes");
+
+/**
+ * @brief SERVER_PLAYER_NAME_UPDATED payload (0x96)
+ * Broadcast to room members when a player changes their name
+ * Total size: 40 bytes
+ */
+PACK_START
+struct PACKED ServerPlayerNameUpdatedPayload {
+    uint32_t player_id;
+    char new_name[32];
+    uint32_t room_id;
+
+    ServerPlayerNameUpdatedPayload() : player_id(0), room_id(0) {
+        std::memset(new_name, 0, sizeof(new_name));
+    }
+
+    void set_name(const std::string& name) {
+        std::memset(new_name, 0, sizeof(new_name));
+        std::strncpy(new_name, name.c_str(), sizeof(new_name) - 1);
+    }
+};
+PACK_END
+
+static_assert(sizeof(ServerPlayerNameUpdatedPayload) == 40, "ServerPlayerNameUpdatedPayload must be 40 bytes");
+
+/**
+ * @brief CLIENT_SET_PLAYER_SKIN payload (0x26)
+ * Used to change player skin while in lobby
+ * Total size: 5 bytes
+ */
+PACK_START
+struct PACKED ClientSetPlayerSkinPayload {
+    uint32_t player_id;
+    uint8_t skin_id;  // 0-14 (3 colors x 5 ship types)
+
+    ClientSetPlayerSkinPayload() : player_id(0), skin_id(0) {}
+};
+PACK_END
+
+static_assert(sizeof(ClientSetPlayerSkinPayload) == 5, "ClientSetPlayerSkinPayload must be 5 bytes");
+
+/**
+ * @brief SERVER_PLAYER_SKIN_UPDATED payload (0x97)
+ * Broadcast to room members when a player changes their skin
+ * Total size: 9 bytes
+ */
+PACK_START
+struct PACKED ServerPlayerSkinUpdatedPayload {
+    uint32_t player_id;
+    uint8_t skin_id;
+    uint32_t room_id;
+
+    ServerPlayerSkinUpdatedPayload() : player_id(0), skin_id(0), room_id(0) {}
+};
+PACK_END
+
+static_assert(sizeof(ServerPlayerSkinUpdatedPayload) == 9, "ServerPlayerSkinUpdatedPayload must be 9 bytes");
+
+/**
+ * @brief CLIENT_ADMIN_AUTH payload (0x30)
+ * Client sends password hash to authenticate as admin
+ * Total size: 96 bytes
+ */
+PACK_START
+struct PACKED ClientAdminAuthPayload {
+    uint32_t client_id;              // 4 bytes - Network byte order
+    char password_hash[64];          // 64 bytes - SHA256 hex string
+    char username[28];               // 28 bytes - Admin username (display)
+
+    ClientAdminAuthPayload() : client_id(0) {
+        std::memset(password_hash, 0, sizeof(password_hash));
+        std::memset(username, 0, sizeof(username));
+    }
+
+    void set_password_hash(const std::string& hash) {
+        std::memset(password_hash, 0, sizeof(password_hash));
+        std::strncpy(password_hash, hash.c_str(), sizeof(password_hash) - 1);
+    }
+
+    void set_username(const std::string& name) {
+        std::memset(username, 0, sizeof(username));
+        std::strncpy(username, name.c_str(), sizeof(username) - 1);
+    }
+};
+PACK_END
+
+static_assert(sizeof(ClientAdminAuthPayload) == 96, "ClientAdminAuthPayload must be 96 bytes");
+
+/**
+ * @brief CLIENT_ADMIN_COMMAND payload (0x31)
+ * Client sends admin command to execute
+ * Total size: 140 bytes
+ */
+PACK_START
+struct PACKED ClientAdminCommandPayload {
+    uint32_t admin_id;               // 4 bytes - Admin player ID
+    uint8_t command_length;          // 1 byte - Length of command string
+    char command[135];               // 135 bytes - Command string
+
+    ClientAdminCommandPayload() : admin_id(0), command_length(0) {
+        std::memset(command, 0, sizeof(command));
+    }
+
+    void set_command(const std::string& cmd) {
+        command_length = std::min(static_cast<uint8_t>(cmd.size()),
+                                 static_cast<uint8_t>(sizeof(command) - 1));
+        std::memset(command, 0, sizeof(command));
+        std::strncpy(command, cmd.c_str(), command_length);
+    }
+
+    std::string get_command() const {
+        return std::string(command,
+                          std::min(static_cast<size_t>(command_length),
+                                  sizeof(command)));
+    }
+};
+PACK_END
+
+static_assert(sizeof(ClientAdminCommandPayload) == 140, "ClientAdminCommandPayload must be 140 bytes");
+
+/**
+ * @brief SERVER_ADMIN_AUTH_RESULT payload (0xD0)
+ * Server responds with authentication result
+ * Total size: 69 bytes
+ */
+PACK_START
+struct PACKED ServerAdminAuthResultPayload {
+    uint8_t success;                 // 1 byte - 0=failed, 1=success
+    uint32_t admin_level;            // 4 bytes - 0=none, 1=admin (future: roles)
+    char failure_reason[64];         // 64 bytes - Error message if failed
+
+    ServerAdminAuthResultPayload() : success(0), admin_level(0) {
+        std::memset(failure_reason, 0, sizeof(failure_reason));
+    }
+
+    void set_failure_reason(const std::string& reason) {
+        std::memset(failure_reason, 0, sizeof(failure_reason));
+        std::strncpy(failure_reason, reason.c_str(), sizeof(failure_reason) - 1);
+    }
+};
+PACK_END
+
+static_assert(sizeof(ServerAdminAuthResultPayload) == 69, "ServerAdminAuthResultPayload must be 69 bytes");
+
+/**
+ * @brief SERVER_ADMIN_COMMAND_RESULT payload (0xD1)
+ * Server responds with command execution result
+ * Total size: 257 bytes
+ */
+PACK_START
+struct PACKED ServerAdminCommandResultPayload {
+    uint8_t success;                 // 1 byte - 0=failed, 1=success
+    char message[256];               // 256 bytes - Result message or error
+
+    ServerAdminCommandResultPayload() : success(0) {
+        std::memset(message, 0, sizeof(message));
+    }
+
+    void set_message(const std::string& msg) {
+        std::memset(message, 0, sizeof(message));
+        std::strncpy(message, msg.c_str(), sizeof(message) - 1);
+    }
+};
+PACK_END
+
+static_assert(sizeof(ServerAdminCommandResultPayload) == 257, "ServerAdminCommandResultPayload must be 257 bytes");
+
+/**
+ * @brief SERVER_ADMIN_NOTIFICATION payload (0xD2)
+ * Server sends admin notifications (player events, etc.)
+ * Total size: 128 bytes
+ */
+PACK_START
+struct PACKED ServerAdminNotificationPayload {
+    uint8_t notification_type;       // 1 byte - Type of notification
+    char message[127];               // 127 bytes - Notification text
+
+    ServerAdminNotificationPayload() : notification_type(0) {
+        std::memset(message, 0, sizeof(message));
+    }
+
+    void set_message(const std::string& msg) {
+        std::memset(message, 0, sizeof(message));
+        std::strncpy(message, msg.c_str(), sizeof(message) - 1);
+    }
+};
+PACK_END
+
+static_assert(sizeof(ServerAdminNotificationPayload) == 128, "ServerAdminNotificationPayload must be 128 bytes");
+
+/**
+ * @brief SERVER_KICK_NOTIFICATION payload (0xD3)
+ * Server sends kick notification before disconnecting player
+ * Total size: 128 bytes
+ */
+PACK_START
+struct PACKED ServerKickNotificationPayload {
+    char reason[128];                // 128 bytes - Kick reason
+
+    ServerKickNotificationPayload() {
+        std::memset(reason, 0, sizeof(reason));
+    }
+
+    void set_reason(const std::string& msg) {
+        std::memset(reason, 0, sizeof(reason));
+        std::strncpy(reason, msg.c_str(), sizeof(reason) - 1);
+    }
+};
+PACK_END
+
+static_assert(sizeof(ServerKickNotificationPayload) == 128, "ServerKickNotificationPayload must be 128 bytes");
 
 }

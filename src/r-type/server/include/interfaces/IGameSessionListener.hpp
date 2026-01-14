@@ -55,6 +55,13 @@ public:
     virtual void on_projectile_spawn(uint32_t session_id, const std::vector<uint8_t>& projectile_data) = 0;
 
     /**
+     * @brief Called when an explosion effect must be broadcast
+     * @param session_id The game session
+     * @param explosion_data Serialized explosion payload
+     */
+    virtual void on_explosion(uint32_t session_id, const std::vector<uint8_t>& explosion_data) = 0;
+
+    /**
      * @brief Called when a wave starts
      * @param session_id The game session
      * @param wave_data Serialized wave data
@@ -82,6 +89,13 @@ public:
      * @param score_data Serialized score data
      */
     virtual void on_score_update(uint32_t session_id, const std::vector<uint8_t>& score_data) = 0;
+
+    /**
+     * @brief Called when a powerup is collected
+     * @param session_id The game session
+     * @param powerup_data Serialized powerup data
+     */
+    virtual void on_powerup_collected(uint32_t session_id, const std::vector<uint8_t>& powerup_data) = 0;
 };
 
 }

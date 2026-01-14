@@ -23,6 +23,7 @@ class RenderSystem : public ISystem {
     private:
         engine::IGraphicsPlugin& graphics_plugin;  // Référence vers le plugin (non possédé)
         mutable engine::Sprite temp_sprite;        // Sprite temporaire réutilisé pour éviter allocations
+        bool skip_clear_ = false;                  // Skip screen clear if already done externally
 
     public:
         /**
@@ -35,6 +36,13 @@ class RenderSystem : public ISystem {
         void init(Registry& registry) override;
         void shutdown() override;
         void update(Registry& registry, float dt) override;
+        
+        /**
+         * @brief Set whether to skip screen clear (if cleared externally)
+         */
+        void set_skip_clear(bool skip) { skip_clear_ = skip; }
+        bool get_skip_clear() const { return skip_clear_; }
 };
 
 #endif /* !RENDERSYSTEM_HPP_ */
+

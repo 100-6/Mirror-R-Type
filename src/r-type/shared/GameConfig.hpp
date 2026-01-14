@@ -40,8 +40,8 @@ constexpr float WORLD_HEIGHT = 1080.0f;
 // === Player / Projectile dimensions ===
 constexpr float PLAYER_WIDTH = 128.0f;
 constexpr float PLAYER_HEIGHT = 128.0f;
-constexpr float PROJECTILE_WIDTH = 28.0f;
-constexpr float PROJECTILE_HEIGHT = 12.0f;
+constexpr float PROJECTILE_WIDTH = 52.0f;
+constexpr float PROJECTILE_HEIGHT = 24.0f;
 
 // === Projectile behaviour ===
 constexpr float PROJECTILE_SPEED = 500.0f;                              // pixels per second
@@ -89,5 +89,10 @@ constexpr float WALL_HEIGHT = 80.0f;
 
 // === Powerup/Bonus Configuration ===
 constexpr float BONUS_SIZE = 12.0f;
+
+// === Explosion FX Configuration ===
+constexpr float EXPLOSION_FRAME_SIZE = 32.0f;
+constexpr float EXPLOSION_FRAME_TIME = 0.04f;
+constexpr float EXPLOSION_DRAW_SCALE = 3.0f;
 
 } // namespace rtype::shared::config

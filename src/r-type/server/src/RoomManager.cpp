@@ -58,12 +58,8 @@ bool RoomManager::join_room(uint32_t player_id, uint32_t room_id,
     }
     room->player_ids.push_back(player_id);
     player_to_room_[player_id] = room_id;
-    if (room->countdown_active) {
-        cancel_countdown(room_id);
-    }
-    if (room->is_full()) {
-        start_countdown(room_id);
-    }
+    // Note: Countdown is NOT auto-started when room is full
+    // Host must explicitly call start_game() to begin countdown
     notify_room_state_changed(room_id);
     return true;
 }

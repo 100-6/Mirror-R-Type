@@ -50,9 +50,13 @@ All packets consist of a fixed-size header followed by a variable-length payload
     0                   1                   2                   3
     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |    Version    |     Type      |         Payload Length        |
+   |    Version    |     Type      |     Flags     | Payload Len   |
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |                        Sequence Number                        |
+   |  Payload Len  |                Sequence Number                |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   | Seq Number    | Uncompressed Size (optional, if COMPRESSED)   |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |Uncompressed.. |              Payload Data                     |
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
    |                         Payload Data                          |
    |                             ...                               |
@@ -62,9 +66,23 @@ All packets consist of a fixed-size header followed by a variable-length payload
 ### 2.3 Size Constraints
 
 - **Maximum packet size**: 1400 bytes (MTU-safe for typical network configurations)
-- **Header size**: 8 bytes (fixed)
-- **Maximum payload size**: 1392 bytes
+- **Base header size**: 9 bytes (without compression metadata)
+- **Extended header size**: 13 bytes (with compression metadata when COMPRESSED flag is set)
+- **Maximum payload size**: 1387 bytes (accounting for largest possible header)
 - Packets exceeding 1400 bytes MUST be fragmented or redesigned
+
+### 2.4 Compression
+
+Starting from protocol version 1.0, packets support **optional LZ4 compression** for large payloads:
+
+- **Compression library**: LZ4 (fast compression algorithm)
+- **Automatic compression**: Large packets are automatically compressed if beneficial
+- **Compression criteria**:
+  - Payload size ≥ 128 bytes (configurable via `MIN_COMPRESSION_SIZE`)
+  - Compression gain ≥ 10% (configurable via `MIN_COMPRESSION_GAIN`)
+  - Compression time < 500µs (configurable via `MAX_COMPRESSION_TIME_US`)
+- **Compressible packet types**: SNAPSHOT, DELTA_SNAPSHOT, LOBBY_STATE, ROOM_LIST
+- **Compression statistics**: Tracked automatically for monitoring and optimization
 
 ---
 
@@ -72,14 +90,23 @@ All packets consist of a fixed-size header followed by a variable-length payload
 
 ### 3.1 Header Format
 
-All packets begin with an 8-byte header in network byte order (big-endian).
+All packets begin with a header in network byte order (big-endian). The header size is **9 bytes** (base) or **13 bytes** (if COMPRESSED flag is set).
+
+#### Base Header (9 bytes)
 
 | Field            | Size    | Offset | Description                              |
 |------------------|---------|--------|------------------------------------------|
 | Version          | 1 byte  | 0      | Protocol version (0x01)                  |
 | Type             | 1 byte  | 1      | Packet type identifier                   |
-| Payload Length   | 2 bytes | 2      | Length of payload in bytes (big-endian)  |
-| Sequence Number  | 4 bytes | 4      | Monotonic sequence number (big-endian)   |
+| Flags            | 1 byte  | 2      | Packet flags (bit 0 = COMPRESSED)        |
+| Payload Length   | 2 bytes | 3      | Length of payload in bytes (big-endian)  |
+| Sequence Number  | 4 bytes | 5      | Monotonic sequence number (big-endian)   |
+
+#### Extended Header (+ 4 bytes if COMPRESSED flag set)
+
+| Field              | Size    | Offset | Description                                    |
+|--------------------|---------|--------|------------------------------------------------|
+| Uncompressed Size  | 4 bytes | 9      | Original payload size before compression       |
 
 ### 3.2 Field Definitions
 
@@ -93,10 +120,25 @@ All packets begin with an 8-byte header in network byte order (big-endian).
 - Values `0x00-0x7F`: Reserved for client-to-server packets
 - Values `0x80-0xFF`: Reserved for server-to-client packets
 
+**Flags (8 bits)**
+- Bitfield for packet metadata and options
+- **Bit 0 (0x01)**: `COMPRESSED` - Payload is compressed with LZ4
+  - When set, the header includes 4 additional bytes (Uncompressed Size)
+  - Payload data is LZ4-compressed and must be decompressed before processing
+- **Bits 1-7**: Reserved for future use (MUST be set to 0)
+
 **Payload Length (16 bits, big-endian)**
 - Length of the payload in bytes
-- MUST NOT exceed 1392 bytes
+- If COMPRESSED flag is set, this is the **compressed** payload size
+- If COMPRESSED flag is NOT set, this is the original payload size
+- MUST NOT exceed 1387 bytes
 - Value of 0 indicates no payload (header-only packet)
+
+**Uncompressed Size (32 bits, big-endian)** - *Optional*
+- ONLY present if COMPRESSED flag (bit 0) is set
+- Specifies the original size of the payload before compression
+- Used by receiver to pre-allocate decompression buffer
+- MUST be greater than Payload Length when present
 
 **Sequence Number (32 bits, big-endian)**
 - Monotonically increasing counter per connection
@@ -141,6 +183,10 @@ Packet types are organized by functional category:
 | 0x22    | CLIENT_LEAVE_ROOM     | Leave current custom room                |
 | 0x23    | CLIENT_REQUEST_ROOM_LIST | Request list of available rooms       |
 | 0x24    | CLIENT_START_GAME     | Start game (host only)                   |
+| 0x25    | CLIENT_SET_PLAYER_NAME | Change player name in lobby             |
+| 0x26    | CLIENT_SET_PLAYER_SKIN | Change player skin in lobby             |
+| 0x30    | CLIENT_ADMIN_AUTH     | Admin authentication request             |
+| 0x31    | CLIENT_ADMIN_COMMAND  | Admin command execution                  |
 
 ### 4.3 Server-to-Client Packets
 
@@ -161,6 +207,8 @@ Packet types are organized by functional category:
 | 0x93    | SERVER_ROOM_LEFT             | Player left a custom room             |
 | 0x94    | SERVER_ROOM_STATE_UPDATE     | Custom room state changed             |
 | 0x95    | SERVER_ROOM_ERROR            | Room operation error                  |
+| 0x96    | SERVER_PLAYER_NAME_UPDATED   | Player name changed in room           |
+| 0x97    | SERVER_PLAYER_SKIN_UPDATED   | Player skin changed in room           |
 | 0xA0    | SERVER_SNAPSHOT              | Complete world state snapshot         |
 | 0xA1    | SERVER_DELTA_SNAPSHOT        | Delta-compressed state update         |
 | 0xB0    | SERVER_ENTITY_SPAWN          | New entity spawned                    |
@@ -173,6 +221,10 @@ Packet types are organized by functional category:
 | 0xC3    | SERVER_WAVE_COMPLETE         | Wave completed                        |
 | 0xC5    | SERVER_PLAYER_RESPAWN        | Player respawned                      |
 | 0xC6    | SERVER_GAME_OVER             | Game session ended                    |
+| 0xF0    | SERVER_ADMIN_AUTH_RESULT     | Admin authentication result           |
+| 0xF1    | SERVER_ADMIN_COMMAND_RESULT  | Admin command execution result        |
+| 0xF2    | SERVER_ADMIN_NOTIFICATION    | Server-wide admin notification        |
+| 0xF3    | SERVER_KICK_NOTIFICATION     | Player kicked by admin                |
 
 ---
 
@@ -388,17 +440,23 @@ All multi-byte integer fields are in network byte order (big-endian) unless othe
 | Required Player Count | 1 byte   | Players needed to start game         |
 | Player Entries        | Variable | Array of player information          |
 
-**Player Entry Format (38 bytes each)**:
+**Player Entry Format (39 bytes each)**:
 
 | Field         | Size     | Offset | Description                    |
 |---------------|----------|--------|--------------------------------|
 | Player ID     | 4 bytes  | 0      | Player identifier              |
 | Player Name   | 32 bytes | 4      | Player name (UTF-8)            |
 | Player Level  | 2 bytes  | 36     | Player level (for display)     |
+| Skin ID       | 1 byte   | 38     | Player skin (0-14)             |
 
-**Total Size**: 8 + (38 × Current Player Count) bytes
+**Total Size**: 8 + (39 × Current Player Count) bytes
 
-**Example**: For 3 players in a squad lobby: 8 + (38 × 3) = 122 bytes
+**Example**: For 3 players in a squad lobby: 8 + (39 × 3) = 125 bytes
+
+**Skin ID Values** (0-14):
+- Skins 0-4: Green ships (Scout, Fighter, Cruiser, Bomber, Carrier)
+- Skins 5-9: Red ships (Scout, Fighter, Cruiser, Bomber, Carrier)
+- Skins 10-14: Blue ships (Scout, Fighter, Cruiser, Bomber, Carrier)
 
 #### 5.2.4 SERVER_GAME_START_COUNTDOWN (0x88)
 
@@ -737,6 +795,98 @@ This packet has no payload. The header is sufficient.
 
 **Total Size**: 65 bytes
 
+#### 5.3.11 CLIENT_SET_PLAYER_NAME (0x25)
+
+```
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                          Player ID                            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                                                               |
+   +                    New Name (32 bytes)                        +
+   |                             ...                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```
+
+| Field      | Size     | Description                              |
+|------------|----------|------------------------------------------|
+| Player ID  | 4 bytes  | Player changing their name               |
+| New Name   | 32 bytes | New player name (UTF-8, null-padded)     |
+
+**Total Size**: 36 bytes
+
+#### 5.3.12 CLIENT_SET_PLAYER_SKIN (0x26)
+
+```
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                          Player ID                            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |   Skin ID     |
+   +-+-+-+-+-+-+-+-+
+```
+
+| Field      | Size    | Description                              |
+|------------|---------|------------------------------------------|
+| Player ID  | 4 bytes | Player changing their skin               |
+| Skin ID    | 1 byte  | New skin ID (0-14)                       |
+
+**Skin ID Values**: See SERVER_LOBBY_STATE Player Entry Format.
+
+**Total Size**: 5 bytes
+
+#### 5.3.13 SERVER_PLAYER_NAME_UPDATED (0x96)
+
+```
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                          Player ID                            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                                                               |
+   +                    New Name (32 bytes)                        +
+   |                             ...                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                          Room ID                              |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```
+
+| Field      | Size     | Description                              |
+|------------|----------|------------------------------------------|
+| Player ID  | 4 bytes  | Player who changed name                  |
+| New Name   | 32 bytes | Updated player name (UTF-8)              |
+| Room ID    | 4 bytes  | Room where change occurred               |
+
+**Total Size**: 40 bytes
+
+**Note**: Broadcast to all players in the room when a player changes their name.
+
+#### 5.3.14 SERVER_PLAYER_SKIN_UPDATED (0x97)
+
+```
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                          Player ID                            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |   Skin ID     |                                               |
+   +-+-+-+-+-+-+-+-+                                               +
+   |                          Room ID                              |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```
+
+| Field      | Size    | Description                              |
+|------------|---------|------------------------------------------|
+| Player ID  | 4 bytes | Player who changed skin                  |
+| Skin ID    | 1 byte  | New skin ID (0-14)                       |
+| Room ID    | 4 bytes | Room where change occurred               |
+
+**Total Size**: 9 bytes
+
+**Note**: Broadcast to all players in the room when a player changes their skin.
+
 ### 5.4 Player Input Payloads
 
 #### 5.4.1 CLIENT_INPUT (0x10)
@@ -785,7 +935,7 @@ This packet has no payload. The header is sufficient.
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
    |       Entity Count            |                               |
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+                               +
-   |                   Entity State Array (20 bytes each)          |
+   |                   Entity State Array (25 bytes each)          |
    |                             ...                               |
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ```
@@ -796,7 +946,7 @@ This packet has no payload. The header is sufficient.
 | Entity Count  | 2 bytes  | Number of entities in snapshot      |
 | Entity States | Variable | Array of entity states              |
 
-**Entity State Format (20 bytes each)**:
+**Entity State Format (25 bytes each)**:
 
 ```
     0                   1                   2                   3
@@ -812,20 +962,23 @@ This packet has no payload. The header is sufficient.
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
    |  Velocity Y   |         Health            |      Flags        |
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |     Flags     |
+   |     Flags     |              Last Ack Sequence                |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   | Last Ack Seq  |
    +-+-+-+-+-+-+-+-+
 ```
 
-| Field       | Size    | Offset | Description                            |
-|-------------|---------|--------|----------------------------------------|
-| Entity ID   | 4 bytes | 0      | Unique entity identifier               |
-| Entity Type | 1 byte  | 4      | Entity type code                       |
-| Position X  | 4 bytes | 5      | X position (IEEE 754 float)            |
-| Position Y  | 4 bytes | 9      | Y position (IEEE 754 float)            |
-| Velocity X  | 2 bytes | 13     | X velocity (int16, scaled by 100)      |
-| Velocity Y  | 2 bytes | 15     | Y velocity (int16, scaled by 100)      |
-| Health      | 2 bytes | 17     | Current health points                  |
-| Flags       | 2 bytes | 19     | Entity state flags bitfield            |
+| Field            | Size    | Offset | Description                            |
+|------------------|---------|--------|----------------------------------------|
+| Entity ID        | 4 bytes | 0      | Unique entity identifier               |
+| Entity Type      | 1 byte  | 4      | Entity type code                       |
+| Position X       | 4 bytes | 5      | X position (IEEE 754 float)            |
+| Position Y       | 4 bytes | 9      | Y position (IEEE 754 float)            |
+| Velocity X       | 2 bytes | 13     | X velocity (int16, scaled by 10)       |
+| Velocity Y       | 2 bytes | 15     | Y velocity (int16, scaled by 10)       |
+| Health           | 2 bytes | 17     | Current health points                  |
+| Flags            | 2 bytes | 19     | Entity state flags bitfield            |
+| Last Ack Seq     | 4 bytes | 21     | Last processed input sequence (for lag compensation, 0 for non-player entities) |
 
 **Entity Type Codes**:
 - `0x01`: PLAYER
@@ -848,9 +1001,17 @@ This packet has no payload. The header is sufficient.
 - Bit 2: DAMAGED (visual feedback)
 - Bits 3-15: Reserved
 
-**Total Size**: 6 + (20 × Entity Count) bytes
+**Total Size**: 6 + (25 × Entity Count) bytes
 
-**Maximum Entities**: With 1392 byte payload limit: (1392 - 6) / 20 = 69 entities per snapshot
+**Maximum Entities**: With 1387 byte payload limit: (1387 - 6) / 25 = 55 entities per snapshot
+
+**Entity Priority**: When the number of entities exceeds the maximum, servers MUST prioritize entities in the following order:
+1. **PLAYER** entities (highest priority) - MUST always be included
+2. **PROJECTILE_PLAYER** and **PROJECTILE_ENEMY** entities (high priority) - SHOULD be included for accurate gameplay
+3. **ENEMY_*** entities (medium priority) - SHOULD be included
+4. **WALL** entities (lowest priority) - MAY be excluded as they scroll predictably
+
+**Rationale**: Wall entities scroll at a constant speed and are spawned via SERVER_ENTITY_SPAWN. Clients can predict their positions locally, making them unnecessary in state snapshots. This optimization ensures that critical gameplay entities (players, projectiles, enemies) are always synchronized.
 
 **Frequency**: Servers SHOULD send snapshots at 20-30 Hz to conserve bandwidth.
 
@@ -886,6 +1047,21 @@ This packet has no payload. The header is sufficient.
 - `0x01`: FAST - Fast-moving enemy
 - `0x02`: TANK - High-health enemy
 - `0x03`: BOSS - Boss enemy
+
+**Player Entity Subtype Encoding**:
+
+For PLAYER entities, the subtype byte encodes both player_id and skin_id:
+- High 4 bits (bits 4-7): `player_id & 0x0F` (player identification)
+- Low 4 bits (bits 0-3): `skin_id & 0x0F` (skin selection, 0-14)
+
+```
+Subtype byte: [player_id:4][skin_id:4]
+Example: Player 2 with skin 7 → subtype = (2 << 4) | 7 = 0x27
+```
+
+This allows clients to:
+1. Identify which entity is the local player (by matching player_id)
+2. Select the correct ship sprite (by extracting skin_id)
 
 **Total Size**: 16 bytes
 
@@ -1140,6 +1316,163 @@ This packet has no payload. The header is sufficient.
 
 ---
 
+### 5.7 Admin System Payloads
+
+#### 5.7.1 CLIENT_ADMIN_AUTH (0x30)
+
+Admin authentication request with hashed password.
+
+```
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                          Client ID                            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                                                               |
+   +                     Password Hash (64 bytes)                 +
+   |                             ...                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                                                               |
+   +                       Username (32 bytes)                    +
+   |                             ...                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```
+
+| Field           | Size      | Description                           |
+|-----------------|-----------|---------------------------------------|
+| Client ID       | 4 bytes   | Client identifier                     |
+| Password Hash   | 64 bytes  | Hexadecimal string of hashed password |
+| Username        | 32 bytes  | Admin username (null-terminated)      |
+
+**Total Size**: 100 bytes
+
+#### 5.7.2 CLIENT_ADMIN_COMMAND (0x31)
+
+Execute an admin command on the server.
+
+```
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                           Admin ID                            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                                                               |
+   +                       Command (128 bytes)                    +
+   |                             ...                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```
+
+| Field       | Size       | Description                              |
+|-------------|------------|------------------------------------------|
+| Admin ID    | 4 bytes    | Authenticated admin ID                   |
+| Command     | 128 bytes  | Command string (null-terminated)         |
+
+**Total Size**: 132 bytes
+
+**Available Commands**:
+
+**Tier 1 - Basic Commands:**
+- `help` - Show available commands
+- `list` - List connected players with IDs and session info
+- `kick <player_id> [reason]` - Kick a player from the server
+- `info` - Display server statistics (uptime, connections, sessions)
+
+**Tier 2 - Game Control Commands:**
+- `pause` - Pause all active game sessions (freezes game logic)
+- `resume` - Resume all paused game sessions
+- `clearenemies [session_id]` - Clear enemies from all sessions or specific session
+
+#### 5.7.3 SERVER_ADMIN_AUTH_RESULT (0xF0)
+
+Result of admin authentication attempt.
+
+```
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |   Success     |                                               |
+   +-+-+-+-+-+-+-+-+                                               +
+   |                         Admin Level                           |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                                                               |
+   +                   Failure Reason (128 bytes)                 +
+   |                             ...                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```
+
+| Field           | Size      | Description                           |
+|-----------------|-----------|---------------------------------------|
+| Success         | 1 byte    | 1 = authenticated, 0 = failed         |
+| Admin Level     | 4 bytes   | Admin privilege level (if success=1)  |
+| Failure Reason  | 128 bytes | Error message (if success=0)          |
+
+**Total Size**: 133 bytes
+
+#### 5.7.4 SERVER_ADMIN_COMMAND_RESULT (0xF1)
+
+Result of admin command execution.
+
+```
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |   Success     |                                               |
+   +-+-+-+-+-+-+-+-+                                               +
+   |                                                               |
+   +                      Message (256 bytes)                     +
+   |                             ...                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```
+
+| Field    | Size       | Description                              |
+|----------|------------|------------------------------------------|
+| Success  | 1 byte     | 1 = success, 0 = failed                  |
+| Message  | 256 bytes  | Result or error message (null-terminated)|
+
+**Total Size**: 257 bytes
+
+#### 5.7.5 SERVER_ADMIN_NOTIFICATION (0xF2)
+
+Server-wide notification broadcast from admin.
+
+```
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                                                               |
+   +                      Message (256 bytes)                     +
+   |                             ...                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```
+
+| Field    | Size       | Description                              |
+|----------|------------|------------------------------------------|
+| Message  | 256 bytes  | Notification message (null-terminated)   |
+
+**Total Size**: 256 bytes
+
+#### 5.7.6 SERVER_KICK_NOTIFICATION (0xF3)
+
+Notification sent to a player who is being kicked.
+
+```
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                                                               |
+   +                       Reason (128 bytes)                     +
+   |                             ...                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```
+
+| Field   | Size       | Description                               |
+|---------|------------|-------------------------------------------|
+| Reason  | 128 bytes  | Kick reason message (null-terminated)     |
+
+**Total Size**: 128 bytes
+
+---
+
 ## 6. Communication Patterns
 
 ### 6.1 Connection Establishment
@@ -1390,6 +1723,8 @@ Implementations SHOULD provide encoder/decoder functions that:
 | 0x22 | CLIENT_LEAVE_ROOM         | ✓   |     | Once         |
 | 0x23 | CLIENT_REQUEST_ROOM_LIST  | ✓   |     | On demand    |
 | 0x24 | CLIENT_START_GAME         | ✓   |     | Once         |
+| 0x25 | CLIENT_SET_PLAYER_NAME    | ✓   |     | On demand    |
+| 0x26 | CLIENT_SET_PLAYER_SKIN    | ✓   |     | On demand    |
 | 0x81 | SERVER_ACCEPT             |     | ✓   | Once         |
 | 0x82 | SERVER_REJECT             |     | ✓   | Once         |
 | 0x83 | SERVER_PLAYER_JOINED      |     | ✓   | Event        |
@@ -1405,6 +1740,8 @@ Implementations SHOULD provide encoder/decoder functions that:
 | 0x93 | SERVER_ROOM_LEFT          |     | ✓   | Event        |
 | 0x94 | SERVER_ROOM_STATE_UPDATE  |     | ✓   | Event        |
 | 0x95 | SERVER_ROOM_ERROR         |     | ✓   | Event        |
+| 0x96 | SERVER_PLAYER_NAME_UPDATED|     | ✓   | Event        |
+| 0x97 | SERVER_PLAYER_SKIN_UPDATED|     | ✓   | Event        |
 | 0xA0 | SERVER_SNAPSHOT           |     | ✓   | 20-30 Hz     |
 | 0xB0 | SERVER_ENTITY_SPAWN       |     | ✓   | Event        |
 | 0xB1 | SERVER_ENTITY_DESTROY     |     | ✓   | Event        |

@@ -114,11 +114,8 @@ bool RaylibInputPlugin::is_key_pressed(engine::Key key) const {
 }
 
 bool RaylibInputPlugin::is_key_just_pressed(engine::Key key) const {
-    auto it = previous_key_state.find(key);
-    bool was_pressed = (it != previous_key_state.end() && it->second);
-    bool is_pressed_now = is_key_pressed(key);
-    
-    return is_pressed_now && !was_pressed;
+    int raylib_key = to_raylib_key(key);
+    return raylib_key != KEY_NULL && IsKeyPressed(raylib_key);
 }
 
 bool RaylibInputPlugin::is_key_just_released(engine::Key key) const {

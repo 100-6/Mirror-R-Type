@@ -16,6 +16,12 @@
 #include "StatusOverlay.hpp"
 #include "InputHandler.hpp"
 #include "MenuManager.hpp"
+#include "systems/ChunkManagerSystem.hpp"
+#include "systems/ParallaxBackgroundSystem.hpp"
+#include "systems/ClientPredictionSystem.hpp"
+#include "systems/InterpolationSystem.hpp"
+#include "DebugNetworkOverlay.hpp"
+#include "ui/ConsoleOverlay.hpp"
 
 namespace rtype::client {
 
@@ -74,14 +80,41 @@ private:
     std::unique_ptr<InputHandler> input_handler_;
     std::unique_ptr<MenuManager> menu_manager_;
 
+    // Map system (new)
+    std::unique_ptr<rtype::ParallaxBackgroundSystem> parallax_system_;
+    std::unique_ptr<rtype::ChunkManagerSystem> chunk_manager_;
+    float map_scroll_x_ = 0.0f;
+    std::string current_map_id_str_ = "nebula_outpost";
+    float server_scroll_speed_ = 60.0f;
+
     // Network client
     std::unique_ptr<rtype::client::NetworkClient> network_client_;
+
+    // Lag compensation system
+    std::unique_ptr<rtype::client::ClientPredictionSystem> prediction_system_;
+    std::unique_ptr<rtype::client::InterpolationSystem> interpolation_system_;
+    std::unique_ptr<rtype::client::DebugNetworkOverlay> debug_network_overlay_;
+
+    // Admin console overlay
+    std::unique_ptr<ConsoleOverlay> console_overlay_;
+    bool admin_authenticated_ = false;
+    std::string admin_password_;
 
     // Game state
     std::atomic<bool> running_;
     uint32_t client_tick_;
     Entity wave_tracker_;
-    float current_time_;  // Temps écoulé depuis démarrage (pour extrapolation)
+    float current_time_;
+    uint16_t current_map_id_ = 1;
+    int last_known_score_ = 0;
+
+    // Background entities (legacy, kept for menu)
+    Entity background1_;
+    Entity background2_;
+
+    // HUD overlay
+    engine::TextureHandle hud_texture_;
+    bool hud_loaded_ = false;
 
     // Initialization helpers
     bool load_plugins();
@@ -89,7 +122,12 @@ private:
     void setup_registry();
     void setup_systems();
     void setup_background();
+    void setup_map_system();
+    void load_map(const std::string& mapId);
     void setup_network_callbacks();
+
+    // Map-specific theming
+    void apply_map_theme(uint16_t map_id);
 
     // Update methods
     void update(float delta_time);
@@ -97,6 +135,9 @@ private:
 
     // Client-side prediction
     void apply_input_to_local_player(uint16_t input_flags);
+
+    // Admin console
+    void handle_console_command(const std::string& command);
 };
 
 }

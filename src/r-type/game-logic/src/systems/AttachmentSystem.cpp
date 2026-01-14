@@ -8,6 +8,7 @@
 #include "systems/AttachmentSystem.hpp"
 #include "ecs/CoreComponents.hpp"
 #include "ecs/Registry.hpp"
+#include <cmath>
 
 void AttachmentSystem::init(Registry& registry)
 {
@@ -16,7 +17,6 @@ void AttachmentSystem::init(Registry& registry)
 
 void AttachmentSystem::update(Registry& registry, float dt)
 {
-    (void)dt;
     auto& positions = registry.get_components<Position>();
     auto& attacheds = registry.get_components<Attached>();
 
@@ -27,14 +27,28 @@ void AttachmentSystem::update(Registry& registry, float dt)
             continue;
 
         auto& attached = attacheds[entity];
-        
+
         // Check if parent exists
         if (positions.has_entity(attached.parentEntity)) {
             const auto& parentPos = positions[attached.parentEntity];
             auto& pos = positions[entity];
-            
-            pos.x = parentPos.x + attached.offsetX;
-            pos.y = parentPos.y + attached.offsetY;
+
+            // Calculer la position cible
+            float targetX = parentPos.x + attached.offsetX;
+            float targetY = parentPos.y + attached.offsetY;
+
+            // Si smoothFactor > 0, on interpole avec latence (effet de suivi)
+            // Sinon, on positionne directement (comportement original)
+            if (attached.smoothFactor > 0.0f) {
+                // Interpolation exponentielle (lerp) pour un suivi fluide
+                float lerpFactor = 1.0f - std::exp(-attached.smoothFactor * dt);
+                pos.x += (targetX - pos.x) * lerpFactor;
+                pos.y += (targetY - pos.y) * lerpFactor;
+            } else {
+                // Positionnement direct (pas de latence)
+                pos.x = targetX;
+                pos.y = targetY;
+            }
         }
     }
 }
