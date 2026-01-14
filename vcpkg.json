@@ -6,6 +6,7 @@
   "dependencies": [
     "boost-asio",
     "boost-system",
+    "enet",
     "glfw3",
     "raylib",
     "gtest",
