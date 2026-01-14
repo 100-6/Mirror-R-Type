@@ -42,6 +42,15 @@ public:
      * @param config Map configuration
      */
     void initWithConfig(const MapConfig& config);
+
+    /**
+     * @brief Reset the chunk manager, destroying all wall entities
+     * @param registry ECS registry to remove entities from
+     *
+     * Call this before initWithConfig() when restarting a game to ensure
+     * old wall collision entities are properly cleaned up.
+     */
+    void reset(Registry& registry);
     
     /**
      * @brief Load tile sheet texture
@@ -65,22 +74,23 @@ public:
     /**
      * @brief Get current scroll position
      */
-    float getScrollX() const { return m_scrollX; }
-    
+    float getScrollX() const { return static_cast<float>(m_scrollX); }
+
     /**
      * @brief Set scroll speed
      */
     void setScrollSpeed(float speed) { m_scrollSpeed = speed; }
-    
+
     /**
      * @brief Get scroll speed
      */
     float getScrollSpeed() const { return m_scrollSpeed; }
-    
+
     /**
      * @brief Update scroll position
+     * Uses double precision internally to avoid floating point accumulation errors
      */
-    void advanceScroll(float delta) { m_scrollX += delta; }
+    void advanceScroll(float delta) { m_scrollX += static_cast<double>(delta); }
     
     /**
      * @brief Check if chunk manager is initialized and ready to render
@@ -102,8 +112,10 @@ private:
     
     std::vector<SegmentData> m_segments;
     std::deque<Chunk> m_activeChunks;
-    
-    float m_scrollX = 0.0f;
+
+    // Use double for scroll position to avoid floating point precision errors
+    // over long play sessions (float loses precision after ~100k pixels)
+    double m_scrollX = 0.0;
     float m_scrollSpeed = 60.0f;
     
     int m_currentSegment = 0;

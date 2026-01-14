@@ -294,6 +294,10 @@ void GameSession::update(float delta_time)
     tick_count_++;
     current_scroll_ += scroll_speed_ * delta_time;
 
+    // Synchronize scroll position with network system for client synchronization
+    if (network_system_)
+        network_system_->set_scroll_x(current_scroll_);
+
     spawn_walls_in_view();
 
     wave_manager_.update(delta_time, current_scroll_);

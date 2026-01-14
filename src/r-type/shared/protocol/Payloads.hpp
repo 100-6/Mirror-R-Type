@@ -373,18 +373,19 @@ static_assert(sizeof(EntityState) == 25, "EntityState must be 25 bytes");
 
 /**
  * @brief SERVER_SNAPSHOT payload header (0xA0)
- * Base size: 6 bytes + (21 × entity_count) bytes
+ * Base size: 10 bytes + (25 × entity_count) bytes
  */
 PACK_START
 struct PACKED ServerSnapshotPayload {
     uint32_t server_tick;
     uint16_t entity_count;
+    float scroll_x;  // Current map scroll position for client synchronization
 
-    ServerSnapshotPayload() : server_tick(0), entity_count(0) {}
+    ServerSnapshotPayload() : server_tick(0), entity_count(0), scroll_x(0.0f) {}
 };
 PACK_END
 
-static_assert(sizeof(ServerSnapshotPayload) == 6, "ServerSnapshotPayload base must be 6 bytes");
+static_assert(sizeof(ServerSnapshotPayload) == 10, "ServerSnapshotPayload base must be 10 bytes");
 
 /**
  * @brief Enemy subtype identifiers for SERVER_ENTITY_SPAWN

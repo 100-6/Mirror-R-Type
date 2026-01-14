@@ -528,10 +528,17 @@ void EntityManager::remove_entity(uint32_t server_id) {
 
     Entity entity_to_remove = it->second;
 
-    // If this entity has a companion turret, publish destroy event (ECS architecture)
+    // If this entity has a companion turret, destroy it directly before killing the player
+    // This ensures the companion is cleaned up while the player entity still exists
     auto& bonusWeapons = registry_.get_components<BonusWeapon>();
     if (bonusWeapons.has_entity(entity_to_remove)) {
-        registry_.get_event_bus().publish(ecs::CompanionDestroyEvent{entity_to_remove});
+        const BonusWeapon& bonusWeapon = bonusWeapons[entity_to_remove];
+        if (bonusWeapon.weaponEntity != static_cast<size_t>(-1)) {
+            Entity companionEntity = static_cast<Entity>(bonusWeapon.weaponEntity);
+            // Kill the companion entity directly
+            registry_.kill_entity(companionEntity);
+        }
+        registry_.remove_component<BonusWeapon>(entity_to_remove);
     }
 
     registry_.kill_entity(entity_to_remove);
@@ -553,6 +560,20 @@ void EntityManager::remove_entity(uint32_t server_id) {
 }
 
 void EntityManager::clear_all() {
+    // First, destroy all companion entities attached to players
+    auto& bonusWeapons = registry_.get_components<BonusWeapon>();
+    for (const auto& pair : server_to_local_) {
+        Entity entity = pair.second;
+        if (bonusWeapons.has_entity(entity)) {
+            const BonusWeapon& bonusWeapon = bonusWeapons[entity];
+            if (bonusWeapon.weaponEntity != static_cast<size_t>(-1)) {
+                Entity companionEntity = static_cast<Entity>(bonusWeapon.weaponEntity);
+                registry_.kill_entity(companionEntity);
+            }
+        }
+    }
+
+    // Now kill all networked entities
     for (const auto& pair : server_to_local_)
         registry_.kill_entity(pair.second);
 

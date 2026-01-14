@@ -83,6 +83,11 @@ public:
     uint32_t get_tick_count() const { return tick_count_; }
 
     /**
+     * @brief Set the current scroll position for synchronization with clients
+     */
+    void set_scroll_x(float scroll_x) { current_scroll_x_ = scroll_x; }
+
+    /**
      * @brief Drain all pending entity spawns atomically
      * @return Queue of pending spawns (queue in this object is cleared)
      */
@@ -166,6 +171,9 @@ private:
     core::EventBus::SubscriptionId bonusCollectedSubId_;
 
     std::unordered_map<uint32_t, Entity>* player_entities_ = nullptr;
+
+    // Current scroll position for synchronization with clients
+    float current_scroll_x_ = 0.0f;
 };
 
 }

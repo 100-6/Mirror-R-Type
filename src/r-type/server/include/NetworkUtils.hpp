@@ -52,6 +52,21 @@ public:
     static inline uint16_t net_to_host16(uint16_t value) {
         return ntohs(value);
     }
+
+    /**
+     * @brief Convert float from host to network byte order
+     * Floats are sent as-is (IEEE 754 is consistent across platforms)
+     */
+    static inline float host_to_net_float(float value) {
+        return value;  // IEEE 754 floats don't need byte swapping
+    }
+
+    /**
+     * @brief Convert float from network to host byte order
+     */
+    static inline float net_to_host_float(float value) {
+        return value;  // IEEE 754 floats don't need byte swapping
+    }
 };
 
 /**
