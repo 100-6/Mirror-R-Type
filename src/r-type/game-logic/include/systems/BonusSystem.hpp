@@ -58,7 +58,6 @@ private:
 
     // Texture pour les bonus
     engine::TextureHandle bonusTex_ = engine::INVALID_HANDLE;
-    engine::TextureHandle bonusWeaponTex_ = engine::INVALID_HANDLE;
 
     // Random generator
     std::mt19937 rng_;

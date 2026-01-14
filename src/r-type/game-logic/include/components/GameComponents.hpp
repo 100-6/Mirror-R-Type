@@ -99,9 +99,11 @@ struct Projectile {
 };
 
 struct ShotAnimation {
-    float timer = 0.0f;
-    float frameDuration = 0.5f;  // Switch frame every 0.5 seconds
+    float timer = 0.0f;           // Timer for frame switching
+    float lifetime = 0.0f;        // Total time alive (for non-persistent destruction)
+    float frameDuration = 0.1f;   // Switch frame every 0.1 seconds (faster animation)
     bool currentFrame = false;    // false = frame 1, true = frame 2
+    bool persistent = false;      // If true, animation stays active (for companion turret)
 };
 
 struct BulletAnimation {
