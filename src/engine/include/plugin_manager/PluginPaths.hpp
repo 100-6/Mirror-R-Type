@@ -52,6 +52,8 @@ public:
      */
     static constexpr const char* RAYLIB_GRAPHICS = "raylib_graphics";
     static constexpr const char* RAYLIB_INPUT = "raylib_input";
+    static constexpr const char* SFML_GRAPHICS = "sfml_graphics";
+    static constexpr const char* SFML_INPUT = "sfml_input";
     static constexpr const char* MINIAUDIO_AUDIO = "miniaudio_audio";
     static constexpr const char* ASIO_NETWORK = "asio_network";
 };
