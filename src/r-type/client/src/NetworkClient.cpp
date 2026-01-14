@@ -339,11 +339,22 @@ void NetworkClient::handle_packet(const engine::NetworkPacket& packet) {
         case protocol::PacketType::SERVER_PLAYER_SKIN_UPDATED:
             handle_player_skin_updated(payload);
             break;
+        case protocol::PacketType::SERVER_ADMIN_AUTH_RESULT:
+            handle_admin_auth_result(payload);
+            break;
+        case protocol::PacketType::SERVER_ADMIN_COMMAND_RESULT:
+            handle_admin_command_result(payload);
+            break;
+        case protocol::PacketType::SERVER_ADMIN_NOTIFICATION:
+            handle_admin_notification(payload);
+            break;
+        case protocol::PacketType::SERVER_KICK_NOTIFICATION:
+            handle_kick_notification(payload);
+            break;
         case protocol::PacketType::SERVER_SNAPSHOT:
         case protocol::PacketType::SERVER_DELTA_SNAPSHOT:
-            if (in_game_) {
+            if (in_game_)
                 handle_snapshot(payload);
-            }
             break;
         default:
             std::cout << "[NetworkClient] Unhandled packet type: 0x" << std::hex
@@ -943,6 +954,97 @@ void NetworkClient::set_on_player_name_updated(std::function<void(const protocol
 
 void NetworkClient::set_on_player_skin_updated(std::function<void(const protocol::ServerPlayerSkinUpdatedPayload&)> callback) {
     on_player_skin_updated_ = callback;
+}
+
+void NetworkClient::send_admin_auth(const std::string& password) {
+    protocol::ClientAdminAuthPayload payload;
+    payload.client_id = htonl(player_id_);
+    std::hash<std::string> hasher;
+    std::ostringstream oss;
+
+    oss << std::hex << hasher(password);
+    payload.set_password_hash(oss.str());
+    payload.set_username("Admin");
+    send_tcp_packet(protocol::PacketType::CLIENT_ADMIN_AUTH,
+                   serialize_payload(&payload, sizeof(payload)));
+    std::cout << "[NetworkClient] Sent admin auth request\n";
+}
+
+void NetworkClient::send_admin_command(const std::string& command) {
+    if (!is_admin_authenticated_) {
+        std::cerr << "[NetworkClient] Cannot send command: not authenticated\n";
+        return;
+    }
+    protocol::ClientAdminCommandPayload payload;
+    payload.admin_id = htonl(player_id_);
+    payload.set_command(command);
+    send_tcp_packet(protocol::PacketType::CLIENT_ADMIN_COMMAND,
+                   serialize_payload(&payload, sizeof(payload)));
+}
+
+void NetworkClient::set_on_admin_auth_result(AdminAuthCallback callback) {
+    on_admin_auth_result_ = callback;
+}
+
+void NetworkClient::set_on_admin_command_result(AdminCommandResultCallback callback) {
+    on_admin_command_result_ = callback;
+}
+
+void NetworkClient::handle_admin_auth_result(const std::vector<uint8_t>& payload) {
+    if (payload.size() != sizeof(protocol::ServerAdminAuthResultPayload)) {
+        std::cerr << "[NetworkClient] Invalid SERVER_ADMIN_AUTH_RESULT payload size\n";
+        return;
+    }
+    protocol::ServerAdminAuthResultPayload data;
+    std::memcpy(&data, payload.data(), sizeof(data));
+    bool success = data.success != 0;
+    std::string message = success ? "Admin authenticated"
+                                  : std::string(data.failure_reason);
+    is_admin_authenticated_ = success;
+    if (on_admin_auth_result_)
+        on_admin_auth_result_(success, message);
+    std::cout << "[NetworkClient] Admin auth result: "
+              << (success ? "SUCCESS" : "FAILED") << "\n";
+}
+
+void NetworkClient::handle_admin_command_result(const std::vector<uint8_t>& payload) {
+    if (payload.size() != sizeof(protocol::ServerAdminCommandResultPayload)) {
+        std::cerr << "[NetworkClient] Invalid SERVER_ADMIN_COMMAND_RESULT payload size\n";
+        return;
+    }
+    protocol::ServerAdminCommandResultPayload data;
+    std::memcpy(&data, payload.data(), sizeof(data));
+    bool success = data.success != 0;
+    std::string message(data.message);
+    if (on_admin_command_result_)
+        on_admin_command_result_(success, message);
+}
+
+void NetworkClient::handle_admin_notification(const std::vector<uint8_t>& payload) {
+    if (payload.size() != sizeof(protocol::ServerAdminNotificationPayload)) {
+        std::cerr << "[NetworkClient] Invalid SERVER_ADMIN_NOTIFICATION payload size\n";
+        return;
+    }
+    protocol::ServerAdminNotificationPayload data;
+    std::memcpy(&data, payload.data(), sizeof(data));
+    std::string message(data.message);
+
+    if (on_admin_command_result_)
+        on_admin_command_result_(true, "[SERVER] " + message);
+}
+
+void NetworkClient::handle_kick_notification(const std::vector<uint8_t>& payload) {
+    if (payload.size() != sizeof(protocol::ServerKickNotificationPayload)) {
+        std::cerr << "[NetworkClient] Invalid SERVER_KICK_NOTIFICATION payload size\n";
+        return;
+    }
+    protocol::ServerKickNotificationPayload data;
+    std::memcpy(&data, payload.data(), sizeof(data));
+    std::string reason(data.reason);
+    std::cout << "[NetworkClient] Kicked from server: " << reason << "\n";
+
+    if (on_admin_command_result_)
+        on_admin_command_result_(false, "KICKED: " + reason);
 }
 
 }

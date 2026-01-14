@@ -1236,9 +1236,47 @@ void AsioNetworkPlugin::check_client_timeouts()
     }
 }
 
+void AsioNetworkPlugin::disconnect_client(ClientId client_id)
+{
+    if (!is_server_)
+        return;
+
+    std::cout << "[AsioNetworkPlugin] Disconnecting client " << client_id << std::endl;
+    {
+        std::lock_guard<std::mutex> lock(tcp_clients_mutex_);
+        auto it = tcp_clients_.find(client_id);
+        if (it != tcp_clients_.end()) {
+            if (it->second.socket) {
+                error_code ec;
+                it->second.socket->shutdown(tcp::socket::shutdown_both, ec);
+                it->second.socket->close(ec);
+            }
+            tcp_clients_.erase(it);
+        }
+    }
+    {
+        std::lock_guard<std::mutex> lock(association_mutex_);
+        auto udp_id_it = tcp_to_udp_.find(client_id);
+        if (udp_id_it != tcp_to_udp_.end()) {
+            ClientId udp_client_id = udp_id_it->second;
+            udp_to_tcp_.erase(udp_client_id);
+            tcp_to_udp_.erase(udp_id_it);
+        }
+    }
+    {
+        std::lock_guard<std::mutex> lock(udp_clients_mutex_);
+        auto udp_it = udp_clients_by_id_.find(client_id);
+        if (udp_it != udp_clients_by_id_.end()) {
+            std::string endpoint = udp_it->second;
+            udp_clients_by_endpoint_.erase(endpoint);
+            udp_clients_by_id_.erase(udp_it);
+        }
+    }
+    if (on_client_disconnected_)
+        on_client_disconnected_(client_id);
 }
 
-// ============== Plugin Factory ==============
+}
 
 extern "C" {
     PLUGIN_API engine::INetworkPlugin* create_network_plugin() {

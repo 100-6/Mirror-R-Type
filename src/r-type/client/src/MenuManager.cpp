@@ -43,6 +43,7 @@ void MenuManager::initialize() {
     browse_rooms_screen_ = std::make_unique<BrowseRoomsScreen>(network_client_, screen_width_, screen_height_);
     room_lobby_screen_ = std::make_unique<RoomLobbyScreen>(network_client_, screen_width_, screen_height_);
     password_dialog_ = std::make_unique<PasswordDialog>(screen_width_, screen_height_);
+    settings_screen_ = std::make_unique<SettingsScreen>(network_client_, screen_width_, screen_height_);
 
     // Set screen change callbacks
     main_menu_screen_->set_screen_change_callback([this](GameScreen screen) {
@@ -58,6 +59,10 @@ void MenuManager::initialize() {
     });
 
     room_lobby_screen_->set_screen_change_callback([this](GameScreen screen) {
+        set_screen(screen);
+    });
+
+    settings_screen_->set_screen_change_callback([this](GameScreen screen) {
         set_screen(screen);
     });
 
@@ -80,6 +85,7 @@ void MenuManager::initialize() {
     browse_rooms_screen_->initialize();
     room_lobby_screen_->initialize();
     password_dialog_->initialize();
+    settings_screen_->initialize();
 }
 
 // =============================================================================
@@ -100,6 +106,9 @@ void MenuManager::set_screen(GameScreen screen) {
             break;
         case GameScreen::ROOM_LOBBY:
             if (room_lobby_screen_) room_lobby_screen_->on_exit();
+            break;
+        case GameScreen::SETTINGS:
+            if (settings_screen_) settings_screen_->on_exit();
             break;
         default:
             break;
@@ -126,6 +135,9 @@ void MenuManager::set_screen(GameScreen screen) {
             break;
         case GameScreen::ROOM_LOBBY:
             if (room_lobby_screen_) room_lobby_screen_->on_enter();
+            break;
+        case GameScreen::SETTINGS:
+            if (settings_screen_) settings_screen_->on_enter();
             break;
         default:
             break;
@@ -168,6 +180,9 @@ void MenuManager::update(engine::IGraphicsPlugin* graphics, engine::IInputPlugin
                 }
             }
             break;
+        case GameScreen::SETTINGS:
+            if (settings_screen_) settings_screen_->update(graphics, input);
+            break;
         default:
             break;
     }
@@ -187,6 +202,9 @@ void MenuManager::draw(engine::IGraphicsPlugin* graphics) {
             break;
         case GameScreen::ROOM_LOBBY:
             if (room_lobby_screen_) room_lobby_screen_->draw(graphics);
+            break;
+        case GameScreen::SETTINGS:
+            if (settings_screen_) settings_screen_->draw(graphics);
             break;
         default:
             break;

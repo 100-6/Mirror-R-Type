@@ -185,6 +185,8 @@ Packet types are organized by functional category:
 | 0x24    | CLIENT_START_GAME     | Start game (host only)                   |
 | 0x25    | CLIENT_SET_PLAYER_NAME | Change player name in lobby             |
 | 0x26    | CLIENT_SET_PLAYER_SKIN | Change player skin in lobby             |
+| 0x30    | CLIENT_ADMIN_AUTH     | Admin authentication request             |
+| 0x31    | CLIENT_ADMIN_COMMAND  | Admin command execution                  |
 
 ### 4.3 Server-to-Client Packets
 
@@ -219,6 +221,10 @@ Packet types are organized by functional category:
 | 0xC3    | SERVER_WAVE_COMPLETE         | Wave completed                        |
 | 0xC5    | SERVER_PLAYER_RESPAWN        | Player respawned                      |
 | 0xC6    | SERVER_GAME_OVER             | Game session ended                    |
+| 0xF0    | SERVER_ADMIN_AUTH_RESULT     | Admin authentication result           |
+| 0xF1    | SERVER_ADMIN_COMMAND_RESULT  | Admin command execution result        |
+| 0xF2    | SERVER_ADMIN_NOTIFICATION    | Server-wide admin notification        |
+| 0xF3    | SERVER_KICK_NOTIFICATION     | Player kicked by admin                |
 
 ---
 
@@ -1307,6 +1313,163 @@ This allows clients to:
 | Kills       | 2 bytes | 10     | Enemies killed       |
 
 **Total Size**: 9 + (12 × Player Count) bytes
+
+---
+
+### 5.7 Admin System Payloads
+
+#### 5.7.1 CLIENT_ADMIN_AUTH (0x30)
+
+Admin authentication request with hashed password.
+
+```
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                          Client ID                            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                                                               |
+   +                     Password Hash (64 bytes)                 +
+   |                             ...                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                                                               |
+   +                       Username (32 bytes)                    +
+   |                             ...                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```
+
+| Field           | Size      | Description                           |
+|-----------------|-----------|---------------------------------------|
+| Client ID       | 4 bytes   | Client identifier                     |
+| Password Hash   | 64 bytes  | Hexadecimal string of hashed password |
+| Username        | 32 bytes  | Admin username (null-terminated)      |
+
+**Total Size**: 100 bytes
+
+#### 5.7.2 CLIENT_ADMIN_COMMAND (0x31)
+
+Execute an admin command on the server.
+
+```
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                           Admin ID                            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                                                               |
+   +                       Command (128 bytes)                    +
+   |                             ...                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```
+
+| Field       | Size       | Description                              |
+|-------------|------------|------------------------------------------|
+| Admin ID    | 4 bytes    | Authenticated admin ID                   |
+| Command     | 128 bytes  | Command string (null-terminated)         |
+
+**Total Size**: 132 bytes
+
+**Available Commands**:
+
+**Tier 1 - Basic Commands:**
+- `help` - Show available commands
+- `list` - List connected players with IDs and session info
+- `kick <player_id> [reason]` - Kick a player from the server
+- `info` - Display server statistics (uptime, connections, sessions)
+
+**Tier 2 - Game Control Commands:**
+- `pause` - Pause all active game sessions (freezes game logic)
+- `resume` - Resume all paused game sessions
+- `clearenemies [session_id]` - Clear enemies from all sessions or specific session
+
+#### 5.7.3 SERVER_ADMIN_AUTH_RESULT (0xF0)
+
+Result of admin authentication attempt.
+
+```
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |   Success     |                                               |
+   +-+-+-+-+-+-+-+-+                                               +
+   |                         Admin Level                           |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                                                               |
+   +                   Failure Reason (128 bytes)                 +
+   |                             ...                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```
+
+| Field           | Size      | Description                           |
+|-----------------|-----------|---------------------------------------|
+| Success         | 1 byte    | 1 = authenticated, 0 = failed         |
+| Admin Level     | 4 bytes   | Admin privilege level (if success=1)  |
+| Failure Reason  | 128 bytes | Error message (if success=0)          |
+
+**Total Size**: 133 bytes
+
+#### 5.7.4 SERVER_ADMIN_COMMAND_RESULT (0xF1)
+
+Result of admin command execution.
+
+```
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |   Success     |                                               |
+   +-+-+-+-+-+-+-+-+                                               +
+   |                                                               |
+   +                      Message (256 bytes)                     +
+   |                             ...                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```
+
+| Field    | Size       | Description                              |
+|----------|------------|------------------------------------------|
+| Success  | 1 byte     | 1 = success, 0 = failed                  |
+| Message  | 256 bytes  | Result or error message (null-terminated)|
+
+**Total Size**: 257 bytes
+
+#### 5.7.5 SERVER_ADMIN_NOTIFICATION (0xF2)
+
+Server-wide notification broadcast from admin.
+
+```
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                                                               |
+   +                      Message (256 bytes)                     +
+   |                             ...                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```
+
+| Field    | Size       | Description                              |
+|----------|------------|------------------------------------------|
+| Message  | 256 bytes  | Notification message (null-terminated)   |
+
+**Total Size**: 256 bytes
+
+#### 5.7.6 SERVER_KICK_NOTIFICATION (0xF3)
+
+Notification sent to a player who is being kicked.
+
+```
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                                                               |
+   +                       Reason (128 bytes)                     +
+   |                             ...                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```
+
+| Field   | Size       | Description                               |
+|---------|------------|-------------------------------------------|
+| Reason  | 128 bytes  | Kick reason message (null-terminated)     |
+
+**Total Size**: 128 bytes
 
 ---
 

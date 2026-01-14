@@ -3,6 +3,7 @@
 #include <cstdint>
 #include "plugin_manager/IInputPlugin.hpp"
 #include "protocol/PacketTypes.hpp"
+#include "KeyBindings.hpp"
 
 namespace rtype::client {
 
@@ -11,7 +12,12 @@ namespace rtype::client {
  */
 class InputHandler {
 public:
-    explicit InputHandler(engine::IInputPlugin& input_plugin);
+    explicit InputHandler(engine::IInputPlugin& input_plugin, KeyBindings* key_bindings = nullptr);
+
+    /**
+     * @brief Set key bindings (optional, uses defaults if not set)
+     */
+    void set_key_bindings(KeyBindings* key_bindings);
 
     /**
      * @brief Gather current input state and convert to network flags
@@ -36,6 +42,10 @@ public:
 
 private:
     engine::IInputPlugin& input_plugin_;
+    KeyBindings* key_bindings_;
+    KeyBindings default_bindings_;  // Fallback if none provided
+
+    bool is_action_pressed(GameAction action) const;
 };
 
 }

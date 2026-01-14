@@ -284,12 +284,18 @@ void GameSession::update(float delta_time)
 {
     if (!is_active_)
         return;
+
+    if (is_paused_) {
+        if (network_system_)
+            network_system_->update(registry_, delta_time);
+        return;
+    }
+
     tick_count_++;
     current_scroll_ += scroll_speed_ * delta_time;
-    
-    // Spawn walls from map tiles as they come into view
+
     spawn_walls_in_view();
-    
+
     wave_manager_.update(delta_time, current_scroll_);
     registry_.get_system<BonusSystem>().update(registry_, delta_time);
     registry_.get_system<BonusWeaponSystem>().update(registry_, delta_time);
@@ -751,6 +757,30 @@ void GameSession::spawn_walls_in_view()
         segment_world_x += segment_width;
         next_segment_to_spawn_++;
     }
+}
+
+void GameSession::pause()
+{
+    is_paused_ = true;
+    std::cout << "[GameSession " << session_id_ << "] Paused\n";
+}
+
+void GameSession::resume()
+{
+    is_paused_ = false;
+    std::cout << "[GameSession " << session_id_ << "] Resumed\n";
+}
+
+void GameSession::clear_enemies()
+{
+    auto& enemy_components = registry_.get_components<Enemy>();
+    size_t count = enemy_components.size();
+
+    for (size_t i = 0; i < count; ++i) {
+        Entity enemy_entity = enemy_components.get_entity_at(i);
+        registry_.add_component(enemy_entity, ToDestroy{});
+    }
+    std::cout << "[GameSession " << session_id_ << "] Cleared " << count << " enemies\n";
 }
 
 }

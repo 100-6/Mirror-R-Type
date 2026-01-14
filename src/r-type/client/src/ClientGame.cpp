@@ -103,8 +103,6 @@ bool ClientGame::initialize(const std::string& host, uint16_t tcp_port, const st
         *registry_, screen_manager_->get_status_entity()
     );
 
-    input_handler_ = std::make_unique<InputHandler>(*input_plugin_);
-
     network_client_ = std::make_unique<rtype::client::NetworkClient>(*network_plugin_);
     setup_network_callbacks();
 
@@ -112,9 +110,38 @@ bool ClientGame::initialize(const std::string& host, uint16_t tcp_port, const st
     interpolation_system_ = std::make_unique<InterpolationSystem>();
     debug_network_overlay_ = std::make_unique<DebugNetworkOverlay>(false);
 
+    console_overlay_ = std::make_unique<ConsoleOverlay>(
+        static_cast<float>(screen_width_),
+        static_cast<float>(screen_height_)
+    );
+    console_overlay_->set_command_callback([this](const std::string& cmd) {
+        handle_console_command(cmd);
+    });
+    network_client_->set_on_admin_auth_result([this](bool success, const std::string& msg) {
+        if (success) {
+            admin_authenticated_ = true;
+            console_overlay_->add_success(msg);
+        } else {
+            admin_authenticated_ = false;
+            console_overlay_->add_error("Auth failed: " + msg);
+        }
+    });
+    network_client_->set_on_admin_command_result([this](bool success, const std::string& msg) {
+        if (success)
+            console_overlay_->add_success(msg);
+        else
+            console_overlay_->add_error(msg);
+    });
+
     // Initialize menu manager
     menu_manager_ = std::make_unique<MenuManager>(*network_client_, screen_width_, screen_height_);
     menu_manager_->initialize();
+
+    // Create input handler with key bindings from settings
+    input_handler_ = std::make_unique<InputHandler>(
+        *input_plugin_,
+        menu_manager_->get_settings_screen() ? &menu_manager_->get_settings_screen()->get_key_bindings() : nullptr
+    );
 
     status_overlay_->set_connection("Connecting to " + host_ + ":" + std::to_string(tcp_port_));
     status_overlay_->refresh();
@@ -849,7 +876,13 @@ void ClientGame::run() {
             }
         }
 
-        // Toggle network debug overlay with F3 key
+        static bool tab_was_pressed = false;
+        bool tab_pressed = input_plugin_->is_key_pressed(engine::Key::Tab);
+        if (tab_pressed && !tab_was_pressed)
+            console_overlay_->toggle();
+        tab_was_pressed = tab_pressed;
+        if (console_overlay_->is_visible())
+            console_overlay_->update(graphics_plugin_, input_plugin_);
         if (input_handler_->is_network_debug_toggle_pressed()) {
             if (debug_network_overlay_) {
                 bool new_state = !debug_network_overlay_->is_enabled();
@@ -897,7 +930,8 @@ void ClientGame::run() {
         bool in_menu = (current_screen == GameScreen::MAIN_MENU ||
                        current_screen == GameScreen::CREATE_ROOM ||
                        current_screen == GameScreen::BROWSE_ROOMS ||
-                       current_screen == GameScreen::ROOM_LOBBY);
+                       current_screen == GameScreen::ROOM_LOBBY ||
+                       current_screen == GameScreen::SETTINGS);
         bool in_result = (current_screen == GameScreen::VICTORY ||
                          current_screen == GameScreen::DEFEAT);
         entity_manager_->update_projectiles(dt);
@@ -1061,11 +1095,10 @@ void ClientGame::run() {
             debug_network_overlay_->render(*graphics_plugin_);
         }
 
-        // Render result screen button (if on victory/defeat screen)
-        if (in_result) {
+        if (in_result)
             screen_manager_->draw_result_screen(graphics_plugin_);
-        }
-
+        if (console_overlay_)
+            console_overlay_->draw(graphics_plugin_);
         graphics_plugin_->display();
         input_plugin_->update();  // Update at END of frame for proper just_pressed detection
     }
@@ -1108,6 +1141,33 @@ void ClientGame::apply_input_to_local_player(uint16_t input_flags) {
     if (input_flags & protocol::INPUT_DOWN)  dir_y += 1.0f;
 
     registry_->get_event_bus().publish(ecs::PlayerMoveEvent{player, dir_x, dir_y});
+}
+
+void ClientGame::handle_console_command(const std::string& command) {
+    if (command == "clear") {
+        console_overlay_->add_info("Console cleared");
+        return;
+    }
+
+    if (command == "auth" || command.substr(0, 5) == "auth ") {
+        std::string password;
+        if (command.length() > 5)
+            password = command.substr(5);
+        else if (!admin_password_.empty())
+            password = admin_password_;
+        else {
+            console_overlay_->add_error("Usage: auth <password>");
+            return;
+        }
+        network_client_->send_admin_auth(password);
+        console_overlay_->add_info("Authenticating...");
+        return;
+    }
+    if (!admin_authenticated_) {
+        console_overlay_->add_error("Not authenticated. Use: auth <password>");
+        return;
+    }
+    network_client_->send_admin_command(command);
 }
 
 }

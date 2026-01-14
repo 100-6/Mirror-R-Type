@@ -7,6 +7,7 @@ set(RTYPE_CLIENT_SOURCES
     src/ClientGame.cpp
     src/TextureManager.cpp
     src/InputHandler.cpp
+    src/KeyBindings.cpp
     src/ScreenManager.cpp
     src/EntityManager.cpp
     src/StatusOverlay.cpp
@@ -14,6 +15,7 @@ set(RTYPE_CLIENT_SOURCES
     src/ui/UIButton.cpp
     src/ui/UITextField.cpp
     src/ui/UILabel.cpp
+    src/ui/ConsoleOverlay.cpp
     # Screen classes
     src/screens/MainMenuScreen.cpp
     src/screens/CreateRoomScreen.cpp
@@ -21,6 +23,7 @@ set(RTYPE_CLIENT_SOURCES
     src/screens/RoomLobbyScreen.cpp
     src/screens/PasswordDialog.cpp
     src/screens/SkinSelectorDialog.cpp
+    src/screens/SettingsScreen.cpp
     # CreateRoom module
     src/screens/createroom/CreateRoomInput.cpp
     src/screens/createroom/CreateRoomRenderer.cpp

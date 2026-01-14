@@ -96,6 +96,11 @@ public:
      */
     void resync_client(uint32_t player_id, uint32_t tcp_client_id);
 
+    // Admin commands
+    void pause();
+    void resume();
+    void clear_enemies();
+
 private:
     void on_wave_started(const Wave& wave) override;
     void on_wave_completed(const Wave& wave) override;
@@ -124,6 +129,7 @@ private:
     protocol::Difficulty difficulty_;
     uint16_t map_id_;
     std::atomic<bool> is_active_;
+    bool is_paused_ = false;
 
     Registry registry_;
     std::unordered_map<uint32_t, GamePlayer> players_;

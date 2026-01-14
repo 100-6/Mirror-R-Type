@@ -20,6 +20,7 @@ enum class GameScreen {
     CREATE_ROOM,
     BROWSE_ROOMS,
     ROOM_LOBBY,
+    SETTINGS,
     WAITING,
     PLAYING,
     VICTORY,
