@@ -12,7 +12,17 @@ void MovementTargetSystem::update(Registry& registry, float dt) {
     auto& targets = registry.get_components<components::MovementTarget>();
     auto& split_vels = registry.get_components<components::SplitVelocity>();
     auto& ejected_masses = registry.get_components<components::EjectedMass>();
+    auto& merge_timers = registry.get_components<components::MergeTimer>();
 
+    for (size_t i = 0; i < merge_timers.size(); ++i) {
+        auto& timer = merge_timers.get_data_at(i);
+        if (!timer.can_merge) {
+            timer.time_remaining -= dt;
+            if (timer.time_remaining <= 0.0f) {
+                timer.can_merge = true;
+            }
+        }
+    }
     for (size_t i = 0; i < masses.size(); ++i) {
         Entity entity = masses.get_entity_at(i);
         if (!positions.has_entity(entity) || !velocities.has_entity(entity))
@@ -48,24 +58,18 @@ void MovementTargetSystem::update(Registry& registry, float dt) {
                 registry.remove_component<components::SplitVelocity>(entity);
         }
     }
-
-    // Handle ejected mass decay and friction
     std::vector<Entity> to_destroy;
     for (size_t i = 0; i < ejected_masses.size(); ++i) {
         Entity entity = ejected_masses.get_entity_at(i);
         auto& ejected = ejected_masses.get_data_at(i);
-
-        // Update decay timer
         ejected.decay_timer -= dt;
         if (ejected.decay_timer <= 0.0f) {
             to_destroy.push_back(entity);
             continue;
         }
-
-        // Apply friction to slow down ejected mass
         if (velocities.has_entity(entity)) {
             auto& vel = velocities[entity];
-            float friction = 3.0f * dt;  // Friction coefficient
+            float friction = 3.0f * dt;
             float current_speed = std::sqrt(vel.x * vel.x + vel.y * vel.y);
             if (current_speed > friction) {
                 float factor = (current_speed - friction * current_speed) / current_speed;
@@ -77,11 +81,8 @@ void MovementTargetSystem::update(Registry& registry, float dt) {
             }
         }
     }
-
-    // Mark entities for destruction
-    for (Entity entity : to_destroy) {
+    for (Entity entity : to_destroy)
         registry.add_component<ToDestroy>(entity, ToDestroy{});
-    }
 }
 
 void MovementTargetSystem::shutdown() {

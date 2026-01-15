@@ -46,4 +46,4 @@ private:
     void handle_text_input(engine::IInputPlugin* input);
 };
 
-}  // namespace bagario
+}

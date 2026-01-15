@@ -48,4 +48,4 @@ private:
     engine::Color glow_color_ = {129, 199, 132, 200};      // Light green glow
 };
 
-}  // namespace bagario
+}

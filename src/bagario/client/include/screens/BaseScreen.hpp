@@ -32,4 +32,4 @@ protected:
     int screen_height_;
 };
 
-}  // namespace bagario
+}

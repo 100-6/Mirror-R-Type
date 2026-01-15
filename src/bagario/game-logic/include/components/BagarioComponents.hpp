@@ -30,13 +30,20 @@ struct PlayerCell {
  */
 struct Food {
     float nutrition = 1.0f;
+    uint32_t color = 0xFFFFFFFF;  // Random color for Agar.io-style food
 };
 
 /**
- * @brief Tag component for viruses (green spiky cells)
+ * @brief Component for viruses (green spiky cells)
  * Viruses split large cells that touch them
+ * Can be fed with ejected mass to shoot new viruses
  */
-struct Virus {};
+struct Virus {
+    int fed_count = 0;  // Number of ejected masses absorbed
+    float absorption_scale = 1.0f;  // Visual scale multiplier (grows when absorbing mass)
+    float absorption_timer = 0.0f;  // Timer for absorption animation
+    bool is_moving = false;  // True for shot viruses that need velocity decay
+};
 
 /**
  * @brief Tag component for ejected mass

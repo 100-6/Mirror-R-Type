@@ -40,4 +40,4 @@ private:
     int get_color_index_at(float mx, float my) const;
 };
 
-}  // namespace bagario
+}

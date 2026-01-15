@@ -60,4 +60,4 @@ private:
     void handle_screen_change(GameScreen new_screen);
 };
 
-}  // namespace bagario
+}

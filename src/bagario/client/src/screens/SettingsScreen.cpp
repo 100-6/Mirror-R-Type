@@ -30,8 +30,6 @@ void SettingsScreen::rebuild_ui() {
     title->set_color(engine::Color{76, 175, 80, 255});
     title->set_alignment(UILabel::Alignment::CENTER);
     labels_.push_back(std::move(title));
-
-    // Audio section title
     auto audio_title = std::make_unique<UILabel>(
         center_x, start_y + 100.0f, "Audio", 36);
     audio_title->set_color(engine::Color{200, 200, 200, 255});
@@ -48,7 +46,6 @@ void SettingsScreen::rebuild_ui() {
         label_x, music_y, "Music Volume", 28);
     music_label->set_color(engine::Color{255, 255, 255, 255});
     labels_.push_back(std::move(music_label));
-
     auto music_minus = std::make_unique<UIButton>(
         controls_x, music_y - 15.0f, 50.0f, 50.0f, "-");
     music_minus->set_on_click([this]() {
@@ -59,7 +56,6 @@ void SettingsScreen::rebuild_ui() {
         }
     });
     buttons_.push_back(std::move(music_minus));
-
     auto music_value = std::make_unique<UILabel>(
         controls_x + 100.0f, music_y, std::to_string(game_state_.music_volume) + "%", 28);
     music_value->set_color(engine::Color{129, 199, 132, 255});
@@ -77,14 +73,11 @@ void SettingsScreen::rebuild_ui() {
         }
     });
     buttons_.push_back(std::move(music_plus));
-
-    // SFX Volume
     float sfx_y = start_y + 250.0f;
     auto sfx_label = std::make_unique<UILabel>(
         label_x, sfx_y, "SFX Volume", 28);
     sfx_label->set_color(engine::Color{255, 255, 255, 255});
     labels_.push_back(std::move(sfx_label));
-
     auto sfx_minus = std::make_unique<UIButton>(
         controls_x, sfx_y - 15.0f, 50.0f, 50.0f, "-");
     sfx_minus->set_on_click([this]() {
@@ -95,14 +88,12 @@ void SettingsScreen::rebuild_ui() {
         }
     });
     buttons_.push_back(std::move(sfx_minus));
-
     auto sfx_value = std::make_unique<UILabel>(
         controls_x + 100.0f, sfx_y, std::to_string(game_state_.sfx_volume) + "%", 28);
     sfx_value->set_color(engine::Color{129, 199, 132, 255});
     sfx_value->set_alignment(UILabel::Alignment::CENTER);
     sfx_value_label_ = sfx_value.get();
     labels_.push_back(std::move(sfx_value));
-
     auto sfx_plus = std::make_unique<UIButton>(
         controls_x + 150.0f, sfx_y - 15.0f, 50.0f, 50.0f, "+");
     sfx_plus->set_on_click([this]() {
@@ -151,20 +142,17 @@ void SettingsScreen::rebuild_ui() {
     back_btn->set_on_click([this]() {
         // Save settings before leaving
         game_state_.save_settings();
-        if (on_screen_change_) {
+        if (on_screen_change_)
             on_screen_change_(GameScreen::WELCOME);
-        }
     });
     buttons_.push_back(std::move(back_btn));
 }
 
 void SettingsScreen::update_volume_labels() {
-    if (music_value_label_) {
+    if (music_value_label_)
         music_value_label_->set_text(std::to_string(game_state_.music_volume) + "%");
-    }
-    if (sfx_value_label_) {
+    if (sfx_value_label_)
         sfx_value_label_->set_text(std::to_string(game_state_.sfx_volume) + "%");
-    }
 }
 
 void SettingsScreen::update_vsync_label() {
@@ -178,11 +166,9 @@ void SettingsScreen::update_vsync_label() {
 }
 
 void SettingsScreen::update(engine::IGraphicsPlugin* graphics, engine::IInputPlugin* input) {
-    for (auto& button : buttons_) {
+    for (auto& button : buttons_)
         button->update(graphics, input);
-    }
 
-    // Apply VSync changes immediately when toggled
     if (game_state_.vsync != last_vsync_state_) {
         graphics->set_vsync(game_state_.vsync);
         last_vsync_state_ = game_state_.vsync;
@@ -190,29 +176,18 @@ void SettingsScreen::update(engine::IGraphicsPlugin* graphics, engine::IInputPlu
 }
 
 void SettingsScreen::draw(engine::IGraphicsPlugin* graphics) {
-    // Dark background
     graphics->clear(engine::Color{20, 25, 30, 255});
-
-    // Grid pattern
     engine::Color grid_color{40, 45, 55, 100};
     float grid_spacing = 50.0f;
 
-    for (float x = 0; x < screen_width_; x += grid_spacing) {
+    for (float x = 0; x < screen_width_; x += grid_spacing)
         graphics->draw_line({x, 0}, {x, static_cast<float>(screen_height_)}, grid_color, 1.0f);
-    }
-    for (float y = 0; y < screen_height_; y += grid_spacing) {
+    for (float y = 0; y < screen_height_; y += grid_spacing)
         graphics->draw_line({0, y}, {static_cast<float>(screen_width_), y}, grid_color, 1.0f);
-    }
-
-    // Draw labels
-    for (auto& label : labels_) {
+    for (auto& label : labels_)
         label->draw(graphics);
-    }
-
-    // Draw buttons
-    for (auto& button : buttons_) {
+    for (auto& button : buttons_)
         button->draw(graphics);
-    }
 }
 
-}  // namespace bagario
+}

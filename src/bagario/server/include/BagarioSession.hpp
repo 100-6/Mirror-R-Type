@@ -14,6 +14,7 @@
 #include "systems/BagarioCollisionSystem.hpp"
 #include "systems/MapBoundsSystem.hpp"
 #include "systems/MovementTargetSystem.hpp"
+#include "systems/VirusSystem.hpp"
 #include "Payloads.hpp"
 
 namespace bagario::server {
@@ -117,6 +118,8 @@ private:
     void register_components();
     void setup_systems();
     void handle_collision_event(const systems::CollisionEvent& event);
+    bool handle_virus_split(uint32_t player_id, size_t cell_entity);
+    void process_virus_shoot_queue();
     size_t spawn_player_cell(uint32_t player_id, const std::string& name, uint32_t color,
                              float x, float y, float mass);
     uint32_t get_next_network_id();
@@ -129,6 +132,7 @@ private:
     std::unique_ptr<systems::BagarioCollisionSystem> m_collision_system;
     std::unique_ptr<systems::MapBoundsSystem> m_bounds_system;
     std::unique_ptr<systems::MovementTargetSystem> m_movement_target_system;
+    std::unique_ptr<systems::VirusSystem> m_virus_system;
 
     // Player tracking
     // player_id -> list of entity IDs (cells owned by this player)

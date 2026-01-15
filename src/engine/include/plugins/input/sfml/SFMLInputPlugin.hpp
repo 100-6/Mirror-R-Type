@@ -84,11 +84,13 @@ public:
     float get_gamepad_axis(int gamepad_id, int axis) const override;
 
     // Update
-    // Update
     void update() override;
-    
+
     // Window handle
     void set_window_handle(void* handle) override;
+
+    // Focus check
+    bool has_focus() const override;
 };
 
 #endif /* !SFMLINPUTPLUGIN_HPP_ */

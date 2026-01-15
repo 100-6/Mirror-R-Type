@@ -21,6 +21,7 @@ void BagarioSession::init() {
     m_collision_system->init(m_registry);
     m_bounds_system->init(m_registry);
     m_movement_target_system->init(m_registry);
+    m_virus_system->init(m_registry);
     std::cout << "[BagarioSession] Session initialized" << std::endl;
 }
 
@@ -35,6 +36,8 @@ void BagarioSession::shutdown() {
         m_bounds_system->shutdown();
     if (m_movement_target_system)
         m_movement_target_system->shutdown();
+    if (m_virus_system)
+        m_virus_system->shutdown();
     m_player_cells.clear();
     m_player_names.clear();
     m_player_colors.clear();
@@ -55,8 +58,13 @@ void BagarioSession::update(float dt) {
     m_collision_system->update(m_registry, dt);
     m_bounds_system->update(m_registry, dt);
     m_food_spawner->update(m_registry, dt);
+    m_virus_system->update(m_registry, dt);
+    // Handle collision events
     for (const auto& event : m_collision_system->get_events())
         handle_collision_event(event);
+    // Process virus shoot queue (viruses that were fed enough mass)
+    process_virus_shoot_queue();
+    // Clean up destroyed entities
     auto& to_destroy = m_registry.get_components<ToDestroy>();
     std::vector<Entity> entities_to_kill;
     for (size_t i = 0; i < to_destroy.size(); ++i)
@@ -133,22 +141,28 @@ void BagarioSession::player_split(uint32_t player_id) {
             cells_to_split.push_back(entity);
         }
     }
+    auto& merge_timers = m_registry.get_components<components::MergeTimer>();
     for (size_t entity : cells_to_split) {
         float original_mass = masses[entity].value;
         float new_mass = original_mass * config::SPLIT_LOSS_FACTOR;
         masses[entity].value = new_mass;
         float dir_x = 1.0f, dir_y = 0.0f;
+        float target_x = positions[entity].x;
+        float target_y = positions[entity].y;
         if (targets.has_entity(entity) && positions.has_entity(entity)) {
-            float dx = targets[entity].target_x - positions[entity].x;
-            float dy = targets[entity].target_y - positions[entity].y;
+            target_x = targets[entity].target_x;
+            target_y = targets[entity].target_y;
+            float dx = target_x - positions[entity].x;
+            float dy = target_y - positions[entity].y;
             float dist = std::sqrt(dx * dx + dy * dy);
             if (dist > 0.001f) {
                 dir_x = dx / dist;
                 dir_y = dy / dist;
             }
         }
-        float spawn_x = positions[entity].x + dir_x * 50.0f;
-        float spawn_y = positions[entity].y + dir_y * 50.0f;
+        float cell_radius = config::mass_to_radius(new_mass);
+        float spawn_x = positions[entity].x + dir_x * (cell_radius * 2.0f);
+        float spawn_y = positions[entity].y + dir_y * (cell_radius * 2.0f);
         auto new_entity = spawn_player_cell(
             player_id,
             m_player_names[player_id],
@@ -156,20 +170,33 @@ void BagarioSession::player_split(uint32_t player_id) {
             spawn_x, spawn_y,
             new_mass
         );
+        if (targets.has_entity(new_entity)) {
+            targets[new_entity].target_x = target_x;
+            targets[new_entity].target_y = target_y;
+        }
         auto& split_vels = m_registry.get_components<components::SplitVelocity>();
         if (!split_vels.has_entity(new_entity))
             m_registry.add_component<components::SplitVelocity>(new_entity, components::SplitVelocity{});
         split_vels[new_entity].vx = dir_x * config::SPLIT_SPEED_BOOST;
         split_vels[new_entity].vy = dir_y * config::SPLIT_SPEED_BOOST;
+        split_vels[new_entity].decay_rate = config::SPLIT_DECAY_RATE;
+        float merge_time = config::get_merge_time(new_mass);
+        if (!merge_timers.has_entity(entity))
+            m_registry.add_component<components::MergeTimer>(entity, components::MergeTimer{merge_time, false});
+        else {
+            merge_timers[entity].time_remaining = merge_time;
+            merge_timers[entity].can_merge = false;
+        }
+        if (!merge_timers.has_entity(new_entity))
+            m_registry.add_component<components::MergeTimer>(new_entity, components::MergeTimer{merge_time, false});
     }
 }
 
 void BagarioSession::player_eject_mass(uint32_t player_id, float dir_x, float dir_y) {
     auto it = m_player_cells.find(player_id);
+
     if (it == m_player_cells.end())
         return;
-
-    // Normalize direction
     float len = std::sqrt(dir_x * dir_x + dir_y * dir_y);
     if (len < 0.001f) {
         dir_x = 1.0f;
@@ -178,28 +205,17 @@ void BagarioSession::player_eject_mass(uint32_t player_id, float dir_x, float di
         dir_x /= len;
         dir_y /= len;
     }
-
     auto& masses = m_registry.get_components<components::Mass>();
     auto& positions = m_registry.get_components<Position>();
-
-    // Eject from each cell that has enough mass
     for (size_t entity : it->second) {
         if (!masses.has_entity(entity) || !positions.has_entity(entity))
             continue;
-
-        // Check if cell has enough mass to eject
         if (masses[entity].value < config::MIN_EJECT_MASS)
             continue;
-
-        // Deduct mass from the cell
         masses[entity].value -= config::EJECT_MASS_COST;
-
-        // Calculate spawn position (slightly in front of the cell)
         float cell_radius = config::mass_to_radius(masses[entity].value);
         float spawn_x = positions[entity].x + dir_x * (cell_radius + 20.0f);
         float spawn_y = positions[entity].y + dir_y * (cell_radius + 20.0f);
-
-        // Create ejected mass entity
         auto ejected = m_registry.spawn_entity();
         m_registry.add_component<Position>(ejected, Position{spawn_x, spawn_y});
         m_registry.add_component<Velocity>(ejected, Velocity{
@@ -215,8 +231,6 @@ void BagarioSession::player_eject_mass(uint32_t player_id, float dir_x, float di
         });
         uint32_t net_id = get_next_network_id();
         m_registry.add_component<components::NetworkId>(ejected, components::NetworkId{net_id});
-
-        // Broadcast spawn event
         if (m_callbacks.on_entity_spawn) {
             protocol::ServerEntitySpawnPayload payload;
             payload.entity_id = net_id;
@@ -241,6 +255,7 @@ std::vector<protocol::EntityState> BagarioSession::get_snapshot() const {
     auto& owners = registry.get_components<components::CellOwner>();
     auto& foods = registry.get_components<components::Food>();
     auto& ejected = registry.get_components<components::EjectedMass>();
+    auto& viruses = registry.get_components<components::Virus>();
 
     for (size_t i = 0; i < positions.size(); ++i) {
         Entity entity = positions.get_entity_at(i);
@@ -265,10 +280,14 @@ std::vector<protocol::EntityState> BagarioSession::get_snapshot() const {
             state.owner_id = ejected[entity].original_owner;
             auto color_it = m_player_colors.find(ejected[entity].original_owner);
             state.color = color_it != m_player_colors.end() ? color_it->second : 0xFFFFFFFF;
+        } else if (viruses.has_entity(entity)) {
+            state.entity_type = protocol::EntityType::VIRUS;
+            state.owner_id = 0;
+            state.color = 0x00C800FF;  // Green
         } else if (foods.has_entity(entity)) {
             state.entity_type = protocol::EntityType::FOOD;
             state.owner_id = 0;
-            state.color = 0x00FF00FF;
+            state.color = foods[entity].color;
         } else {
             continue;
         }
@@ -343,10 +362,29 @@ void BagarioSession::setup_systems() {
     m_collision_system = std::make_unique<systems::BagarioCollisionSystem>();
     m_bounds_system = std::make_unique<systems::MapBoundsSystem>();
     m_movement_target_system = std::make_unique<systems::MovementTargetSystem>();
+    m_virus_system = std::make_unique<systems::VirusSystem>();
 
-    // Share network ID generator with food spawner to avoid ID conflicts
+    // Share network ID generator with spawners to avoid ID conflicts
     m_food_spawner->set_network_id_generator([this]() {
         return get_next_network_id();
+    });
+    m_virus_system->set_network_id_generator([this]() {
+        return get_next_network_id();
+    });
+
+    // Virus spawn callback
+    m_virus_system->set_spawn_callback([this](uint32_t net_id, float x, float y, float mass) {
+        if (m_callbacks.on_entity_spawn) {
+            protocol::ServerEntitySpawnPayload payload;
+            payload.entity_id = net_id;
+            payload.entity_type = protocol::EntityType::VIRUS;
+            payload.spawn_x = x;
+            payload.spawn_y = y;
+            payload.mass = mass;
+            payload.color = 0x00C800FF;  // Green
+            payload.owner_id = 0;
+            m_callbacks.on_entity_spawn(payload);
+        }
     });
 
     m_collision_system->set_collision_callback([this](const systems::CollisionEvent& event) {
@@ -371,6 +409,25 @@ void BagarioSession::handle_collision_event(const systems::CollisionEvent& event
                 }
             }
         }
+    } else if (event.type == systems::CollisionEvent::Type::CELL_MERGED) {
+        // Same player cells merged - remove the eaten cell from tracking
+        if (event.eaten_player_id != 0) {
+            auto it = m_player_cells.find(event.eaten_player_id);
+            if (it != m_player_cells.end()) {
+                auto& cells = it->second;
+                cells.erase(
+                    std::remove(cells.begin(), cells.end(), event.eaten_entity),
+                    cells.end()
+                );
+            }
+        }
+    } else if (event.type == systems::CollisionEvent::Type::CELL_HIT_VIRUS) {
+        // Cell hit a virus - split into multiple pieces
+        bool did_split = handle_virus_split(event.eater_player_id, event.eater_entity);
+        // Only destroy the virus if the player actually split
+        if (did_split) {
+            m_registry.add_component<ToDestroy>(event.eaten_entity, ToDestroy{});
+        }
     }
     if (m_callbacks.on_entity_destroy) {
         auto& network_ids = m_registry.get_components<components::NetworkId>();
@@ -386,6 +443,112 @@ void BagarioSession::handle_collision_event(const systems::CollisionEvent& event
             }
             m_callbacks.on_entity_destroy(payload);
         }
+    }
+}
+
+bool BagarioSession::handle_virus_split(uint32_t player_id, size_t cell_entity) {
+    auto& masses = m_registry.get_components<components::Mass>();
+    auto& positions = m_registry.get_components<Position>();
+    auto& targets = m_registry.get_components<components::MovementTarget>();
+
+    if (!masses.has_entity(cell_entity) || !positions.has_entity(cell_entity))
+        return false;
+
+    auto it = m_player_cells.find(player_id);
+    if (it == m_player_cells.end())
+        return false;
+
+    float original_mass = masses[cell_entity].value;
+    float cell_x = positions[cell_entity].x;
+    float cell_y = positions[cell_entity].y;
+
+    // Calculate how many pieces to split into (up to VIRUS_SPLIT_COUNT, limited by max cells)
+    int current_cells = static_cast<int>(it->second.size());
+    int max_new_cells = config::MAX_CELLS_PER_PLAYER - current_cells;
+    int split_count = std::min(config::VIRUS_SPLIT_COUNT - 1, max_new_cells);
+
+    if (split_count <= 0)
+        return false;  // Can't split, already at max cells
+
+    // Divide mass among all new cells + original
+    float mass_per_cell = original_mass / (split_count + 1);
+    masses[cell_entity].value = mass_per_cell;
+
+    // Get target direction for the main split direction
+    float target_x = cell_x, target_y = cell_y;
+    if (targets.has_entity(cell_entity)) {
+        target_x = targets[cell_entity].target_x;
+        target_y = targets[cell_entity].target_y;
+    }
+
+    auto& merge_timers = m_registry.get_components<components::MergeTimer>();
+    float merge_time = config::get_merge_time(mass_per_cell);
+
+    // Add merge timer to original cell
+    if (!merge_timers.has_entity(cell_entity))
+        m_registry.add_component<components::MergeTimer>(cell_entity, components::MergeTimer{merge_time, false});
+    else {
+        merge_timers[cell_entity].time_remaining = merge_time;
+        merge_timers[cell_entity].can_merge = false;
+    }
+
+    // Spawn split cells in different directions (radial pattern)
+    constexpr float PI = 3.14159265358979323846f;
+    for (int i = 0; i < split_count; ++i) {
+        float angle = (2.0f * PI * i) / split_count;
+        float dir_x = std::cos(angle);
+        float dir_y = std::sin(angle);
+
+        float cell_radius = config::mass_to_radius(mass_per_cell);
+        float spawn_x = cell_x + dir_x * (cell_radius * 2.0f);
+        float spawn_y = cell_y + dir_y * (cell_radius * 2.0f);
+
+        auto new_entity = spawn_player_cell(
+            player_id,
+            m_player_names[player_id],
+            m_player_colors[player_id],
+            spawn_x, spawn_y,
+            mass_per_cell
+        );
+
+        // Set target for new cell
+        if (targets.has_entity(new_entity)) {
+            targets[new_entity].target_x = target_x;
+            targets[new_entity].target_y = target_y;
+        }
+
+        // Add split velocity
+        auto& split_vels = m_registry.get_components<components::SplitVelocity>();
+        if (!split_vels.has_entity(new_entity))
+            m_registry.add_component<components::SplitVelocity>(new_entity, components::SplitVelocity{});
+        split_vels[new_entity].vx = dir_x * config::SPLIT_SPEED_BOOST;
+        split_vels[new_entity].vy = dir_y * config::SPLIT_SPEED_BOOST;
+        split_vels[new_entity].decay_rate = config::SPLIT_DECAY_RATE;
+
+        // Add merge timer
+        if (!merge_timers.has_entity(new_entity))
+            m_registry.add_component<components::MergeTimer>(new_entity, components::MergeTimer{merge_time, false});
+    }
+    return true;  // Split succeeded
+}
+
+void BagarioSession::process_virus_shoot_queue() {
+    auto& positions = m_registry.get_components<Position>();
+    auto& colliders = m_registry.get_components<components::CircleCollider>();
+
+    for (const auto& request : m_collision_system->get_virus_shoot_queue()) {
+        if (!positions.has_entity(request.virus_entity) || !colliders.has_entity(request.virus_entity))
+            continue;
+
+        float virus_x = positions[request.virus_entity].x;
+        float virus_y = positions[request.virus_entity].y;
+        float virus_radius = colliders[request.virus_entity].radius;
+
+        // Spawn new virus in the direction
+        float spawn_x = virus_x + request.dir_x * (virus_radius * 2.0f);
+        float spawn_y = virus_y + request.dir_y * (virus_radius * 2.0f);
+
+        m_virus_system->shoot_virus(m_registry, spawn_x, spawn_y, request.dir_x, request.dir_y);
     }
 }
 

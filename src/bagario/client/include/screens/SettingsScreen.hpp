@@ -43,4 +43,4 @@ private:
     bool last_vsync_state_ = true;  // Track changes to apply to graphics
 };
 
-}  // namespace bagario
+}

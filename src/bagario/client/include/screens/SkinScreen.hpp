@@ -56,4 +56,4 @@ private:
     ScreenChangeCallback on_screen_change_;
 };
 
-}  // namespace bagario
+}
