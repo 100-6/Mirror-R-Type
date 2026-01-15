@@ -35,15 +35,17 @@ void SkinScreen::rebuild_ui() {
     pattern_buttons_.clear();
 
     float center_x = screen_width_ / 2.0f;
+    float center_y = screen_height_ / 2.0f;
+    float start_y = center_y - 350.0f;
 
     // Title
-    auto title = std::make_unique<UILabel>(center_x, 40.0f, "CUSTOMIZE SKIN", 50);
+    auto title = std::make_unique<UILabel>(center_x, start_y, "CUSTOMIZE SKIN", 50);
     title->set_color(engine::Color{76, 175, 80, 255});
     title->set_alignment(UILabel::Alignment::CENTER);
     labels_.push_back(std::move(title));
 
     // Pattern section title
-    auto pattern_title = std::make_unique<UILabel>(center_x, 90.0f, "Select Pattern", 28);
+    auto pattern_title = std::make_unique<UILabel>(center_x, start_y + 50.0f, "Select Pattern", 28);
     pattern_title->set_color(engine::Color{200, 200, 200, 255});
     pattern_title->set_alignment(UILabel::Alignment::CENTER);
     labels_.push_back(std::move(pattern_title));
@@ -53,17 +55,17 @@ void SkinScreen::rebuild_ui() {
     float btn_width = 140.0f; // Wider buttons
     float btn_height = 50.0f; // Taller
     float btn_spacing = 20.0f;
-    
+
     // Calculate layout
     // Row 1: 3 buttons
     float row1_width = 3 * btn_width + 2 * btn_spacing;
     float start_x1 = center_x - row1_width / 2.0f;
-    float row1_y = 130.0f; // Moved up significantly
+    float row1_y = start_y + 90.0f;
 
     // Row 2: 3 buttons
     float row2_width = 3 * btn_width + 2 * btn_spacing;
     float start_x2 = center_x - row2_width / 2.0f;
-    float row2_y = 130.0f + btn_height + 15.0f; // Below row 1
+    float row2_y = row1_y + btn_height + 15.0f; // Below row 1
 
     auto add_pattern_btn = [&](const std::string& text, SkinPattern p, float x, float y) {
         auto btn = std::make_unique<UIButton>(x, y, btn_width, btn_height, text);
@@ -87,8 +89,9 @@ void SkinScreen::rebuild_ui() {
     // Image Input Field (Initially hidden or shown based on pattern)
     float input_width = 300.0f; // Slightly smaller to fit browse button
     float input_x = center_x - input_width / 2.0f - 40.0f;
+    float input_y = start_y + 260.0f;
     image_input_ = std::make_unique<UITextField>(
-        input_x, 300.0f, input_width, 60.0f, "Enter image path...");
+        input_x, input_y, input_width, 60.0f, "Enter image path...");
     image_input_->set_max_length(512); // Allow long file paths
     image_input_->set_text(game_state_.skin.image_path);
     image_input_->set_on_change([this](const std::string& text) {
@@ -98,7 +101,7 @@ void SkinScreen::rebuild_ui() {
 
     // Browse Button
     browse_button_ = std::make_unique<UIButton>(
-        input_x + input_width + 10.0f, 300.0f, 80.0f, 60.0f, "Browse"
+        input_x + input_width + 10.0f, input_y, 80.0f, 60.0f, "Browse"
     );
     browse_button_->set_on_click([this]() {
         // Simple Zenity file picker integration for Linux
@@ -124,17 +127,17 @@ void SkinScreen::rebuild_ui() {
     float cell_size = 35.0f;
     float picker_width = 5 * cell_size;
     float picker_height = 4 * cell_size;
-    
-    // Calculate total width of active pickers to center them dynamically? 
+
+    // Calculate total width of active pickers to center them dynamically?
     // For now, fixed positions but wider spacing
-    float picker_y = 310.0f; // Moved up from 350
+    float picker_y = start_y + 270.0f;
     float picker_spacing = 250.0f; // Wider spacing
 
     auto setup_picker = [&](std::unique_ptr<UIColorPicker>& picker, std::unique_ptr<UILabel>& label, float x, const std::string& text) {
         label = std::make_unique<UILabel>(x, picker_y - 30.0f, text, 24);
         label->set_color(engine::Color{200, 200, 200, 255});
         label->set_alignment(UILabel::Alignment::CENTER);
-        
+
         picker = std::make_unique<UIColorPicker>(x - picker_width / 2.0f, picker_y, cell_size);
     };
 
@@ -229,7 +232,7 @@ void SkinScreen::draw_grid_background(engine::IGraphicsPlugin* graphics) {
 
 void SkinScreen::draw_preview(engine::IGraphicsPlugin* graphics) {
     float center_x = screen_width_ / 2.0f;
-    float center_y = 550.0f;
+    float center_y = screen_height_ / 2.0f + 200.0f;
     float radius = 55.0f;
     float r_sq = radius * radius;
 

@@ -32,6 +32,7 @@ private:
     std::vector<std::unique_ptr<UILabel>> labels_;
     std::vector<std::unique_ptr<UIButton>> buttons_;
     std::unique_ptr<UITextField> username_field_;
+    std::unique_ptr<UITextField> ip_field_;
     ScreenChangeCallback on_screen_change_;
 };
 

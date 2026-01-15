@@ -206,6 +206,7 @@ struct PlayerSkin {
  */
 struct LocalGameState {
     std::string username = "Player";
+    std::string server_ip = "127.0.0.1";
     int music_volume = 70;
     int sfx_volume = 80;
     bool fullscreen = false;
