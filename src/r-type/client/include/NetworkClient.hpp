@@ -38,8 +38,6 @@ public:
 
     ~NetworkClient();
 
-    // ============== Connection ==============
-
     /**
      * @brief Connect to server via TCP
      * @param host Server hostname or IP
@@ -62,8 +60,6 @@ public:
      * @brief Check if UDP is connected
      */
     bool is_udp_connected() const;
-
-    // ============== Sending ==============
 
     /**
      * @brief Send connection request to server
@@ -147,14 +143,10 @@ public:
      */
     void send_input(uint16_t input_flags, uint32_t client_tick);
 
-    // ============== Update ==============
-
     /**
      * @brief Process incoming packets - call this every frame
      */
     void update();
-
-    // ============== Callbacks ==============
 
     /**
      * @brief Set callback for when connection is accepted
@@ -296,14 +288,38 @@ public:
      */
     void set_on_player_skin_updated(std::function<void(const protocol::ServerPlayerSkinUpdatedPayload&)> callback);
 
-    // ============== Getters ==============
+    /**
+     * @brief Send admin authentication request
+     * @param password Admin password (will be hashed client-side)
+     */
+    void send_admin_auth(const std::string& password);
+
+    /**
+     * @brief Send admin command
+     * @param command Command string to execute
+     */
+    void send_admin_command(const std::string& command);
+
+    /**
+     * @brief Set callback for admin auth result
+     * @param callback Function receiving success status and message
+     */
+    using AdminAuthCallback = std::function<void(bool success, const std::string& message)>;
+    void set_on_admin_auth_result(AdminAuthCallback callback);
+
+    /**
+     * @brief Set callback for admin command result
+     * @param callback Function receiving success status and message
+     */
+    using AdminCommandResultCallback = std::function<void(bool success, const std::string& message)>;
+    void set_on_admin_command_result(AdminCommandResultCallback callback);
 
     uint32_t get_player_id() const { return player_id_; }
     uint32_t get_session_id() const { return session_id_; }
     uint32_t get_lobby_id() const { return lobby_id_; }
     bool is_in_lobby() const { return in_lobby_; }
     bool is_in_game() const { return in_game_; }
-    uint32_t get_last_input_sequence() const { return input_sequence_number_ - 1; }  // Returns last sent sequence
+    uint32_t get_last_input_sequence() const { return input_sequence_number_ - 1; }
 
 private:
     void handle_packet(const engine::NetworkPacket& packet);
@@ -333,6 +349,10 @@ private:
     void handle_room_error(const std::vector<uint8_t>& payload);
     void handle_player_name_updated(const std::vector<uint8_t>& payload);
     void handle_player_skin_updated(const std::vector<uint8_t>& payload);
+    void handle_admin_auth_result(const std::vector<uint8_t>& payload);
+    void handle_admin_command_result(const std::vector<uint8_t>& payload);
+    void handle_admin_notification(const std::vector<uint8_t>& payload);
+    void handle_kick_notification(const std::vector<uint8_t>& payload);
 
     // UDP connection after game start
     void connect_udp(uint16_t udp_port);
@@ -393,6 +413,11 @@ private:
     std::function<void(const protocol::ServerRoomErrorPayload&)> on_room_error_;
     std::function<void(const protocol::ServerPlayerNameUpdatedPayload&)> on_player_name_updated_;
     std::function<void(const protocol::ServerPlayerSkinUpdatedPayload&)> on_player_skin_updated_;
+
+    // Admin callbacks
+    bool is_admin_authenticated_ = false;
+    AdminAuthCallback on_admin_auth_result_;
+    AdminCommandResultCallback on_admin_command_result_;
 };
 
 }

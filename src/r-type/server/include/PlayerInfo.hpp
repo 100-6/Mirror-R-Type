@@ -26,6 +26,10 @@ struct PlayerInfo {
     bool in_game;
     uint32_t session_id;
 
+    // Admin status
+    bool is_admin;
+    std::string admin_username;
+
     PlayerInfo()
         : client_id(0)
         , udp_client_id(0)
@@ -35,7 +39,9 @@ struct PlayerInfo {
         , in_lobby(false)
         , lobby_id(0)
         , in_game(false)
-        , session_id(0) {}
+        , session_id(0)
+        , is_admin(false)
+        , admin_username("") {}
 
     PlayerInfo(uint32_t cid, uint32_t pid, const std::string& name)
         : client_id(cid)
@@ -47,7 +53,9 @@ struct PlayerInfo {
         , in_lobby(false)
         , lobby_id(0)
         , in_game(false)
-        , session_id(0) {}
+        , session_id(0)
+        , is_admin(false)
+        , admin_username("") {}
 
     bool has_udp_connection() const { return udp_client_id != 0; }
 };

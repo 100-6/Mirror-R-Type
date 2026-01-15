@@ -190,6 +190,26 @@ void NetworkHandler::handle_tcp_packet(uint32_t client_id, protocol::PacketType 
             listener_->on_client_set_player_skin(client_id, data);
             break;
         }
+        case protocol::PacketType::CLIENT_ADMIN_AUTH: {
+            if (payload.size() != sizeof(protocol::ClientAdminAuthPayload)) {
+                std::cerr << "[NetworkHandler] Invalid CLIENT_ADMIN_AUTH payload size\n";
+                return;
+            }
+            protocol::ClientAdminAuthPayload data;
+            Memory::copy_to_struct(data, payload.data());
+            listener_->on_admin_auth(client_id, data);
+            break;
+        }
+        case protocol::PacketType::CLIENT_ADMIN_COMMAND: {
+            if (payload.size() != sizeof(protocol::ClientAdminCommandPayload)) {
+                std::cerr << "[NetworkHandler] Invalid CLIENT_ADMIN_COMMAND payload size\n";
+                return;
+            }
+            protocol::ClientAdminCommandPayload data;
+            Memory::copy_to_struct(data, payload.data());
+            listener_->on_admin_command(client_id, data);
+            break;
+        }
         default:
 //             std::cerr << "[NetworkHandler] Unexpected TCP packet type: 0x" << std::hex
 //                       << static_cast<int>(type) << std::dec << "\n";

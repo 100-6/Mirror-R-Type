@@ -227,6 +227,52 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
                 network_system_->queue_entity_spawn(bonus, entityType, event.x, event.y, 0, static_cast<uint8_t>(event.bonusType));
         });
 
+    // Subscribe to companion spawn events to create BonusWeapon component on server
+    registry_.get_event_bus().subscribe<ecs::CompanionSpawnEvent>(
+        [this](const ecs::CompanionSpawnEvent& event) {
+            auto& bonusWeapons = registry_.get_components<BonusWeapon>();
+            auto& positions = registry_.get_components<Position>();
+
+            // Check if player already has a companion
+            if (bonusWeapons.has_entity(event.player)) {
+                std::cout << "[GameSession " << session_id_ << "] Player " << event.player
+                          << " already has companion, ignoring spawn\n";
+                return;
+            }
+
+            if (!positions.has_entity(event.player)) {
+                std::cerr << "[GameSession " << session_id_ << "] Player has no position, cannot spawn companion\n";
+                return;
+            }
+
+            const Position& playerPos = positions[event.player];
+
+            // Create companion entity (server-side, no sprite needed)
+            Entity companionEntity = registry_.spawn_entity();
+
+            // Position offset relative to player
+            float bonusOffsetX = 120.0f;
+            float bonusOffsetY = -70.0f;
+
+            registry_.add_component(companionEntity, Position{
+                playerPos.x + bonusOffsetX,
+                playerPos.y + bonusOffsetY
+            });
+
+            registry_.add_component(companionEntity, Attached{
+                event.player,
+                bonusOffsetX,
+                bonusOffsetY,
+                4.0f  // Smooth follow factor
+            });
+
+            // Mark player as having a bonus weapon (stores companion entity reference)
+            registry_.add_component(event.player, BonusWeapon{companionEntity, 0.0f, true});
+
+            std::cout << "[GameSession " << session_id_ << "] Created server-side companion entity "
+                      << companionEntity << " for player " << event.player << "\n";
+        });
+
     // === INITIALIZE LEVEL SYSTEM ===
     // Map the map_id (0-based index from UI) directly to level_id
     // map_id 0 = test level, 1 = level 1, 2 = level 2, 3 = level 3, 4 = instant boss
@@ -337,8 +383,19 @@ void GameSession::update(float delta_time)
 {
     if (!is_active_)
         return;
+
+    if (is_paused_) {
+        if (network_system_)
+            network_system_->update(registry_, delta_time);
+        return;
+    }
+
     tick_count_++;
     current_scroll_ += scroll_speed_ * delta_time;
+
+    // Synchronize scroll position with network system for client synchronization
+    if (network_system_)
+        network_system_->set_scroll_x(current_scroll_);
 
     // Update ScrollState component for checkpoint system
     auto& scroll_states = registry_.get_components<game::ScrollState>();
@@ -348,7 +405,7 @@ void GameSession::update(float delta_time)
 
     // Spawn walls from map tiles as they come into view
     spawn_walls_in_view();
-    
+
     wave_manager_.update(delta_time, current_scroll_);
     registry_.get_system<BonusSystem>().update(registry_, delta_time);
     registry_.get_system<BonusWeaponSystem>().update(registry_, delta_time);
@@ -1000,8 +1057,6 @@ void GameSession::spawn_walls_in_view()
     }
 }
 
-
-
 // Implement valid member function inside existing namespace
 Entity GameSession::respawn_player_at(uint32_t player_id, float x, float y, float invuln_duration, uint8_t lives)
 {
@@ -1011,16 +1066,16 @@ Entity GameSession::respawn_player_at(uint32_t player_id, float x, float y, floa
         std::cerr << "[GameSession] Cannot respawn unknown player " << player_id << "\n";
         return engine::INVALID_HANDLE;
     }
-    
+
     // Create new entity
     Entity entity = registry_.spawn_entity();
-    
+
     // Update player tracking
     it->second.entity = entity;
     it->second.is_alive = true;
     it->second.lives = lives; // Sync lives from CheckpointSystem
     player_entities_[player_id] = entity;
-    
+
     // Basic components
     registry_.add_component(entity, Position{x, y});
     registry_.add_component(entity, Velocity{0.0f, 0.0f});
@@ -1029,10 +1084,10 @@ Entity GameSession::respawn_player_at(uint32_t player_id, float x, float y, floa
     registry_.add_component(entity, Controllable{rtype::shared::config::PLAYER_MOVEMENT_SPEED});
     registry_.add_component(entity, Collider{rtype::shared::config::PLAYER_WIDTH, rtype::shared::config::PLAYER_HEIGHT});
     registry_.add_component(entity, Invulnerability{invuln_duration});
-    
+
     // Score handling
     registry_.add_component(entity, Score{static_cast<int>(it->second.score)});
-    
+
     // Reset to basic weapon
     if (registry_.has_component_registered<Weapon>()) {
         Weapon weapon = create_weapon(WeaponType::BASIC, engine::INVALID_HANDLE);
@@ -1053,12 +1108,38 @@ Entity GameSession::respawn_player_at(uint32_t player_id, float x, float y, floa
             rtype::shared::config::PLAYER_MAX_HEALTH,
             subtype
         );
-        
+
         // Notify client of respawn
         network_system_->queue_player_respawn(player_id, x, y, invuln_duration, it->second.lives);
     }
-    
+
     return entity;
+}
+
+void GameSession::pause()
+{
+    is_paused_ = true;
+    std::cout << "[GameSession " << session_id_ << "] Paused\n";
+}
+
+void GameSession::resume()
+{
+    is_paused_ = false;
+    std::cout << "[GameSession " << session_id_ << "] Resumed\n";
+}
+
+void GameSession::clear_enemies()
+{
+    auto& enemy_components = registry_.get_components<Enemy>();
+    size_t count = enemy_components.size();
+
+    for (size_t i = 0; i < count; ++i) {
+        Entity enemy_entity = enemy_components.get_entity_at(i);
+        registry_.add_component(enemy_entity, ToDestroy{});
+    }
+    std::cout << "[GameSession " << session_id_ << "] Cleared " << count << " enemies\n";
+}
+
 }
 
 } // namespace rtype::server

@@ -38,8 +38,23 @@ void ChunkManagerSystem::initWithConfig(const MapConfig& config) {
     m_scrollSpeed = config.baseScrollSpeed;
     m_autoTiler.setWallSourceRects(config.wallSourceRects);
     m_initialized = true;
+    // Note: m_activeChunks is NOT cleared here - call reset() with registry first
+    // to properly destroy wall entities before reinitializing
+    m_scrollX = 0.0;
+    m_nextChunkIndex = 0;
+    m_currentSegment = 0;
+}
+
+void ChunkManagerSystem::reset(Registry& registry) {
+    // Destroy all wall entities from active chunks before clearing
+    for (auto& chunk : m_activeChunks) {
+        for (const auto& entityInfo : chunk.entities) {
+            registry.kill_entity(entityInfo.id);
+        }
+        chunk.entities.clear();
+    }
     m_activeChunks.clear();
-    m_scrollX = 0.0f;
+    m_scrollX = 0.0;
     m_nextChunkIndex = 0;
     m_currentSegment = 0;
 }

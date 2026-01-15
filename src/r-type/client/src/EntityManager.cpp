@@ -1,5 +1,6 @@
 #include "EntityManager.hpp"
 #include "GameConfig.hpp"
+#include "ecs/events/GameEvents.hpp"
 #include <iostream>
 #include <algorithm>
 #include <random>
@@ -461,19 +462,22 @@ Entity EntityManager::spawn_or_update_entity(uint32_t server_id, protocol::Entit
         // Il sera créé quand le joueur collectera le bonus BONUS_WEAPON
     }
 
-    // Créer un effet de feu pour les nouveaux projectiles joueur
+    // Créer un effet de feu pour les nouveaux projectiles joueur via ECS event
     if (type == protocol::EntityType::PROJECTILE_PLAYER && is_new) {
         // Ajouter l'animation de balle au projectile
         auto& bulletAnims = registry_.get_components<BulletAnimation>();
         if (!bulletAnims.has_entity(entity)) {
             registry_.add_component(entity, BulletAnimation{0.0f, 0.1f, 0});
         }
-        
-        // Trouver le joueur le plus proche (celui qui a tiré)
-        Entity closestPlayer = 0;
+
+        // Trouver le joueur ou vaisseau bonus le plus proche (celui qui a tiré)
+        Entity closestShooter = 0;
         float closestDistance = 1000000.0f;
+        bool isCompanionShot = false;
         auto& positions = registry_.get_components<Position>();
-        
+        auto& bonusWeapons = registry_.get_components<BonusWeapon>();
+
+        // D'abord chercher parmi les joueurs
         for (const auto& [srv_id, local_ent] : server_to_local_) {
             if (server_types_[srv_id] == protocol::EntityType::PLAYER && positions.has_entity(local_ent)) {
                 float dx = positions[local_ent].x - x;
@@ -481,62 +485,36 @@ Entity EntityManager::spawn_or_update_entity(uint32_t server_id, protocol::Entit
                 float dist = dx*dx + dy*dy;
                 if (dist < closestDistance) {
                     closestDistance = dist;
-                    closestPlayer = local_ent;
+                    closestShooter = local_ent;
+                    isCompanionShot = false;
                 }
             }
         }
-        
-        // Vérifier si ce joueur a déjà un effet de feu en cours
-        bool hasActiveFlash = false;
-        if (closestPlayer != 0) {
-            auto& shotAnims = registry_.get_components<ShotAnimation>();
-            auto& attacheds = registry_.get_components<Attached>();
-            
-            for (size_t i = 0; i < shotAnims.size(); i++) {
-                Entity flashEntity = shotAnims.get_entity_at(i);
-                if (attacheds.has_entity(flashEntity) && 
-                    attacheds[flashEntity].parentEntity == closestPlayer) {
-                    hasActiveFlash = true;
-                    break;
+
+        // Ensuite chercher parmi les vaisseaux bonus (companion turrets)
+        for (size_t i = 0; i < bonusWeapons.size(); i++) {
+            Entity playerWithBonus = bonusWeapons.get_entity_at(i);
+            const BonusWeapon& bw = bonusWeapons[playerWithBonus];
+            if (bw.weaponEntity != static_cast<size_t>(-1)) {
+                Entity companionEntity = static_cast<Entity>(bw.weaponEntity);
+                if (positions.has_entity(companionEntity)) {
+                    float dx = positions[companionEntity].x - x;
+                    float dy = positions[companionEntity].y - y;
+                    float dist = dx*dx + dy*dy;
+                    if (dist < closestDistance) {
+                        closestDistance = dist;
+                        closestShooter = companionEntity;
+                        isCompanionShot = true;
+                    }
                 }
             }
         }
-        
-        // Créer l'effet seulement si pas déjà actif
-        if (closestPlayer != 0 && !hasActiveFlash) {
-            // std::cout << "[MUZZLE FLASH] Creating muzzle flash for player " << closestPlayer << " at projectile pos (" << x << ", " << y << ")" << std::endl;
-            
-            Entity muzzleFlash = registry_.spawn_entity();
-            
-            // Calculer l'offset devant le vaisseau (ajusté pour vaisseau x2)
-            float flashOffsetX = 80.0f;  // x2 (était 40.0f)
-            float flashOffsetY = 0.0f;    // Centré verticalement
-            
-            // Attacher l'effet au vaisseau
-            registry_.add_component(muzzleFlash, Position{0.0f, 0.0f});
-            registry_.add_component(muzzleFlash, Attached{closestPlayer, flashOffsetX, flashOffsetY});
-            
-            // Créer le sprite avec la texture d'animation de feu
-            Sprite flashSprite;
-            flashSprite.texture = textures_.get_shot_frame_1();
-            flashSprite.width = 40.0f;   // x2
-            flashSprite.height = 40.0f;  // x2
-            flashSprite.rotation = 0.0f;
-            flashSprite.tint = engine::Color::White;
-            flashSprite.origin_x = 20.0f;  // x2
-            flashSprite.origin_y = 20.0f;  // x2
-            flashSprite.layer = 15;
-            flashSprite.source_rect.x = 0.0f;
-            flashSprite.source_rect.y = 0.0f;
-            flashSprite.source_rect.width = 16.0f;
-            flashSprite.source_rect.height = 16.0f;
-            
-            // std::cout << "[MUZZLE FLASH] Texture handle: " << flashSprite.texture << std::endl;
-            
-            registry_.add_component(muzzleFlash, flashSprite);
-            registry_.add_component(muzzleFlash, ShotAnimation{0.0f, 0.1f, false});
-        } else if (hasActiveFlash) {
-            // std::cout << "[MUZZLE FLASH] Already has active flash, skipping" << std::endl;
+
+        // Publish event to MuzzleFlashSystem (ECS architecture)
+        if (closestShooter != 0) {
+            registry_.get_event_bus().publish(ecs::MuzzleFlashSpawnEvent{
+                closestShooter, x, y, isCompanionShot
+            });
         }
     }
 
@@ -550,49 +528,19 @@ void EntityManager::remove_entity(uint32_t server_id) {
 
     Entity entity_to_remove = it->second;
 
-    // Check if this entity has a BonusWeapon (companion turret) attached
-    // If so, destroy the companion turret entity as well
+    // If this entity has a companion turret, destroy it directly before killing the player
+    // This ensures the companion is cleaned up while the player entity still exists
     auto& bonusWeapons = registry_.get_components<BonusWeapon>();
     if (bonusWeapons.has_entity(entity_to_remove)) {
         const BonusWeapon& bonusWeapon = bonusWeapons[entity_to_remove];
         if (bonusWeapon.weaponEntity != static_cast<size_t>(-1)) {
             Entity companionEntity = static_cast<Entity>(bonusWeapon.weaponEntity);
-            // Remove all components from companion to stop rendering
-            auto& sprites = registry_.get_components<Sprite>();
-            auto& positions = registry_.get_components<Position>();
-            auto& attacheds = registry_.get_components<Attached>();
-            if (sprites.has_entity(companionEntity))
-                registry_.remove_component<Sprite>(companionEntity);
-            if (positions.has_entity(companionEntity))
-                registry_.remove_component<Position>(companionEntity);
-            if (attacheds.has_entity(companionEntity))
-                registry_.remove_component<Attached>(companionEntity);
+            // Kill the companion entity directly
             registry_.kill_entity(companionEntity);
-            // std::cout << "[EntityManager] Destroyed companion turret entity " << companionEntity
-            //           << " for player " << server_id << std::endl;
         }
-        // Remove the BonusWeapon component from the player
         registry_.remove_component<BonusWeapon>(entity_to_remove);
     }
 
-    // Also check for any entities attached to this one and destroy them
-    auto& attacheds = registry_.get_components<Attached>();
-    std::vector<Entity> attached_to_destroy;
-    for (size_t i = 0; i < attacheds.size(); ++i) {
-        Entity attached_entity = attacheds.get_entity_at(i);
-        const Attached& attached = attacheds[attached_entity];
-        if (attached.parentEntity == entity_to_remove) {
-            attached_to_destroy.push_back(attached_entity);
-        }
-    }
-    for (Entity attached_entity : attached_to_destroy) {
-        auto& sprites = registry_.get_components<Sprite>();
-        if (sprites.has_entity(attached_entity))
-            registry_.remove_component<Sprite>(attached_entity);
-        registry_.kill_entity(attached_entity);
-        // std::cout << "[EntityManager] Destroyed attached entity " << attached_entity
-        //           << " for parent " << server_id << std::endl;
-    }
 
     registry_.kill_entity(entity_to_remove);
     server_types_.erase(server_id);
@@ -613,6 +561,20 @@ void EntityManager::remove_entity(uint32_t server_id) {
 }
 
 void EntityManager::clear_all() {
+    // First, destroy all companion entities attached to players
+    auto& bonusWeapons = registry_.get_components<BonusWeapon>();
+    for (const auto& pair : server_to_local_) {
+        Entity entity = pair.second;
+        if (bonusWeapons.has_entity(entity)) {
+            const BonusWeapon& bonusWeapon = bonusWeapons[entity];
+            if (bonusWeapon.weaponEntity != static_cast<size_t>(-1)) {
+                Entity companionEntity = static_cast<Entity>(bonusWeapon.weaponEntity);
+                registry_.kill_entity(companionEntity);
+            }
+        }
+    }
+
+    // Now kill all networked entities
     for (const auto& pair : server_to_local_)
         registry_.kill_entity(pair.second);
 

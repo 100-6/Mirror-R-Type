@@ -373,18 +373,19 @@ static_assert(sizeof(EntityState) == 25, "EntityState must be 25 bytes");
 
 /**
  * @brief SERVER_SNAPSHOT payload header (0xA0)
- * Base size: 6 bytes + (21 × entity_count) bytes
+ * Base size: 10 bytes + (25 × entity_count) bytes
  */
 PACK_START
 struct PACKED ServerSnapshotPayload {
     uint32_t server_tick;
     uint16_t entity_count;
+    float scroll_x;  // Current map scroll position for client synchronization
 
-    ServerSnapshotPayload() : server_tick(0), entity_count(0) {}
+    ServerSnapshotPayload() : server_tick(0), entity_count(0), scroll_x(0.0f) {}
 };
 PACK_END
 
-static_assert(sizeof(ServerSnapshotPayload) == 6, "ServerSnapshotPayload base must be 6 bytes");
+static_assert(sizeof(ServerSnapshotPayload) == 10, "ServerSnapshotPayload base must be 10 bytes");
 
 /**
  * @brief Enemy subtype identifiers for SERVER_ENTITY_SPAWN
@@ -923,5 +924,159 @@ struct PACKED ServerPlayerSkinUpdatedPayload {
 PACK_END
 
 static_assert(sizeof(ServerPlayerSkinUpdatedPayload) == 9, "ServerPlayerSkinUpdatedPayload must be 9 bytes");
+
+/**
+ * @brief CLIENT_ADMIN_AUTH payload (0x30)
+ * Client sends password hash to authenticate as admin
+ * Total size: 96 bytes
+ */
+PACK_START
+struct PACKED ClientAdminAuthPayload {
+    uint32_t client_id;              // 4 bytes - Network byte order
+    char password_hash[64];          // 64 bytes - SHA256 hex string
+    char username[28];               // 28 bytes - Admin username (display)
+
+    ClientAdminAuthPayload() : client_id(0) {
+        std::memset(password_hash, 0, sizeof(password_hash));
+        std::memset(username, 0, sizeof(username));
+    }
+
+    void set_password_hash(const std::string& hash) {
+        std::memset(password_hash, 0, sizeof(password_hash));
+        std::strncpy(password_hash, hash.c_str(), sizeof(password_hash) - 1);
+    }
+
+    void set_username(const std::string& name) {
+        std::memset(username, 0, sizeof(username));
+        std::strncpy(username, name.c_str(), sizeof(username) - 1);
+    }
+};
+PACK_END
+
+static_assert(sizeof(ClientAdminAuthPayload) == 96, "ClientAdminAuthPayload must be 96 bytes");
+
+/**
+ * @brief CLIENT_ADMIN_COMMAND payload (0x31)
+ * Client sends admin command to execute
+ * Total size: 140 bytes
+ */
+PACK_START
+struct PACKED ClientAdminCommandPayload {
+    uint32_t admin_id;               // 4 bytes - Admin player ID
+    uint8_t command_length;          // 1 byte - Length of command string
+    char command[135];               // 135 bytes - Command string
+
+    ClientAdminCommandPayload() : admin_id(0), command_length(0) {
+        std::memset(command, 0, sizeof(command));
+    }
+
+    void set_command(const std::string& cmd) {
+        command_length = std::min(static_cast<uint8_t>(cmd.size()),
+                                 static_cast<uint8_t>(sizeof(command) - 1));
+        std::memset(command, 0, sizeof(command));
+        std::strncpy(command, cmd.c_str(), command_length);
+    }
+
+    std::string get_command() const {
+        return std::string(command,
+                          std::min(static_cast<size_t>(command_length),
+                                  sizeof(command)));
+    }
+};
+PACK_END
+
+static_assert(sizeof(ClientAdminCommandPayload) == 140, "ClientAdminCommandPayload must be 140 bytes");
+
+/**
+ * @brief SERVER_ADMIN_AUTH_RESULT payload (0xD0)
+ * Server responds with authentication result
+ * Total size: 69 bytes
+ */
+PACK_START
+struct PACKED ServerAdminAuthResultPayload {
+    uint8_t success;                 // 1 byte - 0=failed, 1=success
+    uint32_t admin_level;            // 4 bytes - 0=none, 1=admin (future: roles)
+    char failure_reason[64];         // 64 bytes - Error message if failed
+
+    ServerAdminAuthResultPayload() : success(0), admin_level(0) {
+        std::memset(failure_reason, 0, sizeof(failure_reason));
+    }
+
+    void set_failure_reason(const std::string& reason) {
+        std::memset(failure_reason, 0, sizeof(failure_reason));
+        std::strncpy(failure_reason, reason.c_str(), sizeof(failure_reason) - 1);
+    }
+};
+PACK_END
+
+static_assert(sizeof(ServerAdminAuthResultPayload) == 69, "ServerAdminAuthResultPayload must be 69 bytes");
+
+/**
+ * @brief SERVER_ADMIN_COMMAND_RESULT payload (0xD1)
+ * Server responds with command execution result
+ * Total size: 257 bytes
+ */
+PACK_START
+struct PACKED ServerAdminCommandResultPayload {
+    uint8_t success;                 // 1 byte - 0=failed, 1=success
+    char message[256];               // 256 bytes - Result message or error
+
+    ServerAdminCommandResultPayload() : success(0) {
+        std::memset(message, 0, sizeof(message));
+    }
+
+    void set_message(const std::string& msg) {
+        std::memset(message, 0, sizeof(message));
+        std::strncpy(message, msg.c_str(), sizeof(message) - 1);
+    }
+};
+PACK_END
+
+static_assert(sizeof(ServerAdminCommandResultPayload) == 257, "ServerAdminCommandResultPayload must be 257 bytes");
+
+/**
+ * @brief SERVER_ADMIN_NOTIFICATION payload (0xD2)
+ * Server sends admin notifications (player events, etc.)
+ * Total size: 128 bytes
+ */
+PACK_START
+struct PACKED ServerAdminNotificationPayload {
+    uint8_t notification_type;       // 1 byte - Type of notification
+    char message[127];               // 127 bytes - Notification text
+
+    ServerAdminNotificationPayload() : notification_type(0) {
+        std::memset(message, 0, sizeof(message));
+    }
+
+    void set_message(const std::string& msg) {
+        std::memset(message, 0, sizeof(message));
+        std::strncpy(message, msg.c_str(), sizeof(message) - 1);
+    }
+};
+PACK_END
+
+static_assert(sizeof(ServerAdminNotificationPayload) == 128, "ServerAdminNotificationPayload must be 128 bytes");
+
+/**
+ * @brief SERVER_KICK_NOTIFICATION payload (0xD3)
+ * Server sends kick notification before disconnecting player
+ * Total size: 128 bytes
+ */
+PACK_START
+struct PACKED ServerKickNotificationPayload {
+    char reason[128];                // 128 bytes - Kick reason
+
+    ServerKickNotificationPayload() {
+        std::memset(reason, 0, sizeof(reason));
+    }
+
+    void set_reason(const std::string& msg) {
+        std::memset(reason, 0, sizeof(reason));
+        std::strncpy(reason, msg.c_str(), sizeof(reason) - 1);
+    }
+};
+PACK_END
+
+static_assert(sizeof(ServerKickNotificationPayload) == 128, "ServerKickNotificationPayload must be 128 bytes");
 
 }

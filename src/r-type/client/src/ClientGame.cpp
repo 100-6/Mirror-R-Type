@@ -9,12 +9,14 @@
 #include "systems/ColliderDebugSystem.hpp"
 #include "systems/CollisionSystem.hpp"
 #include "systems/BonusSystem.hpp"
-#include "systems/BonusWeaponSystem.hpp"
+#include "systems/CompanionSystem.hpp"
+#include "systems/MuzzleFlashSystem.hpp"
 #include "systems/MapConfigLoader.hpp"
 #include "protocol/NetworkConfig.hpp"
 #include "protocol/Payloads.hpp"
 #include "plugin_manager/PluginPaths.hpp"
 #include "ecs/events/InputEvents.hpp"
+#include "ecs/events/GameEvents.hpp"
 #include "ClientComponents.hpp"
 #include "components/GameComponents.hpp"
 #include "components/LevelComponents.hpp"
@@ -104,8 +106,6 @@ bool ClientGame::initialize(const std::string& host, uint16_t tcp_port, const st
         *registry_, screen_manager_->get_status_entity()
     );
 
-    input_handler_ = std::make_unique<InputHandler>(*input_plugin_);
-
     network_client_ = std::make_unique<rtype::client::NetworkClient>(*network_plugin_);
     setup_network_callbacks();
 
@@ -113,9 +113,38 @@ bool ClientGame::initialize(const std::string& host, uint16_t tcp_port, const st
     interpolation_system_ = std::make_unique<InterpolationSystem>();
     debug_network_overlay_ = std::make_unique<DebugNetworkOverlay>(false);
 
+    console_overlay_ = std::make_unique<ConsoleOverlay>(
+        static_cast<float>(screen_width_),
+        static_cast<float>(screen_height_)
+    );
+    console_overlay_->set_command_callback([this](const std::string& cmd) {
+        handle_console_command(cmd);
+    });
+    network_client_->set_on_admin_auth_result([this](bool success, const std::string& msg) {
+        if (success) {
+            admin_authenticated_ = true;
+            console_overlay_->add_success(msg);
+        } else {
+            admin_authenticated_ = false;
+            console_overlay_->add_error("Auth failed: " + msg);
+        }
+    });
+    network_client_->set_on_admin_command_result([this](bool success, const std::string& msg) {
+        if (success)
+            console_overlay_->add_success(msg);
+        else
+            console_overlay_->add_error(msg);
+    });
+
     // Initialize menu manager
     menu_manager_ = std::make_unique<MenuManager>(*network_client_, screen_width_, screen_height_);
     menu_manager_->initialize();
+
+    // Create input handler with key bindings from settings
+    input_handler_ = std::make_unique<InputHandler>(
+        *input_plugin_,
+        menu_manager_->get_settings_screen() ? &menu_manager_->get_settings_screen()->get_key_bindings() : nullptr
+    );
 
     status_overlay_->set_connection("Connecting to " + host_ + ":" + std::to_string(tcp_port_));
     status_overlay_->refresh();
@@ -271,8 +300,13 @@ void ClientGame::setup_systems() {
     // Bonus system - handles bonus collection and effects (with graphics for sprite loading)
     registry_->register_system<BonusSystem>(graphics_plugin_, screen_width_, screen_height_);
 
-    // Bonus Weapon system - handles companion turret that follows player
-    registry_->register_system<BonusWeaponSystem>(graphics_plugin_);
+    // Companion system - handles companion turret spawn/destroy via ECS events
+    registry_->register_system<CompanionSystem>(graphics_plugin_);
+    registry_->get_system<CompanionSystem>().set_companion_texture(texture_manager_->get_bonus_weapon());
+
+    // Muzzle flash system - handles muzzle flash effects via ECS events
+    registry_->register_system<MuzzleFlashSystem>(graphics_plugin_);
+    registry_->get_system<MuzzleFlashSystem>().set_muzzle_flash_texture(texture_manager_->get_shot_frame_1());
 }
 
 void ClientGame::setup_background() {
@@ -389,7 +423,11 @@ void ClientGame::load_map(const std::string& mapId) {
     } else {
         std::cerr << "[ClientGame] Failed to initialize parallax layers\n";
     }
-    
+
+    // Reset chunk manager to clean up old wall entities before reinitializing
+    // This fixes collision issues on game restart where old hitboxes would persist
+    chunk_manager_->reset(*registry_);
+
     // Initialize chunk manager
     chunk_manager_->initWithConfig(config);
     
@@ -597,7 +635,7 @@ void ClientGame::setup_network_callbacks() {
     });
 
     network_client_->set_on_powerup_collected([this](const protocol::ServerPowerupCollectedPayload& powerup) {
-        // Only handle WEAPON_UPGRADE type (bonus weapon)
+        // Only handle WEAPON_UPGRADE type (bonus weapon / companion turret)
         if (powerup.powerup_type != protocol::PowerupType::WEAPON_UPGRADE)
             return;
 
@@ -608,58 +646,9 @@ void ClientGame::setup_network_callbacks() {
             return;
 
         Entity playerEntity = entity_manager_->get_entity(powerup.player_id);
-        auto& bonusWeapons = registry_->get_components<BonusWeapon>();
-        auto& positions = registry_->get_components<Position>();
 
-        // Check if player already has bonus weapon
-        if (bonusWeapons.has_entity(playerEntity)) {
-//             std::cout << "[ClientGame] Player already has bonus weapon, ignoring" << std::endl;
-            return;
-        }
-
-        if (!positions.has_entity(playerEntity))
-            return;
-
-        const Position& playerPos = positions[playerEntity];
-
-        // Create the bonus weapon entity with sprite
-        Entity bonusWeaponEntity = registry_->spawn_entity();
-
-        // Size: percentage of original image (442x257)
-        constexpr float BONUS_SCALE_PERCENT = 15.0f;
-        float bonusWidth = 442.0f * (BONUS_SCALE_PERCENT / 100.0f);
-        float bonusHeight = 257.0f * (BONUS_SCALE_PERCENT / 100.0f);
-
-        // Position offset relative to player
-        float bonusOffsetX = 120.0f;
-        float bonusOffsetY = -70.0f;
-
-        registry_->add_component(bonusWeaponEntity, Position{playerPos.x + bonusOffsetX, playerPos.y + bonusOffsetY});
-        registry_->add_component(bonusWeaponEntity, Attached{playerEntity, bonusOffsetX, bonusOffsetY, 4.0f});
-
-        // Create sprite with bonus weapon texture
-        engine::TextureHandle bonusTex = texture_manager_->get_bonus_weapon();
-        Sprite bonusWeaponSprite{
-            bonusTex,
-            bonusWidth,
-            bonusHeight,
-            0.0f,
-            engine::Color::White,
-            0.0f,
-            0.0f,
-            15  // layer
-        };
-        bonusWeaponSprite.source_rect = {0.0f, 0.0f, 442.0f, 257.0f};
-        registry_->add_component(bonusWeaponEntity, bonusWeaponSprite);
-
-        // Mark player as having bonus weapon
-        registry_->add_component(playerEntity, BonusWeapon{bonusWeaponEntity, 0.0f, true});
-
-//         std::cout << "[ClientGame] Created bonus weapon sprite for player " << powerup.player_id
-//                   << " entity=" << bonusWeaponEntity
-//                   << " at (" << (playerPos.x + bonusOffsetX) << "," << (playerPos.y + bonusOffsetY) << ")"
-//                   << " size=" << bonusWidth << "x" << bonusHeight
-//                   << " tex=" << bonusTex << std::endl;
+        // Publish event to CompanionSystem (ECS architecture)
+        registry_->get_event_bus().publish(ecs::CompanionSpawnEvent{playerEntity, powerup.player_id});
     });
 
     network_client_->set_on_projectile_spawn([this](const protocol::ServerProjectileSpawnPayload& proj) {
@@ -706,6 +695,23 @@ void ClientGame::setup_network_callbacks() {
         uint32_t local_player_id = entity_manager_->get_local_player_entity_id();
         if (interpolation_system_) {
             interpolation_system_->on_snapshot_received(server_tick, entities, local_player_id);
+        }
+
+        // Synchronize scroll position from server to fix wall collision desync
+        float server_scroll = header.scroll_x;
+        if (chunk_manager_) {
+            // Calculate drift between client and server scroll
+            float client_scroll = static_cast<float>(chunk_manager_->getScrollX());
+            float scroll_drift = server_scroll - client_scroll;
+
+            // If drift is significant (>2 pixels), apply correction
+            // Use smooth correction to avoid visual jumps
+            if (std::abs(scroll_drift) > 2.0f) {
+                // Apply 50% of the drift for smooth correction
+                float correction = scroll_drift * 0.5f;
+                chunk_manager_->advanceScroll(correction);
+                map_scroll_x_ += correction;
+            }
         }
 
         for (const auto& state : entities) {
@@ -990,7 +996,13 @@ void ClientGame::run() {
             }
         }
 
-        // Toggle network debug overlay with F3 key
+        static bool tab_was_pressed = false;
+        bool tab_pressed = input_plugin_->is_key_pressed(engine::Key::Tab);
+        if (tab_pressed && !tab_was_pressed)
+            console_overlay_->toggle();
+        tab_was_pressed = tab_pressed;
+        if (console_overlay_->is_visible())
+            console_overlay_->update(graphics_plugin_, input_plugin_);
         if (input_handler_->is_network_debug_toggle_pressed()) {
             if (debug_network_overlay_) {
                 bool new_state = !debug_network_overlay_->is_enabled();
@@ -1039,7 +1051,8 @@ void ClientGame::run() {
         bool in_menu = (current_screen == GameScreen::MAIN_MENU ||
                        current_screen == GameScreen::CREATE_ROOM ||
                        current_screen == GameScreen::BROWSE_ROOMS ||
-                       current_screen == GameScreen::ROOM_LOBBY);
+                       current_screen == GameScreen::ROOM_LOBBY ||
+                       current_screen == GameScreen::SETTINGS);
         bool in_result = (current_screen == GameScreen::VICTORY ||
                          current_screen == GameScreen::DEFEAT);
         entity_manager_->update_projectiles(dt);
@@ -1075,38 +1088,7 @@ void ClientGame::run() {
             }
         }
         
-        // Update shot animations (alternate between sprites)
-        auto& shotAnimations = registry_->get_components<ShotAnimation>();
-        
-        for (size_t i = 0; i < shotAnimations.size(); i++) {
-            Entity entity = shotAnimations.get_entity_at(i);
-
-            if (!shotAnimations.has_entity(entity))
-                continue;
-
-            auto& shotAnim = shotAnimations[entity];
-            shotAnim.timer += dt;
-
-            // Switch frame every 0.5 seconds
-            if (shotAnim.timer >= shotAnim.frameDuration && shotAnim.timer - dt < shotAnim.frameDuration) {
-                shotAnim.currentFrame = !shotAnim.currentFrame;
-                
-                // Update sprite source_rect
-                if (sprites.has_entity(entity)) {
-                    auto& sprite = sprites[entity];
-                    // Frame 1 at x=0, Frame 2 at x=16 (each frame is 16x16 in a 32x16 image)
-                    sprite.source_rect.x = shotAnim.currentFrame ? 16.0f : 0.0f;
-                    sprite.source_rect.y = 0.0f;
-                    sprite.source_rect.width = 16.0f;
-                    sprite.source_rect.height = 16.0f;
-                }
-            }
-            
-            // Destroy the muzzle flash effect after 0.3 second
-            if (shotAnim.timer >= 0.3f) {
-                registry_->kill_entity(entity);
-            }
-        }
+        // Shot animations are now handled by MuzzleFlashSystem (ECS architecture)
 
         auto& explosionAnimations = registry_->get_components<ExplosionAnimation>();
         for (size_t i = 0; i < explosionAnimations.size(); ++i) {
@@ -1234,8 +1216,7 @@ void ClientGame::run() {
             debug_network_overlay_->render(*graphics_plugin_);
         }
 
-        // Render result screen button (if on victory/defeat screen)
-        if (in_result) {
+        if (in_result)
             screen_manager_->draw_result_screen(graphics_plugin_);
         }
 
@@ -1243,7 +1224,7 @@ void ClientGame::run() {
         // --- Visual Reset Effect (Fade to Black) ---
         static float fade_alpha = 0.0f;
         static bool is_fading = false;
-        
+
         if (fade_trigger_) {
             is_fading = true;
             fade_alpha = 1.0f; // Start fully black
@@ -1253,7 +1234,7 @@ void ClientGame::run() {
         if (is_fading) {
             // Draw fullscreen black rectangle
             engine::Rectangle func_rect{0.0f, 0.0f, static_cast<float>(screen_width_), static_cast<float>(screen_height_)};
-            // Alpha 255 = fully opaque, 0 = transparent. 
+            // Alpha 255 = fully opaque, 0 = transparent.
             // We want to start at 1.0 (255) and fade to 0.
             uint8_t alpha_byte = static_cast<uint8_t>(fade_alpha * 255.0f);
             graphics_plugin_->draw_rectangle(func_rect, engine::Color{0, 0, 0, alpha_byte});
@@ -1265,6 +1246,8 @@ void ClientGame::run() {
             }
         }
 
+        if (console_overlay_)
+            console_overlay_->draw(graphics_plugin_);
         graphics_plugin_->display();
         input_plugin_->update();  // Update at END of frame for proper just_pressed detection
     }
@@ -1307,6 +1290,33 @@ void ClientGame::apply_input_to_local_player(uint16_t input_flags) {
     if (input_flags & protocol::INPUT_DOWN)  dir_y += 1.0f;
 
     registry_->get_event_bus().publish(ecs::PlayerMoveEvent{player, dir_x, dir_y});
+}
+
+void ClientGame::handle_console_command(const std::string& command) {
+    if (command == "clear") {
+        console_overlay_->add_info("Console cleared");
+        return;
+    }
+
+    if (command == "auth" || command.substr(0, 5) == "auth ") {
+        std::string password;
+        if (command.length() > 5)
+            password = command.substr(5);
+        else if (!admin_password_.empty())
+            password = admin_password_;
+        else {
+            console_overlay_->add_error("Usage: auth <password>");
+            return;
+        }
+        network_client_->send_admin_auth(password);
+        console_overlay_->add_info("Authenticating...");
+        return;
+    }
+    if (!admin_authenticated_) {
+        console_overlay_->add_error("Not authenticated. Use: auth <password>");
+        return;
+    }
+    network_client_->send_admin_command(command);
 }
 
 }

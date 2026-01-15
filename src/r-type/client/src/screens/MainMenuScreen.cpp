@@ -59,6 +59,20 @@ void MainMenuScreen::initialize() {
         }
     });
     buttons_.push_back(std::move(browse_btn));
+
+    // SETTINGS button (bottom center)
+    float settings_btn_width = 200.0f;
+    float settings_btn_height = 50.0f;
+    float settings_btn_x = (screen_width_ - settings_btn_width) / 2.0f;
+    auto settings_btn = std::make_unique<UIButton>(
+        1000, screen_height_ - 70.0f, settings_btn_width, settings_btn_height, "Settings");
+    settings_btn->set_on_click([this]() {
+        std::cout << "[MainMenuScreen] Settings selected\n";
+        if (on_screen_change_) {
+            on_screen_change_(GameScreen::SETTINGS);
+        }
+    });
+    buttons_.push_back(std::move(settings_btn));
 }
 
 void MainMenuScreen::update(engine::IGraphicsPlugin* graphics, engine::IInputPlugin* input) {

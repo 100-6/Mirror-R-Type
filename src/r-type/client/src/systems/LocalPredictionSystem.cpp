@@ -65,6 +65,8 @@ void LocalPredictionSystem::update(Registry& registry, float dt) {
     float predicted_y = last_state.y + velocity.y * elapsed;
 
     clamp_position(predicted_x, predicted_y, player_collider);
+    // Wall collisions are now synchronized via scroll_x in server snapshots,
+    // so client-side prediction should match server-side collision detection.
     resolve_wall_collisions(registry, predicted_x, predicted_y, player_collider);
 
     Position& position = positions[player];

@@ -267,11 +267,12 @@ void ServerNetworkSystem::send_state_snapshot(Registry& registry)
 std::vector<uint8_t> ServerNetworkSystem::serialize_snapshot(Registry& registry)
 {
     // Maximum entities that fit in a single snapshot packet
-    // MAX_PAYLOAD_SIZE = 1387 bytes, header = 6 bytes, EntityState = 25 bytes
+    // MAX_PAYLOAD_SIZE = 1387 bytes, header = 10 bytes, EntityState = 25 bytes
     constexpr size_t MAX_ENTITIES_PER_SNAPSHOT = 55;
 
     protocol::ServerSnapshotPayload snapshot;
     snapshot.server_tick = ByteOrder::host_to_net32(tick_count_);
+    snapshot.scroll_x = ByteOrder::host_to_net_float(current_scroll_x_);
     std::vector<uint8_t> payload;
     const uint8_t* header_bytes = reinterpret_cast<const uint8_t*>(&snapshot);
     payload.insert(payload.end(), header_bytes, header_bytes + sizeof(snapshot));

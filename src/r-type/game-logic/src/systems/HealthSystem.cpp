@@ -105,8 +105,11 @@ void HealthSystem::init(Registry& registry)
                 registry.add_component(event.target, ToDestroy{});
                 std::cout << "[HealthSystem] ToDestroy component added to entity " << event.target << std::endl;
 
-                if (isPlayer)
+                if (isPlayer) {
+                    // Destroy companion turret when player dies
+                    registry.get_event_bus().publish(ecs::CompanionDestroyEvent{event.target});
                     std::cout << "GAME OVER! Player died!" << std::endl;
+                }
                 else if (isEnemy)
                     std::cout << "Enemy " << event.target << " destroyed!" << std::endl;
             }

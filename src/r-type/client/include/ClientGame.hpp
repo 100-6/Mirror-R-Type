@@ -21,6 +21,7 @@
 #include "systems/ClientPredictionSystem.hpp"
 #include "systems/InterpolationSystem.hpp"
 #include "DebugNetworkOverlay.hpp"
+#include "ui/ConsoleOverlay.hpp"
 
 namespace rtype::client {
 
@@ -83,7 +84,7 @@ private:
     std::unique_ptr<rtype::ParallaxBackgroundSystem> parallax_system_;
     std::unique_ptr<rtype::ChunkManagerSystem> chunk_manager_;
     float map_scroll_x_ = 0.0f;
-    std::string current_map_id_str_ = "nebula_outpost";  // Current map ID
+    std::string current_map_id_str_ = "nebula_outpost";
     float server_scroll_speed_ = 60.0f;
 
     // Network client
@@ -94,13 +95,18 @@ private:
     std::unique_ptr<rtype::client::InterpolationSystem> interpolation_system_;
     std::unique_ptr<rtype::client::DebugNetworkOverlay> debug_network_overlay_;
 
+    // Admin console overlay
+    std::unique_ptr<ConsoleOverlay> console_overlay_;
+    bool admin_authenticated_ = false;
+    std::string admin_password_;
+
     // Game state
     std::atomic<bool> running_;
     uint32_t client_tick_;
     Entity wave_tracker_;
-    float current_time_;  // Temps écoulé depuis démarrage (pour extrapolation)
-    uint16_t current_map_id_ = 1;  // Current map (1=Nebula, 2=Asteroid, 3=Bydo)
-    int last_known_score_ = 0;  // Last known score of local player (for game over screen)
+    float current_time_;
+    uint16_t current_map_id_ = 1;
+    int last_known_score_ = 0;
 
     // Background entities (legacy, kept for menu)
     Entity background1_;
@@ -119,8 +125,8 @@ private:
     void setup_registry();
     void setup_systems();
     void setup_background();
-    void setup_map_system();  // New map system setup
-    void load_map(const std::string& mapId);  // Load specific map by ID
+    void setup_map_system();
+    void load_map(const std::string& mapId);
     void setup_network_callbacks();
 
     // Map-specific theming
@@ -133,6 +139,9 @@ private:
 
     // Client-side prediction
     void apply_input_to_local_player(uint16_t input_flags);
+
+    // Admin console
+    void handle_console_command(const std::string& command);
 };
 
 }

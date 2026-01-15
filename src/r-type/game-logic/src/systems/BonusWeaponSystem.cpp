@@ -87,8 +87,8 @@ void BonusWeaponSystem::fireBonusWeapon(Registry& registry, Entity bonusWeaponEn
     // Position du projectile : au milieu à droite du sprite bonus
     // weaponPos est au centre du sprite (origin centré)
     // Ajuster manuellement pour être au milieu à droite
-    float bulletOffsetX = weaponWidth / 2.0f - 120.0f;  // Plus vers la droite
-    float bulletOffsetY = -40.0f;  // Légèrement vers le haut
+    float bulletOffsetX = weaponWidth / 2.0f + 90.0f;  // Plus vers la droite
+    float bulletOffsetY = 13.0f;  // Légèrement vers le haut
 
     std::cout << "[BONUS WEAPON] weaponPos=(" << weaponPos.x << "," << weaponPos.y
               << ") weaponWidth=" << weaponWidth << " weaponHeight=" << weaponHeight
