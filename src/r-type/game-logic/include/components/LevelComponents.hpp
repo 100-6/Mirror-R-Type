@@ -57,46 +57,7 @@ struct LevelController {
     {}
 };
 
-// ============================================================================
-// CHECKPOINT COMPONENTS
-// ============================================================================
-
-/**
- * @brief Represents a single checkpoint in a level
- *
- * Checkpoints are activated when the player reaches the scroll distance.
- * When a player dies, they respawn at the most recently activated checkpoint.
- */
-struct Checkpoint {
-    std::string checkpoint_id;       ///< Unique ID ("start", "cp1", "cp2", "boss")
-    float scroll_distance;           ///< Scroll distance that triggers activation
-    float respawn_x;                 ///< Player respawn X position
-    float respawn_y;                 ///< Player respawn Y position
-    bool activated;                  ///< Has any player reached this checkpoint?
-
-    Checkpoint()
-        : checkpoint_id("")
-        , scroll_distance(0.0f)
-        , respawn_x(100.0f)
-        , respawn_y(540.0f)
-        , activated(false)
-    {}
-};
-
-/**
- * @brief Manages all checkpoints for the current level
- *
- * Tracks checkpoint activation and provides respawn information.
- * Only one should exist per game session.
- */
-struct CheckpointManager {
-    std::vector<Checkpoint> checkpoints;      ///< All checkpoints in current level
-    uint32_t active_checkpoint_index;         ///< Most recently activated checkpoint
-
-    CheckpointManager()
-        : active_checkpoint_index(0)
-    {}
-};
+// Checkpoint components removed - replaced by dynamic respawn system
 
 // ============================================================================
 // BOSS PHASE COMPONENTS
@@ -240,14 +201,13 @@ struct PlayerLives {
     uint8_t lives_remaining;         ///< Remaining lives (0-3)
     bool respawn_pending;            ///< Is player waiting to respawn?
     float respawn_timer;             ///< Countdown until respawn (3 seconds)
-    uint32_t checkpoint_index;       ///< Which checkpoint to respawn at
+    // checkpoint_index removed - dynamic respawn used instead
 
     PlayerLives()
         : player_id(0)
         , lives_remaining(3)
         , respawn_pending(false)
         , respawn_timer(0.0f)
-        , checkpoint_index(0)
     {}
 };
 

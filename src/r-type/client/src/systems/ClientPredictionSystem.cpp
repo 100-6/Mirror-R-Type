@@ -13,7 +13,6 @@ namespace rtype::client {
 ClientPredictionSystem::ClientPredictionSystem(uint32_t local_player_id)
     : local_player_id_(local_player_id)
 {
-    std::cout << "[ClientPredictionSystem] Initialized for player " << local_player_id << "\n";
 }
 
 void ClientPredictionSystem::on_input_sent(uint32_t sequence, uint16_t flags, uint32_t timestamp)
@@ -23,7 +22,6 @@ void ClientPredictionSystem::on_input_sent(uint32_t sequence, uint16_t flags, ui
 
     // Limit buffer size to prevent memory issues
     if (pending_inputs_.size() > MAX_PENDING_INPUTS) {
-        std::cout << "[ClientPredictionSystem] WARNING: Input buffer full, dropping oldest input\n";
         pending_inputs_.pop_front();
     }
 }
@@ -38,11 +36,11 @@ void ClientPredictionSystem::acknowledge_input(uint32_t last_processed_sequence)
         removed_count++;
     }
 
-    if (removed_count > 0) {
-        std::cout << "[ClientPredictionSystem] Acknowledged " << removed_count
-                  << " inputs up to seq " << last_processed_sequence
-                  << " (remaining: " << pending_inputs_.size() << ")\n";
-    }
+}
+
+void ClientPredictionSystem::reset()
+{
+    pending_inputs_.clear();
 }
 
 }  // namespace rtype::client

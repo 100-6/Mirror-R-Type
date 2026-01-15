@@ -6,33 +6,6 @@
   "base_scroll_speed": 70.0,
   "total_scroll_distance": 10500.0,
 
-  "checkpoints": [
-    {
-      "checkpoint_id": "start",
-      "scroll_distance": 0.0,
-      "respawn_x": 100.0,
-      "respawn_y": 540.0
-    },
-    {
-      "checkpoint_id": "cp1",
-      "scroll_distance": 3500.0,
-      "respawn_x": 100.0,
-      "respawn_y": 540.0
-    },
-    {
-      "checkpoint_id": "cp2",
-      "scroll_distance": 7000.0,
-      "respawn_x": 100.0,
-      "respawn_y": 540.0
-    },
-    {
-      "checkpoint_id": "boss",
-      "scroll_distance": 10000.0,
-      "respawn_x": 100.0,
-      "respawn_y": 540.0
-    }
-  ],
-
   "phases": [
     {
       "phase_number": 1,

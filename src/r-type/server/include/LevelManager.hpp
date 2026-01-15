@@ -74,7 +74,7 @@ struct LevelConfig {
     float base_scroll_speed;
     float total_scroll_distance;
 
-    std::vector<game::Checkpoint> checkpoints;
+    // Checkpoints removed
     std::vector<PhaseConfig> phases;
     BossConfig boss;
 
@@ -134,9 +134,8 @@ public:
 
     // === Checkpoint Access ===
 
-    const std::vector<game::Checkpoint>& get_checkpoints() const { return config_.checkpoints; }
-    uint32_t get_checkpoint_count() const { return config_.checkpoints.size(); }
-    const game::Checkpoint& get_checkpoint(uint32_t index) const { return config_.checkpoints[index]; }
+    // Checkpoint Access Removed
+
 
     // === Phase Access ===
 
@@ -182,11 +181,11 @@ private:
     // === JSON Parsing Helpers ===
 
     bool parse_level_metadata(const nlohmann::json& j);
-    bool parse_checkpoints(const nlohmann::json& j);
+    // parse_checkpoints removed
     bool parse_phases(const nlohmann::json& j);
     bool parse_boss_config(const nlohmann::json& j);
 
-    game::Checkpoint parse_checkpoint(const nlohmann::json& j);
+    // parse_checkpoint removed
     PhaseConfig parse_phase(const nlohmann::json& j);
     Wave parse_wave(const nlohmann::json& j);
     SpawnConfig parse_spawn(const nlohmann::json& j);

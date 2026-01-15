@@ -250,6 +250,11 @@ public:
     void set_on_powerup_collected(std::function<void(const protocol::ServerPowerupCollectedPayload&)> callback);
 
     /**
+     * @brief Set callback for player respawn events
+     */
+    void set_on_player_respawn(std::function<void(const protocol::ServerPlayerRespawnPayload&)> callback);
+
+    /**
      * @brief Set callback for room creation response
      * @param callback Function receiving room_created payload
      */
@@ -320,6 +325,7 @@ private:
     void handle_wave_complete(const std::vector<uint8_t>& payload);
     void handle_score_update(const std::vector<uint8_t>& payload);
     void handle_powerup_collected(const std::vector<uint8_t>& payload);
+    void handle_player_respawn(const std::vector<uint8_t>& payload);
     void handle_room_created(const std::vector<uint8_t>& payload);
     void handle_room_joined(const std::vector<uint8_t>& payload);
     void handle_room_left(const std::vector<uint8_t>& payload);
@@ -379,6 +385,7 @@ private:
     std::function<void(const protocol::ServerWaveCompletePayload&)> on_wave_complete_;
     std::function<void(const protocol::ServerScoreUpdatePayload&)> on_score_update_;
     std::function<void(const protocol::ServerPowerupCollectedPayload&)> on_powerup_collected_;
+    std::function<void(const protocol::ServerPlayerRespawnPayload&)> on_player_respawn_;
     std::function<void(const protocol::ServerRoomCreatedPayload&)> on_room_created_;
     std::function<void(const protocol::ServerRoomJoinedPayload&)> on_room_joined_;
     std::function<void(const protocol::ServerRoomLeftPayload&)> on_room_left_;

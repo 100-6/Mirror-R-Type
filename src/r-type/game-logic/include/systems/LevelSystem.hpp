@@ -88,6 +88,10 @@ public:
      * @brief Check if boss is defeated
      */
     bool boss_defeated(Registry& registry, const LevelController& lc);
+    /**
+     * @brief Transition to GAME_OVER state
+     */
+    void transition_to_game_over(LevelController& lc);
 
 private:
     // === State Transition Helpers ===
@@ -96,10 +100,9 @@ private:
     void transition_to_waves(LevelController& lc);
     void transition_to_boss_transition(LevelController& lc);
     void transition_to_boss_fight(LevelController& lc);
+    // void transition_to_game_over(LevelController& lc); // Moved to public
     void transition_to_level_complete(LevelController& lc);
-    void transition_to_game_over(LevelController& lc);
 
-    // === Level Loading ===
 
     /**
      * @brief Load next level or trigger final victory

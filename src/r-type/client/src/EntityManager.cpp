@@ -504,7 +504,7 @@ Entity EntityManager::spawn_or_update_entity(uint32_t server_id, protocol::Entit
         
         // Créer l'effet seulement si pas déjà actif
         if (closestPlayer != 0 && !hasActiveFlash) {
-            std::cout << "[MUZZLE FLASH] Creating muzzle flash for player " << closestPlayer << " at projectile pos (" << x << ", " << y << ")" << std::endl;
+            // std::cout << "[MUZZLE FLASH] Creating muzzle flash for player " << closestPlayer << " at projectile pos (" << x << ", " << y << ")" << std::endl;
             
             Entity muzzleFlash = registry_.spawn_entity();
             
@@ -531,12 +531,12 @@ Entity EntityManager::spawn_or_update_entity(uint32_t server_id, protocol::Entit
             flashSprite.source_rect.width = 16.0f;
             flashSprite.source_rect.height = 16.0f;
             
-            std::cout << "[MUZZLE FLASH] Texture handle: " << flashSprite.texture << std::endl;
+            // std::cout << "[MUZZLE FLASH] Texture handle: " << flashSprite.texture << std::endl;
             
             registry_.add_component(muzzleFlash, flashSprite);
             registry_.add_component(muzzleFlash, ShotAnimation{0.0f, 0.1f, false});
         } else if (hasActiveFlash) {
-            std::cout << "[MUZZLE FLASH] Already has active flash, skipping" << std::endl;
+            // std::cout << "[MUZZLE FLASH] Already has active flash, skipping" << std::endl;
         }
     }
 
@@ -568,8 +568,8 @@ void EntityManager::remove_entity(uint32_t server_id) {
             if (attacheds.has_entity(companionEntity))
                 registry_.remove_component<Attached>(companionEntity);
             registry_.kill_entity(companionEntity);
-            std::cout << "[EntityManager] Destroyed companion turret entity " << companionEntity
-                      << " for player " << server_id << std::endl;
+            // std::cout << "[EntityManager] Destroyed companion turret entity " << companionEntity
+            //           << " for player " << server_id << std::endl;
         }
         // Remove the BonusWeapon component from the player
         registry_.remove_component<BonusWeapon>(entity_to_remove);
@@ -590,8 +590,8 @@ void EntityManager::remove_entity(uint32_t server_id) {
         if (sprites.has_entity(attached_entity))
             registry_.remove_component<Sprite>(attached_entity);
         registry_.kill_entity(attached_entity);
-        std::cout << "[EntityManager] Destroyed attached entity " << attached_entity
-                  << " for parent " << server_id << std::endl;
+        // std::cout << "[EntityManager] Destroyed attached entity " << attached_entity
+        //           << " for parent " << server_id << std::endl;
     }
 
     registry_.kill_entity(entity_to_remove);

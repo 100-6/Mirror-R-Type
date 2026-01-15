@@ -17,10 +17,13 @@
 #include "ecs/events/InputEvents.hpp"
 #include "ClientComponents.hpp"
 #include "components/GameComponents.hpp"
+#include "components/LevelComponents.hpp"
 #include <iostream>
+#include <fstream>
 #include <chrono>
 #include <cmath>
 #include <algorithm>
+#include <nlohmann/json.hpp>
 
 #ifdef _WIN32
     #include <winsock2.h>
@@ -52,8 +55,8 @@ bool ClientGame::initialize(const std::string& host, uint16_t tcp_port, const st
     tcp_port_ = tcp_port;
     player_name_ = player_name;
 
-    std::cout << "=== R-Type Network Client ===\n";
-    std::cout << "Server: " << host_ << ":" << tcp_port_ << '\n';
+//     std::cout << "=== R-Type Network Client ===\n";
+//     std::cout << "Server: " << host_ << ":" << tcp_port_ << '\n';
 
     if (!load_plugins())
         return false;
@@ -231,6 +234,8 @@ void ClientGame::setup_registry() {
     registry_->register_component<BonusWeapon>();
     registry_->register_component<BonusLifetime>();
     registry_->register_component<ToDestroy>();
+    // Level system components
+    // registry_->register_component<game::CheckpointManager>();
     // Client-side extrapolation component
     registry_->register_component<LastServerState>();
 
@@ -340,7 +345,12 @@ void ClientGame::apply_map_theme(uint16_t map_id) {
         sprites[background2_].tint = tint;
     }
 
-    std::cout << "[ClientGame] Applied theme for map " << map_id << "\n";
+//     std::cout << "[ClientGame] Applied theme for map " << map_id << "\n";
+}
+
+void ClientGame::load_level_checkpoints(uint16_t map_id) {
+    (void)map_id;
+    // Checkpoints removed - dynamic respawn used
 }
 
 void ClientGame::setup_map_system() {
@@ -359,11 +369,11 @@ void ClientGame::setup_map_system() {
     );
     
     map_scroll_x_ = 0.0f;
-    std::cout << "[ClientGame] Map systems created (waiting for map selection)\n";
+//     std::cout << "[ClientGame] Map systems created (waiting for map selection)\n";
 }
 
 void ClientGame::load_map(const std::string& mapId) {
-    std::cout << "[ClientGame] load_map() called with mapId: " << mapId << std::endl;
+//     std::cout << "[ClientGame] load_map() called with mapId: " << mapId << std::endl;
     
     if (!parallax_system_ || !chunk_manager_) {
         std::cerr << "[ClientGame] Map systems not initialized\n";
@@ -375,7 +385,7 @@ void ClientGame::load_map(const std::string& mapId) {
     
     // Initialize parallax layers
     if (parallax_system_->initLayers(config.parallaxLayers)) {
-        std::cout << "[ClientGame] Parallax initialized: " << config.parallaxLayers.size() << " layers\n";
+//         std::cout << "[ClientGame] Parallax initialized: " << config.parallaxLayers.size() << " layers\n";
     } else {
         std::cerr << "[ClientGame] Failed to initialize parallax layers\n";
     }
@@ -385,7 +395,7 @@ void ClientGame::load_map(const std::string& mapId) {
     
     // Load tile sheet
     if (chunk_manager_->loadTileSheet(config.tileSheetPath)) {
-        std::cout << "[ClientGame] Tile sheet loaded: " << config.tileSheetPath << "\n";
+//         std::cout << "[ClientGame] Tile sheet loaded: " << config.tileSheetPath << "\n";
     } else {
         std::cerr << "[ClientGame] Failed to load tile sheet\n";
     }
@@ -395,7 +405,7 @@ void ClientGame::load_map(const std::string& mapId) {
     auto segmentPaths = rtype::MapConfigLoader::getSegmentPaths(segmentsDir);
     if (!segmentPaths.empty()) {
         chunk_manager_->loadSegments(segmentPaths);
-        std::cout << "[ClientGame] Loaded " << segmentPaths.size() << " segments\n";
+//         std::cout << "[ClientGame] Loaded " << segmentPaths.size() << " segments\n";
     } else {
         std::cerr << "[ClientGame] No segments found in " << segmentsDir << "\n";
     }
@@ -411,7 +421,7 @@ void ClientGame::load_map(const std::string& mapId) {
     
     map_scroll_x_ = 0.0f;
     current_map_id_str_ = mapId;
-    std::cout << "[ClientGame] Map loaded: " << config.name << "\n";
+//     std::cout << "[ClientGame] Map loaded: " << config.name << "\n";
 }
 
 void ClientGame::setup_network_callbacks() {
@@ -422,7 +432,7 @@ void ClientGame::setup_network_callbacks() {
 
         // Initialize lag compensation system
         prediction_system_ = std::make_unique<ClientPredictionSystem>(player_id);
-        std::cout << "[ClientGame] Lag compensation system initialized for player " << player_id << "\n";
+//         std::cout << "[ClientGame] Lag compensation system initialized for player " << player_id << "\n";
 
         // Don't auto-join lobby anymore - user will choose from menu
     });
@@ -493,6 +503,9 @@ void ClientGame::setup_network_callbacks() {
         // Apply map-specific theme (background color)
         apply_map_theme(map_id);
 
+        // Load checkpoints for the level
+        load_level_checkpoints(map_id);
+
         auto& texts = registry_->get_components<UIText>();
         Entity status_entity = screen_manager_->get_status_entity();
         if (texts.has_entity(status_entity))
@@ -549,11 +562,12 @@ void ClientGame::setup_network_callbacks() {
         if (!wave_controllers.has_entity(wave_tracker_))
             return;
         WaveController& ctrl = wave_controllers[wave_tracker_];
+        int old_wave = ctrl.currentWaveNumber;
         ctrl.currentWaveNumber = static_cast<int>(ntohl(wave.wave_number));
-        ctrl.currentWaveIndex = ctrl.currentWaveNumber;
         ctrl.totalWaveCount = ntohs(wave.total_waves);
         ctrl.totalScrollDistance = wave.scroll_distance;
         ctrl.allWavesCompleted = false;
+        std::cout << "[CLIENT] 🌊 Wave START: " << old_wave << " → " << ctrl.currentWaveNumber << "\n";
     });
 
     network_client_->set_on_wave_complete([this](const protocol::ServerWaveCompletePayload& wave) {
@@ -561,10 +575,12 @@ void ClientGame::setup_network_callbacks() {
         if (!wave_controllers.has_entity(wave_tracker_))
             return;
         WaveController& ctrl = wave_controllers[wave_tracker_];
+        int old_wave = ctrl.currentWaveNumber;
         ctrl.currentWaveNumber = static_cast<int>(ntohl(wave.wave_number));
         if (wave.all_waves_complete)
             ctrl.currentWaveNumber = static_cast<int>(ctrl.totalWaveCount);
         ctrl.allWavesCompleted = wave.all_waves_complete != 0;
+        std::cout << "[CLIENT] ✅ Wave COMPLETE: " << old_wave << " → " << ctrl.currentWaveNumber << "\n";
     });
 
     network_client_->set_on_score_update([this](const protocol::ServerScoreUpdatePayload& score) {
@@ -585,7 +601,7 @@ void ClientGame::setup_network_callbacks() {
         if (powerup.powerup_type != protocol::PowerupType::WEAPON_UPGRADE)
             return;
 
-        std::cout << "[ClientGame] Received BONUS_WEAPON collected for player " << powerup.player_id << std::endl;
+//         std::cout << "[ClientGame] Received BONUS_WEAPON collected for player " << powerup.player_id << std::endl;
 
         // Find the player entity
         if (!entity_manager_->has_entity(powerup.player_id))
@@ -597,7 +613,7 @@ void ClientGame::setup_network_callbacks() {
 
         // Check if player already has bonus weapon
         if (bonusWeapons.has_entity(playerEntity)) {
-            std::cout << "[ClientGame] Player already has bonus weapon, ignoring" << std::endl;
+//             std::cout << "[ClientGame] Player already has bonus weapon, ignoring" << std::endl;
             return;
         }
 
@@ -639,11 +655,11 @@ void ClientGame::setup_network_callbacks() {
         // Mark player as having bonus weapon
         registry_->add_component(playerEntity, BonusWeapon{bonusWeaponEntity, 0.0f, true});
 
-        std::cout << "[ClientGame] Created bonus weapon sprite for player " << powerup.player_id
-                  << " entity=" << bonusWeaponEntity
-                  << " at (" << (playerPos.x + bonusOffsetX) << "," << (playerPos.y + bonusOffsetY) << ")"
-                  << " size=" << bonusWidth << "x" << bonusHeight
-                  << " tex=" << bonusTex << std::endl;
+//         std::cout << "[ClientGame] Created bonus weapon sprite for player " << powerup.player_id
+//                   << " entity=" << bonusWeaponEntity
+//                   << " at (" << (playerPos.x + bonusOffsetX) << "," << (playerPos.y + bonusOffsetY) << ")"
+//                   << " size=" << bonusWidth << "x" << bonusHeight
+//                   << " tex=" << bonusTex << std::endl;
     });
 
     network_client_->set_on_projectile_spawn([this](const protocol::ServerProjectileSpawnPayload& proj) {
@@ -743,8 +759,8 @@ void ClientGame::setup_network_callbacks() {
 
                             // If error is very large (>50px), teleport immediately (likely a collision or major desync)
                             if (error_distance > LARGE_ERROR_THRESHOLD) {
-                                std::cout << "[RECONCILIATION] Large correction (teleport): " << error_distance
-                                          << " pixels (seq: " << last_ack << ")\n";
+                                // std::cout << "[RECONCILIATION] Large correction (teleport): " << error_distance
+                                //           << " pixels (seq: " << last_ack << ")\n";
                                 local_pos.x = state.position_x;
                                 local_pos.y = state.position_y;
                             } else {
@@ -759,8 +775,8 @@ void ClientGame::setup_network_callbacks() {
 
                                 // Only log significant corrections
                                 if (error_distance > 15.0f) {
-                                    std::cout << "[RECONCILIATION] Smooth correction: " << error_distance
-                                              << " pixels (applying " << (CORRECTION_SPEED * 100) << "%)\n";
+                                    // std::cout << "[RECONCILIATION] Smooth correction: " << error_distance
+                                    //           << " pixels (applying " << (CORRECTION_SPEED * 100) << "%)\n";
                                 }
                             }
                         }
@@ -864,6 +880,80 @@ void ClientGame::setup_network_callbacks() {
         // Only set running flag, don't touch registry from background thread
         running_ = false;
     });
+
+    // Player respawn callback
+    network_client_->set_on_player_respawn([this](const protocol::ServerPlayerRespawnPayload& payload) {
+        uint32_t player_id = ntohl(payload.player_id);
+        float respawn_x = payload.respawn_x;
+        float respawn_y = payload.respawn_y;
+        uint16_t invuln_duration_ms = ntohs(payload.invulnerability_duration);
+        float invuln_duration = invuln_duration_ms / 1000.0f;
+        uint8_t lives = payload.lives_remaining;
+
+//         std::cout << "[ClientGame] Player " << player_id << " respawning at ("
+//                   << respawn_x << ", " << respawn_y << ") with "
+//                   << static_cast<int>(lives) << " lives and "
+//                   << invuln_duration << "s invulnerability\n";
+
+        if (!entity_manager_) {
+            std::cerr << "[ClientGame] ERROR: EntityManager is null, cannot respawn player\n";
+            return;
+        }
+
+        // Update HUD lives display
+        if (registry_->has_system<HUDSystem>()) {
+            registry_->get_system<HUDSystem>().update_lives(*registry_, lives);
+        }
+
+        // If this is our local player, prepare for respawn
+        if (player_id == network_client_->get_player_id()) {
+//             std::cout << "[ClientGame] Local player respawned! Resetting prediction system and expecting new entity...\n";
+            
+            // Reset prediction system to prevent "input buffer full" accumulation
+            // because server input processing state has likely reset or changed
+            if (prediction_system_) {
+                prediction_system_->reset();
+            }
+
+            // The server will send entity spawn/update packets for the new entity
+            // EntityManager will handle creating the entity with all components
+            // We just need to be ready to receive it
+            
+            // Trigger visual reset (fade to black)
+            fade_trigger_ = true;
+
+            // CRITICAL: Clear enemies, projectiles, and bonuses locally to sync with server reset
+            // The server has already destroyed them, but we need to remove them visually
+            // to prevent "ghost" entities from persisting until the destroy packet arrives
+            // or if the destroy packet was missed/delayed.
+            // Note: Walls are NOT cleared as they persist on the server.
+            if (registry_) {
+//                 std::cout << "[ClientGame] Clearing local entities for reset...\n";
+                // Clear Enemies
+                auto& enemies = registry_->get_components<Enemy>();
+                std::vector<Entity> to_kill;
+                for (size_t i = 0; i < enemies.size(); ++i) {
+                    to_kill.push_back(enemies.get_entity_at(i));
+                }
+                // Clear Projectiles
+                auto& projectiles = registry_->get_components<Projectile>();
+                for (size_t i = 0; i < projectiles.size(); ++i) {
+                    to_kill.push_back(projectiles.get_entity_at(i));
+                }
+                // Note: Walls are NOT cleared - they are persistent level geometry
+                // Clear Bonuses
+                auto& bonuses = registry_->get_components<Bonus>();
+                for (size_t i = 0; i < bonuses.size(); ++i) {
+                    to_kill.push_back(bonuses.get_entity_at(i));
+                }
+
+                for (Entity e : to_kill) {
+                    registry_->kill_entity(e);
+                }
+//                 std::cout << "[ClientGame] Cleared " << to_kill.size() << " entities.\n";
+            }
+        }
+    });
 }
 
 void ClientGame::run() {
@@ -888,11 +978,14 @@ void ClientGame::run() {
             break;
         }
 
-        // Toggle collider debug visualization with H key
+        // Toggle debug visualization with H key (colliders + spawn points)
         if (input_handler_->is_hitbox_toggle_pressed()) {
+            bool new_state = false;
+
+            // Toggle collider debug
             if (registry_->has_system<ColliderDebugSystem>()) {
                 auto& debug_system = registry_->get_system<ColliderDebugSystem>();
-                bool new_state = !debug_system.is_enabled();
+                new_state = !debug_system.is_enabled();
                 debug_system.set_enabled(new_state);
             }
         }
@@ -902,10 +995,11 @@ void ClientGame::run() {
             if (debug_network_overlay_) {
                 bool new_state = !debug_network_overlay_->is_enabled();
                 debug_network_overlay_->set_enabled(new_state);
-                std::cout << "[ClientGame] Network debug overlay "
-                          << (new_state ? "enabled" : "disabled") << "\n";
+//                 std::cout << "[ClientGame] Network debug overlay "
+//                           << (new_state ? "enabled" : "disabled") << "\n";
             }
         }
+
 
         if (network_client_->is_in_game() &&
             std::chrono::duration_cast<std::chrono::milliseconds>(now - last_input_send).count() >= 15) {
@@ -1143,6 +1237,32 @@ void ClientGame::run() {
         // Render result screen button (if on victory/defeat screen)
         if (in_result) {
             screen_manager_->draw_result_screen(graphics_plugin_);
+        }
+
+        // Equalize the fade logic here
+        // --- Visual Reset Effect (Fade to Black) ---
+        static float fade_alpha = 0.0f;
+        static bool is_fading = false;
+        
+        if (fade_trigger_) {
+            is_fading = true;
+            fade_alpha = 1.0f; // Start fully black
+            fade_trigger_ = false;
+        }
+
+        if (is_fading) {
+            // Draw fullscreen black rectangle
+            engine::Rectangle func_rect{0.0f, 0.0f, static_cast<float>(screen_width_), static_cast<float>(screen_height_)};
+            // Alpha 255 = fully opaque, 0 = transparent. 
+            // We want to start at 1.0 (255) and fade to 0.
+            uint8_t alpha_byte = static_cast<uint8_t>(fade_alpha * 255.0f);
+            graphics_plugin_->draw_rectangle(func_rect, engine::Color{0, 0, 0, alpha_byte});
+
+            fade_alpha -= dt * 0.5f; // Fade out over 2 seconds
+            if (fade_alpha <= 0.0f) {
+                fade_alpha = 0.0f;
+                is_fading = false;
+            }
         }
 
         graphics_plugin_->display();

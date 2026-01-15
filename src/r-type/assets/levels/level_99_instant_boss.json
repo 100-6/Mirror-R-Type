@@ -6,10 +6,6 @@
   "base_scroll_speed": 60.0,
   "total_scroll_distance": 500.0,
 
-  "checkpoints": [
-    {"checkpoint_id": "start", "scroll_distance": 0.0, "respawn_x": 100.0, "respawn_y": 540.0}
-  ],
-
   "phases": [
     {
       "phase_number": 1,

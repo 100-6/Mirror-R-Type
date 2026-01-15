@@ -112,13 +112,13 @@ void LevelSystem::on_waves_started(Registry& registry, LevelController& lc)
 void LevelSystem::on_boss_transition_started(Registry& registry, LevelController& lc)
 {
     std::cout << "[LevelSystem] Boss transition - WARNING: BOSS APPROACHING!\n";
-    // TODO: Notify network system to show warning message to clients
+    // Note: Boss warning messages can be added here if needed
 }
 
 void LevelSystem::on_boss_fight_started(Registry& registry, LevelController& lc)
 {
     std::cout << "[LevelSystem] Boss fight started!\n";
-    // TODO: Spawn boss entity (this will be done by server's GameSession)
+    // Boss spawning is handled by GameSession::update() (see GameSession.cpp lines 374-447)
 }
 
 void LevelSystem::on_level_completed(Registry& registry, LevelController& lc)
@@ -259,9 +259,8 @@ void LevelSystem::load_next_level_or_final_victory(Registry& registry, LevelCont
     // Transition to level start
     transition_to_level_start(lc);
 
-    // TODO: Notify server to load next level config (LevelManager)
-    // TODO: Reset checkpoints
-    // TODO: Reset wave manager with new level data
+    // Note: Level loading and wave reset are handled by GameSession::update()
+    // See GameSession.cpp lines 464-496 for next level loading logic
 }
 
 void LevelSystem::clear_all_enemies_and_projectiles(Registry& registry)

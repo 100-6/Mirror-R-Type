@@ -28,19 +28,18 @@ bool LevelManager::load_from_file(const std::string& filepath)
         file >> j;
 
         if (!parse_level_metadata(j)) return false;
-        if (!parse_checkpoints(j)) return false;
-        if (!parse_phases(j)) return false;
+    if (!parse_phases(j)) return false;
         if (!parse_boss_config(j)) return false;
 
-        std::cout << "[LevelManager] Loaded level " << static_cast<int>(config_.level_id)
-                  << ": " << config_.level_name << "\n";
-        std::cout << "[LevelManager]   - " << config_.phases.size() << " phases\n";
-        std::cout << "[LevelManager]   - " << config_.checkpoints.size() << " checkpoints\n";
-        std::cout << "[LevelManager]   - Boss: " << config_.boss.boss_name << "\n";
+        // std::cout << "[LevelManager] Loaded level " << static_cast<int>(config_.level_id)
+        //           << ": " << config_.level_name << "\n";
+        // std::cout << "[LevelManager]   - " << config_.phases.size() << " phases\n";
+        // std::cout << "[LevelManager]   - " << config_.checkpoints.size() << " checkpoints\n";
+        // std::cout << "[LevelManager]   - Boss: " << config_.boss.boss_name << "\n";
 
         return true;
     } catch (const std::exception& e) {
-        std::cerr << "[LevelManager] JSON parse error: " << e.what() << "\n";
+        // std::cerr << "[LevelManager] JSON parse error: " << e.what() << "\n";
         return false;
     }
 }
@@ -86,21 +85,6 @@ bool LevelManager::parse_level_metadata(const nlohmann::json& j)
     return true;
 }
 
-bool LevelManager::parse_checkpoints(const nlohmann::json& j)
-{
-    if (!j.contains("checkpoints") || !j["checkpoints"].is_array()) {
-        std::cerr << "[LevelManager] No checkpoints array found\n";
-        return false;
-    }
-
-    for (const auto& cp_json : j["checkpoints"]) {
-        game::Checkpoint checkpoint = parse_checkpoint(cp_json);
-        config_.checkpoints.push_back(checkpoint);
-    }
-
-    return true;
-}
-
 bool LevelManager::parse_phases(const nlohmann::json& j)
 {
     if (!j.contains("phases") || !j["phases"].is_array()) {
@@ -136,24 +120,15 @@ bool LevelManager::parse_boss_config(const nlohmann::json& j)
             game::BossPhaseConfig phase = parse_boss_phase(phase_json);
             config_.boss.phases.push_back(phase);
         }
-        std::cout << "[LevelManager] Parsed " << config_.boss.phases.size() << " boss phases\n";
+        // std::cout << "[LevelManager] Parsed " << config_.boss.phases.size() << " boss phases\n";
     } else {
-        std::cerr << "[LevelManager] WARNING: No boss phases found in JSON!\n";
+        // std::cerr << "[LevelManager] WARNING: No boss phases found in JSON!\n";
     }
 
     return true;
 }
 
-game::Checkpoint LevelManager::parse_checkpoint(const nlohmann::json& j)
-{
-    game::Checkpoint checkpoint;
-    checkpoint.checkpoint_id = j.value("checkpoint_id", "");
-    checkpoint.scroll_distance = j.value("scroll_distance", 0.0f);
-    checkpoint.respawn_x = j.value("respawn_x", 100.0f);
-    checkpoint.respawn_y = j.value("respawn_y", 540.0f);
-    checkpoint.activated = false;
-    return checkpoint;
-}
+// parse_checkpoint removed
 
 PhaseConfig LevelManager::parse_phase(const nlohmann::json& j)
 {
@@ -208,6 +183,15 @@ SpawnConfig LevelManager::parse_spawn(const nlohmann::json& j)
     spawn.count = j.value("count", 1);
     spawn.pattern = j.value("pattern", "single");
     spawn.spacing = j.value("spacing", 0.0f);
+
+    // Parse bonusDrop for enemies
+    if (j.contains("bonusDrop")) {
+        const auto& drop_json = j["bonusDrop"];
+        spawn.bonus_drop.enabled = true;
+        spawn.bonus_drop.bonus_type = drop_json.value("bonusType", "health");
+        spawn.bonus_drop.drop_chance = drop_json.value("dropChance", 1.0f);
+    }
+
     return spawn;
 }
 

@@ -51,7 +51,7 @@ bool AsioNetworkPlugin::initialize()
         initialized_ = true;
         return true;
     } catch (const std::exception& e) {
-        std::cerr << "[AsioNetworkPlugin] Initialization failed: " << e.what() << std::endl;
+//         std::cerr << "[AsioNetworkPlugin] Initialization failed: " << e.what() << std::endl;
         return false;
     }
 }
@@ -174,11 +174,11 @@ bool AsioNetworkPlugin::start_server(uint16_t tcp_port, uint16_t udp_port)
 bool AsioNetworkPlugin::start_server(uint16_t tcp_port, uint16_t udp_port, bool listen_on_all_interfaces)
 {
     if (!initialized_) {
-        std::cerr << "[AsioNetworkPlugin] Cannot start server: not initialized" << std::endl;
+//         std::cerr << "[AsioNetworkPlugin] Cannot start server: not initialized" << std::endl;
         return false;
     }
     if (is_server_) {
-        std::cerr << "[AsioNetworkPlugin] Server already running" << std::endl;
+//         std::cerr << "[AsioNetworkPlugin] Server already running" << std::endl;
         return false;
     }
 
@@ -215,11 +215,11 @@ bool AsioNetworkPlugin::start_server(uint16_t tcp_port, uint16_t udp_port, bool 
         // Start IO thread
         io_thread_ = std::make_unique<std::thread>([this]() { run_io_context(); });
 
-        std::cout << "[AsioNetworkPlugin] Server started on " << bind_address.to_string()
-                  << " - TCP:" << tcp_port << " UDP:" << udp_port << std::endl;
+//         std::cout << "[AsioNetworkPlugin] Server started on " << bind_address.to_string()
+//                   << " - TCP:" << tcp_port << " UDP:" << udp_port << std::endl;
         return true;
     } catch (const std::exception& e) {
-        std::cerr << "[AsioNetworkPlugin] Failed to start server: " << e.what() << std::endl;
+//         std::cerr << "[AsioNetworkPlugin] Failed to start server: " << e.what() << std::endl;
         is_server_ = false;
         running_ = false;
         tcp_acceptor_.reset();
@@ -286,7 +286,7 @@ void AsioNetworkPlugin::stop_server()
     io_context_ = std::make_unique<io_context>();
     io_thread_.reset();
 
-    std::cout << "[AsioNetworkPlugin] Server stopped" << std::endl;
+//     std::cout << "[AsioNetworkPlugin] Server stopped" << std::endl;
 }
 
 bool AsioNetworkPlugin::is_server_running() const
@@ -314,7 +314,7 @@ void AsioNetworkPlugin::handle_tcp_accept(std::shared_ptr<tcp::socket> socket,
     if (error) {
         if (error == boost::asio::error::operation_aborted)
             return;
-        std::cerr << "[AsioNetworkPlugin] TCP accept error: " << error.message() << std::endl;
+//         std::cerr << "[AsioNetworkPlugin] TCP accept error: " << error.message() << std::endl;
         start_tcp_accept();
         return;
     }
@@ -330,8 +330,8 @@ void AsioNetworkPlugin::handle_tcp_accept(std::shared_ptr<tcp::socket> socket,
         client.last_seen = std::chrono::steady_clock::now();
     }
 
-    std::cout << "[AsioNetworkPlugin] TCP client connected: " << client_id
-              << " from " << socket->remote_endpoint() << std::endl;
+//     std::cout << "[AsioNetworkPlugin] TCP client connected: " << client_id
+//               << " from " << socket->remote_endpoint() << std::endl;
 
     // Notify callback
     {
@@ -481,7 +481,7 @@ void AsioNetworkPlugin::handle_tcp_disconnect(ClientId client_id)
         }
     }
 
-    std::cout << "[AsioNetworkPlugin] TCP client disconnected: " << client_id << std::endl;
+//     std::cout << "[AsioNetworkPlugin] TCP client disconnected: " << client_id << std::endl;
 
     {
         std::lock_guard<std::mutex> lock(callback_mutex_);
@@ -508,13 +508,13 @@ void AsioNetworkPlugin::start_udp_receive()
 void AsioNetworkPlugin::handle_udp_receive(const error_code& error, size_t bytes_transferred)
 {
     // DEBUG: Log every UDP receive
-    std::cout << "[AsioNetworkPlugin] UDP raw receive: " << bytes_transferred << " bytes from " 
-              << udp_recv_endpoint_->address().to_string() << ":" << udp_recv_endpoint_->port() << std::endl;
+//     std::cout << "[AsioNetworkPlugin] UDP raw receive: " << bytes_transferred << " bytes from "
+//               << udp_recv_endpoint_->address().to_string() << ":" << udp_recv_endpoint_->port() << std::endl;
 
     if (error) {
         if (error == boost::asio::error::operation_aborted)
             return;
-        std::cerr << "[AsioNetworkPlugin] UDP receive error: " << error.message() << std::endl;
+//         std::cerr << "[AsioNetworkPlugin] UDP receive error: " << error.message() << std::endl;
         start_udp_receive();
         return;
     }
@@ -567,8 +567,8 @@ ClientId AsioNetworkPlugin::get_or_create_udp_client(const std::string& endpoint
     info.last_seen = std::chrono::steady_clock::now();
     udp_clients_by_id_[new_id] = endpoint_key;
 
-    std::cout << "[AsioNetworkPlugin] New UDP client: " << new_id
-              << " from " << endpoint_key << std::endl;
+//     std::cout << "[AsioNetworkPlugin] New UDP client: " << new_id
+//               << " from " << endpoint_key << std::endl;
 
     return new_id;
 }
@@ -583,11 +583,11 @@ std::string AsioNetworkPlugin::endpoint_to_string(const udp::endpoint& endpoint)
 bool AsioNetworkPlugin::connect_tcp(const std::string& host, uint16_t port)
 {
     if (!initialized_) {
-        std::cerr << "[AsioNetworkPlugin] Cannot connect: not initialized" << std::endl;
+//         std::cerr << "[AsioNetworkPlugin] Cannot connect: not initialized" << std::endl;
         return false;
     }
     if (tcp_connected_) {
-        std::cerr << "[AsioNetworkPlugin] Already connected via TCP" << std::endl;
+//         std::cerr << "[AsioNetworkPlugin] Already connected via TCP" << std::endl;
         return false;
     }
 
@@ -599,7 +599,7 @@ bool AsioNetworkPlugin::connect_tcp(const std::string& host, uint16_t port)
         tcp::resolver resolver(*io_context_);
         auto endpoints = resolver.resolve(tcp::v4(), host, std::to_string(port));
         if (endpoints.empty()) {
-            std::cerr << "[AsioNetworkPlugin] Could not resolve host: " << host << std::endl;
+//             std::cerr << "[AsioNetworkPlugin] Could not resolve host: " << host << std::endl;
             return false;
         }
 
@@ -623,7 +623,7 @@ bool AsioNetworkPlugin::connect_tcp(const std::string& host, uint16_t port)
             io_thread_ = std::make_unique<std::thread>([this]() { run_io_context(); });
         }
 
-        std::cout << "[AsioNetworkPlugin] Connected to " << host << ":" << port << " via TCP" << std::endl;
+//         std::cout << "[AsioNetworkPlugin] Connected to " << host << ":" << port << " via TCP" << std::endl;
 
         {
             std::lock_guard<std::mutex> lock(callback_mutex_);
@@ -633,7 +633,7 @@ bool AsioNetworkPlugin::connect_tcp(const std::string& host, uint16_t port)
 
         return true;
     } catch (const std::exception& e) {
-        std::cerr << "[AsioNetworkPlugin] TCP connection failed: " << e.what() << std::endl;
+//         std::cerr << "[AsioNetworkPlugin] TCP connection failed: " << e.what() << std::endl;
         tcp_connected_ = false;
         client_tcp_socket_.reset();
         return false;
@@ -643,11 +643,11 @@ bool AsioNetworkPlugin::connect_tcp(const std::string& host, uint16_t port)
 bool AsioNetworkPlugin::connect_udp(const std::string& host, uint16_t port)
 {
     if (!initialized_) {
-        std::cerr << "[AsioNetworkPlugin] Cannot connect UDP: not initialized" << std::endl;
+//         std::cerr << "[AsioNetworkPlugin] Cannot connect UDP: not initialized" << std::endl;
         return false;
     }
     if (udp_connected_) {
-        std::cerr << "[AsioNetworkPlugin] Already connected via UDP" << std::endl;
+//         std::cerr << "[AsioNetworkPlugin] Already connected via UDP" << std::endl;
         return false;
     }
 
@@ -658,7 +658,7 @@ bool AsioNetworkPlugin::connect_udp(const std::string& host, uint16_t port)
         udp::resolver resolver(*io_context_);
         auto endpoints = resolver.resolve(udp::v4(), host, std::to_string(port));
         if (endpoints.empty()) {
-            std::cerr << "[AsioNetworkPlugin] Could not resolve UDP host: " << host << std::endl;
+//             std::cerr << "[AsioNetworkPlugin] Could not resolve UDP host: " << host << std::endl;
             return false;
         }
 
@@ -672,11 +672,11 @@ bool AsioNetworkPlugin::connect_udp(const std::string& host, uint16_t port)
         // Start receiving
         start_client_udp_receive();
 
-        std::cout << "[AsioNetworkPlugin] Connected to " << host << ":" << port << " via UDP" << std::endl;
+//         std::cout << "[AsioNetworkPlugin] Connected to " << host << ":" << port << " via UDP" << std::endl;
 
         return true;
     } catch (const std::exception& e) {
-        std::cerr << "[AsioNetworkPlugin] UDP connection failed: " << e.what() << std::endl;
+//         std::cerr << "[AsioNetworkPlugin] UDP connection failed: " << e.what() << std::endl;
         udp_connected_ = false;
         client_udp_socket_.reset();
         server_udp_endpoint_.reset();
@@ -731,7 +731,7 @@ void AsioNetworkPlugin::disconnect()
     }
 
     if (was_connected) {
-        std::cout << "[AsioNetworkPlugin] Disconnected" << std::endl;
+//         std::cout << "[AsioNetworkPlugin] Disconnected" << std::endl;
         
         // Call callback without holding any locks that could cause deadlock
         std::function<void()> callback;
@@ -766,7 +766,7 @@ void AsioNetworkPlugin::start_client_tcp_receive()
         boost::asio::buffer(client_tcp_read_buffer_.data(), TCP_HEADER_SIZE),
         [this](const error_code& ec, size_t bytes) {
             if (ec) {
-                std::cerr << "[AsioNetworkPlugin] TCP receive error: " << ec.message() << std::endl;
+//                 std::cerr << "[AsioNetworkPlugin] TCP receive error: " << ec.message() << std::endl;
                 disconnect();
                 return;
             }
@@ -793,7 +793,7 @@ void AsioNetworkPlugin::start_client_tcp_receive()
 void AsioNetworkPlugin::handle_client_tcp_receive(const error_code& error, size_t bytes_transferred)
 {
     if (error) {
-        std::cerr << "[AsioNetworkPlugin] TCP receive error: " << error.message() << std::endl;
+//         std::cerr << "[AsioNetworkPlugin] TCP receive error: " << error.message() << std::endl;
         disconnect();
         return;
     }
@@ -838,7 +838,7 @@ void AsioNetworkPlugin::handle_client_udp_receive(const error_code& error, size_
     if (error) {
         if (error == boost::asio::error::operation_aborted)
             return;
-        std::cerr << "[AsioNetworkPlugin] UDP receive error: " << error.message() << std::endl;
+//         std::cerr << "[AsioNetworkPlugin] UDP receive error: " << error.message() << std::endl;
         start_client_udp_receive();
         return;
     }
@@ -874,7 +874,7 @@ void AsioNetworkPlugin::handle_client_udp_receive(const error_code& error, size_
 bool AsioNetworkPlugin::send_tcp(const NetworkPacket& packet)
 {
     if (!tcp_connected_ || !client_tcp_socket_) {
-        std::cerr << "[AsioNetworkPlugin] Cannot send TCP: not connected" << std::endl;
+//         std::cerr << "[AsioNetworkPlugin] Cannot send TCP: not connected" << std::endl;
         return false;
     }
 
@@ -882,7 +882,7 @@ bool AsioNetworkPlugin::send_tcp(const NetworkPacket& packet)
         boost::asio::write(*client_tcp_socket_, boost::asio::buffer(packet.data));
         return true;
     } catch (const std::exception& e) {
-        std::cerr << "[AsioNetworkPlugin] TCP send failed: " << e.what() << std::endl;
+//         std::cerr << "[AsioNetworkPlugin] TCP send failed: " << e.what() << std::endl;
         return false;
     }
 }
@@ -890,7 +890,7 @@ bool AsioNetworkPlugin::send_tcp(const NetworkPacket& packet)
 bool AsioNetworkPlugin::send_udp(const NetworkPacket& packet)
 {
     if (!udp_connected_ || !client_udp_socket_ || !server_udp_endpoint_) {
-        std::cerr << "[AsioNetworkPlugin] Cannot send UDP: not connected" << std::endl;
+//         std::cerr << "[AsioNetworkPlugin] Cannot send UDP: not connected" << std::endl;
         return false;
     }
 
@@ -898,7 +898,7 @@ bool AsioNetworkPlugin::send_udp(const NetworkPacket& packet)
         client_udp_socket_->send_to(boost::asio::buffer(packet.data), *server_udp_endpoint_);
         return true;
     } catch (const std::exception& e) {
-        std::cerr << "[AsioNetworkPlugin] UDP send failed: " << e.what() << std::endl;
+//         std::cerr << "[AsioNetworkPlugin] UDP send failed: " << e.what() << std::endl;
         return false;
     }
 }
@@ -908,14 +908,14 @@ bool AsioNetworkPlugin::send_udp(const NetworkPacket& packet)
 bool AsioNetworkPlugin::send_tcp_to(const NetworkPacket& packet, ClientId client_id)
 {
     if (!is_server_) {
-        std::cerr << "[AsioNetworkPlugin] Cannot send_tcp_to: not in server mode" << std::endl;
+//         std::cerr << "[AsioNetworkPlugin] Cannot send_tcp_to: not in server mode" << std::endl;
         return false;
     }
 
     std::lock_guard<std::mutex> lock(tcp_clients_mutex_);
     auto it = tcp_clients_.find(client_id);
     if (it == tcp_clients_.end() || !it->second.socket) {
-        std::cerr << "[AsioNetworkPlugin] TCP client " << client_id << " not found" << std::endl;
+//         std::cerr << "[AsioNetworkPlugin] TCP client " << client_id << " not found" << std::endl;
         return false;
     }
 
@@ -923,7 +923,7 @@ bool AsioNetworkPlugin::send_tcp_to(const NetworkPacket& packet, ClientId client
         boost::asio::write(*it->second.socket, boost::asio::buffer(packet.data));
         return true;
     } catch (const std::exception& e) {
-        std::cerr << "[AsioNetworkPlugin] TCP send_to failed: " << e.what() << std::endl;
+//         std::cerr << "[AsioNetworkPlugin] TCP send_to failed: " << e.what() << std::endl;
         return false;
     }
 }
@@ -931,7 +931,7 @@ bool AsioNetworkPlugin::send_tcp_to(const NetworkPacket& packet, ClientId client
 bool AsioNetworkPlugin::send_udp_to(const NetworkPacket& packet, ClientId client_id)
 {
     if (!is_server_ || !udp_socket_) {
-        std::cerr << "[AsioNetworkPlugin] Cannot send_udp_to: not in server mode" << std::endl;
+//         std::cerr << "[AsioNetworkPlugin] Cannot send_udp_to: not in server mode" << std::endl;
         return false;
     }
 
@@ -948,7 +948,7 @@ bool AsioNetworkPlugin::send_udp_to(const NetworkPacket& packet, ClientId client
     std::lock_guard<std::mutex> lock(udp_clients_mutex_);
     auto it = udp_clients_by_id_.find(udp_client_id);
     if (it == udp_clients_by_id_.end()) {
-        std::cerr << "[AsioNetworkPlugin] UDP client " << udp_client_id << " not found" << std::endl;
+//         std::cerr << "[AsioNetworkPlugin] UDP client " << udp_client_id << " not found" << std::endl;
         return false;
     }
 
@@ -961,7 +961,7 @@ bool AsioNetworkPlugin::send_udp_to(const NetworkPacket& packet, ClientId client
         udp_socket_->send_to(boost::asio::buffer(packet.data), *client_it->second.endpoint);
         return true;
     } catch (const std::exception& e) {
-        std::cerr << "[AsioNetworkPlugin] UDP send_to failed: " << e.what() << std::endl;
+//         std::cerr << "[AsioNetworkPlugin] UDP send_to failed: " << e.what() << std::endl;
         return false;
     }
 }
@@ -969,7 +969,7 @@ bool AsioNetworkPlugin::send_udp_to(const NetworkPacket& packet, ClientId client
 size_t AsioNetworkPlugin::broadcast_tcp(const NetworkPacket& packet)
 {
     if (!is_server_) {
-        std::cerr << "[AsioNetworkPlugin] Cannot broadcast_tcp: not in server mode" << std::endl;
+//         std::cerr << "[AsioNetworkPlugin] Cannot broadcast_tcp: not in server mode" << std::endl;
         return 0;
     }
 
@@ -983,7 +983,7 @@ size_t AsioNetworkPlugin::broadcast_tcp(const NetworkPacket& packet)
             boost::asio::write(*client.socket, boost::asio::buffer(packet.data));
             count++;
         } catch (const std::exception& e) {
-            std::cerr << "[AsioNetworkPlugin] TCP broadcast to " << id << " failed: " << e.what() << std::endl;
+//             std::cerr << "[AsioNetworkPlugin] TCP broadcast to " << id << " failed: " << e.what() << std::endl;
         }
     }
     return count;
@@ -992,7 +992,7 @@ size_t AsioNetworkPlugin::broadcast_tcp(const NetworkPacket& packet)
 size_t AsioNetworkPlugin::broadcast_udp(const NetworkPacket& packet)
 {
     if (!is_server_ || !udp_socket_) {
-        std::cerr << "[AsioNetworkPlugin] Cannot broadcast_udp: not in server mode" << std::endl;
+//         std::cerr << "[AsioNetworkPlugin] Cannot broadcast_udp: not in server mode" << std::endl;
         return 0;
     }
 
@@ -1020,7 +1020,7 @@ size_t AsioNetworkPlugin::broadcast_udp(const NetworkPacket& packet)
             udp_socket_->send_to(boost::asio::buffer(packet.data), endpoint);
             count++;
         } catch (const std::exception& e) {
-            std::cerr << "[AsioNetworkPlugin] UDP broadcast failed: " << e.what() << std::endl;
+//             std::cerr << "[AsioNetworkPlugin] UDP broadcast failed: " << e.what() << std::endl;
         }
     }
     return count;
@@ -1042,7 +1042,7 @@ size_t AsioNetworkPlugin::broadcast_tcp_except(const NetworkPacket& packet, Clie
             boost::asio::write(*client.socket, boost::asio::buffer(packet.data));
             count++;
         } catch (const std::exception& e) {
-            std::cerr << "[AsioNetworkPlugin] TCP broadcast to " << id << " failed: " << e.what() << std::endl;
+//             std::cerr << "[AsioNetworkPlugin] TCP broadcast to " << id << " failed: " << e.what() << std::endl;
         }
     }
     return count;
@@ -1079,7 +1079,7 @@ size_t AsioNetworkPlugin::broadcast_udp_except(const NetworkPacket& packet, Clie
             udp_socket_->send_to(boost::asio::buffer(packet.data), endpoint);
             count++;
         } catch (const std::exception& e) {
-            std::cerr << "[AsioNetworkPlugin] UDP broadcast failed: " << e.what() << std::endl;
+//             std::cerr << "[AsioNetworkPlugin] UDP broadcast failed: " << e.what() << std::endl;
         }
     }
     return count;
@@ -1093,8 +1093,8 @@ void AsioNetworkPlugin::associate_udp_client(ClientId tcp_client_id, ClientId ud
     tcp_to_udp_[tcp_client_id] = udp_client_id;
     udp_to_tcp_[udp_client_id] = tcp_client_id;
 
-    std::cout << "[AsioNetworkPlugin] Associated TCP client " << tcp_client_id
-              << " with UDP client " << udp_client_id << std::endl;
+//     std::cout << "[AsioNetworkPlugin] Associated TCP client " << tcp_client_id
+//               << " with UDP client " << udp_client_id << std::endl;
 }
 
 ClientId AsioNetworkPlugin::get_tcp_client_from_udp(ClientId udp_client_id) const
@@ -1200,7 +1200,7 @@ void AsioNetworkPlugin::run_io_context()
     try {
         io_context_->run();
     } catch (const std::exception& e) {
-        std::cerr << "[AsioNetworkPlugin] IO context error: " << e.what() << std::endl;
+//         std::cerr << "[AsioNetworkPlugin] IO context error: " << e.what() << std::endl;
     }
 }
 
@@ -1231,7 +1231,7 @@ void AsioNetworkPlugin::check_client_timeouts()
     }
 
     for (ClientId id : timed_out) {
-        std::cout << "[AsioNetworkPlugin] TCP client " << id << " timed out" << std::endl;
+//         std::cout << "[AsioNetworkPlugin] TCP client " << id << " timed out" << std::endl;
         handle_tcp_disconnect(id);
     }
 }

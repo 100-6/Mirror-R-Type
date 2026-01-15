@@ -46,8 +46,11 @@ struct Wave {
     std::vector<SpawnConfig> spawns;
     bool completed;
     bool triggered;
+    float time_since_triggered;
+    uint32_t triggered_generation;  // Generation when wave was triggered
 
-    Wave() : wave_number(0), completed(false), triggered(false) {}
+    Wave() : wave_number(0), completed(false), triggered(false),
+             time_since_triggered(0.0f), triggered_generation(0) {}
 };
 
 struct WaveConfig {
@@ -78,11 +81,6 @@ public:
     void set_listener(IWaveListener* listener) { listener_ = listener; }
 
     /**
-     * @brief Load wave configuration from JSON file
-     */
-    bool load_from_file(const std::string& filepath);
-
-    /**
      * @brief Load waves from level phases (for level system)
      * @param phases Vector of phases containing waves
      */
@@ -101,11 +99,37 @@ public:
      */
     void reset();
 
+    /**
+     * @brief Reset to a specific wave number
+     * @param wave_number Target wave number to reset to
+     */
+    void reset_to_wave(uint32_t wave_number);
+
+    /**
+     * @brief Immediately spawn a specific wave, bypassing triggers
+     * @param wave_number Wave number to spawn
+     * @return true if wave found and spawned
+     */
+    bool spawn_wave(uint32_t wave_number);
+
+    /**
+     * @brief Get the scroll distance where a wave starts
+     * @param wave_number Wave number to look up
+     * @return float Scroll distance, or 0.0f if not found
+     */
+    float get_wave_start_scroll(uint32_t wave_number) const;
+
     // === Queries ===
 
     uint32_t get_total_waves() const { return config_.waves.size(); }
     uint32_t get_current_wave() const { return current_wave_index_ + 1; }
     bool all_waves_complete() const;
+
+    /**
+     * @brief Get all waves (for broadcasting after reset)
+     * @return const reference to waves vector
+     */
+    const std::vector<Wave>& get_waves() const { return config_.waves; }
 
     /**
      * @brief Select map file based on map_id
@@ -117,9 +141,11 @@ private:
     WaveConfig config_;
     uint32_t current_wave_index_;
     float accumulated_time_;
+    uint32_t wave_generation_;  // Increments on each reset
     IWaveListener* listener_ = nullptr;
 
     void check_wave_triggers(float current_scroll);
+    void check_wave_completion(float delta_time);
     void trigger_wave(Wave& wave);
     void spawn_from_config(const SpawnConfig& spawn);
 };

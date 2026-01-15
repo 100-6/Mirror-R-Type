@@ -94,6 +94,7 @@ private:
     void on_game_over(uint32_t session_id, const std::vector<uint32_t>& player_ids, bool is_victory) override;
     void on_score_update(uint32_t session_id, const std::vector<uint8_t>& score_data) override;
     void on_powerup_collected(uint32_t session_id, const std::vector<uint8_t>& powerup_data) override;
+    void on_player_respawn(uint32_t session_id, const std::vector<uint8_t>& respawn_data) override;
 
     void on_tcp_client_disconnected(uint32_t client_id);
     uint32_t generate_player_id();
