@@ -36,7 +36,7 @@ void SkinScreen::rebuild_ui() {
 
     float center_x = screen_width_ / 2.0f;
     float center_y = screen_height_ / 2.0f;
-    float start_y = center_y - 350.0f;
+    float start_y = center_y - 400.0f;
 
     // Title
     auto title = std::make_unique<UILabel>(center_x, start_y, "CUSTOMIZE SKIN", 50);
@@ -159,7 +159,7 @@ void SkinScreen::rebuild_ui() {
     float back_width = 180.0f;
     float back_height = 55.0f;
     back_button_ = std::make_unique<UIButton>(
-        center_x - back_width / 2.0f, screen_height_ - 100.0f, back_width, back_height, "Back");
+        center_x - back_width / 2.0f, start_y + 730.0f, back_width, back_height, "Back");
     back_button_->set_on_click([this]() {
         if (on_screen_change_) {
             on_screen_change_(GameScreen::WELCOME);
@@ -232,7 +232,8 @@ void SkinScreen::draw_grid_background(engine::IGraphicsPlugin* graphics) {
 
 void SkinScreen::draw_preview(engine::IGraphicsPlugin* graphics) {
     float center_x = screen_width_ / 2.0f;
-    float center_y = screen_height_ / 2.0f + 200.0f;
+    float start_y = screen_height_ / 2.0f - 400.0f;  // Match rebuild_ui start_y
+    float center_y = start_y + 580.0f;  // Position preview below color pickers
     float radius = 55.0f;
     float r_sq = radius * radius;
 

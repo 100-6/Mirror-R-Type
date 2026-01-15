@@ -62,7 +62,7 @@ int main(int argc, char* argv[]) {
         std::cerr << "[Bagario] Failed to create window!\n";
         return 1;
     }
-    graphics->set_vsync(true);
+    graphics->set_vsync(false);  // VSync off by default for lower latency, can be enabled in Settings
 
     // Load input plugin separately
     engine::IInputPlugin* input = nullptr;

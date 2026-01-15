@@ -210,6 +210,7 @@ struct LocalGameState {
     int music_volume = 70;
     int sfx_volume = 80;
     bool fullscreen = false;
+    bool vsync = false;  // VSync disabled by default for lower input latency
     PlayerSkin skin;
 };
 

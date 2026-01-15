@@ -29,6 +29,7 @@ public:
 
 private:
     void update_volume_labels();
+    void update_vsync_label();
     void rebuild_ui();
 
     std::vector<std::unique_ptr<UILabel>> labels_;
@@ -37,6 +38,9 @@ private:
 
     UILabel* music_value_label_ = nullptr;
     UILabel* sfx_value_label_ = nullptr;
+    UILabel* vsync_value_label_ = nullptr;
+    UIButton* vsync_toggle_btn_ = nullptr;
+    bool last_vsync_state_ = true;  // Track changes to apply to graphics
 };
 
 }  // namespace bagario
