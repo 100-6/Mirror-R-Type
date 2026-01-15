@@ -8,6 +8,7 @@
 #include "systems/LevelSystem.hpp"
 #include <iostream>
 
+namespace rtype {
 namespace game {
 
 LevelSystem::LevelSystem()
@@ -290,3 +291,4 @@ void LevelSystem::clear_all_enemies_and_projectiles(Registry& registry)
 }
 
 } // namespace game
+} // namespace rtype

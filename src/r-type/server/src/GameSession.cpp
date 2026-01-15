@@ -23,6 +23,7 @@
 #include "systems/ScoreSystem.hpp"
 #include "components/CombatHelpers.hpp"
 #include "components/ShipComponents.hpp"
+#include "components/LevelComponents.hpp"
 
 #undef ENEMY_BASIC_SPEED
 #undef ENEMY_BASIC_HEALTH

@@ -14,6 +14,7 @@
 #include "components/GameComponents.hpp"
 #include <cstdint>
 
+namespace rtype {
 namespace game {
 
 /**
@@ -144,5 +145,6 @@ private:
 };
 
 } // namespace game
+} // namespace rtype
 
 #endif // BOSS_SYSTEM_HPP_

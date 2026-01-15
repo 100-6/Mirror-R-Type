@@ -7,6 +7,7 @@
 
 #include "systems/BossSystem.hpp"
 #include "ecs/CoreComponents.hpp"
+#include "components/LevelComponents.hpp"
 #include <iostream>
 #include <cmath>
 #include <random>
@@ -15,6 +16,7 @@
 #define M_PI 3.14159265358979323846
 #endif
 
+namespace rtype {
 namespace game {
 
 BossSystem::BossSystem()
@@ -429,3 +431,4 @@ float BossSystem::random_angle()
 }
 
 } // namespace game
+} // namespace rtype

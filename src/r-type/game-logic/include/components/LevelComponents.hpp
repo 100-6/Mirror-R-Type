@@ -7,6 +7,7 @@
 #include "Entity.hpp"
 #include "plugin_manager/CommonTypes.hpp"
 
+namespace rtype {
 namespace game {
 
 // ============================================================================
@@ -212,5 +213,6 @@ struct PlayerLives {
 };
 
 } // namespace game
+} // namespace rtype
 
 #endif // LEVEL_COMPONENTS_HPP

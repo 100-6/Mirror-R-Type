@@ -14,6 +14,7 @@
 #include "components/LevelComponents.hpp"
 #include "components/GameComponents.hpp"
 
+namespace rtype {
 namespace game {
 
 /**
@@ -94,5 +95,6 @@ private:
 };
 
 } // namespace game
+} // namespace rtype
 
 #endif // CHECKPOINT_SYSTEM_HPP_

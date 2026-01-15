@@ -13,6 +13,7 @@
 #include "components/LevelComponents.hpp"
 #include "components/GameComponents.hpp"
 
+namespace rtype {
 namespace game {
 
 /**
@@ -116,5 +117,6 @@ private:
 };
 
 } // namespace game
+} // namespace rtype
 
 #endif // LEVEL_SYSTEM_HPP_

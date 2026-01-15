@@ -9,6 +9,7 @@
 #include "GameConfig.hpp"
 #include <iostream>
 
+namespace rtype {
 namespace game {
 
 CheckpointSystem::CheckpointSystem()
@@ -147,3 +148,4 @@ float CheckpointSystem::get_current_scroll(Registry& registry)
 }
 
 } // namespace game
+} // namespace rtype
