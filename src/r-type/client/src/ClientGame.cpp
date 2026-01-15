@@ -402,7 +402,7 @@ void ClientGame::setup_map_system() {
         *graphics_plugin_, screen_width_, screen_height_
     );
     
-    map_scroll_x_ = 0.0f;
+    map_scroll_x_ = 0.0;
 //     std::cout << "[ClientGame] Map systems created (waiting for map selection)\n";
 }
 
@@ -457,7 +457,7 @@ void ClientGame::load_map(const std::string& mapId) {
         sprites[background2_].texture = engine::INVALID_HANDLE;
     }
     
-    map_scroll_x_ = 0.0f;
+    map_scroll_x_ = 0.0;
     current_map_id_str_ = mapId;
 //     std::cout << "[ClientGame] Map loaded: " << config.name << "\n";
 }
@@ -535,7 +535,8 @@ void ClientGame::setup_network_callbacks() {
         // Load the selected map
         load_map(mapIdStr);
         if (chunk_manager_) {
-            chunk_manager_->setScrollSpeed(server_scroll_speed_);
+            // Pass registry to update velocities of existing wall entities
+            chunk_manager_->setScrollSpeed(server_scroll_speed_, registry_.get());
         }
 
         // Apply map-specific theme (background color)
@@ -697,22 +698,16 @@ void ClientGame::setup_network_callbacks() {
             interpolation_system_->on_snapshot_received(server_tick, entities, local_player_id);
         }
 
-        // Synchronize scroll position from server to fix wall collision desync
-        float server_scroll = header.scroll_x;
+        // Synchronize scroll position from server for visual tile rendering
+        // Wall collisions are handled server-side only, but tiles need to render at correct position
+        // ALWAYS sync to server scroll to ensure visual tiles match server wall positions
+        double server_scroll = static_cast<double>(header.scroll_x);
         if (chunk_manager_) {
-            // Calculate drift between client and server scroll
-            float client_scroll = static_cast<float>(chunk_manager_->getScrollX());
-            float scroll_drift = server_scroll - client_scroll;
-
-            // If drift is significant (>2 pixels), apply correction
-            // Use smooth correction to avoid visual jumps
-            if (std::abs(scroll_drift) > 2.0f) {
-                // Apply 50% of the drift for smooth correction
-                float correction = scroll_drift * 0.5f;
-                chunk_manager_->advanceScroll(correction);
-                map_scroll_x_ += correction;
-            }
+            // Force chunk manager scroll to match server exactly
+            // This ensures chunk loading/unloading decisions use the same scroll as rendering
+            chunk_manager_->setScrollX(server_scroll);
         }
+        map_scroll_x_ = server_scroll;
 
         for (const auto& state : entities) {
             uint32_t server_id = ntohl(state.entity_id);
@@ -1146,17 +1141,21 @@ void ClientGame::run() {
             registry_->run_systems(dt);
         } else {
             // Game screen - run game systems
-            
-            // Update map scrolling
+
+            // Update map scrolling for smooth visual rendering
+            // Note: chunk_manager uses confirmedScrollX (from server snapshots) for chunk loading decisions
+            // but renderScrollX (extrapolated locally) for smooth visual display
             float scrollDelta = server_scroll_speed_ * dt;
             map_scroll_x_ += scrollDelta;
-            
+
             // Update parallax and chunk states
             if (parallax_system_) {
                 parallax_system_->updateScroll(scrollDelta);
             }
             if (chunk_manager_) {
-                chunk_manager_->advanceScroll(scrollDelta);
+                // Advance render scroll for smooth visual interpolation between server updates
+                chunk_manager_->advanceRenderScroll(scrollDelta);
+                // Update loads/unloads chunks based on confirmedScrollX (set by server snapshots)
                 chunk_manager_->update(*registry_, dt);
             }
             
@@ -1173,9 +1172,9 @@ void ClientGame::run() {
                 parallax_system_->render();
             }
             
-            // Render tile chunks
+            // Render tile chunks (uses internal scroll position for consistency)
             if (chunk_manager_ && chunk_manager_->isInitialized()) {
-                chunk_manager_->render(map_scroll_x_);
+                chunk_manager_->render();
             }
             
             // Tell RenderSystem to skip clear (we already cleared + rendered background)

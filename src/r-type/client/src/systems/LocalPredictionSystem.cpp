@@ -65,9 +65,9 @@ void LocalPredictionSystem::update(Registry& registry, float dt) {
     float predicted_y = last_state.y + velocity.y * elapsed;
 
     clamp_position(predicted_x, predicted_y, player_collider);
-    // Wall collisions are now synchronized via scroll_x in server snapshots,
-    // so client-side prediction should match server-side collision detection.
-    resolve_wall_collisions(registry, predicted_x, predicted_y, player_collider);
+    // Wall collisions are handled SERVER-SIDE ONLY
+    // Client just does screen boundary clamping and trusts server for wall collisions
+    // This eliminates all client/server wall position desync issues
 
     Position& position = positions[player];
     position.x = predicted_x;
@@ -92,61 +92,7 @@ void LocalPredictionSystem::clamp_position(float& x, float& y, const Collider& c
         y = screen_height_ - half_h;
 }
 
-void LocalPredictionSystem::resolve_wall_collisions(Registry& registry,
-                                                    float& x,
-                                                    float& y,
-                                                    const Collider& player_collider) const {
-    if (!registry.has_component_registered<Wall>())
-        return;
-
-    auto& positions = registry.get_components<Position>();
-    auto& colliders = registry.get_components<Collider>();
-    auto& walls = registry.get_components<Wall>();
-
-    // Center-based collision resolution using half-extents
-    float half_pw = player_collider.width * 0.5f;
-    float half_ph = player_collider.height * 0.5f;
-
-    for (size_t i = 0; i < walls.size(); ++i) {
-        Entity wall_entity = walls.get_entity_at(i);
-
-        if (!positions.has_entity(wall_entity) || !colliders.has_entity(wall_entity))
-            continue;
-
-        const Position& wall_pos = positions[wall_entity];
-        const Collider& wall_col = colliders[wall_entity];
-
-        float half_ww = wall_col.width * 0.5f;
-        float half_wh = wall_col.height * 0.5f;
-
-        // Check for overlap using center-based AABB
-        bool overlap = (x + half_pw > wall_pos.x - half_ww &&
-                        x - half_pw < wall_pos.x + half_ww &&
-                        y + half_ph > wall_pos.y - half_wh &&
-                        y - half_ph < wall_pos.y + half_wh);
-
-        if (!overlap)
-            continue;
-
-        // Calculate overlap amounts on each axis
-        float overlap_left = (x + half_pw) - (wall_pos.x - half_ww);
-        float overlap_right = (wall_pos.x + half_ww) - (x - half_pw);
-        float overlap_top = (y + half_ph) - (wall_pos.y - half_wh);
-        float overlap_bottom = (wall_pos.y + half_wh) - (y - half_ph);
-
-        float min_overlap = std::min({overlap_left, overlap_right, overlap_top, overlap_bottom});
-
-        // Push player out on axis with minimum overlap
-        if (min_overlap == overlap_left) {
-            x -= overlap_left;
-        } else if (min_overlap == overlap_right) {
-            x += overlap_right;
-        } else if (min_overlap == overlap_top) {
-            y -= overlap_top;
-        } else {
-            y += overlap_bottom;
-        }
-    }
-}
+// Wall collision resolution removed - handled server-side only
+// This eliminates all client/server wall position desync issues
 
 }

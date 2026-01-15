@@ -112,13 +112,9 @@ void CollisionSystem::update(Registry& registry, float dt)
         registry.get_event_bus().publish(ecs::DamageEvent{player, bullet, dmg});
     });
 
-    // Collision Projectile vs Wall : Marque le projectile pour destruction
-    scan_collisions<Projectile, Wall>(registry, [&registry, &hide_projectile_sprite](Entity bullet, Entity wall) {
-        (void)wall;
-        registry.add_component(bullet, ToDestroy{});
-        hide_projectile_sprite(bullet);
-        // TODO: publier un ProjectileHitEvent spécifique aux murs pour feedback visuel.
-    });
+    // Collision Projectile vs Wall : Handled by scroll-aware collision system
+    // Walls are in WORLD coordinates (static), projectiles are in SCREEN coordinates
+    // See GameSession::update() which calls check_projectile_wall_collisions()
 
     // Collision Player (Controllable) vs Enemy : Publie PlayerHitEvent
     scan_collisions<Controllable, Enemy>(registry, [&registry](Entity player, Entity enemy) {
@@ -135,43 +131,9 @@ void CollisionSystem::update(Registry& registry, float dt)
         registry.get_event_bus().publish(ecs::PlayerHitEvent{player, enemy});
     });
 
-    // Collision Player vs Wall : Repousse le joueur
-    scan_collisions<Controllable, Wall>(registry, [&registry](Entity player, Entity wall) {
-        auto& positions = registry.get_components<Position>();
-        auto& colliders = registry.get_components<Collider>();
-
-        Position& posP = positions[player];
-        const Collider& colP = colliders[player];
-
-        const Position& posW = positions[wall];
-        const Collider& colW = colliders[wall];
-
-        // Center-based collision resolution using half-extents
-        float half_wP = colP.width * 0.5f;
-        float half_hP = colP.height * 0.5f;
-        float half_wW = colW.width * 0.5f;
-        float half_hW = colW.height * 0.5f;
-
-        // Calculate overlap on each axis
-        float overlapLeft = (posP.x + half_wP) - (posW.x - half_wW);
-        float overlapRight = (posW.x + half_wW) - (posP.x - half_wP);
-        float overlapTop = (posP.y + half_hP) - (posW.y - half_hW);
-        float overlapBottom = (posW.y + half_hW) - (posP.y - half_hP);
-
-        float minOverlapX = std::min(overlapLeft, overlapRight);
-        float minOverlapY = std::min(overlapTop, overlapBottom);
-
-        // Push player out on axis with minimum overlap
-        if (minOverlapX < minOverlapY) {
-            if (overlapLeft < overlapRight)
-                posP.x -= overlapLeft;
-            else
-                posP.x += overlapRight;
-        } else {
-            if (overlapTop < overlapBottom)
-                posP.y -= overlapTop;
-            else
-                posP.y += overlapBottom;
-        }
-    });
+    // Collision Player vs Wall : Handled by scroll-aware collision system
+    // Walls are in WORLD coordinates (static), players are in SCREEN coordinates
+    // We need to get the scroll offset to properly check collisions
+    // This is done via a separate method that has access to the scroll position
+    // See GameSession::update() which calls check_player_wall_collisions()
 }

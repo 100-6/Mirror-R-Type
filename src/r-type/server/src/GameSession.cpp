@@ -52,7 +52,7 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
     , map_id_(map_id)
     , is_active_(true)
     , tick_count_(0)
-    , current_scroll_(0.0f)
+    , current_scroll_(0.0)
     , scroll_speed_(config::GAME_SCROLL_SPEED)
     , session_start_time_(std::chrono::steady_clock::now())
 {
@@ -405,6 +405,10 @@ void GameSession::update(float delta_time)
 
     // Spawn walls from map tiles as they come into view
     spawn_walls_in_view();
+
+    // Check scroll-aware collisions (walls are in world coords, entities in screen coords)
+    check_player_wall_collisions();
+    check_projectile_wall_collisions();
 
     wave_manager_.update(delta_time, current_scroll_);
     registry_.get_system<BonusSystem>().update(registry_, delta_time);
@@ -939,15 +943,17 @@ void GameSession::resync_client(uint32_t player_id, uint32_t tcp_client_id)
 
 void GameSession::load_map_segments(uint16_t map_id)
 {
-    // Map ID to folder mapping
+    // Map ID to folder mapping - all levels use nebula_outpost visual map for now
+    // The gameplay logic (waves, boss) is defined in level JSON files
     std::string map_folder;
     switch (map_id) {
-        case 1:
-            map_folder = "nebula_outpost";
-            break;
+        case 0:   // Debug: Quick Test
+        case 1:   // Level 1: Asteroid Belt
+        case 2:   // Level 2: Nebula Station
+        case 3:   // Level 3: Bydo Fortress
+        case 99:  // Debug: Instant Boss
         default:
-            // std::cout << "[GameSession " << session_id_ << "] Unknown map_id " << map_id << ", using nebula_outpost\n";
-            // map_folder = "nebula_outpost";
+            map_folder = "nebula_outpost";
             break;
     }
 
@@ -979,17 +985,18 @@ void GameSession::spawn_walls_in_view()
         return;
 
     // Calculate world X position where next segment starts
-    float segment_world_x = 0.0f;
+    double segment_world_x = 0.0;
     for (size_t i = 0; i < next_segment_to_spawn_; ++i) {
-        segment_world_x += static_cast<float>(map_segments_[i].width * tile_size_);
+        segment_world_x += static_cast<double>(map_segments_[i].width * tile_size_);
     }
 
     // Spawn walls from segments that are about to come into view
-    float spawn_threshold = current_scroll_ + 1920.0f + 500.0f;  // screen width + buffer
+    // Use double for precision
+    double spawn_threshold = current_scroll_ + 1920.0 + 500.0;  // screen width + buffer
 
     while (next_segment_to_spawn_ < map_segments_.size() && segment_world_x < spawn_threshold) {
         const auto& segment = map_segments_[next_segment_to_spawn_];
-        float segment_width = static_cast<float>(segment.width * tile_size_);
+        double segment_width = static_cast<double>(segment.width * tile_size_);
 
         // Greedy merge: find rectangular groups of wall tiles
         int height = static_cast<int>(segment.tiles.size());
@@ -1029,16 +1036,20 @@ void GameSession::spawn_walls_in_view()
                     }
                 }
 
-                // Spawn merged wall entity
-                float tile_world_x = segment_world_x + static_cast<float>(x * tile_size_);
+                // Spawn merged wall entity with FIXED world position
+                // Walls are STATIC in world coordinates - they don't move!
+                // The scroll is applied during collision detection by converting
+                // player screen position to world position
+                double tile_world_x = segment_world_x + static_cast<double>(x * tile_size_);
                 float wall_width = static_cast<float>(w * tile_size_);
                 float wall_height = static_cast<float>(h * tile_size_);
-                float center_x = tile_world_x + wall_width * 0.5f;
+                float center_x = static_cast<float>(tile_world_x) + wall_width * 0.5f;
                 float center_y = static_cast<float>(y * tile_size_) + wall_height * 0.5f;
 
                 Entity wall = registry_.spawn_entity();
                 registry_.add_component(wall, Position{center_x, center_y});
-                registry_.add_component(wall, Velocity{-scroll_speed_, 0.0f});
+                // NO VELOCITY - walls are static in world coordinates!
+                // This eliminates floating point drift that caused desync
                 registry_.add_component(wall, Collider{wall_width, wall_height});
                 registry_.add_component(wall, Wall{});
                 registry_.add_component(wall, NoFriction{});
@@ -1046,14 +1057,203 @@ void GameSession::spawn_walls_in_view()
 
                 // DO NOT send walls to client - client loads walls from tilemap via ChunkManager
                 // Server uses these walls for server-side collision validation only
-                // if (network_system_)
-                //     network_system_->queue_entity_spawn(wall, EntityType::WALL,
-                //         center_x, center_y, 65535, 0);
             }
         }
 
         segment_world_x += segment_width;
         next_segment_to_spawn_++;
+    }
+
+    // Despawn walls that are now behind the camera (off-screen to the left)
+    // This prevents memory from growing indefinitely as we scroll through the level
+    despawn_walls_behind_camera();
+}
+
+void GameSession::despawn_walls_behind_camera()
+{
+    auto& walls = registry_.get_components<Wall>();
+    auto& positions = registry_.get_components<Position>();
+    auto& colliders = registry_.get_components<Collider>();
+
+    // Despawn walls that are completely off-screen to the left
+    // Buffer of 100 pixels to be safe
+    float despawn_threshold = static_cast<float>(current_scroll_) - 100.0f;
+
+    std::vector<Entity> walls_to_despawn;
+    for (size_t i = 0; i < walls.size(); ++i) {
+        Entity wall_entity = walls.get_entity_at(i);
+        if (!positions.has_entity(wall_entity) || !colliders.has_entity(wall_entity))
+            continue;
+
+        const Position& pos = positions[wall_entity];
+        const Collider& col = colliders[wall_entity];
+
+        // Wall right edge position
+        float wall_right = pos.x + col.width * 0.5f;
+
+        if (wall_right < despawn_threshold) {
+            walls_to_despawn.push_back(wall_entity);
+        }
+    }
+
+    for (Entity wall : walls_to_despawn) {
+        registry_.kill_entity(wall);
+    }
+}
+
+void GameSession::check_player_wall_collisions()
+{
+    auto& positions = registry_.get_components<Position>();
+    auto& colliders = registry_.get_components<Collider>();
+    auto& controllables = registry_.get_components<Controllable>();
+    auto& walls = registry_.get_components<Wall>();
+
+    float scroll = static_cast<float>(current_scroll_);
+
+    // For each player
+    for (size_t i = 0; i < controllables.size(); ++i) {
+        Entity player = controllables.get_entity_at(i);
+        if (!positions.has_entity(player) || !colliders.has_entity(player))
+            continue;
+
+        Position& posP = positions[player];
+        const Collider& colP = colliders[player];
+
+        // Convert player SCREEN position to WORLD position
+        float player_world_x = posP.x + scroll;
+        float player_world_y = posP.y;  // Y doesn't scroll
+
+        float half_wP = colP.width * 0.5f;
+        float half_hP = colP.height * 0.5f;
+
+        // Check against all walls (which are in world coordinates)
+        for (size_t j = 0; j < walls.size(); ++j) {
+            Entity wall = walls.get_entity_at(j);
+            if (!positions.has_entity(wall) || !colliders.has_entity(wall))
+                continue;
+
+            const Position& posW = positions[wall];  // Wall is in WORLD coordinates
+            const Collider& colW = colliders[wall];
+
+            float half_wW = colW.width * 0.5f;
+            float half_hW = colW.height * 0.5f;
+
+            // AABB collision check in world coordinates
+            float left1 = player_world_x - half_wP;
+            float right1 = player_world_x + half_wP;
+            float up1 = player_world_y - half_hP;
+            float down1 = player_world_y + half_hP;
+
+            float left2 = posW.x - half_wW;
+            float right2 = posW.x + half_wW;
+            float up2 = posW.y - half_hW;
+            float down2 = posW.y + half_hW;
+
+            bool collision = (right1 > left2) && (left1 < right2) &&
+                           (down1 > up2) && (up1 < down2);
+
+            if (collision) {
+                // Calculate overlap on each axis (in world space)
+                float overlapLeft = right1 - left2;
+                float overlapRight = right2 - left1;
+                float overlapTop = down1 - up2;
+                float overlapBottom = down2 - up1;
+
+                float minOverlapX = std::min(overlapLeft, overlapRight);
+                float minOverlapY = std::min(overlapTop, overlapBottom);
+
+                // Push player out on axis with minimum overlap
+                // Apply correction in SCREEN coordinates
+                if (minOverlapX < minOverlapY) {
+                    if (overlapLeft < overlapRight)
+                        posP.x -= overlapLeft;  // Push left
+                    else
+                        posP.x += overlapRight; // Push right
+                } else {
+                    if (overlapTop < overlapBottom)
+                        posP.y -= overlapTop;   // Push up
+                    else
+                        posP.y += overlapBottom;// Push down
+                }
+
+                // Recalculate world position after correction for next wall check
+                player_world_x = posP.x + scroll;
+                player_world_y = posP.y;
+            }
+        }
+    }
+}
+
+void GameSession::check_projectile_wall_collisions()
+{
+    auto& positions = registry_.get_components<Position>();
+    auto& colliders = registry_.get_components<Collider>();
+    auto& projectiles = registry_.get_components<Projectile>();
+    auto& walls = registry_.get_components<Wall>();
+
+    float scroll = static_cast<float>(current_scroll_);
+
+    std::vector<Entity> projectiles_to_destroy;
+
+    // For each projectile
+    for (size_t i = 0; i < projectiles.size(); ++i) {
+        Entity proj = projectiles.get_entity_at(i);
+        if (!positions.has_entity(proj) || !colliders.has_entity(proj))
+            continue;
+
+        const Position& posP = positions[proj];
+        const Collider& colP = colliders[proj];
+
+        // Convert projectile SCREEN position to WORLD position
+        float proj_world_x = posP.x + scroll;
+        float proj_world_y = posP.y;
+
+        float half_wP = colP.width * 0.5f;
+        float half_hP = colP.height * 0.5f;
+
+        // Check against all walls
+        for (size_t j = 0; j < walls.size(); ++j) {
+            Entity wall = walls.get_entity_at(j);
+            if (!positions.has_entity(wall) || !colliders.has_entity(wall))
+                continue;
+
+            const Position& posW = positions[wall];
+            const Collider& colW = colliders[wall];
+
+            float half_wW = colW.width * 0.5f;
+            float half_hW = colW.height * 0.5f;
+
+            // AABB collision check in world coordinates
+            float left1 = proj_world_x - half_wP;
+            float right1 = proj_world_x + half_wP;
+            float up1 = proj_world_y - half_hP;
+            float down1 = proj_world_y + half_hP;
+
+            float left2 = posW.x - half_wW;
+            float right2 = posW.x + half_wW;
+            float up2 = posW.y - half_hW;
+            float down2 = posW.y + half_hW;
+
+            bool collision = (right1 > left2) && (left1 < right2) &&
+                           (down1 > up2) && (up1 < down2);
+
+            if (collision) {
+                projectiles_to_destroy.push_back(proj);
+                break;  // No need to check more walls for this projectile
+            }
+        }
+    }
+
+    // Destroy collided projectiles
+    for (Entity proj : projectiles_to_destroy) {
+        registry_.add_component(proj, ToDestroy{});
+        // Hide sprite
+        if (registry_.has_component_registered<::Sprite>()) {
+            auto& sprites = registry_.get_components<::Sprite>();
+            if (sprites.has_entity(proj)) {
+                registry_.remove_component<::Sprite>(proj);
+            }
+        }
     }
 }
 

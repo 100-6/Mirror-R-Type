@@ -83,7 +83,7 @@ private:
     // Map system (new)
     std::unique_ptr<rtype::ParallaxBackgroundSystem> parallax_system_;
     std::unique_ptr<rtype::ChunkManagerSystem> chunk_manager_;
-    float map_scroll_x_ = 0.0f;
+    double map_scroll_x_ = 0.0;  // Use double for precision over long play sessions
     std::string current_map_id_str_ = "nebula_outpost";
     float server_scroll_speed_ = 60.0f;
 

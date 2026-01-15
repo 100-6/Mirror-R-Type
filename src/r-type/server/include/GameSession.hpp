@@ -108,7 +108,7 @@ public:
     Registry& get_registry() { return registry_; }
     ServerNetworkSystem* get_network_system() { return network_system_; }
     float get_scroll_speed() const { return scroll_speed_; }
-    float get_current_scroll() const { return current_scroll_; }  // NEW: For checkpoint system
+    double get_current_scroll() const { return current_scroll_; }  // NEW: For checkpoint system
 
     /**
      * @brief Resync a client with all existing entities
@@ -143,6 +143,12 @@ private:
     // Map-based wall spawning from tiles
     void load_map_segments(uint16_t map_id);
     void spawn_walls_in_view();
+    void despawn_walls_behind_camera();
+
+    // Scroll-aware collision detection
+    // Walls are in WORLD coordinates (static), entities are in SCREEN coordinates
+    void check_player_wall_collisions();
+    void check_projectile_wall_collisions();
 
     uint32_t session_id_;
     protocol::GameMode game_mode_;
@@ -158,7 +164,7 @@ private:
     LevelManager level_manager_;  // NEW: Level system manager
 
     uint32_t tick_count_;
-    float current_scroll_;
+    double current_scroll_;  // Use double for precision over long play sessions
     float scroll_speed_;
     std::chrono::steady_clock::time_point session_start_time_;
 
