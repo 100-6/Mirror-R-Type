@@ -1218,7 +1218,6 @@ void ClientGame::run() {
 
         if (in_result)
             screen_manager_->draw_result_screen(graphics_plugin_);
-        }
 
         // Equalize the fade logic here
         // --- Visual Reset Effect (Fade to Black) ---

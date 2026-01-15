@@ -1140,6 +1140,4 @@ void GameSession::clear_enemies()
     std::cout << "[GameSession " << session_id_ << "] Cleared " << count << " enemies\n";
 }
 
-}
-
 } // namespace rtype::server
