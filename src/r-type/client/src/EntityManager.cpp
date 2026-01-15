@@ -1,5 +1,6 @@
 #include "EntityManager.hpp"
 #include "GameConfig.hpp"
+#include "components/ShipComponents.hpp"
 #include "ecs/events/GameEvents.hpp"
 #include <iostream>
 #include <algorithm>
@@ -17,7 +18,7 @@ struct EntityDimensions {
     float height;
 };
 
-static EntityDimensions get_collider_dimensions(protocol::EntityType type) {
+static EntityDimensions get_collider_dimensions(protocol::EntityType type, uint8_t subtype = 0) {
     using namespace rtype::shared::config;
 
     // Map bonus types to powerup types
@@ -29,8 +30,13 @@ static EntityDimensions get_collider_dimensions(protocol::EntityType type) {
         type = protocol::EntityType::POWERUP_SPEED;
 
     switch (type) {
-        case protocol::EntityType::PLAYER:
-            return {PLAYER_WIDTH, PLAYER_HEIGHT};
+        case protocol::EntityType::PLAYER: {
+            // Extract ship type from subtype (which contains skin_id for players)
+            // Note: subtype for players is encoded as (player_id << 4) | skin_id
+            uint8_t skin_id = subtype & 0x0F;  // Extract low 4 bits
+            auto hitbox = rtype::game::get_hitbox_dimensions_from_skin_id(skin_id);
+            return {hitbox.width, hitbox.height};
+        }
         case protocol::EntityType::ENEMY_BASIC:
             return {ENEMY_BASIC_WIDTH, ENEMY_BASIC_HEIGHT};
         case protocol::EntityType::ENEMY_FAST:
@@ -67,7 +73,7 @@ EntityManager::EntityManager(Registry& registry, TextureManager& textures,
 Sprite EntityManager::build_sprite(protocol::EntityType type, bool is_local_player, uint8_t subtype) {
     Sprite sprite{};
     sprite.texture = textures_.get_enemy();
-    auto dims = get_collider_dimensions(type);
+    auto dims = get_collider_dimensions(type, subtype);
     bool use_fixed_dimensions = false;
 
     // Initialize dimensions with collider size as fallback
@@ -132,7 +138,7 @@ Sprite EntityManager::build_sprite(protocol::EntityType type, bool is_local_play
         case protocol::EntityType::PROJECTILE_ENEMY:
             sprite.texture = textures_.get_projectile();
             sprite.layer = 20;
-            sprite.tint = engine::Color::Red;
+            sprite.tint = engine::Color::White;  // Removed red tint
             sprite.source_rect = {16.0f, 0.0f, 16.0f, 16.0f};
             sprite.width = shared::config::PROJECTILE_WIDTH;
             sprite.height = shared::config::PROJECTILE_HEIGHT;
@@ -345,7 +351,7 @@ Entity EntityManager::spawn_or_update_entity(uint32_t server_id, protocol::Entit
 
     // Update collider
     auto& colliders = registry_.get_components<Collider>();
-    EntityDimensions collider_dims = get_collider_dimensions(type);
+    EntityDimensions collider_dims = get_collider_dimensions(type, sprite_subtype);
     if (colliders.has_entity(entity)) {
         colliders[entity].width = collider_dims.width;
         colliders[entity].height = collider_dims.height;
@@ -471,6 +477,8 @@ Entity EntityManager::spawn_or_update_entity(uint32_t server_id, protocol::Entit
         }
 
         // Trouver le joueur ou vaisseau bonus le plus proche (celui qui a tiré)
+        // IMPORTANT: Les joueurs tirent vers la DROITE, donc on cherche seulement
+        // les tireurs qui sont À GAUCHE du projectile (shooterX < projectileX)
         Entity closestShooter = 0;
         float closestDistance = 1000000.0f;
         bool isCompanionShot = false;
@@ -480,13 +488,20 @@ Entity EntityManager::spawn_or_update_entity(uint32_t server_id, protocol::Entit
         // D'abord chercher parmi les joueurs
         for (const auto& [srv_id, local_ent] : server_to_local_) {
             if (server_types_[srv_id] == protocol::EntityType::PLAYER && positions.has_entity(local_ent)) {
-                float dx = positions[local_ent].x - x;
-                float dy = positions[local_ent].y - y;
-                float dist = dx*dx + dy*dy;
-                if (dist < closestDistance) {
-                    closestDistance = dist;
-                    closestShooter = local_ent;
-                    isCompanionShot = false;
+                float playerX = positions[local_ent].x;
+                float playerY = positions[local_ent].y;
+
+                // Ne considérer que les joueurs À GAUCHE du projectile
+                // (car ils tirent vers la droite)
+                if (playerX < x) {
+                    float dx = playerX - x;
+                    float dy = playerY - y;
+                    float dist = dx*dx + dy*dy;
+                    if (dist < closestDistance) {
+                        closestDistance = dist;
+                        closestShooter = local_ent;
+                        isCompanionShot = false;
+                    }
                 }
             }
         }
@@ -498,13 +513,19 @@ Entity EntityManager::spawn_or_update_entity(uint32_t server_id, protocol::Entit
             if (bw.weaponEntity != static_cast<size_t>(-1)) {
                 Entity companionEntity = static_cast<Entity>(bw.weaponEntity);
                 if (positions.has_entity(companionEntity)) {
-                    float dx = positions[companionEntity].x - x;
-                    float dy = positions[companionEntity].y - y;
-                    float dist = dx*dx + dy*dy;
-                    if (dist < closestDistance) {
-                        closestDistance = dist;
-                        closestShooter = companionEntity;
-                        isCompanionShot = true;
+                    float companionX = positions[companionEntity].x;
+                    float companionY = positions[companionEntity].y;
+
+                    // Ne considérer que les companions À GAUCHE du projectile
+                    if (companionX < x) {
+                        float dx = companionX - x;
+                        float dy = companionY - y;
+                        float dist = dx*dx + dy*dy;
+                        if (dist < closestDistance) {
+                            closestDistance = dist;
+                            closestShooter = companionEntity;
+                            isCompanionShot = true;
+                        }
                     }
                 }
             }
@@ -512,8 +533,75 @@ Entity EntityManager::spawn_or_update_entity(uint32_t server_id, protocol::Entit
 
         // Publish event to MuzzleFlashSystem (ECS architecture)
         if (closestShooter != 0) {
+            // Get shooter width from Collider
+            auto& colliders = registry_.get_components<Collider>();
+            float shooterWidth = 104.0f;  // Default to medium ship
+
+            if (colliders.has_entity(closestShooter)) {
+                shooterWidth = colliders[closestShooter].width;
+            }
+
             registry_.get_event_bus().publish(ecs::MuzzleFlashSpawnEvent{
-                closestShooter, x, y, isCompanionShot
+                closestShooter, x, y, isCompanionShot, false, shooterWidth
+            });
+        }
+    }
+
+    // Créer un effet de feu pour les nouveaux projectiles ennemis via ECS event
+    if (type == protocol::EntityType::PROJECTILE_ENEMY && is_new) {
+        // Ajouter l'animation de balle au projectile
+        auto& bulletAnims = registry_.get_components<BulletAnimation>();
+        if (!bulletAnims.has_entity(entity)) {
+            registry_.add_component(entity, BulletAnimation{0.0f, 0.1f, 0});
+        }
+
+        // Trouver l'ennemi le plus proche (celui qui a tiré)
+        // IMPORTANT: Les ennemis tirent vers la GAUCHE, donc on cherche seulement
+        // les ennemis qui sont À DROITE du projectile (enemyX > projectileX)
+        Entity closestEnemy = 0;
+        float closestDistance = 1000000.0f;
+        float enemyWidth = 120.0f;  // Default to Basic enemy width
+        auto& positions = registry_.get_components<Position>();
+        auto& colliders = registry_.get_components<Collider>();
+
+        // Chercher parmi tous les ennemis
+        for (const auto& [srv_id, local_ent] : server_to_local_) {
+            auto srv_type = server_types_[srv_id];
+
+            // Check if this is an enemy type
+            if ((srv_type == protocol::EntityType::ENEMY_BASIC ||
+                 srv_type == protocol::EntityType::ENEMY_FAST ||
+                 srv_type == protocol::EntityType::ENEMY_TANK ||
+                 srv_type == protocol::EntityType::ENEMY_BOSS) &&
+                positions.has_entity(local_ent)) {
+
+                float enemyX = positions[local_ent].x;
+                float enemyY = positions[local_ent].y;
+
+                // Ne considérer que les ennemis À DROITE du projectile
+                // (car ils tirent vers la gauche)
+                if (enemyX > x) {
+                    float dx = enemyX - x;
+                    float dy = enemyY - y;
+                    float dist = dx*dx + dy*dy;
+
+                    if (dist < closestDistance) {
+                        closestDistance = dist;
+                        closestEnemy = local_ent;
+
+                        // Get width from Collider if available
+                        if (colliders.has_entity(local_ent)) {
+                            enemyWidth = colliders[local_ent].width;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Publish event to MuzzleFlashSystem
+        if (closestEnemy != 0) {
+            registry_.get_event_bus().publish(ecs::MuzzleFlashSpawnEvent{
+                closestEnemy, x, y, false, true, enemyWidth
             });
         }
     }
@@ -816,6 +904,15 @@ Entity EntityManager::get_entity(uint32_t server_id) const {
 
 bool EntityManager::has_entity(uint32_t server_id) const {
     return server_to_local_.find(server_id) != server_to_local_.end();
+}
+
+bool EntityManager::get_entity_type(uint32_t server_id, protocol::EntityType& out_type) const {
+    auto it = server_types_.find(server_id);
+    if (it != server_types_.end()) {
+        out_type = it->second;
+        return true;
+    }
+    return false;
 }
 
 }

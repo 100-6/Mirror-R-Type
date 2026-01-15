@@ -22,6 +22,7 @@
 #include "systems/AttachmentSystem.hpp"
 #include "systems/ScoreSystem.hpp"
 #include "components/CombatHelpers.hpp"
+#include "components/ShipComponents.hpp"
 
 #undef ENEMY_BASIC_SPEED
 #undef ENEMY_BASIC_HEALTH
@@ -620,14 +621,17 @@ void GameSession::spawn_player_entity(GamePlayer& player)
     player.entity = entity;
     float spawn_x = config::PLAYER_SPAWN_X;
     float spawn_y = config::PLAYER_SPAWN_Y_BASE + (players_.size() * config::PLAYER_SPAWN_Y_OFFSET);
-    float center_x = spawn_x + config::PLAYER_WIDTH / 2.0f;
-    float center_y = spawn_y + config::PLAYER_HEIGHT / 2.0f;
+
+    // Get ship-specific hitbox dimensions based on player's skin_id
+    auto hitbox = rtype::game::get_hitbox_dimensions_from_skin_id(player.skin_id);
+    float center_x = spawn_x + hitbox.width / 2.0f;
+    float center_y = spawn_y + hitbox.height / 2.0f;
 
     registry_.add_component(entity, Position{center_x, center_y});
     registry_.add_component(entity, Velocity{0.0f, 0.0f});
     registry_.add_component(entity, Health{static_cast<int>(config::PLAYER_MAX_HEALTH), static_cast<int>(config::PLAYER_MAX_HEALTH)});
     registry_.add_component(entity, Controllable{config::PLAYER_MOVEMENT_SPEED});
-    registry_.add_component(entity, Collider{config::PLAYER_WIDTH, config::PLAYER_HEIGHT});
+    registry_.add_component(entity, Collider{hitbox.width, hitbox.height});
     registry_.add_component(entity, Invulnerability{3.0f});
     registry_.add_component(entity, Score{0});
     Weapon weapon = create_weapon(WeaponType::BASIC, engine::INVALID_HANDLE);
