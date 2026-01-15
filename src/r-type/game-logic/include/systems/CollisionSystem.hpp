@@ -16,12 +16,25 @@ class CollisionSystem : public ISystem {
         bool check_collision(const Position& pos1, const Position& pos2,
             const Collider& col1, const Collider& col2);
         void handle_projectiles_colisions(Registry& registry);
+
+        // Scroll offset for world<->screen coordinate conversion
+        // Walls are in WORLD coordinates, players/projectiles in SCREEN coordinates
+        float m_currentScroll = 0.0f;
     public:
         virtual ~CollisionSystem() = default;
 
         void init(Registry& registry) override;
         void shutdown() override;
         void update(Registry& registry, float dt) override;
+
+        /**
+         * @brief Set the current scroll position for coordinate conversion
+         * @param scroll Current scroll X offset (world coordinates)
+         *
+         * Must be called before update() to ensure proper collision detection
+         * between screen-space entities (players, projectiles) and world-space walls
+         */
+        void setScroll(float scroll) { m_currentScroll = scroll; }
         
         template<typename TypeA, typename TypeB, typename Action>
         void scan_collisions(Registry& registry, Action action)

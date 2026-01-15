@@ -91,7 +91,7 @@ public:
     /**
      * @brief Set the current scroll position for synchronization with clients
      */
-    void set_scroll_x(float scroll_x) { current_scroll_x_ = scroll_x; }
+    void set_scroll_x(double scroll_x) { current_scroll_x_ = scroll_x; }
 
     /**
      * @brief Drain all pending entity spawns atomically
@@ -187,8 +187,8 @@ private:
 
     std::unordered_map<uint32_t, Entity>* player_entities_ = nullptr;
 
-    // Current scroll position for synchronization with clients
-    float current_scroll_x_ = 0.0f;
+    // Current scroll position for synchronization with clients (double for precision)
+    double current_scroll_x_ = 0.0;
 };
 
 }

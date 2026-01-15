@@ -52,7 +52,7 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
     , map_id_(map_id)
     , is_active_(true)
     , tick_count_(0)
-    , current_scroll_(0.0f)
+    , current_scroll_(0.0)
     , scroll_speed_(config::GAME_SCROLL_SPEED)
     , session_start_time_(std::chrono::steady_clock::now())
 {
@@ -85,6 +85,7 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
     registry_.register_component<CircleEffect>();
     registry_.register_component<BonusWeapon>();
     registry_.register_component<BonusLifetime>();
+    registry_.register_component<Camera>();
 
     // Register Level System components
     registry_.register_component<game::LevelController>();
@@ -312,6 +313,14 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
     scroll_state.current_scroll = 0.0f;
     registry_.add_component(level_controller_entity, scroll_state);
 
+    // Create Camera entity for scroll management via ECS
+    // Camera position.x = current scroll offset, updated by MovementSystem
+    Entity camera_entity = registry_.spawn_entity();
+    registry_.add_component(camera_entity, Position{0.0f, 0.0f});
+    registry_.add_component(camera_entity, Velocity{scroll_speed_, 0.0f});  // Scroll speed as velocity
+    registry_.add_component(camera_entity, Camera{scroll_speed_});
+    registry_.add_component(camera_entity, NoFriction{});  // Camera doesn't slow down
+
     // std::cout << "[GameSession " << session_id_ << "] Level system initialized with "
     //           << cm.checkpoints.size() << " checkpoints\n";
 
@@ -391,7 +400,24 @@ void GameSession::update(float delta_time)
     }
 
     tick_count_++;
-    current_scroll_ += scroll_speed_ * delta_time;
+
+    // Run ECS systems first - this includes MovementSystem which updates Camera position
+    // CollisionSystem reads scroll from Camera entity directly (pure ECS)
+    registry_.get_system<ShootingSystem>().update(registry_, delta_time);
+    registry_.get_system<BonusSystem>().update(registry_, delta_time);
+    registry_.get_system<BonusWeaponSystem>().update(registry_, delta_time);
+    registry_.run_systems(delta_time);
+
+    // Read scroll from Camera entity (updated by MovementSystem)
+    // Camera.position.x = current scroll offset
+    auto& cameras = registry_.get_components<Camera>();
+    auto& positions = registry_.get_components<Position>();
+    if (cameras.size() > 0) {
+        Entity camera_entity = cameras.get_entity_at(0);
+        if (positions.has_entity(camera_entity)) {
+            current_scroll_ = static_cast<double>(positions[camera_entity].x);
+        }
+    }
 
     // Synchronize scroll position with network system for client synchronization
     if (network_system_)
@@ -407,16 +433,12 @@ void GameSession::update(float delta_time)
     spawn_walls_in_view();
 
     wave_manager_.update(delta_time, current_scroll_);
-    registry_.get_system<BonusSystem>().update(registry_, delta_time);
-    registry_.get_system<BonusWeaponSystem>().update(registry_, delta_time);
 
     // Update checkpoint system (handles respawn timers)
     if (registry_.has_system<game::CheckpointSystem>()) {
         registry_.get_system<game::CheckpointSystem>().update(registry_, delta_time);
     }
 
-    registry_.get_system<ShootingSystem>().update(registry_, delta_time);
-    registry_.run_systems(delta_time);
     check_offscreen_enemies();
 
     // === LEVEL SYSTEM VICTORY/DEFEAT CHECKS ===
@@ -939,15 +961,17 @@ void GameSession::resync_client(uint32_t player_id, uint32_t tcp_client_id)
 
 void GameSession::load_map_segments(uint16_t map_id)
 {
-    // Map ID to folder mapping
+    // Map ID to folder mapping - all levels use nebula_outpost visual map for now
+    // The gameplay logic (waves, boss) is defined in level JSON files
     std::string map_folder;
     switch (map_id) {
-        case 1:
-            map_folder = "nebula_outpost";
-            break;
+        case 0:   // Debug: Quick Test
+        case 1:   // Level 1: Asteroid Belt
+        case 2:   // Level 2: Nebula Station
+        case 3:   // Level 3: Bydo Fortress
+        case 99:  // Debug: Instant Boss
         default:
-            // std::cout << "[GameSession " << session_id_ << "] Unknown map_id " << map_id << ", using nebula_outpost\n";
-            // map_folder = "nebula_outpost";
+            map_folder = "nebula_outpost";
             break;
     }
 
@@ -979,17 +1003,18 @@ void GameSession::spawn_walls_in_view()
         return;
 
     // Calculate world X position where next segment starts
-    float segment_world_x = 0.0f;
+    double segment_world_x = 0.0;
     for (size_t i = 0; i < next_segment_to_spawn_; ++i) {
-        segment_world_x += static_cast<float>(map_segments_[i].width * tile_size_);
+        segment_world_x += static_cast<double>(map_segments_[i].width * tile_size_);
     }
 
     // Spawn walls from segments that are about to come into view
-    float spawn_threshold = current_scroll_ + 1920.0f + 500.0f;  // screen width + buffer
+    // Use double for precision
+    double spawn_threshold = current_scroll_ + 1920.0 + 500.0;  // screen width + buffer
 
     while (next_segment_to_spawn_ < map_segments_.size() && segment_world_x < spawn_threshold) {
         const auto& segment = map_segments_[next_segment_to_spawn_];
-        float segment_width = static_cast<float>(segment.width * tile_size_);
+        double segment_width = static_cast<double>(segment.width * tile_size_);
 
         // Greedy merge: find rectangular groups of wall tiles
         int height = static_cast<int>(segment.tiles.size());
@@ -1029,16 +1054,20 @@ void GameSession::spawn_walls_in_view()
                     }
                 }
 
-                // Spawn merged wall entity
-                float tile_world_x = segment_world_x + static_cast<float>(x * tile_size_);
+                // Spawn merged wall entity with FIXED world position
+                // Walls are STATIC in world coordinates - they don't move!
+                // The scroll is applied during collision detection by converting
+                // player screen position to world position
+                double tile_world_x = segment_world_x + static_cast<double>(x * tile_size_);
                 float wall_width = static_cast<float>(w * tile_size_);
                 float wall_height = static_cast<float>(h * tile_size_);
-                float center_x = tile_world_x + wall_width * 0.5f;
+                float center_x = static_cast<float>(tile_world_x) + wall_width * 0.5f;
                 float center_y = static_cast<float>(y * tile_size_) + wall_height * 0.5f;
 
                 Entity wall = registry_.spawn_entity();
                 registry_.add_component(wall, Position{center_x, center_y});
-                registry_.add_component(wall, Velocity{-scroll_speed_, 0.0f});
+                // NO VELOCITY - walls are static in world coordinates!
+                // This eliminates floating point drift that caused desync
                 registry_.add_component(wall, Collider{wall_width, wall_height});
                 registry_.add_component(wall, Wall{});
                 registry_.add_component(wall, NoFriction{});
@@ -1046,18 +1075,54 @@ void GameSession::spawn_walls_in_view()
 
                 // DO NOT send walls to client - client loads walls from tilemap via ChunkManager
                 // Server uses these walls for server-side collision validation only
-                // if (network_system_)
-                //     network_system_->queue_entity_spawn(wall, EntityType::WALL,
-                //         center_x, center_y, 65535, 0);
             }
         }
 
         segment_world_x += segment_width;
         next_segment_to_spawn_++;
     }
+
+    // Despawn walls that are now behind the camera (off-screen to the left)
+    // This prevents memory from growing indefinitely as we scroll through the level
+    despawn_walls_behind_camera();
 }
 
-// Implement valid member function inside existing namespace
+void GameSession::despawn_walls_behind_camera()
+{
+    auto& walls = registry_.get_components<Wall>();
+    auto& positions = registry_.get_components<Position>();
+    auto& colliders = registry_.get_components<Collider>();
+
+    // Despawn walls that are completely off-screen to the left
+    // Buffer of 100 pixels to be safe
+    float despawn_threshold = static_cast<float>(current_scroll_) - 100.0f;
+
+    std::vector<Entity> walls_to_despawn;
+    for (size_t i = 0; i < walls.size(); ++i) {
+        Entity wall_entity = walls.get_entity_at(i);
+        if (!positions.has_entity(wall_entity) || !colliders.has_entity(wall_entity))
+            continue;
+
+        const Position& pos = positions[wall_entity];
+        const Collider& col = colliders[wall_entity];
+
+        // Wall right edge position
+        float wall_right = pos.x + col.width * 0.5f;
+
+        if (wall_right < despawn_threshold) {
+            walls_to_despawn.push_back(wall_entity);
+        }
+    }
+
+    for (Entity wall : walls_to_despawn) {
+        registry_.kill_entity(wall);
+    }
+}
+
+// Wall collision is now handled by CollisionSystem with scroll-aware detection
+// See CollisionSystem::update() which uses m_currentScroll set by GameSession
+
+
 Entity GameSession::respawn_player_at(uint32_t player_id, float x, float y, float invuln_duration, uint8_t lives)
 {
     // Find player data to get skin_id
