@@ -145,10 +145,8 @@ private:
     void spawn_walls_in_view();
     void despawn_walls_behind_camera();
 
-    // Scroll-aware collision detection
-    // Walls are in WORLD coordinates (static), entities are in SCREEN coordinates
-    void check_player_wall_collisions();
-    void check_projectile_wall_collisions();
+    // Note: Wall collision is handled by CollisionSystem with setScroll()
+    // See CollisionSystem::update() which uses m_currentScroll
 
     uint32_t session_id_;
     protocol::GameMode game_mode_;

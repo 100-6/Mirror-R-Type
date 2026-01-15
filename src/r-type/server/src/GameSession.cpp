@@ -406,9 +406,9 @@ void GameSession::update(float delta_time)
     // Spawn walls from map tiles as they come into view
     spawn_walls_in_view();
 
-    // Check scroll-aware collisions (walls are in world coords, entities in screen coords)
-    check_player_wall_collisions();
-    check_projectile_wall_collisions();
+    // Set scroll position on CollisionSystem for scroll-aware collision detection
+    // Walls are in WORLD coordinates, players/projectiles in SCREEN coordinates
+    registry_.get_system<CollisionSystem>().setScroll(static_cast<float>(current_scroll_));
 
     wave_manager_.update(delta_time, current_scroll_);
     registry_.get_system<BonusSystem>().update(registry_, delta_time);
@@ -1101,163 +1101,10 @@ void GameSession::despawn_walls_behind_camera()
     }
 }
 
-void GameSession::check_player_wall_collisions()
-{
-    auto& positions = registry_.get_components<Position>();
-    auto& colliders = registry_.get_components<Collider>();
-    auto& controllables = registry_.get_components<Controllable>();
-    auto& walls = registry_.get_components<Wall>();
+// Wall collision is now handled by CollisionSystem with scroll-aware detection
+// See CollisionSystem::update() which uses m_currentScroll set by GameSession
 
-    float scroll = static_cast<float>(current_scroll_);
 
-    // For each player
-    for (size_t i = 0; i < controllables.size(); ++i) {
-        Entity player = controllables.get_entity_at(i);
-        if (!positions.has_entity(player) || !colliders.has_entity(player))
-            continue;
-
-        Position& posP = positions[player];
-        const Collider& colP = colliders[player];
-
-        // Convert player SCREEN position to WORLD position
-        float player_world_x = posP.x + scroll;
-        float player_world_y = posP.y;  // Y doesn't scroll
-
-        float half_wP = colP.width * 0.5f;
-        float half_hP = colP.height * 0.5f;
-
-        // Check against all walls (which are in world coordinates)
-        for (size_t j = 0; j < walls.size(); ++j) {
-            Entity wall = walls.get_entity_at(j);
-            if (!positions.has_entity(wall) || !colliders.has_entity(wall))
-                continue;
-
-            const Position& posW = positions[wall];  // Wall is in WORLD coordinates
-            const Collider& colW = colliders[wall];
-
-            float half_wW = colW.width * 0.5f;
-            float half_hW = colW.height * 0.5f;
-
-            // AABB collision check in world coordinates
-            float left1 = player_world_x - half_wP;
-            float right1 = player_world_x + half_wP;
-            float up1 = player_world_y - half_hP;
-            float down1 = player_world_y + half_hP;
-
-            float left2 = posW.x - half_wW;
-            float right2 = posW.x + half_wW;
-            float up2 = posW.y - half_hW;
-            float down2 = posW.y + half_hW;
-
-            bool collision = (right1 > left2) && (left1 < right2) &&
-                           (down1 > up2) && (up1 < down2);
-
-            if (collision) {
-                // Calculate overlap on each axis (in world space)
-                float overlapLeft = right1 - left2;
-                float overlapRight = right2 - left1;
-                float overlapTop = down1 - up2;
-                float overlapBottom = down2 - up1;
-
-                float minOverlapX = std::min(overlapLeft, overlapRight);
-                float minOverlapY = std::min(overlapTop, overlapBottom);
-
-                // Push player out on axis with minimum overlap
-                // Apply correction in SCREEN coordinates
-                if (minOverlapX < minOverlapY) {
-                    if (overlapLeft < overlapRight)
-                        posP.x -= overlapLeft;  // Push left
-                    else
-                        posP.x += overlapRight; // Push right
-                } else {
-                    if (overlapTop < overlapBottom)
-                        posP.y -= overlapTop;   // Push up
-                    else
-                        posP.y += overlapBottom;// Push down
-                }
-
-                // Recalculate world position after correction for next wall check
-                player_world_x = posP.x + scroll;
-                player_world_y = posP.y;
-            }
-        }
-    }
-}
-
-void GameSession::check_projectile_wall_collisions()
-{
-    auto& positions = registry_.get_components<Position>();
-    auto& colliders = registry_.get_components<Collider>();
-    auto& projectiles = registry_.get_components<Projectile>();
-    auto& walls = registry_.get_components<Wall>();
-
-    float scroll = static_cast<float>(current_scroll_);
-
-    std::vector<Entity> projectiles_to_destroy;
-
-    // For each projectile
-    for (size_t i = 0; i < projectiles.size(); ++i) {
-        Entity proj = projectiles.get_entity_at(i);
-        if (!positions.has_entity(proj) || !colliders.has_entity(proj))
-            continue;
-
-        const Position& posP = positions[proj];
-        const Collider& colP = colliders[proj];
-
-        // Convert projectile SCREEN position to WORLD position
-        float proj_world_x = posP.x + scroll;
-        float proj_world_y = posP.y;
-
-        float half_wP = colP.width * 0.5f;
-        float half_hP = colP.height * 0.5f;
-
-        // Check against all walls
-        for (size_t j = 0; j < walls.size(); ++j) {
-            Entity wall = walls.get_entity_at(j);
-            if (!positions.has_entity(wall) || !colliders.has_entity(wall))
-                continue;
-
-            const Position& posW = positions[wall];
-            const Collider& colW = colliders[wall];
-
-            float half_wW = colW.width * 0.5f;
-            float half_hW = colW.height * 0.5f;
-
-            // AABB collision check in world coordinates
-            float left1 = proj_world_x - half_wP;
-            float right1 = proj_world_x + half_wP;
-            float up1 = proj_world_y - half_hP;
-            float down1 = proj_world_y + half_hP;
-
-            float left2 = posW.x - half_wW;
-            float right2 = posW.x + half_wW;
-            float up2 = posW.y - half_hW;
-            float down2 = posW.y + half_hW;
-
-            bool collision = (right1 > left2) && (left1 < right2) &&
-                           (down1 > up2) && (up1 < down2);
-
-            if (collision) {
-                projectiles_to_destroy.push_back(proj);
-                break;  // No need to check more walls for this projectile
-            }
-        }
-    }
-
-    // Destroy collided projectiles
-    for (Entity proj : projectiles_to_destroy) {
-        registry_.add_component(proj, ToDestroy{});
-        // Hide sprite
-        if (registry_.has_component_registered<::Sprite>()) {
-            auto& sprites = registry_.get_components<::Sprite>();
-            if (sprites.has_entity(proj)) {
-                registry_.remove_component<::Sprite>(proj);
-            }
-        }
-    }
-}
-
-// Implement valid member function inside existing namespace
 Entity GameSession::respawn_player_at(uint32_t player_id, float x, float y, float invuln_duration, uint8_t lives)
 {
     // Find player data to get skin_id
