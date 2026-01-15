@@ -5,8 +5,13 @@
 #include <cstdint>
 #include <fstream>
 #include "plugin_manager/IGraphicsPlugin.hpp"
+#include "ConfigManager.hpp"
 
 namespace bagario {
+
+// Config file paths (relative to executable)
+static constexpr const char* SETTINGS_CONFIG_PATH = "config/settings.ini";
+static constexpr const char* USER_CONFIG_PATH = "config/user.ini";
 
 /**
  * @brief Skin pattern types
@@ -210,7 +215,124 @@ struct LocalGameState {
     int music_volume = 70;
     int sfx_volume = 80;
     bool fullscreen = false;
+    bool vsync = false;  // VSync disabled by default for lower input latency
     PlayerSkin skin;
+
+    /**
+     * @brief Load settings from settings.ini
+     * @return true if loaded successfully
+     */
+    bool load_settings() {
+        ConfigManager config;
+        if (!config.load(SETTINGS_CONFIG_PATH)) {
+            return false;
+        }
+
+        music_volume = config.get_int("Audio.music_volume", music_volume);
+        sfx_volume = config.get_int("Audio.sfx_volume", sfx_volume);
+        vsync = config.get_bool("Video.vsync", vsync);
+        fullscreen = config.get_bool("Video.fullscreen", fullscreen);
+
+        return true;
+    }
+
+    /**
+     * @brief Save settings to settings.ini
+     * @return true if saved successfully
+     */
+    bool save_settings() const {
+        ConfigManager config;
+
+        config.set("Audio.music_volume", music_volume);
+        config.set("Audio.sfx_volume", sfx_volume);
+        config.set("Video.vsync", vsync);
+        config.set("Video.fullscreen", fullscreen);
+
+        return config.save(SETTINGS_CONFIG_PATH);
+    }
+
+    /**
+     * @brief Load user data from user.ini
+     * @return true if loaded successfully
+     */
+    bool load_user() {
+        ConfigManager config;
+        if (!config.load(USER_CONFIG_PATH)) {
+            return false;
+        }
+
+        username = config.get_string("Profile.username", username);
+        server_ip = config.get_string("Network.server_ip", server_ip);
+
+        // Load skin settings
+        int pattern = config.get_int("Skin.pattern", static_cast<int>(skin.pattern));
+        if (pattern >= 0 && pattern <= static_cast<int>(SkinPattern::IMAGE)) {
+            skin.pattern = static_cast<SkinPattern>(pattern);
+        }
+
+        skin.primary.r = static_cast<uint8_t>(config.get_int("Skin.primary_r", skin.primary.r));
+        skin.primary.g = static_cast<uint8_t>(config.get_int("Skin.primary_g", skin.primary.g));
+        skin.primary.b = static_cast<uint8_t>(config.get_int("Skin.primary_b", skin.primary.b));
+
+        skin.secondary.r = static_cast<uint8_t>(config.get_int("Skin.secondary_r", skin.secondary.r));
+        skin.secondary.g = static_cast<uint8_t>(config.get_int("Skin.secondary_g", skin.secondary.g));
+        skin.secondary.b = static_cast<uint8_t>(config.get_int("Skin.secondary_b", skin.secondary.b));
+
+        skin.tertiary.r = static_cast<uint8_t>(config.get_int("Skin.tertiary_r", skin.tertiary.r));
+        skin.tertiary.g = static_cast<uint8_t>(config.get_int("Skin.tertiary_g", skin.tertiary.g));
+        skin.tertiary.b = static_cast<uint8_t>(config.get_int("Skin.tertiary_b", skin.tertiary.b));
+
+        std::string img_path = config.get_string("Skin.image_path", "");
+        if (!img_path.empty() && skin.pattern == SkinPattern::IMAGE) {
+            skin.load_image_from_file(img_path);
+        }
+
+        return true;
+    }
+
+    /**
+     * @brief Save user data to user.ini
+     * @return true if saved successfully
+     */
+    bool save_user() const {
+        ConfigManager config;
+
+        config.set("Profile.username", username);
+        config.set("Network.server_ip", server_ip);
+
+        config.set("Skin.pattern", static_cast<int>(skin.pattern));
+        config.set("Skin.primary_r", static_cast<int>(skin.primary.r));
+        config.set("Skin.primary_g", static_cast<int>(skin.primary.g));
+        config.set("Skin.primary_b", static_cast<int>(skin.primary.b));
+        config.set("Skin.secondary_r", static_cast<int>(skin.secondary.r));
+        config.set("Skin.secondary_g", static_cast<int>(skin.secondary.g));
+        config.set("Skin.secondary_b", static_cast<int>(skin.secondary.b));
+        config.set("Skin.tertiary_r", static_cast<int>(skin.tertiary.r));
+        config.set("Skin.tertiary_g", static_cast<int>(skin.tertiary.g));
+        config.set("Skin.tertiary_b", static_cast<int>(skin.tertiary.b));
+
+        if (!skin.image_path.empty()) {
+            config.set("Skin.image_path", skin.image_path);
+        }
+
+        return config.save(USER_CONFIG_PATH);
+    }
+
+    /**
+     * @brief Load all config files
+     */
+    void load_all_configs() {
+        load_settings();
+        load_user();
+    }
+
+    /**
+     * @brief Save all config files
+     */
+    void save_all_configs() const {
+        save_settings();
+        save_user();
+    }
 };
 
 }  // namespace bagario

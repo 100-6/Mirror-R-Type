@@ -20,6 +20,10 @@ bool BagarioGame::initialize(engine::IGraphicsPlugin* graphics, engine::IInputPl
         std::cerr << "[BagarioGame] Error: Graphics or Input plugin is null!\n";
         return false;
     }
+
+    game_state_.load_all_configs();
+    std::cout << "[BagarioGame] Loaded configuration files\n";
+    graphics_->set_vsync(game_state_.vsync);
     network_manager_ = std::make_unique<client::NetworkManager>();
     if (!network_manager_->initialize())
         std::cerr << "[BagarioGame] Warning: Failed to initialize network manager\n";

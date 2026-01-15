@@ -92,7 +92,7 @@ private:
 
     // Input state
     float input_send_timer_ = 0.0f;
-    static constexpr float INPUT_SEND_INTERVAL = 0.033f;  // 30Hz input
+    static constexpr float INPUT_SEND_INTERVAL = 0.016f;  // 60Hz input (reduced from 30Hz for lower latency)
 
     // Delta time tracking
     std::chrono::steady_clock::time_point last_update_time_;

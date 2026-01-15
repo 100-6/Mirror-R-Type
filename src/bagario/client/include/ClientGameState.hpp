@@ -187,8 +187,8 @@ private:
     uint32_t m_last_server_tick = 0;
     LeaderboardInfo m_leaderboard;
 
-    // Interpolation timing (matches 20Hz snapshot rate = 50ms)
-    static constexpr float INTERPOLATION_DURATION = 0.05f;
+    // Interpolation timing (reduced from 50ms to 25ms for lower latency)
+    static constexpr float INTERPOLATION_DURATION = 0.025f;
 };
 
 }

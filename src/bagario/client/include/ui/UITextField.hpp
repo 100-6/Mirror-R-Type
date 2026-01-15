@@ -2,6 +2,7 @@
 
 #include <string>
 #include <functional>
+#include <chrono>
 #include "plugin_manager/IGraphicsPlugin.hpp"
 #include "plugin_manager/IInputPlugin.hpp"
 
@@ -31,13 +32,16 @@ private:
     std::string placeholder_;
     bool focused_ = false;
     size_t max_length_ = 16;
-    float cursor_blink_timer_ = 0.0f;
     std::function<void(const std::string&)> on_change_;
 
-    // Key repeat management
-    engine::Key last_key_ = engine::Key::Unknown;
-    float key_repeat_timer_ = 0.0f;
+    // Mouse state
     bool was_mouse_pressed_ = false;
+
+    // Key repeat management using real time
+    engine::Key last_key_ = engine::Key::Unknown;
+    bool last_key_was_pressed_ = false;
+    std::chrono::steady_clock::time_point last_key_time_;
+    std::chrono::steady_clock::time_point last_cursor_blink_;
 
     void handle_text_input(engine::IInputPlugin* input);
 };

@@ -5,6 +5,8 @@ namespace bagario {
 
 UITextField::UITextField(float x, float y, float width, float height, const std::string& placeholder)
     : x_(x), y_(y), width_(width), height_(height), placeholder_(placeholder) {
+    last_key_time_ = std::chrono::steady_clock::now();
+    last_cursor_blink_ = std::chrono::steady_clock::now();
 }
 
 void UITextField::set_position(float x, float y) {
@@ -40,7 +42,7 @@ void UITextField::set_on_change(std::function<void(const std::string&)> callback
 void UITextField::set_focused(bool focused) {
     focused_ = focused;
     if (focused_) {
-        cursor_blink_timer_ = 0.0f;
+        last_cursor_blink_ = std::chrono::steady_clock::now();
     }
 }
 
@@ -55,28 +57,70 @@ void UITextField::update(engine::IGraphicsPlugin* graphics, engine::IInputPlugin
     if (is_pressed && !was_mouse_pressed_) {
         focused_ = is_over;
         if (focused_) {
-            cursor_blink_timer_ = 0.0f;
+            last_cursor_blink_ = std::chrono::steady_clock::now();
             last_key_ = engine::Key::Unknown;
-            key_repeat_timer_ = 0.0f;
+            last_key_was_pressed_ = false;
         }
     }
     was_mouse_pressed_ = is_pressed;
 
     if (focused_) {
         handle_text_input(input);
-        cursor_blink_timer_ += 0.016f;
-        if (cursor_blink_timer_ > 1.0f) {
-            cursor_blink_timer_ = 0.0f;
-        }
     }
 }
 
 void UITextField::handle_text_input(engine::IInputPlugin* input) {
-    const float KEY_REPEAT_DELAY = 0.15f;
+    using namespace std::chrono;
+
+    const auto KEY_INITIAL_DELAY = milliseconds(400);  // Delay before repeat starts
+    const auto KEY_REPEAT_DELAY = milliseconds(35);    // Delay between repeats
+
+    auto now = steady_clock::now();
+    auto time_since_last = duration_cast<milliseconds>(now - last_key_time_);
+
+    // Helper lambda to process a key
+    auto process_key = [&](engine::Key key, char ch) -> bool {
+        bool is_pressed = input->is_key_pressed(key);
+
+        if (!is_pressed) {
+            return false;
+        }
+
+        // Check if this is a new key press (different key or key was released)
+        bool is_new_press = (last_key_ != key) || !last_key_was_pressed_;
+
+        if (is_new_press) {
+            // New key press - add character immediately
+            text_ += ch;
+            if (on_change_) {
+                on_change_(text_);
+            }
+            last_key_ = key;
+            last_key_was_pressed_ = true;
+            last_key_time_ = now;
+            return true;
+        }
+
+        // Same key still held - check for repeat
+        auto delay = (time_since_last < KEY_INITIAL_DELAY + KEY_REPEAT_DELAY)
+                     ? KEY_INITIAL_DELAY : KEY_REPEAT_DELAY;
+
+        if (time_since_last >= delay) {
+            text_ += ch;
+            if (on_change_) {
+                on_change_(text_);
+            }
+            last_key_time_ = now;
+        }
+        return true;
+    };
 
     // Handle backspace
-    if (input->is_key_pressed(engine::Key::Backspace)) {
-        if (last_key_ != engine::Key::Backspace || key_repeat_timer_ <= 0.0f) {
+    bool backspace_pressed = input->is_key_pressed(engine::Key::Backspace);
+    if (backspace_pressed) {
+        bool is_new_press = (last_key_ != engine::Key::Backspace) || !last_key_was_pressed_;
+
+        if (is_new_press) {
             if (!text_.empty()) {
                 text_.pop_back();
                 if (on_change_) {
@@ -84,9 +128,21 @@ void UITextField::handle_text_input(engine::IInputPlugin* input) {
                 }
             }
             last_key_ = engine::Key::Backspace;
-            key_repeat_timer_ = KEY_REPEAT_DELAY;
+            last_key_was_pressed_ = true;
+            last_key_time_ = now;
+        } else {
+            // Repeat
+            auto delay = (time_since_last < KEY_INITIAL_DELAY + KEY_REPEAT_DELAY)
+                         ? KEY_INITIAL_DELAY : KEY_REPEAT_DELAY;
+
+            if (time_since_last >= delay && !text_.empty()) {
+                text_.pop_back();
+                if (on_change_) {
+                    on_change_(text_);
+                }
+                last_key_time_ = now;
+            }
         }
-        key_repeat_timer_ -= 0.016f;
         return;
     }
 
@@ -110,41 +166,27 @@ void UITextField::handle_text_input(engine::IInputPlugin* input) {
         // Letters
         for (size_t i = 0; i < 26; ++i) {
             if (input->is_key_pressed(letter_keys[i])) {
-                if (last_key_ != letter_keys[i] || key_repeat_timer_ <= 0.0f) {
-                    char ch = 'a' + i;
-                    if (input->is_key_pressed(engine::Key::LShift) ||
-                        input->is_key_pressed(engine::Key::RShift)) {
-                        ch = 'A' + i;
-                    }
-                    text_ += ch;
-                    if (on_change_) {
-                        on_change_(text_);
-                    }
-                    last_key_ = letter_keys[i];
-                    key_repeat_timer_ = KEY_REPEAT_DELAY;
+                char ch = 'a' + i;
+                if (input->is_key_pressed(engine::Key::LShift) ||
+                    input->is_key_pressed(engine::Key::RShift)) {
+                    ch = 'A' + i;
                 }
-                key_repeat_timer_ -= 0.016f;
-                return;
+                if (process_key(letter_keys[i], ch)) {
+                    return;
+                }
             }
         }
 
         // Digits
         for (size_t i = 0; i < 10; ++i) {
             if (input->is_key_pressed(digit_keys[i])) {
-                if (last_key_ != digit_keys[i] || key_repeat_timer_ <= 0.0f) {
-                    text_ += ('0' + i);
-                    if (on_change_) {
-                        on_change_(text_);
-                    }
-                    last_key_ = digit_keys[i];
-                    key_repeat_timer_ = KEY_REPEAT_DELAY;
+                if (process_key(digit_keys[i], '0' + i)) {
+                    return;
                 }
-                key_repeat_timer_ -= 0.016f;
-                return;
             }
         }
 
-        // Special characters for file paths
+        // Special characters
         struct SpecialKey {
             engine::Key key;
             char normal;
@@ -159,27 +201,20 @@ void UITextField::handle_text_input(engine::IInputPlugin* input) {
 
         for (const auto& sk : special_keys) {
             if (input->is_key_pressed(sk.key)) {
-                if (last_key_ != sk.key || key_repeat_timer_ <= 0.0f) {
-                    char ch = sk.normal;
-                    if (input->is_key_pressed(engine::Key::LShift) ||
-                        input->is_key_pressed(engine::Key::RShift)) {
-                        ch = sk.shifted;
-                    }
-                    text_ += ch;
-                    if (on_change_) {
-                        on_change_(text_);
-                    }
-                    last_key_ = sk.key;
-                    key_repeat_timer_ = KEY_REPEAT_DELAY;
+                char ch = sk.normal;
+                if (input->is_key_pressed(engine::Key::LShift) ||
+                    input->is_key_pressed(engine::Key::RShift)) {
+                    ch = sk.shifted;
                 }
-                key_repeat_timer_ -= 0.016f;
-                return;
+                if (process_key(sk.key, ch)) {
+                    return;
+                }
             }
         }
     }
 
-    last_key_ = engine::Key::Unknown;
-    key_repeat_timer_ = 0.0f;
+    // No relevant key pressed - mark as released
+    last_key_was_pressed_ = false;
 }
 
 void UITextField::draw(engine::IGraphicsPlugin* graphics) {
@@ -265,8 +300,12 @@ void UITextField::draw(engine::IGraphicsPlugin* graphics) {
     engine::Vector2f text_pos{x_ + 25.0f, text_y};
     graphics->draw_text(display_text, text_pos, text_color, engine::INVALID_HANDLE, static_cast<int>(font_size));
 
-    // Cursor
-    if (focused_ && cursor_blink_timer_ < 0.5f) {
+    // Cursor (blink every 500ms)
+    auto now = std::chrono::steady_clock::now();
+    auto blink_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_cursor_blink_).count();
+    bool cursor_visible = (blink_elapsed % 1000) < 500;
+
+    if (focused_ && cursor_visible) {
         float cursor_x = x_ + 25.0f + display_text.length() * 14.0f;
         float cursor_margin = 12.0f;
         engine::Vector2f cursor_start{cursor_x, y_ + cursor_margin};

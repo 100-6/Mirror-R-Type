@@ -303,17 +303,120 @@ void PlayingScreen::draw_player_cell(engine::IGraphicsPlugin* graphics, const cl
     float radius = entity.get_radius();
     auto screen_pos = camera_->world_to_screen(x, y);
     float screen_radius = radius * camera_->get_zoom();
-    engine::Color color;
+    float r_sq = screen_radius * screen_radius;
 
-    if (entity.has_skin)
-        color = entity.skin.primary;
-    else
-        color = uint32_to_color(entity.color);
-    graphics->draw_circle(screen_pos, screen_radius, color);
-    engine::Color outline_color = darken_color(color, 0.7f);
+    // Get primary color (from skin or default)
+    engine::Color primary_color;
+    if (entity.has_skin) {
+        primary_color = entity.skin.primary;
+    } else {
+        primary_color = uint32_to_color(entity.color);
+    }
+
+    // Draw cell body based on pattern
+    if (entity.has_skin) {
+        switch (entity.skin.pattern) {
+            case SkinPattern::SOLO:
+                graphics->draw_circle(screen_pos, screen_radius, primary_color);
+                break;
+
+            case SkinPattern::STRIPES: {
+                // Draw background circle
+                graphics->draw_circle(screen_pos, screen_radius, primary_color);
+
+                // Draw stripes clipped to circle
+                float stripe_width = std::max(4.0f, screen_radius * 0.15f);
+                float stripe_spacing = stripe_width * 2.2f;
+                float half_w = stripe_width / 2.0f;
+
+                for (float x_off = -screen_radius + stripe_spacing / 2.0f; x_off < screen_radius; x_off += stripe_spacing) {
+                    float left_x = x_off - half_w;
+                    float right_x = x_off + half_w;
+                    float limit_x = std::max(std::abs(left_x), std::abs(right_x));
+                    if (limit_x >= screen_radius) continue;
+
+                    float y_extent = std::sqrt(r_sq - limit_x * limit_x);
+                    graphics->draw_rectangle(
+                        engine::Rectangle{screen_pos.x + x_off - half_w, screen_pos.y - y_extent, stripe_width, y_extent * 2.0f},
+                        entity.skin.secondary
+                    );
+                }
+                break;
+            }
+
+            case SkinPattern::ZIGZAG: {
+                // Draw background circle
+                graphics->draw_circle(screen_pos, screen_radius, primary_color);
+
+                // Draw zigzag lines clipped to circle
+                float amplitude = screen_radius * 0.18f;
+                float line_spacing = screen_radius * 0.3f;
+                float step = 2.0f;
+                float inner_r_sq = (screen_radius - 2.0f) * (screen_radius - 2.0f);
+
+                for (float y_off = -screen_radius + line_spacing / 2.0f; y_off < screen_radius; y_off += line_spacing) {
+                    for (float lx = -screen_radius; lx <= screen_radius; lx += step) {
+                        float y0 = y_off + amplitude * std::sin((lx - step) * 0.25f);
+                        float y1 = y_off + amplitude * std::sin(lx * 0.25f);
+
+                        float d0_sq = (lx - step) * (lx - step) + y0 * y0;
+                        float d1_sq = lx * lx + y1 * y1;
+
+                        if (d0_sq < inner_r_sq && d1_sq < inner_r_sq) {
+                            graphics->draw_line(
+                                {screen_pos.x + lx - step, screen_pos.y + y0},
+                                {screen_pos.x + lx, screen_pos.y + y1},
+                                entity.skin.secondary, std::max(2.0f, screen_radius * 0.05f)
+                            );
+                        }
+                    }
+                }
+                break;
+            }
+
+            case SkinPattern::CIRCULAR:
+                // Concentric circles
+                graphics->draw_circle(screen_pos, screen_radius, primary_color);
+                graphics->draw_circle(screen_pos, screen_radius * 0.7f, entity.skin.secondary);
+                graphics->draw_circle(screen_pos, screen_radius * 0.4f, entity.skin.tertiary);
+                break;
+
+            case SkinPattern::DOTS: {
+                // Draw background circle
+                graphics->draw_circle(screen_pos, screen_radius, primary_color);
+
+                // Draw dots inside circle
+                float dot_radius = std::max(2.0f, screen_radius * 0.09f);
+                float dot_spacing = dot_radius * 3.6f;
+                float max_dist = screen_radius - dot_radius;
+                float max_dist_sq = max_dist * max_dist;
+
+                for (float dy = -screen_radius + dot_spacing / 2.0f; dy < screen_radius; dy += dot_spacing) {
+                    for (float dx = -screen_radius + dot_spacing / 2.0f; dx < screen_radius; dx += dot_spacing) {
+                        if (dx * dx + dy * dy <= max_dist_sq) {
+                            graphics->draw_circle({screen_pos.x + dx, screen_pos.y + dy}, dot_radius, entity.skin.secondary);
+                        }
+                    }
+                }
+                break;
+            }
+
+            case SkinPattern::IMAGE:
+                // TODO: Image rendering requires texture caching per player
+                // For now, fall back to primary color
+                graphics->draw_circle(screen_pos, screen_radius, primary_color);
+                break;
+        }
+    } else {
+        // No skin, draw simple circle
+        graphics->draw_circle(screen_pos, screen_radius, primary_color);
+    }
+
+    // Draw outline (darker color)
+    engine::Color outline_color = darken_color(primary_color, 0.7f);
     float outline_thickness = std::max(2.0f, screen_radius * 0.05f);
     graphics->draw_circle(screen_pos, screen_radius + outline_thickness / 2, outline_color);
-    graphics->draw_circle(screen_pos, screen_radius - outline_thickness / 2, color);
+    graphics->draw_circle(screen_pos, screen_radius - outline_thickness / 2, primary_color);
 }
 
 void PlayingScreen::draw_food(engine::IGraphicsPlugin* graphics, const client::CachedEntity& entity) {
@@ -401,7 +504,7 @@ void PlayingScreen::draw_minimap(engine::IGraphicsPlugin* graphics) {
         return;
     float mm_size = 150.0f;
     float mm_x = static_cast<float>(screen_width_) - mm_size - 10.0f;
-    float mm_y = static_cast<float>(screen_height_) - mm_size - 10.0f;
+    float mm_y = static_cast<float>(screen_height_) - mm_size - 50.0f;
 
     engine::Color bg_color{20, 20, 30, 180};
     graphics->draw_rectangle(engine::Rectangle{mm_x, mm_y, mm_size, mm_size}, bg_color);
