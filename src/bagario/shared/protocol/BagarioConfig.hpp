@@ -58,7 +58,10 @@ constexpr float EAT_MASS_RATIO = 1.25f;
 // =============================================================================
 constexpr float FOOD_MASS = 1.0f;
 constexpr int MAX_FOOD = 1000;
-constexpr int FOOD_SPAWN_RATE = 10;
+constexpr int INITIAL_FOOD = 100;          // Small batch at startup to avoid network spike
+constexpr int FOOD_SPAWN_BATCH = 20;       // Foods spawned per interval during ramp-up
+constexpr int FOOD_SPAWN_RATE = 10;        // Foods spawned per second during normal play
+constexpr float FOOD_SPAWN_INTERVAL = 0.5f; // Interval for ramp-up spawning (seconds)
 constexpr float FOOD_SPAWN_RADIUS = 10.0f;
 
 // =============================================================================
