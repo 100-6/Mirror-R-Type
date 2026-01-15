@@ -570,7 +570,7 @@ void PlayingScreen::draw_minimap(engine::IGraphicsPlugin* graphics) {
     // Minimap in bottom-right corner
     float mm_size = 150.0f;
     float mm_x = static_cast<float>(screen_width_) - mm_size - 10.0f;
-    float mm_y = static_cast<float>(screen_height_) - mm_size - 10.0f;
+    float mm_y = static_cast<float>(screen_height_) - mm_size - 50.0f;
 
     // Background
     engine::Color bg_color{20, 20, 30, 180};
