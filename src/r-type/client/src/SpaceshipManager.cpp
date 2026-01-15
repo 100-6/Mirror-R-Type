@@ -28,7 +28,7 @@ bool SpaceshipManager::load_spritesheet(const std::string& path) {
         return false;
     }
 
-    std::cout << "[SpaceshipManager] Loaded spritesheet: " << path << "\n";
+    // std::cout << "[SpaceshipManager] Loaded spritesheet: " << path << "\n";
     return true;
 }
 
@@ -88,7 +88,7 @@ void SpaceshipManager::unload() {
     if (spritesheet_handle_ != engine::INVALID_HANDLE) {
         graphics_.unload_texture(spritesheet_handle_);
         spritesheet_handle_ = engine::INVALID_HANDLE;
-        std::cout << "[SpaceshipManager] Unloaded spritesheet\n";
+        // std::cout << "[SpaceshipManager] Unloaded spritesheet\n";
     }
 }
 

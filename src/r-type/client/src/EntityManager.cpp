@@ -541,6 +541,7 @@ void EntityManager::remove_entity(uint32_t server_id) {
         registry_.remove_component<BonusWeapon>(entity_to_remove);
     }
 
+
     registry_.kill_entity(entity_to_remove);
     server_types_.erase(server_id);
     stale_counters_.erase(server_id);

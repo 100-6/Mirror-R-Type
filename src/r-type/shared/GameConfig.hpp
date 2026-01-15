@@ -28,7 +28,7 @@ constexpr uint32_t LOBBY_COUNTDOWN_DURATION_SECONDS = 5;
 // === Gameplay Configuration ===
 constexpr float GAME_SCROLL_SPEED = 50.0f;                              // pixels per second
 constexpr float PLAYER_MOVEMENT_SPEED = 200.0f;                         // pixels per second
-constexpr uint16_t PLAYER_MAX_HEALTH = 100;
+constexpr uint16_t PLAYER_MAX_HEALTH = 1000;
 constexpr uint8_t PLAYER_LIVES = 3;
 
 // === Screen / World ===

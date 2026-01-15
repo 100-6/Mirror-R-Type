@@ -10,6 +10,7 @@ add_executable(r-type_server
     src/RoomManager.cpp
     src/GameSession.cpp
     src/WaveManager.cpp
+    src/LevelManager.cpp
     src/ServerNetworkSystem.cpp
 )
 

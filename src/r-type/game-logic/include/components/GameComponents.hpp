@@ -158,6 +158,21 @@ struct Score
 
 // Wave System
 
+// Tag entities with their source wave for completion tracking
+struct WaveEntityTag {
+    uint32_t wave_number = 0;  // Which wave spawned this entity
+    bool is_boss = false;      // Special handling for boss entities (can't scroll away)
+};
+
+// Track active wave completion status
+struct ActiveWave {
+    uint32_t wave_number = 0;
+    uint32_t entities_spawned = 0;     // Total entities spawned in this wave
+    uint32_t entities_remaining = 0;   // Alive + on-screen entities
+    float wave_start_time = 0.0f;      // When wave started (for completion time)
+    bool completion_pending = false;   // Waiting for entities to clear
+};
+
 enum class SpawnPattern {
     SINGLE,      // Spawn single entity at position
     LINE,        // Spawn entities in horizontal line

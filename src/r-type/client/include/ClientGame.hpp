@@ -116,6 +116,9 @@ private:
     engine::TextureHandle hud_texture_;
     bool hud_loaded_ = false;
 
+    // Visual effects
+    bool fade_trigger_ = false;
+
     // Initialization helpers
     bool load_plugins();
     bool load_textures();
@@ -128,6 +131,7 @@ private:
 
     // Map-specific theming
     void apply_map_theme(uint16_t map_id);
+    void load_level_checkpoints(uint16_t map_id);
 
     // Update methods
     void update(float delta_time);

@@ -58,6 +58,13 @@ public:
      */
     void shutdown() override;
 
+    /**
+     * @brief Update the lives display on the HUD
+     * @param registry Game registry
+     * @param lives Number of lives remaining
+     */
+    void update_lives(Registry& registry, uint8_t lives);
+
 private:
     engine::IGraphicsPlugin& m_graphicsPlugin;
     engine::IInputPlugin* m_inputPlugin;
@@ -67,6 +74,7 @@ private:
     // Animation state
     float m_healthBarAnimated = 100.0f;  // Smoothly interpolated health value
     float m_pulseTimer = 0.0f;           // For pulsing effects
+    float m_timeSincePlayerDisappeared = 0.0f;  // Grace period before hiding HUD
 
     // HUD Layout Constants
     static constexpr float MARGIN = 30.0f;
@@ -84,6 +92,7 @@ private:
     Entity m_scoreLabelEntity = 0;
     Entity m_wavePanelEntity = 0;
     Entity m_waveTextEntity = 0;
+    Entity m_livesTextEntity = 0;
 
     // Edit mode for HUD positioning
     bool m_editMode = false;  // Set to true to enable edit mode

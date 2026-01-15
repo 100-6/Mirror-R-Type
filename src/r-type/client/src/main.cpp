@@ -15,7 +15,7 @@
 #include "systems/HealthSystem.hpp"
 #include "systems/HitEffectSystem.hpp"
 #include "systems/AISystem.hpp"
-#include "systems/WaveSpawnerSystem.hpp"
+
 #include "systems/BonusSystem.hpp"
 #include "systems/HUDSystem.hpp"
 #include "systems/GameStateSystem.hpp"
