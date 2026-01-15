@@ -24,7 +24,7 @@ void MuzzleFlashSystem::init(Registry& registry)
     spawnSubId_ = eventBus.subscribe<ecs::MuzzleFlashSpawnEvent>(
         [this, &registry](const ecs::MuzzleFlashSpawnEvent& event) {
             if (!hasActiveMuzzleFlash(event.shooter)) {
-                spawnMuzzleFlash(registry, event.shooter, event.isCompanion);
+                spawnMuzzleFlash(registry, event.shooter, event.isCompanion, event.isEnemy, event.shooterWidth);
             }
         }
     );
@@ -128,7 +128,9 @@ void MuzzleFlashSystem::update(Registry& registry, float dt)
             // Update sprite source_rect
             if (sprites.has_entity(entity)) {
                 auto& sprite = sprites[entity];
+
                 // Frame 1 at x=0, Frame 2 at x=16 (each frame is 16x16 in a 32x16 image)
+                // Rotation handles the flip for enemies, so just use normal frame positions
                 sprite.source_rect.x = shotAnim.currentFrame ? 16.0f : 0.0f;
                 sprite.source_rect.y = 0.0f;
                 sprite.source_rect.width = 16.0f;
@@ -156,7 +158,7 @@ void MuzzleFlashSystem::shutdown()
     shooterToFlash_.clear();
 }
 
-void MuzzleFlashSystem::spawnMuzzleFlash(Registry& registry, Entity shooter, bool isCompanion)
+void MuzzleFlashSystem::spawnMuzzleFlash(Registry& registry, Entity shooter, bool isCompanion, bool isEnemy, float shooterWidth)
 {
     if (muzzleFlashTexture_ == engine::INVALID_HANDLE) {
         std::cerr << "[MuzzleFlashSystem] No texture set, cannot spawn muzzle flash" << std::endl;
@@ -165,9 +167,22 @@ void MuzzleFlashSystem::spawnMuzzleFlash(Registry& registry, Entity shooter, boo
 
     Entity muzzleFlash = registry.spawn_entity();
 
-    // Calculate offset in front of the shooter
-    float flashOffsetX = isCompanion ? 85.0f : 80.0f;
+    // Calculate dynamic offset based on shooter width
+    constexpr float MUZZLE_OFFSET_PADDING = 10.0f;  // Small offset in front
+    float baseOffset = shooterWidth / 2.0f + MUZZLE_OFFSET_PADDING;
+
+    // Determine offset direction and position
+    float flashOffsetX;
     float flashOffsetY = isCompanion ? 15.0f : 0.0f;
+
+    if (isEnemy) {
+        // Enemy shoots left, so muzzle flash goes to the LEFT side (negative offset)
+        flashOffsetX = -(baseOffset + 10.0f);  // Extra padding for enemy
+    } else if (isCompanion) {
+        flashOffsetX = baseOffset + 5.0f;  // Companion bonus offset
+    } else {
+        flashOffsetX = baseOffset;  // Player
+    }
 
     // Add Position component
     registry.add_component(muzzleFlash, Position{0.0f, 0.0f});
@@ -186,25 +201,30 @@ void MuzzleFlashSystem::spawnMuzzleFlash(Registry& registry, Entity shooter, boo
         muzzleFlashTexture_,
         size,
         size,
-        0.0f,
+        isEnemy ? 180.0f : 0.0f,  // Rotate 180° for enemies (flip both axes)
         engine::Color::White,
         size / 2.0f,
         size / 2.0f,
         15  // Layer
     };
     flashSprite.source_rect = {0.0f, 0.0f, 16.0f, 16.0f};
+
     registry.add_component(muzzleFlash, flashSprite);
 
     // Add ShotAnimation component
-    // For companion: persistent = true (stays active while companion exists)
-    // For player: persistent = false (destroyed after 0.3s)
-    registry.add_component(muzzleFlash, ShotAnimation{0.0f, 0.0f, 0.1f, false, isCompanion});
+    // For enemies: non-persistent (destroyed after 0.3s)
+    // For companions: persistent = true
+    // For players: persistent = false
+    bool persistent = isCompanion && !isEnemy;
+    registry.add_component(muzzleFlash, ShotAnimation{0.0f, 0.0f, 0.1f, false, persistent});
 
     // Track this muzzle flash
     shooterToFlash_[shooter] = muzzleFlash;
 
+    std::string shooterType = isEnemy ? "enemy" : (isCompanion ? "companion" : "player");
     std::cout << "[MuzzleFlashSystem] Created muzzle flash entity " << muzzleFlash
-              << " for " << (isCompanion ? "companion" : "player") << " " << shooter
+              << " for " << shooterType << " " << shooter
+              << " (width=" << shooterWidth << ", offset=" << flashOffsetX << ")"
               << std::endl;
 }
 

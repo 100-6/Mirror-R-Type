@@ -110,16 +110,20 @@ struct CompanionDestroyEvent : public core::Event {
  * @brief Event fired when a muzzle flash effect should be spawned
  */
 struct MuzzleFlashSpawnEvent : public core::Event {
-    Entity shooter;       // Entity that fired (player or companion)
+    Entity shooter;       // Entity that fired (player, companion, or enemy)
     float projectileX;    // Position of the projectile
     float projectileY;
     bool isCompanion;     // True if shooter is a companion turret
+    bool isEnemy;         // True if shooter is an enemy
+    float shooterWidth;   // Width of the shooter for dynamic offset calculation
 
-    MuzzleFlashSpawnEvent(Entity s, float px, float py, bool companion)
+    MuzzleFlashSpawnEvent(Entity s, float px, float py, bool companion, bool enemy, float width)
         : shooter(s)
         , projectileX(px)
         , projectileY(py)
-        , isCompanion(companion) {}
+        , isCompanion(companion)
+        , isEnemy(enemy)
+        , shooterWidth(width) {}
 };
 
 /**
