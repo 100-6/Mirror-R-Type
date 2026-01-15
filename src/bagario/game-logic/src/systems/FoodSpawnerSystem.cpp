@@ -80,7 +80,7 @@ void FoodSpawnerSystem::spawn_single_food(Registry& registry) {
     registry.add_component<components::Mass>(entity, components::Mass{config::FOOD_MASS});
     float radius = config::mass_to_radius(config::FOOD_MASS);
     registry.add_component<components::CircleCollider>(entity, components::CircleCollider{radius});
-    registry.add_component<components::Food>(entity, components::Food{config::FOOD_MASS});
+    registry.add_component<components::Food>(entity, components::Food{config::FOOD_MASS, color});
     registry.add_component<components::NetworkId>(entity, components::NetworkId{get_next_network_id()});
     if (m_spawn_callback)
         m_spawn_callback(entity, x, y, color);

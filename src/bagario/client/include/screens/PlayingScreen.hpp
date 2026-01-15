@@ -68,6 +68,7 @@ private:
     void draw_minimap(engine::IGraphicsPlugin* graphics);
     void draw_score(engine::IGraphicsPlugin* graphics);
     void draw_connection_status(engine::IGraphicsPlugin* graphics);
+    void draw_death_screen(engine::IGraphicsPlugin* graphics);
 
     // ============== Helpers ==============
     engine::Color uint32_to_color(uint32_t color) const;
@@ -96,6 +97,12 @@ private:
     // Delta time tracking
     std::chrono::steady_clock::time_point last_update_time_;
     bool first_update_ = true;
+
+    // Death state
+    bool is_dead_ = false;
+    float death_timer_ = 0.0f;
+    float final_mass_ = 0.0f;
+    static constexpr float DEATH_SCREEN_DURATION = 3.0f;
 };
 
-}  // namespace bagario
+}

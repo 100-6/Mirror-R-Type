@@ -19,6 +19,7 @@ struct CollisionEvent {
         CELL_ATE_FOOD,
         CELL_ATE_CELL,
         CELL_HIT_VIRUS,
+        CELL_MERGED,
         PLAYER_ELIMINATED
     };
 
@@ -28,6 +29,15 @@ struct CollisionEvent {
     uint32_t eater_player_id;
     uint32_t eaten_player_id;
     float mass_gained;
+};
+
+/**
+ * @brief Request to shoot a virus from another virus
+ */
+struct VirusShootRequest {
+    size_t virus_entity;
+    float dir_x;
+    float dir_y;
 };
 
 /**
@@ -52,6 +62,8 @@ public:
     void shutdown() override;
 
     const std::vector<CollisionEvent>& get_events() const;
+    const std::vector<VirusShootRequest>& get_virus_shoot_queue() const { return m_virus_shoot_queue; }
+    void clear_virus_shoot_queue() { m_virus_shoot_queue.clear(); }
 
 private:
     float distance(const Position& a, const Position& b) const;
@@ -69,6 +81,7 @@ private:
 
     CollisionCallback m_callback;
     std::vector<CollisionEvent> m_events;
+    std::vector<VirusShootRequest> m_virus_shoot_queue;
 };
 
 }

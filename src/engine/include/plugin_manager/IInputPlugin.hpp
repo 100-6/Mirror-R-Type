@@ -146,6 +146,13 @@ public:
      * @param handle Pointer to the window handle (platform specific void*)
      */
     virtual void set_window_handle(void* handle) = 0;
+
+    /**
+     * @brief Check if the window has focus
+     * @return true if window has focus, false otherwise
+     * Used to ensure input is only processed when the window is focused
+     */
+    virtual bool has_focus() const { return true; }
 };
 
 }

@@ -80,6 +80,9 @@ class RaylibInputPlugin : public engine::IInputPlugin {
 
         // Window handle (no-op)
         void set_window_handle(void* handle) override;
+
+        // Focus check
+        bool has_focus() const override;
 };
 
 #endif /* !RAYLIBINPUTPLUGIN_HPP_ */

@@ -39,4 +39,4 @@ private:
     UILabel* sfx_value_label_ = nullptr;
 };
 
-}  // namespace bagario
+}

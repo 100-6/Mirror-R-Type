@@ -114,9 +114,9 @@ private:
 
     // Zoom parameters
     static constexpr float BASE_ZOOM = 1.0f;
-    static constexpr float MIN_ZOOM = 0.3f;   // Maximum zoom out
+    static constexpr float MIN_ZOOM = 0.5f;   // Maximum zoom out (increased to not see too much of map)
     static constexpr float MAX_ZOOM = 1.5f;   // Maximum zoom in
-    static constexpr float MASS_ZOOM_FACTOR = 50.0f;  // Mass at which zoom = 1.0
+    static constexpr float MASS_ZOOM_FACTOR = 200.0f;  // Mass at which zoom = 1.0 (increased for slower zoom out)
 };
 
-}  // namespace bagario::client
+}

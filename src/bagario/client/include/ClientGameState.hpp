@@ -191,4 +191,4 @@ private:
     static constexpr float INTERPOLATION_DURATION = 0.05f;
 };
 
-}  // namespace bagario::client
+}

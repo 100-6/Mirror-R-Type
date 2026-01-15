@@ -41,4 +41,4 @@ private:
     std::unique_ptr<client::NetworkManager> network_manager_;
 };
 
-}  // namespace bagario
+}

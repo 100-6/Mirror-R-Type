@@ -31,4 +31,4 @@ private:
     Alignment alignment_ = Alignment::LEFT;
 };
 
-}  // namespace bagario
+}

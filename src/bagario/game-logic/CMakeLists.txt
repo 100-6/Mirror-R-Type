@@ -4,6 +4,7 @@ add_library(bagario_logic
     src/systems/BagarioCollisionSystem.cpp
     src/systems/MapBoundsSystem.cpp
     src/systems/MovementTargetSystem.cpp
+    src/systems/VirusSystem.cpp
 )
 
 target_include_directories(bagario_logic
