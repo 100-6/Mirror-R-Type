@@ -523,6 +523,16 @@ TextureHandle RaylibGraphicsPlugin::get_default_texture() const {
     return default_texture_;
 }
 
+void RaylibGraphicsPlugin::begin_blend_mode(int mode) {
+    // Map engine blend modes to Raylib blend modes
+    // 0=ALPHA (default), 1=ADDITIVE, 2=MULTIPLIED, 3=ADD_COLORS, 4=SUBTRACT_COLORS
+    BeginBlendMode(mode);
+}
+
+void RaylibGraphicsPlugin::end_blend_mode() {
+    EndBlendMode();
+}
+
 }
 
 // Plugin factory functions

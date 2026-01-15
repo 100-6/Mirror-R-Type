@@ -52,7 +52,7 @@ private:
     /**
      * @brief Create a muzzle flash entity attached to a shooter
      */
-    void spawnMuzzleFlash(Registry& registry, Entity shooter, bool isCompanion);
+    void spawnMuzzleFlash(Registry& registry, Entity shooter, bool isCompanion, bool isEnemy, float shooterWidth);
 
     /**
      * @brief Destroy a shooter's muzzle flash

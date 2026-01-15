@@ -68,6 +68,10 @@ public:
     void set_view(Vector2f center, Vector2f size) override;
     void reset_view() override;
 
+    // Blend modes
+    void begin_blend_mode(int mode) override;
+    void end_blend_mode() override;
+
 private:
     struct TextureData {
         std::vector<uint8_t> data; // Opaque storage for Raylib texture

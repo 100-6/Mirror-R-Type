@@ -7,10 +7,12 @@
 #include "systems/HUDSystem.hpp"
 #include "systems/LocalPredictionSystem.hpp"
 #include "systems/ColliderDebugSystem.hpp"
-#include "systems/CollisionSystem.hpp"
+// Note: CollisionSystem not needed on client - server handles all collisions
 #include "systems/BonusSystem.hpp"
 #include "systems/CompanionSystem.hpp"
 #include "systems/MuzzleFlashSystem.hpp"
+#include "systems/HitEffectSystem.hpp"
+#include "systems/ClientHitFlashSystem.hpp"
 #include "systems/MapConfigLoader.hpp"
 #include "protocol/NetworkConfig.hpp"
 #include "protocol/Payloads.hpp"
@@ -263,6 +265,8 @@ void ClientGame::setup_registry() {
     registry_->register_component<BonusWeapon>();
     registry_->register_component<BonusLifetime>();
     registry_->register_component<ToDestroy>();
+    registry_->register_component<HitFlash>();
+    registry_->register_component<FlashOverlay>();
     // Level system components
     // registry_->register_component<game::CheckpointManager>();
     // Client-side extrapolation component
@@ -283,7 +287,7 @@ void ClientGame::setup_systems() {
     registry_->register_system<AttachmentSystem>();
     registry_->register_system<SpriteAnimationSystem>();
     registry_->register_system<MovementSystem>();
-    registry_->register_system<CollisionSystem>();
+    // Note: CollisionSystem is server-side only - client receives damage from server snapshots
 
     if (entity_manager_) {
         registry_->register_system<LocalPredictionSystem>(
@@ -307,6 +311,9 @@ void ClientGame::setup_systems() {
     // Muzzle flash system - handles muzzle flash effects via ECS events
     registry_->register_system<MuzzleFlashSystem>(graphics_plugin_);
     registry_->get_system<MuzzleFlashSystem>().set_muzzle_flash_texture(texture_manager_->get_shot_frame_1());
+
+    // Client hit flash system - handles white flash effects when entities take damage
+    registry_->register_system<rtype::client::ClientHitFlashSystem>();
 }
 
 void ClientGame::setup_background() {
@@ -656,8 +663,20 @@ void ClientGame::setup_network_callbacks() {
         uint32_t proj_id = ntohl(proj.projectile_id);
         uint32_t owner_id = ntohl(proj.owner_id);
 
+        // Determine projectile type based on owner's entity type
         protocol::EntityType proj_type = protocol::EntityType::PROJECTILE_PLAYER;
-        // Determine projectile type based on owner (simplified)
+
+        // Check owner's entity type to see if it's an enemy
+        protocol::EntityType owner_type;
+        if (entity_manager_->get_entity_type(owner_id, owner_type)) {
+            // If owner is an enemy, create PROJECTILE_ENEMY
+            if (owner_type == protocol::EntityType::ENEMY_BASIC ||
+                owner_type == protocol::EntityType::ENEMY_FAST ||
+                owner_type == protocol::EntityType::ENEMY_TANK ||
+                owner_type == protocol::EntityType::ENEMY_BOSS) {
+                proj_type = protocol::EntityType::PROJECTILE_ENEMY;
+            }
+        }
 
         Entity entity = entity_manager_->spawn_or_update_entity(proj_id, proj_type,
                                                                 proj.spawn_x, proj.spawn_y, 1, 0);

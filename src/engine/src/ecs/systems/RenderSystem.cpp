@@ -87,7 +87,7 @@ void RenderSystem::update(Registry& registry, float dt)
         temp_sprite.origin = engine::Vector2f(sprite.origin_x, sprite.origin_y);
         temp_sprite.rotation = sprite.rotation;
         temp_sprite.tint = sprite.tint;
-        
+
         // Transmettre le rectangle source pour le découpage (spritesheet)
         temp_sprite.source_rect.x = sprite.source_rect.x;
         temp_sprite.source_rect.y = sprite.source_rect.y;
@@ -96,6 +96,31 @@ void RenderSystem::update(Registry& registry, float dt)
 
         // Dessiner le sprite à la position de l'entité
         graphics_plugin.draw_sprite(temp_sprite, engine::Vector2f(pos.x, pos.y));
+
+        // Si l'entité a un FlashOverlay, redessiner le sprite en blanc avec blend additif
+        if (registry.has_component_registered<FlashOverlay>()) {
+            auto& overlays = registry.get_components<FlashOverlay>();
+            if (overlays.has_entity(render_data.entity)) {
+                const FlashOverlay& overlay = overlays[render_data.entity];
+
+                // Calculer l'alpha basé sur le temps restant (plus lumineux au début)
+                float progress = overlay.time_remaining / overlay.total_duration;
+                uint8_t flash_alpha = static_cast<uint8_t>(overlay.max_alpha * progress);
+
+                // Activer le blend mode additif pour ajouter du blanc aux pixels
+                graphics_plugin.begin_blend_mode(1); // 1 = ADDITIVE
+
+                // Redessiner le sprite avec un tint blanc semi-transparent
+                temp_sprite.tint = engine::Color{255, 255, 255, flash_alpha};
+                graphics_plugin.draw_sprite(temp_sprite, engine::Vector2f(pos.x, pos.y));
+
+                // Désactiver le blend mode additif
+                graphics_plugin.end_blend_mode();
+
+                // Restaurer le tint original pour le prochain rendu
+                temp_sprite.tint = sprite.tint;
+            }
+        }
     }
 
     // === RENDU DES CERCLES (CircleEffect) ===

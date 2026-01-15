@@ -208,6 +208,18 @@ public:
      * @brief Reset the view to the default (window size)
      */
     virtual void reset_view() = 0;
+
+    // Blend modes
+    /**
+     * @brief Begin blend mode for additive/multiplicative rendering
+     * @param mode 0=ALPHA (default), 1=ADDITIVE, 2=MULTIPLIED, 3=ADD_COLORS, 4=SUBTRACT_COLORS
+     */
+    virtual void begin_blend_mode(int mode) = 0;
+
+    /**
+     * @brief End blend mode and return to default
+     */
+    virtual void end_blend_mode() = 0;
 };
 
 }
