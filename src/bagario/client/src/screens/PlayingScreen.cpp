@@ -161,15 +161,18 @@ void PlayingScreen::update(engine::IGraphicsPlugin* graphics, engine::IInputPlug
 
     // Only process game input when fully connected
     if (network_ && network_->is_connected()) {
-        handle_mouse_input(input);
-        handle_keyboard_input(input);
+        // Only process input when window has focus (prevents multi-window input bleed)
+        if (input->has_focus()) {
+            handle_mouse_input(input);
+            handle_keyboard_input(input);
+        }
 
-        // Update interpolation
+        // Update interpolation (always, even without focus)
         if (client_game_state_) {
             client_game_state_->update_interpolation(dt);
         }
 
-        // Update camera to follow player
+        // Update camera to follow player (always, even without focus)
         if (client_game_state_ && camera_) {
             float center_x, center_y;
             uint32_t player_id = client_game_state_->get_local_player_id();

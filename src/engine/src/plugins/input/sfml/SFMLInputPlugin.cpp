@@ -235,6 +235,13 @@ void SFMLInputPlugin::set_window_handle(void* handle) {
     }
 }
 
+bool SFMLInputPlugin::has_focus() const {
+    if (window_handle_) {
+        return window_handle_->hasFocus();
+    }
+    return true;  // Default to true if no window handle
+}
+
 // ============== PLUGIN FACTORY ==============
 
 extern "C" {
