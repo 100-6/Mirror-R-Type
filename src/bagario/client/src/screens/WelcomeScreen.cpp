@@ -72,6 +72,8 @@ void WelcomeScreen::initialize() {
         center_x - button_width / 2.0f, start_y + 400.0f, button_width, button_height, "PLAY");
     play_btn->set_on_click([this]() {
         std::cout << "[WelcomeScreen] Play clicked! Username: " << game_state_.username << "\n";
+        // Save user data (username, server_ip) before playing
+        game_state_.save_user();
         if (on_screen_change_) {
             on_screen_change_(GameScreen::PLAYING);
         }
