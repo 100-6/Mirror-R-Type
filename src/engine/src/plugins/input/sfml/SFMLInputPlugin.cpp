@@ -88,6 +88,13 @@ void SFMLInputPlugin::init_key_mapping() {
     key_mapping_[engine::Key::LAlt] = static_cast<int>(sf::Keyboard::Key::LAlt);
     key_mapping_[engine::Key::RAlt] = static_cast<int>(sf::Keyboard::Key::RAlt);
     
+    // Special characters
+    key_mapping_[engine::Key::Period] = static_cast<int>(sf::Keyboard::Key::Period);
+    key_mapping_[engine::Key::Comma] = static_cast<int>(sf::Keyboard::Key::Comma);
+    key_mapping_[engine::Key::Slash] = static_cast<int>(sf::Keyboard::Key::Slash);
+    key_mapping_[engine::Key::Hyphen] = static_cast<int>(sf::Keyboard::Key::Hyphen);
+    key_mapping_[engine::Key::Semicolon] = static_cast<int>(sf::Keyboard::Key::Semicolon);
+
     // Function keys
     key_mapping_[engine::Key::F1] = static_cast<int>(sf::Keyboard::Key::F1);
     key_mapping_[engine::Key::F2] = static_cast<int>(sf::Keyboard::Key::F2);

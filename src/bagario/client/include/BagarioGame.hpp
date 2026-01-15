@@ -15,7 +15,7 @@ namespace bagario {
  */
 class BagarioGame {
 public:
-    BagarioGame(int screen_width = 1280, int screen_height = 720);
+    BagarioGame(int screen_width = 1920, int screen_height = 1080);
     ~BagarioGame();
 
     bool initialize(engine::IGraphicsPlugin* graphics, engine::IInputPlugin* input);

@@ -103,8 +103,7 @@ void PlayingScreen::on_enter() {
 
     // Connect to server
     if (network_) {
-        // Hardcoded localhost for now
-        if (network_->connect("10.68.244.94", 5002, 5003)) {
+        if (network_->connect(game_state_.server_ip, 5002, 5003)) {
             // Connection initiated, wait for on_connected callback
             // Then request join will be sent
         } else {

@@ -18,23 +18,25 @@ void SettingsScreen::rebuild_ui() {
     sfx_value_label_ = nullptr;
 
     float center_x = screen_width_ / 2.0f;
+    float center_y = screen_height_ / 2.0f;
+    float start_y = center_y - 150.0f;
 
     // Title
     auto title = std::make_unique<UILabel>(
-        center_x, 80.0f, "SETTINGS", 60);
+        center_x, start_y, "SETTINGS", 60);
     title->set_color(engine::Color{76, 175, 80, 255});
     title->set_alignment(UILabel::Alignment::CENTER);
     labels_.push_back(std::move(title));
 
     // Audio section title
     auto audio_title = std::make_unique<UILabel>(
-        center_x, 180.0f, "Audio", 36);
+        center_x, start_y + 100.0f, "Audio", 36);
     audio_title->set_color(engine::Color{200, 200, 200, 255});
     audio_title->set_alignment(UILabel::Alignment::CENTER);
     labels_.push_back(std::move(audio_title));
 
     // Music Volume
-    float music_y = 250.0f;
+    float music_y = start_y + 170.0f;
     auto music_label = std::make_unique<UILabel>(
         center_x - 200.0f, music_y, "Music Volume", 28);
     music_label->set_color(engine::Color{255, 255, 255, 255});
@@ -69,7 +71,7 @@ void SettingsScreen::rebuild_ui() {
     buttons_.push_back(std::move(music_plus));
 
     // SFX Volume
-    float sfx_y = 330.0f;
+    float sfx_y = start_y + 250.0f;
     auto sfx_label = std::make_unique<UILabel>(
         center_x - 200.0f, sfx_y, "SFX Volume", 28);
     sfx_label->set_color(engine::Color{255, 255, 255, 255});
