@@ -85,6 +85,7 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
     registry_.register_component<CircleEffect>();
     registry_.register_component<BonusWeapon>();
     registry_.register_component<BonusLifetime>();
+    registry_.register_component<Camera>();
 
     // Register Level System components
     registry_.register_component<game::LevelController>();
@@ -312,6 +313,14 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
     scroll_state.current_scroll = 0.0f;
     registry_.add_component(level_controller_entity, scroll_state);
 
+    // Create Camera entity for scroll management via ECS
+    // Camera position.x = current scroll offset, updated by MovementSystem
+    Entity camera_entity = registry_.spawn_entity();
+    registry_.add_component(camera_entity, Position{0.0f, 0.0f});
+    registry_.add_component(camera_entity, Velocity{scroll_speed_, 0.0f});  // Scroll speed as velocity
+    registry_.add_component(camera_entity, Camera{scroll_speed_});
+    registry_.add_component(camera_entity, NoFriction{});  // Camera doesn't slow down
+
     // std::cout << "[GameSession " << session_id_ << "] Level system initialized with "
     //           << cm.checkpoints.size() << " checkpoints\n";
 
@@ -391,7 +400,24 @@ void GameSession::update(float delta_time)
     }
 
     tick_count_++;
-    current_scroll_ += scroll_speed_ * delta_time;
+
+    // Run ECS systems first - this includes MovementSystem which updates Camera position
+    // CollisionSystem reads scroll from Camera entity directly (pure ECS)
+    registry_.get_system<ShootingSystem>().update(registry_, delta_time);
+    registry_.get_system<BonusSystem>().update(registry_, delta_time);
+    registry_.get_system<BonusWeaponSystem>().update(registry_, delta_time);
+    registry_.run_systems(delta_time);
+
+    // Read scroll from Camera entity (updated by MovementSystem)
+    // Camera.position.x = current scroll offset
+    auto& cameras = registry_.get_components<Camera>();
+    auto& positions = registry_.get_components<Position>();
+    if (cameras.size() > 0) {
+        Entity camera_entity = cameras.get_entity_at(0);
+        if (positions.has_entity(camera_entity)) {
+            current_scroll_ = static_cast<double>(positions[camera_entity].x);
+        }
+    }
 
     // Synchronize scroll position with network system for client synchronization
     if (network_system_)
@@ -406,21 +432,13 @@ void GameSession::update(float delta_time)
     // Spawn walls from map tiles as they come into view
     spawn_walls_in_view();
 
-    // Set scroll position on CollisionSystem for scroll-aware collision detection
-    // Walls are in WORLD coordinates, players/projectiles in SCREEN coordinates
-    registry_.get_system<CollisionSystem>().setScroll(static_cast<float>(current_scroll_));
-
     wave_manager_.update(delta_time, current_scroll_);
-    registry_.get_system<BonusSystem>().update(registry_, delta_time);
-    registry_.get_system<BonusWeaponSystem>().update(registry_, delta_time);
 
     // Update checkpoint system (handles respawn timers)
     if (registry_.has_system<game::CheckpointSystem>()) {
         registry_.get_system<game::CheckpointSystem>().update(registry_, delta_time);
     }
 
-    registry_.get_system<ShootingSystem>().update(registry_, delta_time);
-    registry_.run_systems(delta_time);
     check_offscreen_enemies();
 
     // === LEVEL SYSTEM VICTORY/DEFEAT CHECKS ===

@@ -51,6 +51,19 @@ void CollisionSystem::shutdown()
 
 void CollisionSystem::update(Registry& registry, float dt)
 {
+    // Read scroll from Camera entity (ECS-driven scroll)
+    // Camera.position.x = current scroll offset, updated by MovementSystem
+    if (registry.has_component_registered<Camera>()) {
+        auto& cameras = registry.get_components<Camera>();
+        auto& cam_positions = registry.get_components<Position>();
+        if (cameras.size() > 0) {
+            Entity camera_entity = cameras.get_entity_at(0);
+            if (cam_positions.has_entity(camera_entity)) {
+                m_currentScroll = cam_positions[camera_entity].x;
+            }
+        }
+    }
+
     // Update Invulnerability timers
     auto& invulnerabilities = registry.get_components<Invulnerability>();
     for (size_t i = 0; i < invulnerabilities.size(); i++) {

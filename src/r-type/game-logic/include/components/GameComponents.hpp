@@ -125,6 +125,13 @@ struct ExplosionAnimation {
 struct Wall {};
 struct Background {};
 
+// Camera entity for scroll management via ECS
+// The camera's Position.x represents the current scroll offset
+// MovementSystem updates Position based on Velocity
+struct Camera {
+    float scroll_speed = 60.0f;  // Base scroll speed (stored for reference)
+};
+
 struct HitFlash {
     float time_remaining = 0.0f;
     engine::Color original_color = engine::Color::White;
