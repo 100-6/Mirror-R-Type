@@ -134,7 +134,9 @@ struct Camera {
 
 struct HitFlash {
     float time_remaining = 0.0f;
+    float total_duration = 0.0f;        // Total flash duration for fade calculation
     engine::Color original_color = engine::Color::White;
+    uint8_t max_alpha = 200;            // Peak alpha value for white flash overlay
 };
 
 // Logique de jeu (Stats)

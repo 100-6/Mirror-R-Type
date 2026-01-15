@@ -162,4 +162,11 @@ struct UIText {
     int layer = 102;  // Text on top of everything
 };
 
+// White flash overlay for damage/hit effects
+struct FlashOverlay {
+    float time_remaining = 0.0f;
+    float total_duration = 0.0f;
+    float max_alpha = 200.0f;
+};
+
 #endif /* !CORE_COMPONENTS_HPP_ */
