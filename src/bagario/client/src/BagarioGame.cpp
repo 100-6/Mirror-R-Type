@@ -21,6 +21,13 @@ bool BagarioGame::initialize(engine::IGraphicsPlugin* graphics, engine::IInputPl
         return false;
     }
 
+    // Load configuration files
+    game_state_.load_all_configs();
+    std::cout << "[BagarioGame] Loaded configuration files\n";
+
+    // Apply VSync setting from config
+    graphics_->set_vsync(game_state_.vsync);
+
     // Initialize network manager
     network_manager_ = std::make_unique<client::NetworkManager>();
     if (!network_manager_->initialize()) {

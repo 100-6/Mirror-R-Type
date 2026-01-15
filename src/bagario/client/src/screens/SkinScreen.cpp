@@ -161,6 +161,8 @@ void SkinScreen::rebuild_ui() {
     back_button_ = std::make_unique<UIButton>(
         center_x - back_width / 2.0f, start_y + 730.0f, back_width, back_height, "Back");
     back_button_->set_on_click([this]() {
+        // Save user data (skin) before leaving
+        game_state_.save_user();
         if (on_screen_change_) {
             on_screen_change_(GameScreen::WELCOME);
         }

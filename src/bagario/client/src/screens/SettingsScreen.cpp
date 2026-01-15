@@ -149,6 +149,8 @@ void SettingsScreen::rebuild_ui() {
     auto back_btn = std::make_unique<UIButton>(
         center_x - button_width / 2.0f, start_y + 500.0f, button_width, button_height, "Back");
     back_btn->set_on_click([this]() {
+        // Save settings before leaving
+        game_state_.save_settings();
         if (on_screen_change_) {
             on_screen_change_(GameScreen::WELCOME);
         }
