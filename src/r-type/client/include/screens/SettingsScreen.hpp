@@ -12,8 +12,7 @@ namespace rtype::client {
  */
 enum class SettingsTab {
     AUDIO,
-    CONTROLS,
-    DEBUG
+    CONTROLS
 };
 
 /**

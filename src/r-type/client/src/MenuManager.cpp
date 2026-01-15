@@ -115,7 +115,7 @@ void MenuManager::set_screen(GameScreen screen) {
     }
 
     current_screen_ = screen;
-    std::cout << "[MenuManager] Switched to screen: " << static_cast<int>(screen) << "\n";
+    // std::cout << "[MenuManager] Switched to screen: " << static_cast<int>(screen) << "\n";
 
     // Reset timers when entering room lobby
     if (screen == GameScreen::ROOM_LOBBY) {
@@ -221,7 +221,7 @@ void MenuManager::draw(engine::IGraphicsPlugin* graphics) {
 // =============================================================================
 
 void MenuManager::on_room_created(const protocol::ServerRoomCreatedPayload& payload) {
-    std::cout << "[MenuManager] Room created: " << payload.room_name << "\n";
+    // std::cout << "[MenuManager] Room created: " << payload.room_name << "\n";
 
     // Get configured max players from create room screen
     uint8_t max_players = create_room_screen_ ? create_room_screen_->get_configured_max_players() : 4;
@@ -249,7 +249,7 @@ void MenuManager::on_room_created(const protocol::ServerRoomCreatedPayload& payl
 }
 
 void MenuManager::on_room_joined(const protocol::ServerRoomJoinedPayload& payload) {
-    std::cout << "[MenuManager] Joined room: " << payload.room_id << "\n";
+    // std::cout << "[MenuManager] Joined room: " << payload.room_id << "\n";
 
     // Room info will be updated when we receive the room list
     // For now, set basic info
@@ -275,7 +275,7 @@ void MenuManager::on_room_joined(const protocol::ServerRoomJoinedPayload& payloa
 }
 
 void MenuManager::on_room_list(const std::vector<protocol::RoomInfo>& rooms) {
-    std::cout << "[MenuManager] Received " << rooms.size() << " rooms\n";
+    // std::cout << "[MenuManager] Received " << rooms.size() << " rooms\n";
 
     // Update browse rooms screen
     if (browse_rooms_screen_) {
@@ -296,8 +296,8 @@ void MenuManager::on_room_list(const std::vector<protocol::RoomInfo>& rooms) {
                         room.max_players,
                         room_lobby_screen_->get_room_id() == current_room_id  // Keep existing host status
                     );
-                    std::cout << "[MenuManager] Updated room info: " << static_cast<int>(room.current_players)
-                              << "/" << static_cast<int>(room.max_players) << " players\n";
+                    // std::cout << "[MenuManager] Updated room info: " << static_cast<int>(room.current_players)
+                    //           << "/" << static_cast<int>(room.max_players) << " players\n";
                     break;
                 }
             }
@@ -306,7 +306,7 @@ void MenuManager::on_room_list(const std::vector<protocol::RoomInfo>& rooms) {
 }
 
 void MenuManager::on_room_error(const protocol::ServerRoomErrorPayload& payload) {
-    std::cout << "[MenuManager] Room error: " << payload.error_message << "\n";
+    // std::cout << "[MenuManager] Room error: " << payload.error_message << "\n";
 
     // Show error in room lobby if we're there
     if (current_screen_ == GameScreen::ROOM_LOBBY && room_lobby_screen_) {

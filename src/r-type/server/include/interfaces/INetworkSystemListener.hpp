@@ -59,6 +59,11 @@ public:
      * @brief Called when a powerup is collected
      */
     virtual void on_powerup_collected(uint32_t session_id, const std::vector<uint8_t>& powerup_data) = 0;
+
+    /**
+     * @brief Called when a player respawns
+     */
+    virtual void on_player_respawn(uint32_t session_id, const std::vector<uint8_t>& respawn_data) = 0;
 };
 
 }

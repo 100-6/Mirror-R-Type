@@ -56,8 +56,8 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
     , scroll_speed_(config::GAME_SCROLL_SPEED)
     , session_start_time_(std::chrono::steady_clock::now())
 {
-    std::cout << "[GameSession " << session_id_ << "] Created (mode: " << static_cast<int>(game_mode)
-              << ", difficulty: " << static_cast<int>(difficulty) << ", map: " << map_id << ")\n";
+    // std::cout << "[GameSession " << session_id_ << "] Created (mode: " << static_cast<int>(game_mode)
+    //           << ", difficulty: " << static_cast<int>(difficulty) << ", map: " << map_id << ")\n";
 
     registry_.register_component<Position>();
     registry_.register_component<Velocity>();
@@ -86,6 +86,13 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
     registry_.register_component<BonusWeapon>();
     registry_.register_component<BonusLifetime>();
 
+    // Register Level System components
+    registry_.register_component<game::LevelController>();
+    // CheckpointManager removed
+    registry_.register_component<game::BossPhase>();
+    registry_.register_component<game::PlayerLives>();
+    registry_.register_component<game::ScrollState>();
+
     registry_.register_system<MovementSystem>();
     registry_.register_system<PhysiqueSystem>();
     registry_.register_system<AttachmentSystem>();
@@ -110,13 +117,57 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
 
     registry_.register_system<DestroySystem>();
 
+    // Register Level System systems
+    registry_.register_system<game::LevelSystem>();
+    registry_.register_system<game::BossSystem>();
+    registry_.register_system<game::CheckpointSystem>();
+
+    // Wire CheckpointSystem callbacks
+    if (registry_.has_system<game::CheckpointSystem>()) {
+        auto& checkpoint_system = registry_.get_system<game::CheckpointSystem>();
+
+
+
+        // Callback 2A: Broadcast respawn info (Legacy - handled by spawn_player now)
+        checkpoint_system.set_network_callback(
+            [this](uint32_t player_id, float x, float y, float invuln, uint8_t lives) {
+                // Keep for compatibility if needed, but logic moved to respawn_player_at
+            }
+        );
+
+        // Callback 2B: Request player spawn
+        checkpoint_system.set_spawn_player_callback(
+            [this](uint32_t player_id, float x, float y, float invuln, uint8_t lives) {
+                return respawn_player_at(player_id, x, y, invuln, lives);
+            }
+        );
+
+
+
+        // Callback 4: Game Over (All players dead)
+        checkpoint_system.set_game_over_callback(
+            [this]() {
+                std::cout << "[GameSession] 💀 GAME OVER - All players exhausted lives\n";
+
+                // Transition LevelSystem to GAME_OVER state
+                // This will be picked up by GameSession::update() to end the session
+                if (registry_.has_system<game::LevelSystem>()) {
+                    auto& level_controllers = registry_.get_components<game::LevelController>();
+                    if (level_controllers.size() > 0) {
+                        game::LevelController& lc = level_controllers.get_data_at(0);
+                        registry_.get_system<game::LevelSystem>().transition_to_game_over(lc);
+                    }
+                }
+            }
+        );
+    }
+
     registry_.get_event_bus().subscribe<ecs::EntityDeathEvent>(
         [this](const ecs::EntityDeathEvent& event) {
             if (!event.isPlayer)
                 return;
             for (auto& [player_id, player] : players_) {
                 if (player.entity == event.entity && player.is_alive) {
-                    std::cout << "[GameSession " << session_id_ << "] Player " << player_id << " died!\n";
                     player.is_alive = false;
 
                     // Destroy companion turret (BonusWeapon) if player has one
@@ -128,13 +179,17 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
                             registry_.add_component(companionEntity, ToDestroy{});
                             if (network_system_)
                                 network_system_->queue_entity_destroy(companionEntity);
-                            std::cout << "[GameSession " << session_id_ << "] Destroyed companion turret for player " << player_id << "\n";
                         }
                     }
 
                     if (network_system_)
                         network_system_->queue_entity_destroy(event.entity);
-                    check_game_over();
+
+                    // Notify CheckpointSystem to handle respawn or game over
+                    if (registry_.has_system<game::CheckpointSystem>()) {
+                        auto& checkpoint_system = registry_.get_system<game::CheckpointSystem>();
+                        checkpoint_system.on_player_death(registry_, event.entity, player_id);
+                    }
                     break;
                 }
             }
@@ -165,8 +220,8 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
                 entityType = EntityType::BONUS_HEALTH; // Use health type for now, client will handle color
             }
 
-            std::cout << "[GameSession " << session_id_ << "] Spawned bonus at ("
-                      << event.x << ", " << event.y << ") type=" << event.bonusType << "\n";
+            // std::cout << "[GameSession " << session_id_ << "] Spawned bonus at ("
+            //           << event.x << ", " << event.y << ") type=" << event.bonusType << "\n";
 
             if (network_system_)
                 network_system_->queue_entity_spawn(bonus, entityType, event.x, event.y, 0, static_cast<uint8_t>(event.bonusType));
@@ -218,14 +273,47 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
                       << companionEntity << " for player " << event.player << "\n";
         });
 
-    std::string wave_file = WaveManager::get_map_file(map_id);
-    if (wave_manager_.load_from_file(wave_file)) {
-        std::cout << "[GameSession " << session_id_ << "] Loaded " << wave_manager_.get_total_waves()
-                  << " waves from " << wave_file << "\n";
+    // === INITIALIZE LEVEL SYSTEM ===
+    // Map the map_id (0-based index from UI) directly to level_id
+    // map_id 0 = test level, 1 = level 1, 2 = level 2, 3 = level 3, 4 = instant boss
+    uint8_t starting_level = static_cast<uint8_t>(map_id);
+    // Note: map_id comes from UI selection, can be 0-99 for debug levels
+
+    if (!level_manager_.load_level(starting_level)) {
+        std::cerr << "[GameSession " << session_id_ << "] Failed to load level " << static_cast<int>(starting_level) << "\n";
     } else {
-        std::cerr << "[GameSession " << session_id_ << "] Failed to load wave config: " << wave_file << "\n";
+        // std::cout << "[GameSession " << session_id_ << "] Loaded level: " << level_manager_.get_level_name() << "\n";
     }
+
+    // Extract all waves from level phases and load into WaveManager
+    std::vector<Wave> all_waves;
+    for (const auto& phase : level_manager_.get_phases()) {
+        for (const auto& wave : phase.waves) {
+            all_waves.push_back(wave);
+        }
+    }
+    wave_manager_.load_from_phases(all_waves);
     wave_manager_.set_listener(this);
+
+    // Create LevelController entity
+    Entity level_controller_entity = registry_.spawn_entity();
+    game::LevelController lc;
+    lc.current_level = starting_level;
+    lc.state = game::LevelState::LEVEL_START;
+    lc.state_timer = 0.0f;
+    lc.current_phase_index = 0;
+    lc.current_wave_in_phase = 0;
+    lc.boss_spawned = false;
+    lc.boss_entity = engine::INVALID_HANDLE; // Checkpoint Manager removed - Dynamic Respawn used
+    registry_.add_component(level_controller_entity, lc);
+
+    // Create ScrollState component for checkpoint system
+    game::ScrollState scroll_state;
+    scroll_state.current_scroll = 0.0f;
+    registry_.add_component(level_controller_entity, scroll_state);
+
+    // std::cout << "[GameSession " << session_id_ << "] Level system initialized with "
+    //           << cm.checkpoints.size() << " checkpoints\n";
 
     // Load map segments for tile-based walls
     load_map_segments(map_id);
@@ -241,8 +329,19 @@ void GameSession::add_player(uint32_t player_id, const std::string& player_name,
     spawn_player_entity(player);
     players_[player_id] = player;
     player_entities_[player_id] = player.entity;
-    std::cout << "[GameSession " << session_id_ << "] Player " << player_id << " (" << player_name
-              << ") added with skin " << static_cast<int>(skin_id) << " (entity ID: " << player.entity << ")\n";
+
+    // Initialize PlayerLives for level system
+    Entity player_lives_entity = registry_.spawn_entity();
+    game::PlayerLives pl;
+    pl.player_id = player_id;
+    pl.lives_remaining = config::PLAYER_LIVES;  // Lives from config
+    pl.respawn_pending = false;
+    pl.respawn_timer = 0.0f;
+    // pl.checkpoint_index removed
+    registry_.add_component(player_lives_entity, pl);
+
+    // std::cout << "[GameSession " << session_id_ << "] Player " << player_id << " (" << player_name
+    //           << ") added with skin " << static_cast<int>(skin_id) << " (entity ID: " << player.entity << ", lives: 3)\n";
     if (network_system_) {
         float spawn_y = config::PLAYER_SPAWN_Y_BASE + ((players_.size() - 1) * config::PLAYER_SPAWN_Y_OFFSET);
         // Encode both player_id and skin_id in subtype: high 4 bits = player_id, low 4 bits = skin_id
@@ -268,7 +367,7 @@ void GameSession::remove_player(uint32_t player_id)
     players_.erase(it);
     player_entities_.erase(player_id);
     registry_.kill_entity(player_entity);
-    std::cout << "[GameSession " << session_id_ << "] Player " << player_id << " removed\n";
+    // std::cout << "[GameSession " << session_id_ << "] Player " << player_id << " removed\n";
     if (network_system_)
         network_system_->queue_entity_destroy(player_entity);
     check_game_over();
@@ -298,24 +397,189 @@ void GameSession::update(float delta_time)
     if (network_system_)
         network_system_->set_scroll_x(current_scroll_);
 
+    // Update ScrollState component for checkpoint system
+    auto& scroll_states = registry_.get_components<game::ScrollState>();
+    if (scroll_states.size() > 0) {
+        scroll_states.get_data_at(0).current_scroll = current_scroll_;
+    }
+
+    // Spawn walls from map tiles as they come into view
     spawn_walls_in_view();
 
     wave_manager_.update(delta_time, current_scroll_);
     registry_.get_system<BonusSystem>().update(registry_, delta_time);
     registry_.get_system<BonusWeaponSystem>().update(registry_, delta_time);
+
+    // Update checkpoint system (handles respawn timers)
+    if (registry_.has_system<game::CheckpointSystem>()) {
+        registry_.get_system<game::CheckpointSystem>().update(registry_, delta_time);
+    }
+
     registry_.get_system<ShootingSystem>().update(registry_, delta_time);
     registry_.run_systems(delta_time);
     check_offscreen_enemies();
-    if (wave_manager_.all_waves_complete() && is_active_) {
-        auto& enemies = registry_.get_components<Enemy>();
-        if (enemies.size() == 0) {
-            std::cout << "[GameSession " << session_id_ << "] All waves complete - game victory!\n";
+
+    // === LEVEL SYSTEM VICTORY/DEFEAT CHECKS ===
+    auto& level_controllers = registry_.get_components<game::LevelController>();
+    if (level_controllers.size() > 0) {
+        game::LevelController& lc = level_controllers.get_data_at(0);
+
+        // Update wave completion status for LevelSystem
+        lc.all_waves_triggered = wave_manager_.all_waves_complete();
+
+        // Check if boss should be spawned
+        if (lc.state == game::LevelState::BOSS_FIGHT && !lc.boss_spawned) {
+            // Spawn boss
+            const BossConfig& boss_config = level_manager_.get_boss_config();
+
+            Entity boss_entity = registry_.spawn_entity();
+
+            // Position
+            registry_.add_component(boss_entity, Position{boss_config.spawn_position_x, boss_config.spawn_position_y});
+
+            // Velocity
+            registry_.add_component(boss_entity, Velocity{0.0f, 0.0f});
+
+            // Enemy component with bonus drop for boss
+            Enemy enemy;
+            // Boss can drop a BONUS_WEAPON with 100% chance
+            enemy.bonusDrop.enabled = true;
+            enemy.bonusDrop.bonusType = BonusType::BONUS_WEAPON;
+            enemy.bonusDrop.dropChance = 1.0f;
+            registry_.add_component(boss_entity, enemy);
+
+            // Health (500 HP for boss)
+            Health health;
+            health.max = 500;
+            health.current = 500;
+            registry_.add_component(boss_entity, health);
+
+            // Collider (large boss)
+            registry_.add_component(boss_entity, Collider{100.0f, 80.0f});
+
+            // Sprite (texture handled by client)
+            Sprite sprite;
+            sprite.width = 100.0f;
+            sprite.height = 80.0f;
+            sprite.layer = 4;
+            registry_.add_component(boss_entity, sprite);
+
+            // BossPhase component
+            game::BossPhase boss_phase;
+            boss_phase.current_phase = 0;
+            boss_phase.total_phases = boss_config.total_phases;
+            boss_phase.phase_health_thresholds = {1.0f, 0.66f, 0.33f};
+            boss_phase.phase_timer = 0.0f;
+            boss_phase.attack_cooldown = 2.0f;
+            boss_phase.attack_pattern_index = 0;
+
+            // Safety check: ensure phases vector is not empty
+            if (boss_config.phases.empty()) {
+                std::cerr << "[GameSession] ERROR: Boss has no phases configured! Cannot spawn boss.\n";
+                registry_.kill_entity(boss_entity);
+                return;
+            }
+
+            boss_phase.movement_pattern = boss_config.phases[0].movement_pattern;
+            boss_phase.movement_speed_multiplier = boss_config.phases[0].movement_speed_multiplier;
+            boss_phase.phase_configs = boss_config.phases;
+            registry_.add_component(boss_entity, boss_phase);
+
+            // Update level controller
+            lc.boss_spawned = true;
+            lc.boss_entity = boss_entity;
+
+            // std::cout << "[GameSession] Boss spawned: " << boss_config.boss_name << "\n";
+
+            // Notify network
+            if (network_system_) {
+                network_system_->queue_entity_spawn(
+                    boss_entity,
+                    protocol::EntityType::ENEMY_BOSS,
+                    boss_config.spawn_position_x,
+                    boss_config.spawn_position_y,
+                    500,  // Boss HP
+                    0
+                );
+            }
+        }
+
+        // Level complete - load next level or declare victory
+        if (lc.state == game::LevelState::LEVEL_COMPLETE) {
+            if (lc.current_level >= 3) {
+                // Final victory: Level 3 complete
+                // std::cout << "[GameSession " << session_id_ << "] FINAL VICTORY - All 3 levels complete!\n";
+                is_active_.store(false, std::memory_order_release);
+                if (listener_)
+                    listener_->on_game_over(session_id_, get_player_ids(), true);  // Victory
+                return;
+            } else {
+                // Load next level
+                uint8_t next_level = lc.current_level + 1;
+                // std::cout << "[GameSession " << session_id_ << "] Loading level " << static_cast<int>(next_level) << "...\n";
+
+                // Load next level configuration
+                if (!level_manager_.load_level(next_level)) {
+                    std::cerr << "[GameSession " << session_id_ << "] Failed to load level " << static_cast<int>(next_level) << "\n";
+                    return;
+                }
+
+                // Clear all enemies and projectiles
+                auto& enemies = registry_.get_components<Enemy>();
+                std::vector<Entity> enemies_to_kill;
+                for (size_t i = 0; i < enemies.size(); ++i) {
+                    enemies_to_kill.push_back(enemies.get_entity_at(i));
+                }
+                for (Entity e : enemies_to_kill) {
+                    registry_.kill_entity(e);
+                }
+
+                auto& projectiles = registry_.get_components<Projectile>();
+                std::vector<Entity> projectiles_to_kill;
+                for (size_t i = 0; i < projectiles.size(); ++i) {
+                    projectiles_to_kill.push_back(projectiles.get_entity_at(i));
+                }
+                for (Entity p : projectiles_to_kill) {
+                    registry_.kill_entity(p);
+                }
+
+                // Extract waves from new level and load into WaveManager
+                std::vector<Wave> all_waves;
+                for (const auto& phase : level_manager_.get_phases()) {
+                    for (const auto& wave : phase.waves) {
+                        all_waves.push_back(wave);
+                    }
+                }
+                wave_manager_.load_from_phases(all_waves);
+
+                // Update level controller
+                lc.current_level = next_level;
+                lc.state = game::LevelState::LEVEL_START;
+                lc.state_timer = 0.0f;
+                lc.current_phase_index = 0;
+                lc.current_wave_in_phase = 0;
+                lc.boss_spawned = false;
+                lc.boss_entity = engine::INVALID_HANDLE;
+                lc.all_waves_triggered = false;
+
+                // Update checkpoint manager with new level checkpoints
+                // CheckpointManager removed - Dynamic respawn implementation used instead
+
+                // std::cout << "[GameSession " << session_id_ << "] Level " << static_cast<int>(next_level)
+                //           << " loaded: " << level_manager_.get_level_name() << "\n";
+            }
+        }
+
+        // Defeat: All players out of lives
+        if (lc.state == game::LevelState::GAME_OVER) {
+            // std::cout << "[GameSession " << session_id_ << "] GAME OVER - All players dead!\n";
             is_active_.store(false, std::memory_order_release);
             if (listener_)
-                listener_->on_game_over(session_id_, get_player_ids(), true);  // Victory
+                listener_->on_game_over(session_id_, get_player_ids(), false);  // Defeat
             return;
         }
     }
+
     check_game_over();
 }
 
@@ -347,8 +611,8 @@ void GameSession::spawn_player_entity(GamePlayer& player)
     Weapon weapon = create_weapon(WeaponType::BASIC, engine::INVALID_HANDLE);
     registry_.add_component(entity, weapon);
 
-    std::cout << "[GameSession " << session_id_ << "] Spawned player entity " << entity
-              << " at (" << spawn_x << ", " << spawn_y << ")\n";
+    // std::cout << "[GameSession " << session_id_ << "] Spawned player entity " << entity
+    //           << " at (" << spawn_x << ", " << spawn_y << ")\n";
 }
 
 void GameSession::on_wave_started(const Wave& wave)
@@ -455,12 +719,12 @@ void GameSession::on_spawn_enemy(const std::string& enemy_type, float x, float y
     registry_.add_component(enemy, NoFriction{});
     registry_.add_component(enemy, Collider{width, height});
 
-    std::cout << "[GameSession " << session_id_ << "] Spawned " << enemy_type << " enemy " << enemy
-              << " at (" << x << ", " << y << ")";
-    if (bonus_drop.enabled) {
-        std::cout << " with bonusDrop: " << bonus_drop.bonus_type;
-    }
-    std::cout << "\n";
+    // std::cout << "[GameSession " << session_id_ << "] Spawned " << enemy_type << " enemy " << enemy
+    //           << " at (" << x << ", " << y << ")";
+    // if (bonus_drop.enabled) {
+    //     std::cout << " with bonusDrop: " << bonus_drop.bonus_type;
+    // }
+    // std::cout << "\n";
 
     if (network_system_)
         network_system_->queue_entity_spawn(enemy, entity_type, center_x, center_y, health, static_cast<uint8_t>(subtype));
@@ -478,7 +742,7 @@ void GameSession::on_spawn_wall(float x, float y)
     registry_.add_component(wall, Wall{});
     registry_.add_component(wall, NoFriction{});
     registry_.add_component(wall, Health{65535, 65535});
-    std::cout << "[GameSession " << session_id_ << "] Spawned wall " << wall << " at (" << x << ", " << y << ")\n";
+    // std::cout << "[GameSession " << session_id_ << "] Spawned wall " << wall << " at (" << x << ", " << y << ")\n";
 
     // DO NOT send walls to client - client loads walls from tilemap via ChunkManager
     // Server uses these walls for server-side collision validation only
@@ -536,20 +800,37 @@ void GameSession::on_powerup_collected(uint32_t session_id, const std::vector<ui
         listener_->on_powerup_collected(session_id, powerup_data);
 }
 
+void GameSession::on_player_respawn(uint32_t session_id, const std::vector<uint8_t>& respawn_data)
+{
+    if (listener_)
+        listener_->on_player_respawn(session_id, respawn_data);
+}
+
 void GameSession::check_game_over()
 {
-    if (players_.empty())
-        return;
-    bool all_dead = true;
-    for (const auto& [player_id, player] : players_) {
-        if (player.is_alive) {
-            all_dead = false;
+    // Check PlayerLives components, not just is_alive flag
+    if (!registry_.has_component_registered<game::PlayerLives>()) {
+        return;  // No lives system, checkpoint system will handle game over
+    }
+
+    auto& player_lives_components = registry_.get_components<game::PlayerLives>();
+
+    bool any_lives_remaining = false;
+    for (size_t i = 0; i < player_lives_components.size(); ++i) {
+        const game::PlayerLives& pl = player_lives_components.get_data_at(i);
+        if (pl.lives_remaining > 0 || pl.respawn_pending) {
+            any_lives_remaining = true;
             break;
         }
     }
-    if (all_dead) {
+
+    // Only trigger game over if NO players have lives left AND none are pending respawn
+    // (CheckpointSystem will handle checkpoint respawn with 3 lives before this happens)
+    if (!any_lives_remaining && player_lives_components.size() > 0) {
+        // This should rarely trigger since CheckpointSystem respawns with 3 lives
+        // But kept as safeguard
         is_active_.store(false, std::memory_order_release);
-        std::cout << "[GameSession " << session_id_ << "] Game over - all players dead!\n";
+        // std::cout << "[GameSession " << session_id_ << "] Game over - all players out of lives!\n";
         if (listener_)
             listener_->on_game_over(session_id_, get_player_ids(), false);  // Defeat
     }
@@ -558,11 +839,14 @@ void GameSession::check_game_over()
 void GameSession::check_offscreen_enemies()
 {
     auto& positions = registry_.get_components<Position>();
+    auto& enemies = registry_.get_components<Enemy>();
 
     std::vector<Entity> entities_to_kill;
     for (size_t i = 0; i < positions.size(); ++i) {
         Entity entity = positions.get_entity_at(i);
         Position& pos = positions.get_data_at(i);
+
+        // Skip players
         bool is_player = false;
         for (const auto& [pid, player] : players_) {
             if (player.entity == entity) {
@@ -570,7 +854,17 @@ void GameSession::check_offscreen_enemies()
                 break;
             }
         }
-        if (!is_player && pos.x < config::ENTITY_OFFSCREEN_LEFT)
+        if (is_player) continue;
+
+        // Skip boss enemies (they should never be destroyed by going offscreen)
+        // A boss is identified by having a BossPhase component
+        auto& boss_phases = registry_.get_components<game::BossPhase>();
+        if (boss_phases.has_entity(entity)) {
+            continue;  // Don't destroy boss
+        }
+
+        // Destroy regular offscreen entities
+        if (pos.x < config::ENTITY_OFFSCREEN_LEFT)
             entities_to_kill.push_back(entity);
     }
     for (Entity entity : entities_to_kill) {
@@ -586,8 +880,8 @@ void GameSession::resync_client(uint32_t player_id, uint32_t tcp_client_id)
         std::cerr << "[GameSession " << session_id_ << "] Cannot resync: no network system\n";
         return;
     }
-    std::cout << "[GameSession " << session_id_ << "] Resyncing client " << tcp_client_id
-              << " (player " << player_id << ") with existing entities\n";
+    // std::cout << "[GameSession " << session_id_ << "] Resyncing client " << tcp_client_id
+    //           << " (player " << player_id << ") with existing entities\n";
     auto& positions = registry_.get_components<Position>();
     auto& healths = registry_.get_components<Health>();
     int entity_count = 0;
@@ -640,7 +934,7 @@ void GameSession::resync_client(uint32_t player_id, uint32_t tcp_client_id)
         listener_->on_wave_start(session_id_, serialize(last_wave_start_payload_));
     if (listener_ && has_wave_complete_)
         listener_->on_wave_complete(session_id_, serialize(last_wave_complete_payload_));
-    std::cout << "[GameSession " << session_id_ << "] Queued " << entity_count << " entity spawns for resync\n";
+    // std::cout << "[GameSession " << session_id_ << "] Queued " << entity_count << " entity spawns for resync\n";
 }
 
 void GameSession::load_map_segments(uint16_t map_id)
@@ -652,8 +946,8 @@ void GameSession::load_map_segments(uint16_t map_id)
             map_folder = "nebula_outpost";
             break;
         default:
-            std::cout << "[GameSession " << session_id_ << "] Unknown map_id " << map_id << ", using nebula_outpost\n";
-            map_folder = "nebula_outpost";
+            // std::cout << "[GameSession " << session_id_ << "] Unknown map_id " << map_id << ", using nebula_outpost\n";
+            // map_folder = "nebula_outpost";
             break;
     }
 
@@ -672,8 +966,8 @@ void GameSession::load_map_segments(uint16_t map_id)
             map_segments_.push_back(segment);
         }
 
-        std::cout << "[GameSession " << session_id_ << "] Loaded " << map_segments_.size()
-                  << " map segments for tile walls (tileSize=" << tile_size_ << ")\n";
+        // std::cout << "[GameSession " << session_id_ << "] Loaded " << map_segments_.size()
+        //           << " map segments for tile walls (tileSize=" << tile_size_ << ")\n";
     } catch (const std::exception& e) {
         std::cerr << "[GameSession " << session_id_ << "] Failed to load map segments: " << e.what() << "\n";
     }
@@ -763,6 +1057,65 @@ void GameSession::spawn_walls_in_view()
     }
 }
 
+// Implement valid member function inside existing namespace
+Entity GameSession::respawn_player_at(uint32_t player_id, float x, float y, float invuln_duration, uint8_t lives)
+{
+    // Find player data to get skin_id
+    auto it = players_.find(player_id);
+    if (it == players_.end()) {
+        std::cerr << "[GameSession] Cannot respawn unknown player " << player_id << "\n";
+        return engine::INVALID_HANDLE;
+    }
+
+    // Create new entity
+    Entity entity = registry_.spawn_entity();
+
+    // Update player tracking
+    it->second.entity = entity;
+    it->second.is_alive = true;
+    it->second.lives = lives; // Sync lives from CheckpointSystem
+    player_entities_[player_id] = entity;
+
+    // Basic components
+    registry_.add_component(entity, Position{x, y});
+    registry_.add_component(entity, Velocity{0.0f, 0.0f});
+    // Use rtype::shared::config for player stats
+    registry_.add_component(entity, Health{static_cast<int>(rtype::shared::config::PLAYER_MAX_HEALTH), static_cast<int>(rtype::shared::config::PLAYER_MAX_HEALTH)});
+    registry_.add_component(entity, Controllable{rtype::shared::config::PLAYER_MOVEMENT_SPEED});
+    registry_.add_component(entity, Collider{rtype::shared::config::PLAYER_WIDTH, rtype::shared::config::PLAYER_HEIGHT});
+    registry_.add_component(entity, Invulnerability{invuln_duration});
+
+    // Score handling
+    registry_.add_component(entity, Score{static_cast<int>(it->second.score)});
+
+    // Reset to basic weapon
+    if (registry_.has_component_registered<Weapon>()) {
+        Weapon weapon = create_weapon(WeaponType::BASIC, engine::INVALID_HANDLE);
+        registry_.add_component(entity, weapon);
+    }
+
+    // Network spawn
+    if (network_system_) {
+        // Encode skin_id in subtype
+        uint8_t skin_id = it->second.skin_id;
+        uint8_t subtype = static_cast<uint8_t>(((player_id & 0x0F) << 4) | (skin_id & 0x0F));
+
+        network_system_->queue_entity_spawn(
+            entity,
+            EntityType::PLAYER,
+            x,
+            y,
+            rtype::shared::config::PLAYER_MAX_HEALTH,
+            subtype
+        );
+
+        // Notify client of respawn
+        network_system_->queue_player_respawn(player_id, x, y, invuln_duration, it->second.lives);
+    }
+
+    return entity;
+}
+
 void GameSession::pause()
 {
     is_paused_ = true;
@@ -787,4 +1140,4 @@ void GameSession::clear_enemies()
     std::cout << "[GameSession " << session_id_ << "] Cleared " << count << " enemies\n";
 }
 
-}
+} // namespace rtype::server

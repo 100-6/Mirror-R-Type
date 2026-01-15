@@ -19,7 +19,7 @@ namespace rtype::client {
 
 InterpolationSystem::InterpolationSystem()
 {
-    std::cout << "[InterpolationSystem] Initialized\n";
+    // std::cout << "[InterpolationSystem] Initialized\n";
 }
 
 void InterpolationSystem::on_snapshot_received(

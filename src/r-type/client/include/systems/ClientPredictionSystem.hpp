@@ -56,6 +56,12 @@ public:
     void acknowledge_input(uint32_t last_processed_sequence);
 
     /**
+     * @brief Reset the prediction system state
+     * Clears pending inputs. Call this on respawn or level change.
+     */
+    void reset();
+
+    /**
      * @brief Get the pending inputs buffer (for reconciliation)
      * @return Const reference to the deque of pending inputs
      */
