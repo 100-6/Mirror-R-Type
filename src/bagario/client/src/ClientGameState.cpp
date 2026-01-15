@@ -19,10 +19,11 @@ void ClientGameState::update_from_snapshot(const protocol::ServerSnapshotPayload
 
         auto it = m_entities.find(state.entity_id);
         if (it != m_entities.end()) {
-            // Update existing entity - store previous position for interpolation
+            // Update existing entity - store current interpolated position as new start point
+            // This prevents visual jumps when snapshots arrive before interpolation completes
             auto& cached = it->second;
-            cached.prev_x = cached.x;
-            cached.prev_y = cached.y;
+            cached.prev_x = cached.get_interpolated_x();
+            cached.prev_y = cached.get_interpolated_y();
             cached.x = state.position_x;
             cached.y = state.position_y;
             cached.mass = state.mass;

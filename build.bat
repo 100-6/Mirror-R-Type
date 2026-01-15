@@ -3,6 +3,8 @@ setlocal enabledelayedexpansion
 
 set BUILD_DIR=build
 set BUILD_TESTS=OFF
+set BUILD_RTYPE=OFF
+set BUILD_BAGARIO=OFF
 set VCPKG_DIR=vcpkg
 set VCPKG_COMMIT=bd52fac7114fdaa2208de8dd1227212a6683e562
 
@@ -12,13 +14,45 @@ if "%CMD%"=="help" goto :usage
 if "%CMD%"=="-h" goto :usage
 if "%CMD%"=="--help" goto :usage
 
-if "%1"=="test" (
-    set BUILD_TESTS=ON
-    echo Tests enabled
+REM Parse target (rtype, bagario, test, or all)
+if "%1"=="rtype" (
+    set BUILD_RTYPE=ON
+    set BUILD_BAGARIO=OFF
+    set BUILD_TESTS=OFF
+    set CMD=%2
+    if "%CMD%"=="" set CMD=rebuild
+    echo Building R-Type only
 )
-if "%2"=="test" (
+if "%1"=="bagario" (
+    set BUILD_RTYPE=OFF
+    set BUILD_BAGARIO=ON
+    set BUILD_TESTS=OFF
+    set CMD=%2
+    if "%CMD%"=="" set CMD=rebuild
+    echo Building Bagario only
+)
+if "%1"=="test" (
+    set BUILD_RTYPE=OFF
+    set BUILD_BAGARIO=OFF
     set BUILD_TESTS=ON
-    echo Tests enabled
+    set CMD=%2
+    if "%CMD%"=="" set CMD=rebuild
+    echo Building Tests only
+)
+if "%1"=="all" (
+    set BUILD_RTYPE=ON
+    set BUILD_BAGARIO=ON
+    set BUILD_TESTS=ON
+    set CMD=%2
+    if "%CMD%"=="" set CMD=rebuild
+    echo Building everything (R-Type + Bagario + Tests)
+)
+
+REM If no specific target, build all by default (backward compatibility)
+if "%BUILD_RTYPE%%BUILD_BAGARIO%%BUILD_TESTS%"=="OFFOFFOFF" (
+    set BUILD_RTYPE=ON
+    set BUILD_BAGARIO=ON
+    echo Building R-Type + Bagario (no tests^)
 )
 
 if "%CMD%"=="clean" goto :clean
@@ -29,7 +63,14 @@ if "%CMD%"=="rebuild" goto :rebuild
 goto :rebuild
 
 :usage
-echo Usage: %0 [COMMAND] [OPTIONS]
+echo Usage: %0 [TARGET] [COMMAND]
+echo.
+echo Targets:
+echo   rtype        - Build R-Type game only (engine + r-type plugins)
+echo   bagario      - Build Bagario game only (engine + bagario plugins)
+echo   test         - Build tests only (engine + tests)
+echo   all          - Build everything (R-Type + Bagario + tests)
+echo   (none)       - Build R-Type + Bagario (no tests, default)
 echo.
 echo Commands:
 echo   (none)       - Full rebuild (clean + configure + build)
@@ -38,16 +79,18 @@ echo   clean        - Remove build artifacts (keeps build directory)
 echo   fclean       - Remove entire build directory
 echo   re           - Alias for fclean + full rebuild
 echo.
-echo Options:
-echo   test         - Enable tests compilation
-echo.
 echo Examples:
-echo   build.bat                 # Full rebuild
-echo   build.bat make            # Incremental build
-echo   build.bat make test       # Incremental build with tests
+echo   build.bat rtype           # Build R-Type only (full rebuild)
+echo   build.bat rtype make      # Build R-Type only (incremental)
+echo   build.bat bagario         # Build Bagario only (full rebuild)
+echo   build.bat bagario make    # Build Bagario only (incremental)
+echo   build.bat test            # Build tests only
+echo   build.bat test make       # Build tests only (incremental)
+echo   build.bat all             # Build everything
+echo   build.bat                 # Build R-Type + Bagario (no tests)
+echo   build.bat make            # Incremental build (R-Type + Bagario)
 echo   build.bat clean           # Clean artifacts
 echo   build.bat fclean          # Remove build directory
-echo   build.bat re              # Full clean + rebuild
 exit /b 0
 
 :clean
@@ -80,7 +123,7 @@ echo Incremental build...
 call :setup_vcpkg
 if not exist "%BUILD_DIR%\CMakeCache.txt" (
     echo Build directory not found. Running full configuration first...
-    cmake -S . -B "%BUILD_DIR%" -DBUILD_TESTS=%BUILD_TESTS% -DCMAKE_TOOLCHAIN_FILE="%VCPKG_DIR%/scripts/buildsystems/vcpkg.cmake"
+    cmake -S . -B "%BUILD_DIR%" -DBUILD_TESTS=%BUILD_TESTS% -DBUILD_RTYPE=%BUILD_RTYPE% -DBUILD_BAGARIO=%BUILD_BAGARIO% -DCMAKE_TOOLCHAIN_FILE="%VCPKG_DIR%/scripts/buildsystems/vcpkg.cmake"
 )
 echo Building (incremental)...
 cmake --build "%BUILD_DIR%" -j %NUMBER_OF_PROCESSORS%
@@ -100,7 +143,7 @@ if exist "%BUILD_DIR%\CMakeCache.txt" (
 call :setup_vcpkg
 
 echo Configuring CMake...
-cmake -S . -B "%BUILD_DIR%" -DBUILD_TESTS=%BUILD_TESTS% -DCMAKE_TOOLCHAIN_FILE="%VCPKG_DIR%/scripts/buildsystems/vcpkg.cmake"
+cmake -S . -B "%BUILD_DIR%" -DBUILD_TESTS=%BUILD_TESTS% -DBUILD_RTYPE=%BUILD_RTYPE% -DBUILD_BAGARIO=%BUILD_BAGARIO% -DCMAKE_TOOLCHAIN_FILE="%VCPKG_DIR%/scripts/buildsystems/vcpkg.cmake"
 if %errorlevel% neq 0 (
     echo ✗ CMake configuration failed
     exit /b 1

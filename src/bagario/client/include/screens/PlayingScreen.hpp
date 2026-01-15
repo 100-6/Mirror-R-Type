@@ -86,6 +86,7 @@ private:
     // Connection state
     bool is_connecting_ = false;
     bool connection_failed_ = false;
+    bool join_requested_ = false;  // Prevents sending multiple join requests
     std::string connection_error_;
 
     // Input state

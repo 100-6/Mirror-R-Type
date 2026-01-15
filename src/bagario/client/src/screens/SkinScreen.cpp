@@ -3,6 +3,12 @@
 #include <cmath>
 #include <cstdio> // For popen
 
+// Cross-platform popen/pclose compatibility
+#ifdef _WIN32
+#define popen _popen
+#define pclose _pclose
+#endif
+
 namespace bagario {
 
 SkinScreen::SkinScreen(LocalGameState& game_state, int screen_width, int screen_height)

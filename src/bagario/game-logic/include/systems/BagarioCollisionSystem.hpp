@@ -71,4 +71,4 @@ private:
     std::vector<CollisionEvent> m_events;
 };
 
-}  // namespace bagario::systems
+}

@@ -52,6 +52,8 @@ endif()
 option(BUILD_CLIENT "Build client executable" ON)
 option(BUILD_SERVER "Build server executable" ON)
 option(BUILD_TESTS "Build unit tests" ON)
+option(BUILD_RTYPE "Build R-Type game" ON)
+option(BUILD_BAGARIO "Build Bagario game" ON)
 
 # list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 # include(CPM)
@@ -72,13 +74,16 @@ endforeach()
 add_subdirectory(src/engine)
 
 # Add R-Type game
-add_subdirectory(src/r-type)
+if(BUILD_RTYPE)
+    add_subdirectory(src/r-type)
+endif()
 
-option(BUILD_BAGARIO "Build Bagario game server" ON)
+# Add Bagario game
 if(BUILD_BAGARIO)
     add_subdirectory(src/bagario)
 endif()
 
+# Add tests
 if (BUILD_TESTS)
     add_subdirectory(tests)
 endif()

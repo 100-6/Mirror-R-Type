@@ -26,4 +26,4 @@ public:
     void shutdown() override;
 };
 
-}  // namespace bagario::systems
+}

@@ -31,4 +31,4 @@ private:
     float m_map_height;
 };
 
-}  // namespace bagario::systems
+}

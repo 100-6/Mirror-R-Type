@@ -11,6 +11,7 @@ void MovementTargetSystem::update(Registry& registry, float dt) {
     auto& masses = registry.get_components<components::Mass>();
     auto& targets = registry.get_components<components::MovementTarget>();
     auto& split_vels = registry.get_components<components::SplitVelocity>();
+    auto& ejected_masses = registry.get_components<components::EjectedMass>();
 
     for (size_t i = 0; i < masses.size(); ++i) {
         Entity entity = masses.get_entity_at(i);
@@ -46,6 +47,40 @@ void MovementTargetSystem::update(Registry& registry, float dt) {
             } else
                 registry.remove_component<components::SplitVelocity>(entity);
         }
+    }
+
+    // Handle ejected mass decay and friction
+    std::vector<Entity> to_destroy;
+    for (size_t i = 0; i < ejected_masses.size(); ++i) {
+        Entity entity = ejected_masses.get_entity_at(i);
+        auto& ejected = ejected_masses.get_data_at(i);
+
+        // Update decay timer
+        ejected.decay_timer -= dt;
+        if (ejected.decay_timer <= 0.0f) {
+            to_destroy.push_back(entity);
+            continue;
+        }
+
+        // Apply friction to slow down ejected mass
+        if (velocities.has_entity(entity)) {
+            auto& vel = velocities[entity];
+            float friction = 3.0f * dt;  // Friction coefficient
+            float current_speed = std::sqrt(vel.x * vel.x + vel.y * vel.y);
+            if (current_speed > friction) {
+                float factor = (current_speed - friction * current_speed) / current_speed;
+                vel.x *= factor;
+                vel.y *= factor;
+            } else {
+                vel.x = 0.0f;
+                vel.y = 0.0f;
+            }
+        }
+    }
+
+    // Mark entities for destruction
+    for (Entity entity : to_destroy) {
+        registry.add_component<ToDestroy>(entity, ToDestroy{});
     }
 }
 

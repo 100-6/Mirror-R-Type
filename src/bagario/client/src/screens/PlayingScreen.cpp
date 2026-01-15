@@ -92,6 +92,7 @@ void PlayingScreen::on_enter() {
     // Reset state
     is_connecting_ = true;
     connection_failed_ = false;
+    join_requested_ = false;  // Reset join request flag for new connection
     connection_error_.clear();
     first_update_ = true;
     input_send_timer_ = 0.0f;
@@ -136,8 +137,10 @@ void PlayingScreen::update(engine::IGraphicsPlugin* graphics, engine::IInputPlug
     // Handle connection state
     if (network_) {
         // If we're connected (TCP established) but haven't joined yet, request join
-        if (network_->get_state() == client::ConnectionState::CONNECTED && is_connecting_) {
+        // Use join_requested_ flag to ensure we only send ONE join request
+        if (network_->get_state() == client::ConnectionState::CONNECTED && is_connecting_ && !join_requested_) {
             network_->request_join(game_state_.username, game_state_.skin);
+            join_requested_ = true;  // Prevent sending multiple join requests
         }
 
         network_->update(dt);
@@ -567,12 +570,12 @@ void PlayingScreen::draw_connection_status(engine::IGraphicsPlugin* graphics) {
 }
 
 engine::Color PlayingScreen::uint32_to_color(uint32_t color) const {
-    // Assuming ARGB format (0xAARRGGBB)
+    // Server uses RGBA format (0xRRGGBBAA)
     return engine::Color{
-        static_cast<unsigned char>((color >> 16) & 0xFF),  // R
-        static_cast<unsigned char>((color >> 8) & 0xFF),   // G
-        static_cast<unsigned char>(color & 0xFF),          // B
-        static_cast<unsigned char>((color >> 24) & 0xFF)   // A
+        static_cast<unsigned char>((color >> 24) & 0xFF),  // R
+        static_cast<unsigned char>((color >> 16) & 0xFF),  // G
+        static_cast<unsigned char>((color >> 8) & 0xFF),   // B
+        static_cast<unsigned char>(color & 0xFF)           // A
     };
 }
 

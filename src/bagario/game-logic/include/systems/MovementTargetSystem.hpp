@@ -6,6 +6,7 @@
 #include "../components/BagarioComponents.hpp"
 #include "BagarioConfig.hpp"
 #include <cmath>
+#include <vector>
 
 namespace bagario::systems {
 
@@ -27,4 +28,4 @@ public:
     void shutdown() override;
 };
 
-}  // namespace bagario::systems
+}

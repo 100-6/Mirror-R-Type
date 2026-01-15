@@ -12,6 +12,18 @@ void FoodSpawnerSystem::set_spawn_callback(SpawnCallback callback) {
     m_spawn_callback = std::move(callback);
 }
 
+void FoodSpawnerSystem::set_network_id_generator(NetworkIdGenerator generator) {
+    m_network_id_generator = std::move(generator);
+}
+
+uint32_t FoodSpawnerSystem::get_next_network_id() {
+    if (m_network_id_generator) {
+        return m_network_id_generator();
+    }
+    // Fallback to internal counter starting at high value
+    return m_fallback_network_id++;
+}
+
 void FoodSpawnerSystem::init(Registry& registry) {
     spawn_food_batch(registry, config::MAX_FOOD);
 }
@@ -52,7 +64,7 @@ void FoodSpawnerSystem::spawn_single_food(Registry& registry) {
     float radius = config::mass_to_radius(config::FOOD_MASS);
     registry.add_component<components::CircleCollider>(entity, components::CircleCollider{radius});
     registry.add_component<components::Food>(entity, components::Food{config::FOOD_MASS});
-    registry.add_component<components::NetworkId>(entity, components::NetworkId{m_next_network_id++});
+    registry.add_component<components::NetworkId>(entity, components::NetworkId{get_next_network_id()});
     if (m_spawn_callback)
         m_spawn_callback(entity, x, y, color);
 }

@@ -165,8 +165,70 @@ void BagarioSession::player_split(uint32_t player_id) {
 }
 
 void BagarioSession::player_eject_mass(uint32_t player_id, float dir_x, float dir_y) {
-    // TODO: Implement mass ejection
-    // For now, just a placeholder
+    auto it = m_player_cells.find(player_id);
+    if (it == m_player_cells.end())
+        return;
+
+    // Normalize direction
+    float len = std::sqrt(dir_x * dir_x + dir_y * dir_y);
+    if (len < 0.001f) {
+        dir_x = 1.0f;
+        dir_y = 0.0f;
+    } else {
+        dir_x /= len;
+        dir_y /= len;
+    }
+
+    auto& masses = m_registry.get_components<components::Mass>();
+    auto& positions = m_registry.get_components<Position>();
+
+    // Eject from each cell that has enough mass
+    for (size_t entity : it->second) {
+        if (!masses.has_entity(entity) || !positions.has_entity(entity))
+            continue;
+
+        // Check if cell has enough mass to eject
+        if (masses[entity].value < config::MIN_EJECT_MASS)
+            continue;
+
+        // Deduct mass from the cell
+        masses[entity].value -= config::EJECT_MASS_COST;
+
+        // Calculate spawn position (slightly in front of the cell)
+        float cell_radius = config::mass_to_radius(masses[entity].value);
+        float spawn_x = positions[entity].x + dir_x * (cell_radius + 20.0f);
+        float spawn_y = positions[entity].y + dir_y * (cell_radius + 20.0f);
+
+        // Create ejected mass entity
+        auto ejected = m_registry.spawn_entity();
+        m_registry.add_component<Position>(ejected, Position{spawn_x, spawn_y});
+        m_registry.add_component<Velocity>(ejected, Velocity{
+            dir_x * config::EJECT_SPEED,
+            dir_y * config::EJECT_SPEED
+        });
+        m_registry.add_component<components::Mass>(ejected, components::Mass{config::EJECT_MASS_VALUE});
+        float radius = config::mass_to_radius(config::EJECT_MASS_VALUE);
+        m_registry.add_component<components::CircleCollider>(ejected, components::CircleCollider{radius});
+        m_registry.add_component<components::EjectedMass>(ejected, components::EjectedMass{
+            config::EJECT_DECAY_TIME,
+            player_id
+        });
+        uint32_t net_id = get_next_network_id();
+        m_registry.add_component<components::NetworkId>(ejected, components::NetworkId{net_id});
+
+        // Broadcast spawn event
+        if (m_callbacks.on_entity_spawn) {
+            protocol::ServerEntitySpawnPayload payload;
+            payload.entity_id = net_id;
+            payload.entity_type = protocol::EntityType::EJECTED_MASS;
+            payload.spawn_x = spawn_x;
+            payload.spawn_y = spawn_y;
+            payload.mass = config::EJECT_MASS_VALUE;
+            payload.color = m_player_colors[player_id];
+            payload.owner_id = player_id;
+            m_callbacks.on_entity_spawn(payload);
+        }
+    }
 }
 
 std::vector<protocol::EntityState> BagarioSession::get_snapshot() const {
@@ -178,6 +240,7 @@ std::vector<protocol::EntityState> BagarioSession::get_snapshot() const {
     auto& player_cells = registry.get_components<components::PlayerCell>();
     auto& owners = registry.get_components<components::CellOwner>();
     auto& foods = registry.get_components<components::Food>();
+    auto& ejected = registry.get_components<components::EjectedMass>();
 
     for (size_t i = 0; i < positions.size(); ++i) {
         Entity entity = positions.get_entity_at(i);
@@ -196,6 +259,11 @@ std::vector<protocol::EntityState> BagarioSession::get_snapshot() const {
             state.entity_type = protocol::EntityType::PLAYER_CELL;
             state.owner_id = owners[entity].owner_id;
             auto color_it = m_player_colors.find(owners[entity].owner_id);
+            state.color = color_it != m_player_colors.end() ? color_it->second : 0xFFFFFFFF;
+        } else if (ejected.has_entity(entity)) {
+            state.entity_type = protocol::EntityType::EJECTED_MASS;
+            state.owner_id = ejected[entity].original_owner;
+            auto color_it = m_player_colors.find(ejected[entity].original_owner);
             state.color = color_it != m_player_colors.end() ? color_it->second : 0xFFFFFFFF;
         } else if (foods.has_entity(entity)) {
             state.entity_type = protocol::EntityType::FOOD;
@@ -275,6 +343,11 @@ void BagarioSession::setup_systems() {
     m_collision_system = std::make_unique<systems::BagarioCollisionSystem>();
     m_bounds_system = std::make_unique<systems::MapBoundsSystem>();
     m_movement_target_system = std::make_unique<systems::MovementTargetSystem>();
+
+    // Share network ID generator with food spawner to avoid ID conflicts
+    m_food_spawner->set_network_id_generator([this]() {
+        return get_next_network_id();
+    });
 
     m_collision_system->set_collision_callback([this](const systems::CollisionEvent& event) {
         handle_collision_event(event);

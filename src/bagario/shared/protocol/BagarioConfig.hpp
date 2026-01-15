@@ -26,7 +26,7 @@ constexpr float MAP_HEIGHT = 5000.0f;
 // Player Configuration
 // =============================================================================
 constexpr uint8_t MAX_PLAYERS = 50;
-constexpr float STARTING_MASS = 500.0f;
+constexpr float STARTING_MASS = 15.0f;
 constexpr float MIN_MASS = 10.0f;
 constexpr uint8_t MAX_CELLS_PER_PLAYER = 16;
 
