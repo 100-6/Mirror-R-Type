@@ -25,7 +25,8 @@ uint32_t FoodSpawnerSystem::get_next_network_id() {
 }
 
 void FoodSpawnerSystem::init(Registry& registry) {
-    spawn_food_batch(registry, config::MAX_FOOD);
+    // Spawn only a small initial batch to avoid network spike
+    spawn_food_batch(registry, config::INITIAL_FOOD);
 }
 
 void FoodSpawnerSystem::update(Registry& registry, float dt) {
@@ -33,13 +34,29 @@ void FoodSpawnerSystem::update(Registry& registry, float dt) {
     auto& foods = registry.get_components<components::Food>();
     int food_count = static_cast<int>(foods.size());
 
-    if (food_count < config::MAX_FOOD && m_spawn_timer >= m_spawn_interval) {
-        int to_spawn = std::min(
-            config::FOOD_SPAWN_RATE,
-            config::MAX_FOOD - food_count
-        );
-        spawn_food_batch(registry, to_spawn);
-        m_spawn_timer = 0.0f;
+    if (food_count >= config::MAX_FOOD) {
+        m_ramp_up_complete = true;
+        return;
+    }
+
+    // Two spawn modes: ramp-up (fast) and normal (slow replacement)
+    if (!m_ramp_up_complete) {
+        // Ramp-up mode: spawn batches at faster intervals until we reach MAX_FOOD
+        if (m_spawn_timer >= config::FOOD_SPAWN_INTERVAL) {
+            int to_spawn = std::min(
+                config::FOOD_SPAWN_BATCH,
+                config::MAX_FOOD - food_count
+            );
+            spawn_food_batch(registry, to_spawn);
+            m_spawn_timer = 0.0f;
+        }
+    } else {
+        // Normal mode: slow spawn rate to replace eaten food
+        float normal_interval = 1.0f / config::FOOD_SPAWN_RATE;
+        if (m_spawn_timer >= normal_interval) {
+            spawn_single_food(registry);
+            m_spawn_timer = 0.0f;
+        }
     }
 }
 

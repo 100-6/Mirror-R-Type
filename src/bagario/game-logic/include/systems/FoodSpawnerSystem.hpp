@@ -44,7 +44,7 @@ private:
     std::uniform_int_distribution<int> m_color_dist;
 
     float m_spawn_timer = 0.0f;
-    float m_spawn_interval = 1.0f / config::FOOD_SPAWN_RATE;
+    bool m_ramp_up_complete = false;  // Track if we've reached MAX_FOOD for the first time
 
     uint32_t m_fallback_network_id = 100000;  // Start high to avoid conflicts if no generator set
 
