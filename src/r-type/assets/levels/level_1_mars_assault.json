@@ -1,0 +1,252 @@
+{
+  "level_id": 1,
+  "level_name": "Mars Assault",
+  "level_description": "Storm the Martian defense installations",
+  "map_id": 1,
+  "base_scroll_speed": 60.0,
+  "total_scroll_distance": 7000.0,
+
+  "phases": [
+    {
+      "phase_number": 1,
+      "phase_name": "Red Planet Entry",
+      "scroll_start": 0.0,
+      "scroll_end": 2000.0,
+      "difficulty": "easy",
+      "waves": [
+        {
+          "waveNumber": 1,
+          "trigger": {
+            "scrollDistance": 150,
+            "timeDelay": 0
+          },
+          "formation": "mars_patrol",
+          "spawns": [
+            {"type": "enemy", "enemyType": "basic", "positionX": 2100, "positionY": 300, "count": 3, "pattern": "line", "spacing": 120}
+          ]
+        },
+        {
+          "waveNumber": 2,
+          "trigger": {
+            "scrollDistance": 500,
+            "timeDelay": 0
+          },
+          "formation": "scattered_defenders",
+          "spawns": [
+            {"type": "enemy", "enemyType": "basic", "positionX": 2200, "positionY": 200, "count": 1, "pattern": "single"},
+            {"type": "enemy", "enemyType": "fast", "positionX": 2300, "positionY": 500, "count": 1, "pattern": "single"},
+            {"type": "enemy", "enemyType": "basic", "positionX": 2400, "positionY": 700, "count": 1, "pattern": "single"}
+          ]
+        },
+        {
+          "waveNumber": 3,
+          "trigger": {
+            "scrollDistance": 900,
+            "timeDelay": 0
+          },
+          "formation": "pincer_attack",
+          "spawns": [
+            {"type": "enemy", "enemyType": "fast", "positionX": 2500, "positionY": 150, "count": 2, "pattern": "line", "spacing": 100},
+            {"type": "enemy", "enemyType": "fast", "positionX": 2500, "positionY": 800, "count": 2, "pattern": "line", "spacing": 100}
+          ]
+        },
+        {
+          "waveNumber": 4,
+          "trigger": {
+            "scrollDistance": 1300,
+            "timeDelay": 0
+          },
+          "formation": "supply_convoy",
+          "spawns": [
+            {"type": "enemy", "enemyType": "basic", "positionX": 2600, "positionY": 400, "count": 4, "pattern": "line", "spacing": 100},
+            {"type": "powerup", "bonusType": "health", "positionX": 2800, "positionY": 450, "count": 1, "pattern": "single"}
+          ]
+        },
+        {
+          "waveNumber": 5,
+          "trigger": {
+            "scrollDistance": 1700,
+            "timeDelay": 0
+          },
+          "formation": "heavy_resistance",
+          "spawns": [
+            {"type": "enemy", "enemyType": "tank", "positionX": 2700, "positionY": 350, "count": 2, "pattern": "line", "spacing": 150}
+          ]
+        }
+      ]
+    },
+    {
+      "phase_number": 2,
+      "phase_name": "Industrial Zone",
+      "scroll_start": 2000.0,
+      "scroll_end": 4500.0,
+      "difficulty": "medium",
+      "waves": [
+        {
+          "waveNumber": 6,
+          "trigger": {
+            "scrollDistance": 2100,
+            "timeDelay": 0
+          },
+          "formation": "factory_guards",
+          "spawns": [
+            {"type": "enemy", "enemyType": "basic", "positionX": 4200, "positionY": 250, "count": 3, "pattern": "line", "spacing": 120},
+            {"type": "enemy", "enemyType": "fast", "positionX": 4400, "positionY": 600, "count": 2, "pattern": "line", "spacing": 100}
+          ]
+        },
+        {
+          "waveNumber": 7,
+          "trigger": {
+            "scrollDistance": 2600,
+            "timeDelay": 0
+          },
+          "formation": "swarm_attack",
+          "spawns": [
+            {"type": "enemy", "enemyType": "fast", "positionX": 4600, "positionY": 200, "count": 5, "pattern": "line", "spacing": 80}
+          ]
+        },
+        {
+          "waveNumber": 8,
+          "trigger": {
+            "scrollDistance": 3000,
+            "timeDelay": 0
+          },
+          "formation": "mixed_assault",
+          "spawns": [
+            {"type": "enemy", "enemyType": "tank", "positionX": 5000, "positionY": 300, "count": 1, "pattern": "single"},
+            {"type": "enemy", "enemyType": "basic", "positionX": 5100, "positionY": 450, "count": 3, "pattern": "line", "spacing": 100},
+            {"type": "enemy", "enemyType": "fast", "positionX": 5200, "positionY": 700, "count": 2, "pattern": "line", "spacing": 120}
+          ]
+        },
+        {
+          "waveNumber": 9,
+          "trigger": {
+            "scrollDistance": 3500,
+            "timeDelay": 0
+          },
+          "formation": "reinforcements",
+          "spawns": [
+            {"type": "enemy", "enemyType": "basic", "positionX": 5500, "positionY": 350, "count": 4, "pattern": "line", "spacing": 110}
+          ]
+        },
+        {
+          "waveNumber": 10,
+          "trigger": {
+            "scrollDistance": 4000,
+            "timeDelay": 0
+          },
+          "formation": "power_delivery",
+          "spawns": [
+            {"type": "enemy", "enemyType": "tank", "positionX": 6000, "positionY": 400, "count": 1, "pattern": "single", "bonusDrop": {"enabled": true, "bonusType": "shield", "dropChance": 1.0}},
+            {"type": "enemy", "enemyType": "fast", "positionX": 6100, "positionY": 250, "count": 2, "pattern": "line", "spacing": 150}
+          ]
+        }
+      ]
+    },
+    {
+      "phase_number": 3,
+      "phase_name": "Final Approach",
+      "scroll_start": 4500.0,
+      "scroll_end": 6500.0,
+      "difficulty": "hard",
+      "waves": [
+        {
+          "waveNumber": 11,
+          "trigger": {
+            "scrollDistance": 4700,
+            "timeDelay": 0
+          },
+          "formation": "elite_squadron",
+          "spawns": [
+            {"type": "enemy", "enemyType": "fast", "positionX": 6700, "positionY": 200, "count": 3, "pattern": "line", "spacing": 100},
+            {"type": "enemy", "enemyType": "fast", "positionX": 6800, "positionY": 600, "count": 3, "pattern": "line", "spacing": 100}
+          ]
+        },
+        {
+          "waveNumber": 12,
+          "trigger": {
+            "scrollDistance": 5200,
+            "timeDelay": 0
+          },
+          "formation": "last_stand",
+          "spawns": [
+            {"type": "enemy", "enemyType": "tank", "positionX": 7200, "positionY": 300, "count": 2, "pattern": "line", "spacing": 200},
+            {"type": "enemy", "enemyType": "basic", "positionX": 7300, "positionY": 500, "count": 4, "pattern": "line", "spacing": 90}
+          ]
+        },
+        {
+          "waveNumber": 13,
+          "trigger": {
+            "scrollDistance": 5700,
+            "timeDelay": 0
+          },
+          "formation": "final_wave",
+          "spawns": [
+            {"type": "enemy", "enemyType": "fast", "positionX": 7700, "positionY": 250, "count": 2, "pattern": "line", "spacing": 120},
+            {"type": "enemy", "enemyType": "tank", "positionX": 7850, "positionY": 450, "count": 1, "pattern": "single"},
+            {"type": "enemy", "enemyType": "fast", "positionX": 7900, "positionY": 650, "count": 2, "pattern": "line", "spacing": 120},
+            {"type": "powerup", "bonusType": "health", "positionX": 8100, "positionY": 400, "count": 1, "pattern": "single"}
+          ]
+        }
+      ]
+    }
+  ],
+
+  "boss": {
+    "boss_name": "Mars Guardian",
+    "spawn_scroll_distance": 6500.0,
+    "spawn_position_x": 1600.0,
+    "spawn_position_y": 540.0,
+    "enemy_type": "boss",
+    "total_phases": 3,
+    "phases": [
+      {
+        "phase_number": 1,
+        "health_threshold": 1.0,
+        "movement_pattern": "vertical_sine",
+        "movement_speed_multiplier": 1.0,
+        "attack_patterns": [
+          {
+            "pattern": "aimed_burst",
+            "cooldown": 2.5,
+            "projectile_count": 5,
+            "projectile_speed": 280.0,
+            "projectile_damage": 20,
+            "spread_angle": 20.0
+          }
+        ]
+      },
+      {
+        "phase_number": 2,
+        "health_threshold": 0.66,
+        "movement_pattern": "horizontal_sine",
+        "movement_speed_multiplier": 1.3,
+        "attack_patterns": [
+          {
+            "pattern": "spiral",
+            "cooldown": 1.8,
+            "projectile_count": 10,
+            "projectile_speed": 240.0,
+            "projectile_damage": 25,
+            "rotation_speed": 60.0
+          }
+        ]
+      },
+      {
+        "phase_number": 3,
+        "health_threshold": 0.33,
+        "movement_pattern": "figure_eight",
+        "movement_speed_multiplier": 1.6,
+        "attack_patterns": [
+          {
+            "pattern": "spray_360",
+            "cooldown": 1.5,
+            "projectile_count": 16,
+            "projectile_speed": 220.0,
+            "projectile_damage": 30
+          }
+        ]
+      }
+    ]
+  }
+}
