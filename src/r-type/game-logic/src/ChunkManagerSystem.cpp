@@ -8,8 +8,6 @@
 #include "systems/ChunkManagerSystem.hpp"
 #include "systems/MapConfigLoader.hpp"
 #include "ecs/Registry.hpp"
-#include "ecs/CoreComponents.hpp"
-#include "components/GameComponents.hpp"
 #include <iostream>
 #include <algorithm>
 
@@ -38,8 +36,19 @@ void ChunkManagerSystem::initWithConfig(const MapConfig& config) {
     m_scrollSpeed = config.baseScrollSpeed;
     m_autoTiler.setWallSourceRects(config.wallSourceRects);
     m_initialized = true;
+    // Note: m_activeChunks is NOT cleared here - call reset() with registry first
+    // to properly destroy wall entities before reinitializing
+    m_confirmedScrollX = 0.0;
+    m_renderScrollX = 0.0;
+    m_nextChunkIndex = 0;
+    m_currentSegment = 0;
+}
+
+void ChunkManagerSystem::reset(Registry& registry) {
+    (void)registry;  // No entities to destroy - purely visual system
     m_activeChunks.clear();
-    m_scrollX = 0.0f;
+    m_confirmedScrollX = 0.0;
+    m_renderScrollX = 0.0;
     m_nextChunkIndex = 0;
     m_currentSegment = 0;
 }
@@ -93,7 +102,15 @@ void ChunkManagerSystem::loadChunk(Registry& registry, int segmentId, int chunkI
     chunk.chunkIndex = chunkIndex;
     chunk.width = endX - startX;
     chunk.height = segmentData.height;
-    chunk.worldX = static_cast<float>(m_nextChunkIndex * m_config.chunkWidth * m_config.tileSize);
+
+    // Calculate worldX by summing widths of all previous segments (same as server)
+    // This ensures visual tiles align with server collision walls
+    double segment_world_x = 0.0;
+    for (int i = 0; i < segmentId; ++i) {
+        segment_world_x += static_cast<double>(m_segments[i].width * m_config.tileSize);
+    }
+    // Add offset within current segment based on chunk index
+    chunk.worldX = segment_world_x + static_cast<double>(startX * m_config.tileSize);
     
     // Create padded grid for auto-tiling context
     TileGrid paddedGrid;
@@ -166,88 +183,25 @@ void ChunkManagerSystem::loadChunk(Registry& registry, int segmentId, int chunkI
         }
     }
 
-    for (int y = 0; y < chunk.height; ++y) {
-        for (int x = 0; x < chunk.width; ++x) {
-            // content of tiles is already filled above
-            if (chunk.tiles[y][x].type == TileType::EMPTY || processed[y][x]) {
-                continue;
-            }
+    // NO COLLISION ENTITIES ARE CREATED ON CLIENT
+    // Wall collisions are handled server-side only
+    // ChunkManagerSystem is purely for visual tile rendering
+    // This eliminates all client/server wall position desync issues
+    (void)processed;  // Unused now
+    (void)registry;   // Unused for entity creation
 
-            // Start a new merged block
-            int w = 1;
-            int h = 1;
-
-            // Expand Horizontally
-            while (x + w < chunk.width && 
-                   chunk.tiles[y][x + w].type != TileType::EMPTY && 
-                   !processed[y][x + w]) {
-                w++;
-            }
-
-            // Expand Vertically
-            bool canExpandDown = true;
-            while (y + h < chunk.height && canExpandDown) {
-                // Check if the whole row below is valid and matches
-                for (int k = 0; k < w; ++k) {
-                    if (chunk.tiles[y + h][x + k].type == TileType::EMPTY || 
-                        processed[y + h][x + k]) {
-                        canExpandDown = false;
-                        break;
-                    }
-                }
-                if (canExpandDown) {
-                    h++;
-                }
-            }
-
-            // Mark these tiles as processed
-            for (int dy = 0; dy < h; ++dy) {
-                for (int dx = 0; dx < w; ++dx) {
-                    processed[y + dy][x + dx] = true;
-                }
-            }
-
-            // Create the merged entity
-            auto entity = registry.spawn_entity();
-
-            float tileSize = static_cast<float>(m_config.tileSize);
-            float totalW = w * tileSize;
-            float totalH = h * tileSize;
-
-            // Top-left of the merged block in local coordinates
-            float startLocalX = x * tileSize;
-            float startLocalY = y * tileSize;
-
-            // Center of the merged block
-            float centerX = startLocalX + totalW * 0.5f;
-            float centerY = startLocalY + totalH * 0.5f;
-
-            // Register entity (position will be set correctly in first update() call)
-            // NOTE: These walls provide client-side collision for smooth local prediction
-            // Server validates collisions independently
-            float chunkScreenX = chunk.worldX - m_scrollX;
-            registry.add_component(entity, Position{ chunkScreenX + centerX, centerY });
-            registry.add_component(entity, Collider{ totalW, totalH });
-            registry.add_component(entity, Wall{});
-
-            chunk.entities.push_back({ entity, centerX, centerY });
-        }
-    }
-    
     chunk.isLoaded = true;
     m_activeChunks.push_back(chunk);
     m_nextChunkIndex++;
 }
 
 void ChunkManagerSystem::unloadChunk(Registry& registry, int chunkIndex) {
+    (void)registry;  // No entities to destroy - purely visual system
+
     auto it = std::find_if(m_activeChunks.begin(), m_activeChunks.end(),
         [chunkIndex](const Chunk& c) { return c.chunkIndex == chunkIndex; });
-    
+
     if (it != m_activeChunks.end()) {
-        // Destroy all entities associated with this chunk
-        for (const auto& entityInfo : it->entities) {
-            registry.kill_entity(entityInfo.id);
-        }
         m_activeChunks.erase(it);
     }
 }
@@ -260,74 +214,110 @@ void ChunkManagerSystem::update(Registry& registry, float dt) {
     }
 
     int chunkPixelWidth = m_config.chunkWidth * m_config.tileSize;
-    
+
     // Load more chunks ahead
+    // Use CONFIRMED scroll for chunk loading decisions (authoritative from server)
+    // This ensures chunks are loaded based on server state, not extrapolated render state
     if (!m_activeChunks.empty()) {
-        float furthestChunkEnd = m_activeChunks.back().worldX + chunkPixelWidth;
-        float loadThreshold = m_scrollX + m_screenWidth + chunkPixelWidth;
-        
+        const Chunk& lastChunk = m_activeChunks.back();
+        // Use actual chunk width, not config chunk width (chunks at segment end may be smaller)
+        double lastChunkPixelWidth = static_cast<double>(lastChunk.width * m_config.tileSize);
+        double furthestChunkEnd = lastChunk.worldX + lastChunkPixelWidth;
+        double loadThreshold = m_confirmedScrollX + static_cast<double>(m_screenWidth + chunkPixelWidth);
+
         while (furthestChunkEnd < loadThreshold) {
             int currentSegment = m_activeChunks.back().segmentId;
             int nextChunkInSegment = m_activeChunks.back().chunkIndex + 1;
-            
+
             int segWidth = m_segments[currentSegment].width;
             int chunksInSeg = (segWidth + m_config.chunkWidth - 1) / m_config.chunkWidth;
-            
+
             if (nextChunkInSegment >= chunksInSeg) {
                 currentSegment++;
                 nextChunkInSegment = 0;
             }
-            
+
             if (currentSegment >= static_cast<int>(m_segments.size())) {
                 break; // End of map
             }
-            
+
             size_t beforeCount = m_activeChunks.size();
             loadChunk(registry, currentSegment, nextChunkInSegment);
-            
+
             if (m_activeChunks.size() > beforeCount) {
-                furthestChunkEnd = m_activeChunks.back().worldX + chunkPixelWidth;
+                const Chunk& newLastChunk = m_activeChunks.back();
+                double newLastChunkPixelWidth = static_cast<double>(newLastChunk.width * m_config.tileSize);
+                furthestChunkEnd = newLastChunk.worldX + newLastChunkPixelWidth;
             } else {
                 break;
             }
         }
-        
-        // Unload chunks behind
-        float unloadThreshold = m_scrollX - chunkPixelWidth;
-        while (!m_activeChunks.empty() && 
-               m_activeChunks.front().worldX + chunkPixelWidth < unloadThreshold) {
-            unloadChunk(registry, m_activeChunks.front().chunkIndex);
+
+        // Unload chunks behind - use actual chunk width with confirmed scroll
+        double unloadThreshold = m_confirmedScrollX - static_cast<double>(chunkPixelWidth);
+        while (!m_activeChunks.empty()) {
+            const Chunk& frontChunk = m_activeChunks.front();
+            double frontChunkPixelWidth = static_cast<double>(frontChunk.width * m_config.tileSize);
+            if (frontChunk.worldX + frontChunkPixelWidth < unloadThreshold) {
+                unloadChunk(registry, frontChunk.chunkIndex);
+            } else {
+                break;
+            }
         }
     } else if (m_nextChunkIndex == 0) {
         // Initial load if empty
         loadChunk(registry, 0, 0);
     }
 
-    // Update positions of all wall entities based on scroll (for visual debug display)
-    auto& positions = registry.get_components<Position>();
-    
-    for (const auto& chunk : m_activeChunks) {
-        float chunkScreenX = chunk.worldX - m_scrollX;
-        
-        for (const auto& entityInfo : chunk.entities) {
-            if (positions.has_entity(entityInfo.id)) {
-                auto& pos = positions[entityInfo.id];
-                pos.x = chunkScreenX + entityInfo.localX;
-                pos.y = entityInfo.localY;
-            }
-        }
-    }
+    // No entity position updates needed - purely visual system
+    // Wall collisions are handled server-side only
 }
 
-void ChunkManagerSystem::render(float scrollX) const {
+void ChunkManagerSystem::setScrollSpeed(float speed, Registry* registry) {
+    (void)registry;  // No entities to update - purely visual system
+    m_scrollSpeed = speed;
+}
+
+float ChunkManagerSystem::getScrollX() const {
+    return static_cast<float>(m_renderScrollX);
+}
+
+double ChunkManagerSystem::getConfirmedScrollX() const {
+    return m_confirmedScrollX;
+}
+
+float ChunkManagerSystem::getScrollSpeed() const {
+    return m_scrollSpeed;
+}
+
+void ChunkManagerSystem::advanceRenderScroll(float delta) {
+    m_renderScrollX += static_cast<double>(delta);
+}
+
+void ChunkManagerSystem::setConfirmedScrollX(double scroll) {
+    m_confirmedScrollX = scroll;
+    m_renderScrollX = scroll;  // Snap render to confirmed
+}
+
+void ChunkManagerSystem::setScrollX(double scroll) {
+    setConfirmedScrollX(scroll);
+}
+
+bool ChunkManagerSystem::isInitialized() const {
+    return m_initialized;
+}
+
+void ChunkManagerSystem::render() const {
     if (m_tileSheetHandle == engine::INVALID_HANDLE) {
         return;
     }
-    
+
     float tileSize = static_cast<float>(m_config.tileSize);
-    
+    // Use RENDER scroll for smooth visual display (may be slightly ahead of confirmed)
+    float scrollX = static_cast<float>(m_renderScrollX);
+
     for (const auto& chunk : m_activeChunks) {
-        float chunkScreenX = chunk.worldX - scrollX;
+        float chunkScreenX = static_cast<float>(chunk.worldX) - scrollX;
         
         // Skip if chunk is off-screen
         if (chunkScreenX + chunk.width * tileSize < 0 || 

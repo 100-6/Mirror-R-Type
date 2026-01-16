@@ -35,6 +35,7 @@ set(RTYPE_CLIENT_SOURCES
     src/systems/ColliderDebugSystem.cpp
     src/systems/ClientPredictionSystem.cpp
     src/systems/InterpolationSystem.cpp
+    src/systems/ClientHitFlashSystem.cpp
     src/DebugNetworkOverlay.cpp
 )
 

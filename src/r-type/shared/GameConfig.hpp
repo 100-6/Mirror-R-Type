@@ -28,7 +28,7 @@ constexpr uint32_t LOBBY_COUNTDOWN_DURATION_SECONDS = 5;
 // === Gameplay Configuration ===
 constexpr float GAME_SCROLL_SPEED = 50.0f;                              // pixels per second
 constexpr float PLAYER_MOVEMENT_SPEED = 200.0f;                         // pixels per second
-constexpr uint16_t PLAYER_MAX_HEALTH = 100;
+constexpr uint16_t PLAYER_MAX_HEALTH = 1000;
 constexpr uint8_t PLAYER_LIVES = 3;
 
 // === Screen / World ===
@@ -38,8 +38,22 @@ constexpr float WORLD_WIDTH = 1920.0f;
 constexpr float WORLD_HEIGHT = 1080.0f;
 
 // === Player / Projectile dimensions ===
-constexpr float PLAYER_WIDTH = 128.0f;
-constexpr float PLAYER_HEIGHT = 128.0f;
+// Player ship hitbox sizes by ship type
+// Small hitbox (SCOUT)
+constexpr float PLAYER_HITBOX_SMALL_WIDTH = 80.0f;
+constexpr float PLAYER_HITBOX_SMALL_HEIGHT = 80.0f;
+
+// Medium hitbox (FIGHTER, BOMBER)
+constexpr float PLAYER_HITBOX_MEDIUM_WIDTH = 104.0f;
+constexpr float PLAYER_HITBOX_MEDIUM_HEIGHT = 104.0f;
+
+// Large hitbox (CRUISER, CARRIER)
+constexpr float PLAYER_HITBOX_LARGE_WIDTH = 128.0f;
+constexpr float PLAYER_HITBOX_LARGE_HEIGHT = 128.0f;
+
+// Legacy constants for backward compatibility
+constexpr float PLAYER_WIDTH = PLAYER_HITBOX_LARGE_WIDTH;
+constexpr float PLAYER_HEIGHT = PLAYER_HITBOX_LARGE_HEIGHT;
 constexpr float PROJECTILE_WIDTH = 52.0f;
 constexpr float PROJECTILE_HEIGHT = 24.0f;
 

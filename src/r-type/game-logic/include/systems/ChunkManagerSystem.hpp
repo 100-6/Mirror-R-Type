@@ -42,6 +42,15 @@ public:
      * @param config Map configuration
      */
     void initWithConfig(const MapConfig& config);
+
+    /**
+     * @brief Reset the chunk manager, destroying all wall entities
+     * @param registry ECS registry to remove entities from
+     *
+     * Call this before initWithConfig() when restarting a game to ensure
+     * old wall collision entities are properly cleaned up.
+     */
+    void reset(Registry& registry);
     
     /**
      * @brief Load tile sheet texture
@@ -57,35 +66,55 @@ public:
     void loadSegments(const std::vector<std::string>& segmentPaths);
     
     /**
-     * @brief Render visible chunks
-     * @param scrollX Current scroll position
+     * @brief Render visible chunks using internal scroll position
+     * Uses the internally tracked scroll position to ensure consistency
+     * between chunk loading/unloading and rendering
      */
-    void render(float scrollX) const;
+    void render() const;
     
     /**
-     * @brief Get current scroll position
+     * @brief Get current render scroll position (may be extrapolated)
      */
-    float getScrollX() const { return m_scrollX; }
-    
+    float getScrollX() const;
+
     /**
-     * @brief Set scroll speed
+     * @brief Get confirmed scroll position from server
      */
-    void setScrollSpeed(float speed) { m_scrollSpeed = speed; }
-    
+    double getConfirmedScrollX() const;
+
+    /**
+     * @brief Set scroll speed and update existing wall velocities
+     */
+    void setScrollSpeed(float speed, Registry* registry = nullptr);
+
     /**
      * @brief Get scroll speed
      */
-    float getScrollSpeed() const { return m_scrollSpeed; }
-    
+    float getScrollSpeed() const;
+
     /**
-     * @brief Update scroll position
+     * @brief Update render scroll position incrementally for smooth visual interpolation
+     * Uses double precision internally to avoid floating point accumulation errors
      */
-    void advanceScroll(float delta) { m_scrollX += delta; }
-    
+    void advanceRenderScroll(float delta);
+
+    /**
+     * @brief Set confirmed scroll position from server
+     * This is the authoritative scroll used for chunk loading/unloading decisions
+     * Also resets render scroll to this value for synchronization
+     */
+    void setConfirmedScrollX(double scroll);
+
+    /**
+     * @brief Legacy method - calls setConfirmedScrollX
+     * @deprecated Use setConfirmedScrollX instead
+     */
+    void setScrollX(double scroll);
+
     /**
      * @brief Check if chunk manager is initialized and ready to render
      */
-    bool isInitialized() const { return m_initialized; }
+    bool isInitialized() const;
 
 private:
     void loadChunk(Registry& registry, int segmentId, int chunkIndex);
@@ -102,8 +131,13 @@ private:
     
     std::vector<SegmentData> m_segments;
     std::deque<Chunk> m_activeChunks;
-    
-    float m_scrollX = 0.0f;
+
+    // Two scroll positions to prevent visual stuttering:
+    // - m_confirmedScrollX: Authoritative scroll from server, used for chunk loading decisions
+    // - m_renderScrollX: Interpolated scroll for smooth rendering (may drift slightly)
+    // Both use double precision to avoid floating point errors over long play sessions
+    double m_confirmedScrollX = 0.0;  // Server-authoritative
+    double m_renderScrollX = 0.0;     // For smooth rendering
     float m_scrollSpeed = 60.0f;
     
     int m_currentSegment = 0;

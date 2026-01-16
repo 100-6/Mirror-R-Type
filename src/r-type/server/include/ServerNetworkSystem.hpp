@@ -80,7 +80,18 @@ public:
      */
     void queue_powerup_collected(uint32_t player_id, protocol::PowerupType type);
 
+    /**
+     * @brief Queue a player respawn notification to broadcast
+     */
+    void queue_player_respawn(uint32_t player_id, float x, float y,
+                              float invuln_duration, uint8_t lives_remaining);
+
     uint32_t get_tick_count() const { return tick_count_; }
+
+    /**
+     * @brief Set the current scroll position for synchronization with clients
+     */
+    void set_scroll_x(double scroll_x) { current_scroll_x_ = scroll_x; }
 
     /**
      * @brief Drain all pending entity spawns atomically
@@ -113,6 +124,13 @@ public:
     std::queue<protocol::ServerScoreUpdatePayload> drain_pending_scores();
 
 private:
+    struct PendingRespawn {
+        uint32_t player_id;
+        float x, y;
+        float invuln_duration;
+        uint8_t lives_remaining;
+    };
+
     void process_pending_inputs(Registry& registry);
     void send_state_snapshot(Registry& registry);
     void broadcast_pending_spawns();
@@ -121,6 +139,7 @@ private:
     void broadcast_pending_explosions();
     void broadcast_pending_scores();
     void broadcast_pending_powerups();
+    void broadcast_pending_respawns();
     void spawn_projectile(Registry& registry, Entity owner, float x, float y);
     void spawn_enemy_projectile(Registry& registry, Entity owner, float x, float y);
     void update_enemy_shooting(Registry& registry, float dt);
@@ -140,6 +159,7 @@ private:
     std::queue<protocol::ServerExplosionPayload> pending_explosions_;
     std::queue<protocol::ServerScoreUpdatePayload> pending_scores_;
     std::queue<protocol::ServerPowerupCollectedPayload> pending_powerups_;
+    std::vector<PendingRespawn> pending_respawns_;
 
     std::mutex spawns_mutex_;
     std::mutex destroys_mutex_;
@@ -166,6 +186,9 @@ private:
     core::EventBus::SubscriptionId bonusCollectedSubId_;
 
     std::unordered_map<uint32_t, Entity>* player_entities_ = nullptr;
+
+    // Current scroll position for synchronization with clients (double for precision)
+    double current_scroll_x_ = 0.0;
 };
 
 }

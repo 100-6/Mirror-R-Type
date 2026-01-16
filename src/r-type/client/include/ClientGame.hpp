@@ -83,7 +83,7 @@ private:
     // Map system (new)
     std::unique_ptr<rtype::ParallaxBackgroundSystem> parallax_system_;
     std::unique_ptr<rtype::ChunkManagerSystem> chunk_manager_;
-    float map_scroll_x_ = 0.0f;
+    double map_scroll_x_ = 0.0;  // Use double for precision over long play sessions
     std::string current_map_id_str_ = "nebula_outpost";
     float server_scroll_speed_ = 60.0f;
 
@@ -116,6 +116,9 @@ private:
     engine::TextureHandle hud_texture_;
     bool hud_loaded_ = false;
 
+    // Visual effects
+    bool fade_trigger_ = false;
+
     // Initialization helpers
     bool load_plugins();
     bool load_textures();
@@ -128,6 +131,7 @@ private:
 
     // Map-specific theming
     void apply_map_theme(uint16_t map_id);
+    void load_level_checkpoints(uint16_t map_id);
 
     // Update methods
     void update(float delta_time);

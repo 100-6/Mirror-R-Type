@@ -133,6 +133,21 @@ void HUDSystem::init(Registry& registry) {
         102
     });
 
+    // Create lives display
+    m_livesTextEntity = registry.spawn_entity();
+    registry.add_component(m_livesTextEntity, Position{10.0f, 120.0f});
+    registry.add_component(m_livesTextEntity, UIText{
+        "Lives: 3",
+        engine::Color{255, 255, 255, 255},       // white
+        engine::Color{0, 0, 0, 200},              // shadow
+        20,                                       // fontSize
+        true,                                     // hasShadow
+        2.0f,                                     // shadowOffsetX
+        2.0f,                                     // shadowOffsetY
+        true,                                     // active
+        102                                       // layer
+    });
+
     // Wave text will be rendered directly in update() instead of using UIText entity
 
     std::cout << "✓ HUD UI entities created successfully!" << std::endl;
@@ -254,9 +269,15 @@ void HUDSystem::update(Registry& registry, float dt) {
     }
 
     // Also hide HUD if no local player exists (game not started yet / waiting for players)
+    // But give a grace period during respawn (2 seconds)
     bool playerExists = localPlayers.size() > 0;
     if (!playerExists) {
-        hideHUD = true;
+        m_timeSincePlayerDisappeared += dt;
+        if (m_timeSincePlayerDisappeared >= 2.0f) {  // 2 second grace period
+            hideHUD = true;
+        }
+    } else {
+        m_timeSincePlayerDisappeared = 0.0f;  // Reset timer when player exists
     }
 
     // Set visibility of HUD elements
@@ -280,6 +301,9 @@ void HUDSystem::update(Registry& registry, float dt) {
     }
     if (uitexts.has_entity(m_scoreLabelEntity)) {
         uitexts[m_scoreLabelEntity].active = !hideHUD;
+    }
+    if (uitexts.has_entity(m_livesTextEntity)) {
+        uitexts[m_livesTextEntity].active = !hideHUD;
     }
     // Wave text is now rendered directly, no need to toggle entity
 
@@ -413,4 +437,14 @@ float HUDSystem::lerp(float a, float b, float t) const {
     if (t < 0.0f) t = 0.0f;
     if (t > 1.0f) t = 1.0f;
     return a + (b - a) * t;
+}
+
+void HUDSystem::update_lives(Registry& registry, uint8_t lives) {
+    std::cout << "[HUDSystem] Lives updated: " << static_cast<int>(lives) << std::endl;
+
+    // Update the lives display text
+    auto& uitexts = registry.get_components<UIText>();
+    if (uitexts.has_entity(m_livesTextEntity)) {
+        uitexts[m_livesTextEntity].text = "Lives: " + std::to_string(lives);
+    }
 }

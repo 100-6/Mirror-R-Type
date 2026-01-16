@@ -142,6 +142,7 @@ void ServerNetworkSystem::update(Registry& registry, float dt)
     broadcast_pending_spawns();
     broadcast_pending_destroys();
     broadcast_pending_powerups();
+    broadcast_pending_respawns();
 }
 
 void ServerNetworkSystem::shutdown()
@@ -186,6 +187,14 @@ void ServerNetworkSystem::queue_powerup_collected(uint32_t player_id, protocol::
     pending_powerups_.push(payload);
     std::cout << "[ServerNetworkSystem] Queued powerup collected: player=" << player_id
               << " type=" << static_cast<int>(type) << std::endl;
+}
+
+void ServerNetworkSystem::queue_player_respawn(uint32_t player_id, float x, float y,
+                                               float invuln_duration, uint8_t lives)
+{
+    pending_respawns_.push_back({player_id, x, y, invuln_duration, lives});
+    std::cout << "[ServerNetworkSystem] Queued player respawn: player=" << player_id
+              << " pos=(" << x << "," << y << ") lives=" << static_cast<int>(lives) << std::endl;
 }
 
 void ServerNetworkSystem::process_pending_inputs(Registry& registry)
@@ -258,11 +267,12 @@ void ServerNetworkSystem::send_state_snapshot(Registry& registry)
 std::vector<uint8_t> ServerNetworkSystem::serialize_snapshot(Registry& registry)
 {
     // Maximum entities that fit in a single snapshot packet
-    // MAX_PAYLOAD_SIZE = 1387 bytes, header = 6 bytes, EntityState = 25 bytes
+    // MAX_PAYLOAD_SIZE = 1387 bytes, header = 10 bytes, EntityState = 25 bytes
     constexpr size_t MAX_ENTITIES_PER_SNAPSHOT = 55;
 
     protocol::ServerSnapshotPayload snapshot;
     snapshot.server_tick = ByteOrder::host_to_net32(tick_count_);
+    snapshot.scroll_x = ByteOrder::host_to_net_float(current_scroll_x_);
     std::vector<uint8_t> payload;
     const uint8_t* header_bytes = reinterpret_cast<const uint8_t*>(&snapshot);
     payload.insert(payload.end(), header_bytes, header_bytes + sizeof(snapshot));
@@ -472,6 +482,31 @@ void ServerNetworkSystem::broadcast_pending_powerups()
         pending_powerups_.pop();
         std::cout << "[ServerNetworkSystem] Broadcast powerup collected to clients (5x for reliability)\n";
     }
+}
+
+void ServerNetworkSystem::broadcast_pending_respawns()
+{
+    if (!listener_)
+        return;
+    for (const auto& respawn : pending_respawns_) {
+        protocol::ServerPlayerRespawnPayload payload;
+        payload.player_id = htonl(respawn.player_id);
+        payload.respawn_x = respawn.x;
+        payload.respawn_y = respawn.y;
+        payload.invulnerability_duration = htons(static_cast<uint16_t>(respawn.invuln_duration * 1000));
+        payload.lives_remaining = respawn.lives_remaining;
+
+        std::vector<uint8_t> payload_bytes;
+        const uint8_t* bytes = reinterpret_cast<const uint8_t*>(&payload);
+        payload_bytes.insert(payload_bytes.end(), bytes, bytes + sizeof(payload));
+
+        // Single send - respawn is also communicated via entity spawn packet
+        listener_->on_player_respawn(session_id_, payload_bytes);
+
+        std::cout << "[ServerNetworkSystem] Broadcast player respawn: player=" << respawn.player_id
+                  << " pos=(" << respawn.x << "," << respawn.y << ") lives=" << static_cast<int>(respawn.lives_remaining) << "\n";
+    }
+    pending_respawns_.clear();
 }
 
 void ServerNetworkSystem::spawn_projectile(Registry& registry, Entity owner, float x, float y)

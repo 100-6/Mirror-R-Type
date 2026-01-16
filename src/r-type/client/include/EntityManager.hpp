@@ -81,6 +81,14 @@ public:
      */
     bool has_entity(uint32_t server_id) const;
 
+    /**
+     * @brief Get entity type by server ID
+     * @param server_id Server ID of the entity
+     * @param out_type Output parameter for the entity type
+     * @return true if entity exists and type was retrieved, false otherwise
+     */
+    bool get_entity_type(uint32_t server_id, protocol::EntityType& out_type) const;
+
 private:
     Registry& registry_;
     TextureManager& textures_;

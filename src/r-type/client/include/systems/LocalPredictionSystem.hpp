@@ -2,7 +2,8 @@
 ** EPITECH PROJECT, 2025
 ** Mirror-R-Type
 ** File description:
-** LocalPredictionSystem - client-side player extrapolation and collision
+** LocalPredictionSystem - client-side player extrapolation (screen clamping only)
+** Wall collisions are handled server-side only to avoid desync
 */
 
 #pragma once
@@ -10,7 +11,6 @@
 #include "ecs/systems/ISystem.hpp"
 #include "ClientComponents.hpp"
 #include "ecs/CoreComponents.hpp"
-#include "components/GameComponents.hpp"
 
 class Registry;
 
@@ -39,8 +39,6 @@ private:
     static constexpr float MAX_EXTRAPOLATION_SECONDS = 0.2f;
 
     void clamp_position(float& x, float& y, const Collider& collider) const;
-    void resolve_wall_collisions(Registry& registry, float& x, float& y,
-                                 const Collider& collider) const;
 };
 
 }

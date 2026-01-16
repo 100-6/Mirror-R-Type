@@ -34,6 +34,13 @@
 #include "systems/MapConfigLoader.hpp"
 #include "components/MapTypes.hpp"
 
+// Level System includes
+#include "LevelManager.hpp"
+#include "components/LevelComponents.hpp"
+#include "systems/LevelSystem.hpp"
+#include "systems/BossSystem.hpp"
+#include "systems/CheckpointSystem.hpp"
+
 namespace rtype::server {
 
 /**
@@ -76,6 +83,17 @@ public:
      * @brief Set the listener for game session events
      */
     void set_listener(IGameSessionListener* listener) { listener_ = listener; }
+    
+    /**
+     * @brief Respawn a player at specific coordinates
+     * @param player_id ID of player to respawn
+     * @param x World X coordinate
+     * @param y World Y coordinate
+     * @param invuln_duration Invulnerability duration in seconds
+     * @param lives Remaining lives to sync
+     * @return New player entity
+     */
+    Entity respawn_player_at(uint32_t player_id, float x, float y, float invuln_duration, uint8_t lives);
 
     void add_player(uint32_t player_id, const std::string& player_name, uint8_t skin_id = 0);
     void remove_player(uint32_t player_id);
@@ -90,6 +108,7 @@ public:
     Registry& get_registry() { return registry_; }
     ServerNetworkSystem* get_network_system() { return network_system_; }
     float get_scroll_speed() const { return scroll_speed_; }
+    double get_current_scroll() const { return current_scroll_; }  // NEW: For checkpoint system
 
     /**
      * @brief Resync a client with all existing entities
@@ -115,6 +134,7 @@ private:
     void on_explosion_triggered(uint32_t session_id, const std::vector<uint8_t>& explosion_data) override;
     void on_score_updated(uint32_t session_id, const std::vector<uint8_t>& score_data) override;
     void on_powerup_collected(uint32_t session_id, const std::vector<uint8_t>& powerup_data) override;
+    void on_player_respawn(uint32_t session_id, const std::vector<uint8_t>& respawn_data) override;
 
     void spawn_player_entity(GamePlayer& player);
     void check_game_over();
@@ -123,6 +143,10 @@ private:
     // Map-based wall spawning from tiles
     void load_map_segments(uint16_t map_id);
     void spawn_walls_in_view();
+    void despawn_walls_behind_camera();
+
+    // Note: Wall collision is handled by CollisionSystem with setScroll()
+    // See CollisionSystem::update() which uses m_currentScroll
 
     uint32_t session_id_;
     protocol::GameMode game_mode_;
@@ -135,9 +159,10 @@ private:
     std::unordered_map<uint32_t, GamePlayer> players_;
     std::unordered_map<uint32_t, Entity> player_entities_;
     WaveManager wave_manager_;
+    LevelManager level_manager_;  // NEW: Level system manager
 
     uint32_t tick_count_;
-    float current_scroll_;
+    double current_scroll_;  // Use double for precision over long play sessions
     float scroll_speed_;
     std::chrono::steady_clock::time_point session_start_time_;
 

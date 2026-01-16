@@ -70,6 +70,10 @@ public:
     void reset_view() override;
     void* get_window_handle() const override;
 
+    // Blend modes
+    void begin_blend_mode(int mode) override;
+    void end_blend_mode() override;
+
 private:
     struct TextureData {
         std::vector<uint8_t> data; // Opaque storage for Raylib texture

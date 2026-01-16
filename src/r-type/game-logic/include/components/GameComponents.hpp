@@ -99,9 +99,11 @@ struct Projectile {
 };
 
 struct ShotAnimation {
-    float timer = 0.0f;
-    float frameDuration = 0.5f;  // Switch frame every 0.5 seconds
+    float timer = 0.0f;           // Timer for frame switching
+    float lifetime = 0.0f;        // Total time alive (for non-persistent destruction)
+    float frameDuration = 0.1f;   // Switch frame every 0.1 seconds (faster animation)
     bool currentFrame = false;    // false = frame 1, true = frame 2
+    bool persistent = false;      // If true, animation stays active (for companion turret)
 };
 
 struct BulletAnimation {
@@ -123,9 +125,18 @@ struct ExplosionAnimation {
 struct Wall {};
 struct Background {};
 
+// Camera entity for scroll management via ECS
+// The camera's Position.x represents the current scroll offset
+// MovementSystem updates Position based on Velocity
+struct Camera {
+    float scroll_speed = 60.0f;  // Base scroll speed (stored for reference)
+};
+
 struct HitFlash {
     float time_remaining = 0.0f;
+    float total_duration = 0.0f;        // Total flash duration for fade calculation
     engine::Color original_color = engine::Color::White;
+    uint8_t max_alpha = 200;            // Peak alpha value for white flash overlay
 };
 
 // Logique de jeu (Stats)
@@ -155,6 +166,21 @@ struct Score
 // BonusType enum is defined above (before Enemy struct)
 
 // Wave System
+
+// Tag entities with their source wave for completion tracking
+struct WaveEntityTag {
+    uint32_t wave_number = 0;  // Which wave spawned this entity
+    bool is_boss = false;      // Special handling for boss entities (can't scroll away)
+};
+
+// Track active wave completion status
+struct ActiveWave {
+    uint32_t wave_number = 0;
+    uint32_t entities_spawned = 0;     // Total entities spawned in this wave
+    uint32_t entities_remaining = 0;   // Alive + on-screen entities
+    float wave_start_time = 0.0f;      // When wave started (for completion time)
+    bool completion_pending = false;   // Waiting for entities to clear
+};
 
 enum class SpawnPattern {
     SINGLE,      // Spawn single entity at position

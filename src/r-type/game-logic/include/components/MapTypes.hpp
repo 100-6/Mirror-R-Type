@@ -103,7 +103,7 @@ struct SegmentData {
 struct Chunk {
     int segmentId = 0;           // ID of the segment this chunk belongs to
     int chunkIndex = 0;          // Index within the segment
-    float worldX = 0.0f;         // X position in world coordinates
+    double worldX = 0.0;         // X position in world coordinates (double for precision)
     int width = 30;              // Width in tiles
     int height = 68;             // Height in tiles (1080 / 16 = 67.5, rounded up)
     
