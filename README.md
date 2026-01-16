@@ -60,6 +60,16 @@ cmake --build build
 
 For detailed build instructions, see **[Setup Guide](docs/SETUP.md)**.
 
+## Downloads & Releases
+
+Looking for a ready-to-play version? Check out our [GitHub Releases](https://github.com/100-6/Mirror-R-Type/releases) page!
+
+### Windows Users
+Download `RType-Setup.exe` for an easy installation with shortcuts, or `RType-Windows-x64.zip` for a portable version.
+
+### For Developers
+Want to create a release? See the **[Release Guide](docs/RELEASE.md)** for instructions on building Windows installers.
+
 ## Project Structure
 
 ```
