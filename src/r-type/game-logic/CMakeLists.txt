@@ -28,6 +28,7 @@ add_library(rtype_logic
     src/ChunkManagerSystem.cpp
     src/ParallaxBackgroundSystem.cpp
     src/MapCollisionManager.cpp
+    src/ProceduralMapGenerator.cpp
 )
 
 target_include_directories(rtype_logic

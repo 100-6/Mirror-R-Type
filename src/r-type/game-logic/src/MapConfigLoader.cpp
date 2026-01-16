@@ -105,7 +105,27 @@ MapConfig MapConfigLoader::loadMapById(const std::string& mapId, const std::stri
                 config.parallaxLayers.push_back(pl);
             }
         }
-        
+
+        // Procedural generation configuration
+        if (j.contains("procedural")) {
+            auto& proc = j["procedural"];
+            config.procedural.enabled = proc.value("enabled", false);
+            config.procedural.seed = proc.value("seed", 0u);
+
+            if (proc.contains("params")) {
+                auto& params = proc["params"];
+                config.procedural.minPassageHeight = params.value("minPassageHeight", 45);
+                config.procedural.stalactiteChance = params.value("stalactiteChance", 0.25f);
+                config.procedural.maxStalactiteLength = params.value("maxStalactiteLength", 6);
+                config.procedural.pathVariation = params.value("pathVariation", 5);
+            }
+
+            if (config.procedural.enabled) {
+                std::cout << "[MapConfigLoader] Procedural generation enabled (seed: "
+                          << config.procedural.seed << ")" << std::endl;
+            }
+        }
+
         std::cout << "[MapConfigLoader] Loaded map: " << config.name << " from " << mapFolder << std::endl;
         
     } catch (const json::exception& e) {

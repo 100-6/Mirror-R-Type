@@ -7,6 +7,16 @@
     "scroll": {
         "baseSpeed": 60.0
     },
+    "procedural": {
+        "enabled": true,
+        "seed": 0,
+        "params": {
+            "minPassageHeight": 45,
+            "stalactiteChance": 0.25,
+            "maxStalactiteLength": 6,
+            "pathVariation": 5
+        }
+    },
     "tileSheet": {
         "path": "tiles/tilesheet.png",
         "walls": {

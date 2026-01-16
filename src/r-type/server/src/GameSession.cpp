@@ -26,6 +26,7 @@
 #include "components/ShipComponents.hpp"
 #include "components/PlayerLevelComponent.hpp"
 #include "components/LevelComponents.hpp"
+#include "ProceduralMapGenerator.hpp"
 
 #undef ENEMY_BASIC_SPEED
 #undef ENEMY_BASIC_HEALTH
@@ -378,6 +379,8 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
     // Load map segments for tile-based walls
     load_map_segments(map_id);
 }
+
+GameSession::~GameSession() = default;
 
 void GameSession::add_player(uint32_t player_id, const std::string& player_name, uint8_t skin_id)
 {
@@ -1087,16 +1090,42 @@ void GameSession::load_map_segments(uint16_t map_id)
             : config::GAME_SCROLL_SPEED;
         tile_size_ = map_config_.tileSize;
 
-        std::string segments_dir = map_config_.basePath + "/segments";
-        auto segment_paths = rtype::MapConfigLoader::getSegmentPaths(segments_dir);
+        // Check if procedural generation is enabled
+        procedural_enabled_ = map_config_.procedural.enabled;
+        procedural_config_ = map_config_.procedural;
 
-        for (const auto& path : segment_paths) {
-            auto segment = rtype::MapConfigLoader::loadSegment(path);
-            map_segments_.push_back(segment);
+        if (procedural_enabled_) {
+            // Procedural mode: generate seed and initialize generator
+            map_seed_ = map_config_.procedural.seed;
+            if (map_seed_ == 0) {
+                // Generate random seed
+                std::random_device rd;
+                map_seed_ = rd();
+            }
+
+            generator_ = std::make_unique<rtype::ProceduralMapGenerator>(map_seed_);
+            generated_segments_.clear();
+            map_segments_.clear();
+
+            std::cout << "[GameSession " << session_id_ << "] Procedural generation enabled (seed: "
+                      << map_seed_ << ")" << std::endl;
+
+            // TODO: Send seed to clients via level start packet
+
+        } else {
+            // Static mode: load segments from JSON
+            std::string segments_dir = map_config_.basePath + "/segments";
+            auto segment_paths = rtype::MapConfigLoader::getSegmentPaths(segments_dir);
+
+            for (const auto& path : segment_paths) {
+                auto segment = rtype::MapConfigLoader::loadSegment(path);
+                map_segments_.push_back(segment);
+            }
+
+            std::cout << "[GameSession " << session_id_ << "] Loaded " << map_segments_.size()
+                      << " static map segments (tileSize=" << tile_size_ << ")" << std::endl;
         }
 
-        // std::cout << "[GameSession " << session_id_ << "] Loaded " << map_segments_.size()
-        //           << " map segments for tile walls (tileSize=" << tile_size_ << ")\n";
     } catch (const std::exception& e) {
         std::cerr << "[GameSession " << session_id_ << "] Failed to load map segments: " << e.what() << "\n";
     }
@@ -1104,21 +1133,34 @@ void GameSession::load_map_segments(uint16_t map_id)
 
 void GameSession::spawn_walls_in_view()
 {
-    if (map_segments_.empty() || next_segment_to_spawn_ >= map_segments_.size())
+    // In procedural mode, we generate segments indefinitely
+    // In static mode, we stop when we've spawned all segments
+    if (!procedural_enabled_ && (map_segments_.empty() || next_segment_to_spawn_ >= map_segments_.size()))
         return;
 
     // Calculate world X position where next segment starts
     double segment_world_x = 0.0;
     for (size_t i = 0; i < next_segment_to_spawn_; ++i) {
-        segment_world_x += static_cast<double>(map_segments_[i].width * tile_size_);
+        rtype::SegmentData* seg = get_or_generate_segment(i);
+        if (seg) {
+            segment_world_x += static_cast<double>(seg->width * tile_size_);
+        }
     }
 
     // Spawn walls from segments that are about to come into view
     // Use double for precision
     double spawn_threshold = current_scroll_ + 1920.0 + 500.0;  // screen width + buffer
 
-    while (next_segment_to_spawn_ < map_segments_.size() && segment_world_x < spawn_threshold) {
-        const auto& segment = map_segments_[next_segment_to_spawn_];
+    // In procedural mode, generate up to a reasonable max (e.g., 1000 segments)
+    size_t max_segments = procedural_enabled_ ? 1000 : map_segments_.size();
+
+    while (next_segment_to_spawn_ < max_segments && segment_world_x < spawn_threshold) {
+        rtype::SegmentData* segmentPtr = get_or_generate_segment(next_segment_to_spawn_);
+        if (!segmentPtr) {
+            break;
+        }
+
+        const auto& segment = *segmentPtr;
         double segment_width = static_cast<double>(segment.width * tile_size_);
 
         // Greedy merge: find rectangular groups of wall tiles
@@ -1321,6 +1363,59 @@ void GameSession::clear_enemies()
         registry_.add_component(enemy_entity, ToDestroy{});
     }
     std::cout << "[GameSession " << session_id_ << "] Cleared " << count << " enemies\n";
+}
+
+rtype::SegmentData* GameSession::get_or_generate_segment(int segment_id)
+{
+    if (!procedural_enabled_) {
+        // Static mode: return from vector
+        if (segment_id >= 0 && segment_id < static_cast<int>(map_segments_.size())) {
+            return &map_segments_[segment_id];
+        }
+        return nullptr;
+    }
+
+    // Procedural mode: check cache or generate
+    auto it = generated_segments_.find(segment_id);
+    if (it != generated_segments_.end()) {
+        return &it->second;
+    }
+
+    // Generate new segment
+    if (!generator_) {
+        std::cerr << "[GameSession " << session_id_ << "] ERROR: Generator not initialized!" << std::endl;
+        return nullptr;
+    }
+
+    // Get entry state from previous segment
+    rtype::ProceduralMapGenerator::PathState* entryState = nullptr;
+    if (segment_id > 0) {
+        auto prevIt = generated_segments_.find(segment_id - 1);
+        if (prevIt == generated_segments_.end()) {
+            // Previous segment not generated yet - generate it first
+            std::cerr << "[GameSession " << session_id_ << "] WARNING: Generating segment " << segment_id
+                      << " before segment " << (segment_id - 1) << std::endl;
+        } else {
+            // Use last exit state from generator
+            entryState = const_cast<rtype::ProceduralMapGenerator::PathState*>(&generator_->getLastExitState());
+        }
+    }
+
+    // Convert ProceduralConfig to GenerationParams
+    rtype::ProceduralMapGenerator::GenerationParams params;
+    params.minPassageHeight = procedural_config_.minPassageHeight;
+    params.stalactiteChance = procedural_config_.stalactiteChance;
+    params.maxStalactiteLength = procedural_config_.maxStalactiteLength;
+    params.pathVariation = procedural_config_.pathVariation;
+
+    rtype::SegmentData segment = generator_->generateSegment(segment_id, entryState, params);
+
+    std::cout << "[GameSession " << session_id_ << "] Generated procedural segment " << segment_id
+              << " (" << segment.width << "x" << segment.height << ")" << std::endl;
+
+    // Cache the generated segment
+    auto result = generated_segments_.insert({segment_id, std::move(segment)});
+    return &result.first->second;
 }
 
 } // namespace rtype::server
