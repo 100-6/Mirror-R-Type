@@ -8,16 +8,20 @@
 #include <string>
 #include <functional>
 #include <memory>
+#include <chrono>
 
 namespace rtype::client {
 
 /**
- * @brief In-game admin console overlay
+ * @brief In-game admin console overlay with modern design and scrolling
  *
- * Provides UI for:
- * - Text input for commands
- * - Message history display
- * - Command history (up/down arrows)
+ * Features:
+ * - Text input for commands with auto-completion hints
+ * - Scrollable message history with timestamps
+ * - Visual scrollbar with mouse wheel support
+ * - Command history navigation (up/down arrows)
+ * - Message type icons and color coding
+ * - Smooth animations and modern effects
  */
 class ConsoleOverlay {
 public:
@@ -34,6 +38,7 @@ public:
     void add_error(const std::string& error);
     void add_success(const std::string& message);
     void add_info(const std::string& info);
+    void add_warning(const std::string& warning);
 
     // Command callback
     using CommandCallback = std::function<void(const std::string&)>;
@@ -47,13 +52,25 @@ private:
     bool visible_;
     float x_, y_, width_, height_;
 
-    // Message history
+    // Message history with timestamps
+    enum class MessageType {
+        NORMAL,
+        ERROR,
+        SUCCESS,
+        INFO,
+        WARNING,
+        COMMAND
+    };
+
     struct Message {
         std::string text;
         engine::Color color;
+        MessageType type;
+        std::chrono::system_clock::time_point timestamp;
+        float fade_in_progress;  // 0.0 to 1.0 for smooth appearance
     };
     std::deque<Message> message_history_;
-    static constexpr size_t MAX_MESSAGES = 20;
+    static constexpr size_t MAX_MESSAGES = 200;  // Increased for scrolling
 
     // Input field
     std::unique_ptr<rtype::UITextField> input_field_;
@@ -66,13 +83,46 @@ private:
     // Callback
     CommandCallback on_command_;
 
+    // Scrolling support
+    int scroll_offset_;  // Number of lines scrolled
+    int max_visible_lines_;
+    float scroll_velocity_;  // For smooth scrolling
+    bool is_mouse_over_console_;
+    bool is_dragging_scrollbar_;
+    float scrollbar_drag_start_y_;
+    int scrollbar_drag_start_offset_;
+
+    // Animation
+    float open_animation_;  // 0.0 to 1.0
+    static constexpr float ANIMATION_SPEED = 5.0f;
+
     // Input handling
     void execute_command();
     void handle_history_navigation(engine::IInputPlugin* input);
+    void handle_scrolling(engine::IInputPlugin* input);
+    void handle_scrollbar_interaction(engine::IInputPlugin* input);
+
+    // Rendering helpers
+    void draw_background(engine::IGraphicsPlugin* graphics);
+    void draw_header(engine::IGraphicsPlugin* graphics);
+    void draw_messages(engine::IGraphicsPlugin* graphics);
+    void draw_scrollbar(engine::IGraphicsPlugin* graphics);
+    void draw_input_area(engine::IGraphicsPlugin* graphics);
+    std::string get_timestamp_string(const std::chrono::system_clock::time_point& time);
+    std::string get_message_icon(MessageType type);
+
+    // Scrolling helpers
+    int get_total_message_count() const { return static_cast<int>(message_history_.size()); }
+    int get_max_scroll_offset() const;
+    void clamp_scroll_offset();
 
     // Key tracking for history navigation
     bool was_up_pressed_ = false;
     bool was_down_pressed_ = false;
+
+    // Delta time for animations
+    std::chrono::steady_clock::time_point last_update_time_;
+    float get_delta_time();
 };
 
 }
