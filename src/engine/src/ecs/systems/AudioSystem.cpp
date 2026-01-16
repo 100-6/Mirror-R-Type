@@ -324,6 +324,12 @@ void AudioSystem::playAmbiance(const std::string& ambianceId)
 
     float finalVolume = getEffectiveVolume(audio::AudioCategory::AMBIANCE) * baseVolume;
 
+    // Reset music fading flags since ambiance takes over the music channel
+    isFadingIn_ = false;
+    isFadingOut_ = false;
+    currentMusicHandle_ = engine::INVALID_HANDLE;
+    currentMusicId_.clear();
+
     // Note: Ambiance uses music API but with different volume category
     audio_plugin.play_music(it->second, true, finalVolume);
     currentAmbianceHandle_ = it->second;
@@ -499,10 +505,29 @@ float AudioSystem::getEffectiveVolume(audio::AudioCategory category) const
 
 void AudioSystem::updateAllVolumes()
 {
-    // Update music volume if playing
-    if (currentMusicHandle_ != engine::INVALID_HANDLE && !isFadingOut_ && !isFadingIn_) {
+    // Note: AudioSystem calculates all final volumes (master * category * base)
+    // and passes them directly to the plugin via set_music_volume().
+
+    // Determine what's currently playing through the music channel
+    // Ambiance and music share the same channel, so we need to check which one is active
+    bool ambiancePlaying = (currentAmbianceHandle_ != engine::INVALID_HANDLE && !currentAmbianceId_.empty());
+    bool musicPlaying = (currentMusicHandle_ != engine::INVALID_HANDLE && !currentMusicId_.empty());
+
+    // If ambiance is playing, use ambiance volume category
+    if (ambiancePlaying && !isFadingOut_ && !isFadingIn_) {
         float baseVolume = 1.0f;
-        if (config_ && !currentMusicId_.empty()) {
+        if (config_) {
+            auto def = config_->getAmbiance(currentAmbianceId_);
+            if (def) {
+                baseVolume = def->volume;
+            }
+        }
+        audio_plugin.set_music_volume(getEffectiveVolume(audio::AudioCategory::AMBIANCE) * baseVolume);
+    }
+    // Otherwise if music is playing, use music volume category
+    else if (musicPlaying && !isFadingOut_ && !isFadingIn_) {
+        float baseVolume = 1.0f;
+        if (config_) {
             auto def = config_->getMusic(currentMusicId_);
             if (def) {
                 baseVolume = def->volume;
@@ -510,9 +535,6 @@ void AudioSystem::updateAllVolumes()
         }
         audio_plugin.set_music_volume(getEffectiveVolume(audio::AudioCategory::MUSIC) * baseVolume);
     }
-
-    // Update master volume on plugin
-    audio_plugin.set_master_volume(masterVolume_);
 }
 
 // ========== Event Handlers ==========
@@ -678,7 +700,7 @@ void AudioSystem::setSfxVolume(float volume)
 void AudioSystem::setAmbianceVolume(float volume)
 {
     ambianceVolume_ = std::clamp(volume, 0.0f, 1.0f);
-    // Note: Would need to update playing ambiance volume
+    updateAllVolumes();
 }
 
 void AudioSystem::setMuted(bool muted)

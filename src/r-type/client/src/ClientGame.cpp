@@ -149,6 +149,37 @@ bool ClientGame::initialize(const std::string& host, uint16_t tcp_port, const st
     menu_manager_ = std::make_unique<MenuManager>(*network_client_, screen_width_, screen_height_);
     menu_manager_->initialize();
 
+    // Connect audio settings from UI to AudioSystem
+    if (audio_plugin_ && menu_manager_->get_settings_screen()) {
+        auto* settings_screen = menu_manager_->get_settings_screen();
+
+        // Set initial volumes from AudioSystem
+        try {
+            AudioSystem& audio_sys = registry_->get_system<AudioSystem>();
+            settings_screen->set_initial_volumes(
+                audio_sys.getMasterVolume(),
+                audio_sys.getMusicVolume(),
+                audio_sys.getSfxVolume(),
+                audio_sys.getAmbianceVolume()
+            );
+
+            // Set callback to update AudioSystem when settings change
+            settings_screen->set_audio_settings_callback([this](const AudioSettings& settings) {
+                try {
+                    AudioSystem& audio = registry_->get_system<AudioSystem>();
+                    audio.setMasterVolume(settings.master);
+                    audio.setMusicVolume(settings.music);
+                    audio.setSfxVolume(settings.sfx);
+                    audio.setAmbianceVolume(settings.ambiance);
+                } catch (const std::exception& e) {
+                    std::cerr << "[ClientGame] Failed to update audio settings: " << e.what() << std::endl;
+                }
+            });
+        } catch (const std::exception& e) {
+            std::cerr << "[ClientGame] Failed to initialize audio settings: " << e.what() << std::endl;
+        }
+    }
+
     // Create input handler with key bindings from settings
     input_handler_ = std::make_unique<InputHandler>(
         *input_plugin_,
