@@ -192,6 +192,7 @@
     "spawn_position_y": 540.0,
     "enemy_type": "boss",
     "total_phases": 3,
+    "script_path": "boss/boss2_nebula_core.lua",
     "phases": [
       {
         "phase_number": 1,

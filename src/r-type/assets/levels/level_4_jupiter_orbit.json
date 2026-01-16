@@ -229,12 +229,13 @@
   ],
 
   "boss": {
-    "boss_name": "Storm Colossus",
+    "boss_name": "Jupiter Titan",
     "spawn_scroll_distance": 8500.0,
     "spawn_position_x": 1600.0,
     "spawn_position_y": 540.0,
     "enemy_type": "boss",
     "total_phases": 3,
+    "script_path": "boss/boss4_jupiter_titan.lua",
     "phases": [
       {
         "phase_number": 1,

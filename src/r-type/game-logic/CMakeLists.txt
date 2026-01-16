@@ -13,7 +13,6 @@ add_library(rtype_logic
     src/systems/PlayerInputSystem.cpp
 
     src/systems/LevelSystem.cpp
-    src/systems/BossSystem.cpp
     src/systems/CheckpointSystem.cpp
     src/utils/WaveConfigLoader.cpp
     src/systems/BonusSystem.cpp

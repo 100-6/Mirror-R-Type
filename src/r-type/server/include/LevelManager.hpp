@@ -32,6 +32,7 @@ struct BossConfig {
     float spawn_position_y;
     std::string enemy_type;                        // "boss"
     uint8_t total_phases;
+    std::string script_path;                       // Lua script path for boss behavior
     std::vector<game::BossPhaseConfig> phases;
 
     BossConfig()
@@ -41,6 +42,7 @@ struct BossConfig {
         , spawn_position_y(540.0f)
         , enemy_type("boss")
         , total_phases(3)
+        , script_path("boss/boss1_mars_guardian.lua")
     {}
 };
 

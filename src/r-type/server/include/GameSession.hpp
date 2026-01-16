@@ -43,7 +43,6 @@ namespace rtype {
 #include "LevelManager.hpp"
 #include "components/LevelComponents.hpp"
 #include "systems/LevelSystem.hpp"
-#include "systems/BossSystem.hpp"
 #include "systems/CheckpointSystem.hpp"
 
 namespace rtype::server {

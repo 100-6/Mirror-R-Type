@@ -11,6 +11,8 @@
 #include "ecs/systems/ISystem.hpp"
 #include "ecs/Registry.hpp"
 #include "sol/sol.hpp"
+#include <unordered_map>
+#include <string>
 
 class LuaSystem : public ISystem {
     public:
@@ -23,9 +25,14 @@ class LuaSystem : public ISystem {
 
     private:
         sol::state lua_;
+        std::unordered_map<std::string, sol::function> scriptCache_;
+        std::unordered_map<std::string, sol::function> bossScriptCache_;
 
         void bindComponents(Registry& registry);
+        void bindBossFunctions(Registry& registry);
         void loadScript(const std::string& path);
+        void updateEnemyScripts(Registry& registry, float dt);
+        void updateBossScripts(Registry& registry, float dt);
 };
 
 #endif /* !LUASYSTEM_HPP_ */

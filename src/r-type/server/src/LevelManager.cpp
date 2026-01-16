@@ -157,6 +157,7 @@ bool LevelManager::parse_boss_config(const nlohmann::json& j)
     config_.boss.spawn_position_y = boss_json.value("spawn_position_y", 540.0f);
     config_.boss.enemy_type = boss_json.value("enemy_type", "boss");
     config_.boss.total_phases = boss_json.value("total_phases", 3);
+    config_.boss.script_path = boss_json.value("script_path", "boss/boss1_mars_guardian.lua");
 
     if (boss_json.contains("phases") && boss_json["phases"].is_array()) {
         for (const auto& phase_json : boss_json["phases"]) {

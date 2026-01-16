@@ -216,12 +216,13 @@
   ],
 
   "boss": {
-    "boss_name": "Frozen Titan",
+    "boss_name": "Uranus Sentinel",
     "spawn_scroll_distance": 7500.0,
     "spawn_position_x": 1600.0,
     "spawn_position_y": 540.0,
     "enemy_type": "boss",
     "total_phases": 3,
+    "script_path": "boss/boss3_uranus_sentinel.lua",
     "phases": [
       {
         "phase_number": 1,

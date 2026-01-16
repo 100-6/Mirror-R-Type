@@ -32,6 +32,16 @@ struct Script {
     bool loaded = false;
 };
 
+struct BossScript {
+    std::string path;
+    bool loaded = false;
+
+    // Boss state passed to Lua
+    float attack_timer = 0.0f;      // Time since last attack
+    float phase_timer = 0.0f;       // Time in current phase
+    int current_phase = 0;          // 0, 1, or 2
+};
+
 // Scrolling
 
 struct Scrollable {

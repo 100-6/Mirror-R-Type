@@ -115,6 +115,7 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
     registry_.register_component<BonusLifetime>();
     registry_.register_component<Camera>();
     registry_.register_component<Kamikaze>();
+    registry_.register_component<BossScript>();
 
     // Register Level System components
     registry_.register_component<game::LevelController>();
@@ -199,7 +200,6 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
 
     // Register Level System systems
     registry_.register_system<game::LevelSystem>();
-    registry_.register_system<game::BossSystem>();
     registry_.register_system<game::CheckpointSystem>();
 
     // Wire CheckpointSystem callbacks
@@ -539,6 +539,16 @@ void GameSession::update(float delta_time)
 
         // Check if boss should be spawned
         if (lc.state == game::LevelState::BOSS_FIGHT && !lc.boss_spawned) {
+            // STOP SCROLL when boss spawns
+            auto& camera_velocities = registry_.get_components<Velocity>();
+            for (size_t ci = 0; ci < cameras.size(); ++ci) {
+                Entity cam_entity = cameras.get_entity_at(ci);
+                if (camera_velocities.has_entity(cam_entity)) {
+                    camera_velocities[cam_entity].x = 0.0f;  // Stop scroll
+                    std::cout << "[GameSession] Scroll stopped for boss fight\n";
+                }
+            }
+
             // Spawn boss
             const BossConfig& boss_config = level_manager_.get_boss_config();
 
@@ -574,32 +584,21 @@ void GameSession::update(float delta_time)
             sprite.layer = 4;
             registry_.add_component(boss_entity, sprite);
 
-            // BossPhase component
-            game::BossPhase boss_phase;
-            boss_phase.current_phase = 0;
-            boss_phase.total_phases = boss_config.total_phases;
-            boss_phase.phase_health_thresholds = {1.0f, 0.66f, 0.33f};
-            boss_phase.phase_timer = 0.0f;
-            boss_phase.attack_cooldown = 2.0f;
-            boss_phase.attack_pattern_index = 0;
-
-            // Safety check: ensure phases vector is not empty
-            if (boss_config.phases.empty()) {
-                std::cerr << "[GameSession] ERROR: Boss has no phases configured! Cannot spawn boss.\n";
-                registry_.kill_entity(boss_entity);
-                return;
-            }
-
-            boss_phase.movement_pattern = boss_config.phases[0].movement_pattern;
-            boss_phase.movement_speed_multiplier = boss_config.phases[0].movement_speed_multiplier;
-            boss_phase.phase_configs = boss_config.phases;
-            registry_.add_component(boss_entity, boss_phase);
+            // Add BossScript component for Lua-driven behavior
+            BossScript boss_script;
+            boss_script.path = boss_config.script_path;
+            boss_script.loaded = false;
+            boss_script.attack_timer = 0.0f;
+            boss_script.phase_timer = 0.0f;
+            boss_script.current_phase = 0;
+            registry_.add_component(boss_entity, boss_script);
 
             // Update level controller
             lc.boss_spawned = true;
             lc.boss_entity = boss_entity;
 
-            // std::cout << "[GameSession] Boss spawned: " << boss_config.boss_name << "\n";
+            std::cout << "[GameSession] Boss spawned: " << boss_config.boss_name
+                      << " (script: " << boss_config.script_path << ")\n";
 
             // Notify network
             if (network_system_) {
