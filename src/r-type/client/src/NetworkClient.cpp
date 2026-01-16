@@ -488,17 +488,19 @@ void NetworkClient::handle_game_start(const std::vector<uint8_t>& payload) {
     udp_port_ = ntohs(game_start.udp_port);
     uint16_t map_id = ntohs(game_start.map_id);
     float scroll_speed = game_start.scroll_speed;
+    uint32_t level_seed = ntohl(game_start.level_seed);
     in_lobby_ = false;
     in_game_ = true;
 
     // std::cout << "[NetworkClient] Game started! Session: " << session_id_
-    //           << ", UDP port: " << udp_port_ << ", Map: " << map_id << "\n";
+    //           << ", UDP port: " << udp_port_ << ", Map: " << map_id 
+    //           << ", Seed: " << level_seed << "\n";
 
     // Connect UDP for gameplay
     connect_udp(udp_port_);
 
     if (on_game_start_)
-        on_game_start_(session_id_, udp_port_, map_id, scroll_speed);
+        on_game_start_(session_id_, udp_port_, map_id, scroll_speed, level_seed);
 }
 
 void NetworkClient::handle_entity_spawn(const std::vector<uint8_t>& payload) {
@@ -928,7 +930,7 @@ void NetworkClient::set_on_countdown(std::function<void(uint8_t)> callback) {
     on_countdown_ = callback;
 }
 
-void NetworkClient::set_on_game_start(std::function<void(uint32_t, uint16_t, uint16_t, float)> callback) {
+void NetworkClient::set_on_game_start(std::function<void(uint32_t, uint16_t, uint16_t, float, uint32_t)> callback) {
     on_game_start_ = callback;
 }
 

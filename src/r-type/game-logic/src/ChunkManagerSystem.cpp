@@ -464,7 +464,13 @@ void ChunkManagerSystem::setProceduralSeed(uint32_t seed) {
     m_generator = std::make_unique<ProceduralMapGenerator>(seed);
     m_generatedSegments.clear();
 
-    std::cout << "[ChunkManagerSystem] Procedural seed set to: " << seed << std::endl;
+    // FORCE RESET of active chunks to ensure we don't keep any segments generated with the old seed
+    m_activeChunks.clear();
+    m_nextChunkIndex = 0;
+    m_currentSegment = 0;
+    // Do NOT reset scroll position here as it might be set by server already
+    
+    std::cout << "[ChunkManagerSystem] Procedural seed set to: " << seed << " (Chunks reset)" << std::endl;
 }
 
 SegmentData* ChunkManagerSystem::getOrGenerateSegment(int segmentId) {

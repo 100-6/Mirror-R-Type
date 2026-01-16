@@ -116,10 +116,11 @@ int main(int argc, char* argv[]) {
         std::cout << "[TestClient] COUNTDOWN: " << (int)seconds << " seconds\n";
     });
 
-    client.set_on_game_start([&client](uint32_t session_id, uint16_t udp_port, uint16_t map_id, float scroll_speed) {
+    client.set_on_game_start([&client](uint32_t session_id, uint16_t udp_port, uint16_t map_id, float scroll_speed, uint32_t seed) {
         std::cout << "[TestClient] GAME START! Session: " << session_id
                   << ", UDP port: " << udp_port << ", Map: " << map_id
-                  << ", Scroll speed: " << scroll_speed << "\n";
+                  << ", Scroll speed: " << scroll_speed 
+                  << ", Seed: " << seed << "\n";
         std::cout << "[TestClient] UDP connection should be automatic...\n";
     });
 

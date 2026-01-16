@@ -114,6 +114,7 @@ public:
     ServerNetworkSystem* get_network_system() { return network_system_; }
     float get_scroll_speed() const { return scroll_speed_; }
     double get_current_scroll() const { return current_scroll_; }  // NEW: For checkpoint system
+    uint32_t get_map_seed() const { return map_seed_; }
 
     /**
      * @brief Resync a client with all existing entities
