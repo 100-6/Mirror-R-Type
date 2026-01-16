@@ -77,8 +77,6 @@ jobs:
           platforms: linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.rtype_tags }}
-          build-args: |
-            REGISTRY=${{ env.REGISTRY }}
           labels: |
             org.opencontainers.image.source=${{ github.repositoryUrl }}
             org.opencontainers.image.revision=${{ github.sha }}
@@ -99,8 +97,6 @@ jobs:
           platforms: linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.bagario_tags }}
-          build-args: |
-            REGISTRY=${{ env.REGISTRY }}
           labels: |
             org.opencontainers.image.source=${{ github.repositoryUrl }}
             org.opencontainers.image.revision=${{ github.sha }}

@@ -60,14 +60,15 @@ jobs:
           echo "sha=${SHA}" >> $GITHUB_OUTPUT
           echo "tags=${{ env.REGISTRY }}/${{ env.BUILDER_IMAGE }}:latest,${{ env.REGISTRY }}/${{ env.BUILDER_IMAGE }}:${DATE}-${SHA}" >> $GITHUB_OUTPUT
 
-      - name: Build and push Builder Image
+      - name: Build Builder Image (cache only, no push)
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile.builder
           platforms: linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          push: false
+          load: false
+          tags: ${{ env.REGISTRY }}/${{ env.BUILDER_IMAGE }}:latest
           labels: |
             org.opencontainers.image.source=${{ github.repositoryUrl }}
             org.opencontainers.image.revision=${{ github.sha }}
@@ -76,11 +77,14 @@ jobs:
           cache-to: type=gha,mode=max,scope=builder
           provenance: false
           sbom: false
+          outputs: type=cacheonly
 
       - name: Notify success
         if: success()
         run: |
           echo "=========================================="
-          echo "Base builder image pushed successfully!"
-          echo "Image: ${{ env.REGISTRY }}/${{ env.BUILDER_IMAGE }}:latest"
+          echo "✅ Base builder image cached successfully!"
+          echo "Cache scope: builder"
+          echo "Note: Image is NOT pushed to registry (too large)"
+          echo "Deploy workflows will build server images using this cache"
           echo "=========================================="

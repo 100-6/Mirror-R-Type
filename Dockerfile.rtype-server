@@ -2,14 +2,50 @@
 # R-Type Server Production Dockerfile
 # Target: ARM64 (Raspberry Pi)
 # ==========================================
-# Uses pre-built base image with vcpkg for faster builds
+# Builds with vcpkg dependencies inline (no separate builder image)
 # ==========================================
 
 # ==========================================
-# STAGE 1: Builder (using cached base image)
+# STAGE 1: Builder (inline vcpkg setup)
 # ==========================================
-ARG REGISTRY=registry.eliasdrissi.dev
-FROM ${REGISTRY}/rtype-builder:latest AS builder
+FROM debian:bookworm-slim AS builder
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    ninja-build \
+    git \
+    curl \
+    zip \
+    unzip \
+    tar \
+    pkg-config \
+    libx11-dev \
+    libxrandr-dev \
+    libxinerama-dev \
+    libxcursor-dev \
+    libxi-dev \
+    libudev-dev \
+    libgl1-mesa-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Clone and bootstrap vcpkg
+WORKDIR /vcpkg
+ARG VCPKG_COMMIT=bd52fac7114fdaa2208de8dd1227212a6683e562
+RUN git clone --depth 1 --branch master https://github.com/Microsoft/vcpkg.git . && \
+    git fetch --depth 1 origin ${VCPKG_COMMIT} && \
+    git checkout ${VCPKG_COMMIT} && \
+    ./bootstrap-vcpkg.sh -disableMetrics
+
+# Pre-install dependencies
+WORKDIR /prebuild
+COPY vcpkg.json .
+RUN /vcpkg/vcpkg install --triplet arm64-linux-dynamic && \
+    rm -rf /vcpkg/.git /vcpkg/buildtrees /vcpkg/downloads /vcpkg/packages
+
+ENV VCPKG_ROOT=/vcpkg
+ENV VCPKG_DEFAULT_TRIPLET=arm64-linux-dynamic
 
 WORKDIR /build
 
