@@ -30,14 +30,14 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /build
 
-# Copy project files
+# Copy project files (excluding vcpkg submodule)
 COPY . .
 
-# Bootstrap vcpkg if needed
-RUN if [ ! -f "vcpkg/vcpkg" ]; then \
-        cd vcpkg && \
-        ./bootstrap-vcpkg.sh -disableMetrics; \
-    fi
+# Clone and bootstrap vcpkg at specific commit (matching CI)
+RUN git clone https://github.com/Microsoft/vcpkg.git vcpkg && \
+    cd vcpkg && \
+    git checkout bd52fac7114fdaa2208de8dd1227212a6683e562 && \
+    ./bootstrap-vcpkg.sh -disableMetrics
 
 # Configure CMake with vcpkg for ARM64 dynamic linking
 RUN cmake -S . -B build \
