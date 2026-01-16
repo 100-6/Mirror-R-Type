@@ -257,10 +257,9 @@ void RoomManager::notify_room_state_changed(uint32_t room_id)
     if (!listener_) {
         return;
     }
-    auto payload = build_room_state_payload(room_id);
-    if (!payload.empty()) {
-        listener_->on_lobby_state_changed(room_id, payload);
-    }
+    // Pass empty payload - Server::on_lobby_state_changed will build the actual payload
+    // with player info from connected_clients_
+    listener_->on_lobby_state_changed(room_id, {});
 }
 
 std::string RoomManager::generate_room_name(uint32_t room_id) const

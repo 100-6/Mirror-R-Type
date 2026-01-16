@@ -143,6 +143,7 @@ void ServerNetworkSystem::update(Registry& registry, float dt)
     broadcast_pending_destroys();
     broadcast_pending_powerups();
     broadcast_pending_respawns();
+    broadcast_pending_level_ups();
 }
 
 void ServerNetworkSystem::shutdown()
@@ -197,6 +198,26 @@ void ServerNetworkSystem::queue_player_respawn(uint32_t player_id, float x, floa
               << " pos=(" << x << "," << y << ") lives=" << static_cast<int>(lives) << std::endl;
 }
 
+void ServerNetworkSystem::queue_player_level_up(uint32_t player_id, Entity entity, uint8_t new_level,
+                                                uint8_t new_ship_type, uint8_t new_weapon_type,
+                                                uint8_t new_skin_id, uint32_t current_score)
+{
+    protocol::ServerPlayerLevelUpPayload payload;
+    payload.player_id = ByteOrder::host_to_net32(player_id);
+    payload.entity_id = ByteOrder::host_to_net32(static_cast<uint32_t>(entity));
+    payload.new_level = new_level;
+    payload.new_ship_type = new_ship_type;
+    payload.new_weapon_type = new_weapon_type;
+    payload.new_skin_id = new_skin_id;
+    payload.current_score = ByteOrder::host_to_net32(current_score);
+
+    std::lock_guard lock(level_ups_mutex_);
+    pending_level_ups_.push(payload);
+    std::cout << "[ServerNetworkSystem] Queued player level-up: player=" << player_id
+              << " entity=" << entity << " level=" << static_cast<int>(new_level)
+              << " skin_id=" << static_cast<int>(new_skin_id) << std::endl;
+}
+
 void ServerNetworkSystem::process_pending_inputs(Registry& registry)
 {
     if (!player_entities_)
@@ -240,18 +261,7 @@ void ServerNetworkSystem::process_pending_inputs(Registry& registry)
                 registry.get_event_bus().publish(ecs::PlayerStopFireEvent{player_entity});
             }
         }
-        if (input.is_switch_weapon_pressed()) {
-            if (switch_cooldowns_.find(player_id) == switch_cooldowns_.end())
-                switch_cooldowns_[player_id] = SWITCH_COOLDOWN;
-            if (switch_cooldowns_[player_id] >= SWITCH_COOLDOWN) {
-                if (weapons.has_entity(player_entity)) {
-                    Weapon& w = weapons[player_entity];
-                    int nextType = (static_cast<int>(w.type) + 1) % 5;
-                    w = create_weapon(static_cast<WeaponType>(nextType), engine::INVALID_HANDLE);
-                    switch_cooldowns_[player_id] = 0.0f;
-                }
-            }
-        }
+        // Weapon switching removed - weapon is now determined by player level (LevelUpSystem)
     }
 }
 
@@ -509,6 +519,27 @@ void ServerNetworkSystem::broadcast_pending_respawns()
     pending_respawns_.clear();
 }
 
+void ServerNetworkSystem::broadcast_pending_level_ups()
+{
+    if (!listener_)
+        return;
+    std::lock_guard lock(level_ups_mutex_);
+    while (!pending_level_ups_.empty()) {
+        const auto& level_up = pending_level_ups_.front();
+        std::vector<uint8_t> payload;
+        const uint8_t* bytes = reinterpret_cast<const uint8_t*>(&level_up);
+        payload.insert(payload.end(), bytes, bytes + sizeof(level_up));
+
+        // Send multiple times to ensure delivery (UDP can lose packets)
+        for (int i = 0; i < 3; ++i) {
+            listener_->on_player_level_up(session_id_, payload);
+        }
+
+        pending_level_ups_.pop();
+        std::cout << "[ServerNetworkSystem] Broadcast player level-up to clients (3x for reliability)\n";
+    }
+}
+
 void ServerNetworkSystem::spawn_projectile(Registry& registry, Entity owner, float x, float y)
 {
     Entity projectile = registry.spawn_entity();
@@ -633,6 +664,14 @@ std::queue<protocol::ServerScoreUpdatePayload> ServerNetworkSystem::drain_pendin
     std::lock_guard lock(scores_mutex_);
     std::queue<protocol::ServerScoreUpdatePayload> temp;
     temp.swap(pending_scores_);
+    return temp;
+}
+
+std::queue<protocol::ServerPlayerLevelUpPayload> ServerNetworkSystem::drain_pending_level_ups()
+{
+    std::lock_guard lock(level_ups_mutex_);
+    std::queue<protocol::ServerPlayerLevelUpPayload> temp;
+    temp.swap(pending_level_ups_);
     return temp;
 }
 

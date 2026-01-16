@@ -64,6 +64,11 @@ public:
      * @brief Called when a player respawns
      */
     virtual void on_player_respawn(uint32_t session_id, const std::vector<uint8_t>& respawn_data) = 0;
+
+    /**
+     * @brief Called when a player levels up
+     */
+    virtual void on_player_level_up(uint32_t session_id, const std::vector<uint8_t>& level_up_data) = 0;
 };
 
 }

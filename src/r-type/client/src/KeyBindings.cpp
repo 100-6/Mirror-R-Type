@@ -32,8 +32,7 @@ void KeyBindings::init_defaults() {
     primary_bindings_[GameAction::SPECIAL] = engine::Key::LControl;
     alt_bindings_[GameAction::SPECIAL] = engine::Key::RControl;
 
-    primary_bindings_[GameAction::SWITCH_WEAPON] = engine::Key::E;
-    alt_bindings_[GameAction::SWITCH_WEAPON] = engine::Key::Unknown;
+    // SWITCH_WEAPON removed - weapon is now determined by player level
 
     // Debug
     primary_bindings_[GameAction::TOGGLE_HITBOX] = engine::Key::H;
@@ -146,7 +145,6 @@ std::string KeyBindings::get_action_name(GameAction action) {
         case GameAction::SHOOT: return "Shoot";
         case GameAction::CHARGE: return "Charge";
         case GameAction::SPECIAL: return "Special";
-        case GameAction::SWITCH_WEAPON: return "Switch Weapon";
         case GameAction::TOGGLE_HITBOX: return "Toggle Hitbox";
         case GameAction::TOGGLE_NETWORK_DEBUG: return "Network Debug";
         default: return "Unknown";

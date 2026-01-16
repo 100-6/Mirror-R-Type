@@ -140,6 +140,7 @@ private:
     void on_score_updated(uint32_t session_id, const std::vector<uint8_t>& score_data) override;
     void on_powerup_collected(uint32_t session_id, const std::vector<uint8_t>& powerup_data) override;
     void on_player_respawn(uint32_t session_id, const std::vector<uint8_t>& respawn_data) override;
+    void on_player_level_up(uint32_t session_id, const std::vector<uint8_t>& level_up_data) override;
 
     void spawn_player_entity(GamePlayer& player);
     void check_game_over();

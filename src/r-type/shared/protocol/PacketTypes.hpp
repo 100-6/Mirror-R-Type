@@ -88,6 +88,7 @@ enum class PacketType : uint8_t {
     SERVER_SCORE_UPDATE = 0xC1,
     SERVER_WAVE_START = 0xC2,
     SERVER_WAVE_COMPLETE = 0xC3,
+    SERVER_PLAYER_LEVEL_UP = 0xC4,  // Player leveled up (ship/weapon changed)
     SERVER_PLAYER_RESPAWN = 0xC5,
     SERVER_GAME_OVER = 0xC6,
 
@@ -407,6 +408,8 @@ inline std::string packet_type_to_string(PacketType type) {
         return "SERVER_WAVE_START";
     case PacketType::SERVER_WAVE_COMPLETE:
         return "SERVER_WAVE_COMPLETE";
+    case PacketType::SERVER_PLAYER_LEVEL_UP:
+        return "SERVER_PLAYER_LEVEL_UP";
     case PacketType::SERVER_PLAYER_RESPAWN:
         return "SERVER_PLAYER_RESPAWN";
     case PacketType::SERVER_GAME_OVER:

@@ -236,10 +236,8 @@ void MenuManager::on_room_created(const protocol::ServerRoomCreatedPayload& payl
             true  // Creator is the host
         );
         room_lobby_screen_->set_countdown(0);
-
-        // Add local player to lobby list for name updates
-        uint32_t player_id = network_client_.get_player_id();
-        room_lobby_screen_->add_player(player_id, "Player 1", 0);
+        // Note: Don't add local player here - SERVER_LOBBY_STATE will provide
+        // the correct player info with proper skin_id
     }
 
     // Request room list to get fresh data
@@ -262,10 +260,8 @@ void MenuManager::on_room_joined(const protocol::ServerRoomJoinedPayload& payloa
             false    // Joiner is not the host
         );
         room_lobby_screen_->set_countdown(0);
-
-        // Add local player to lobby list for name updates
-        uint32_t player_id = network_client_.get_player_id();
-        room_lobby_screen_->add_player(player_id, "Player", 0);
+        // Note: Don't add local player here - SERVER_LOBBY_STATE will provide
+        // the correct player info with proper skin_id
     }
 
     // Request updated room list
@@ -339,6 +335,7 @@ void MenuManager::on_player_skin_updated(const protocol::ServerPlayerSkinUpdated
 void MenuManager::on_lobby_state(const protocol::ServerLobbyStatePayload& state,
                                   const std::vector<protocol::PlayerLobbyEntry>& players)
 {
+    std::cout << "[MenuManager] on_lobby_state received with " << players.size() << " players\n";
     if (room_lobby_screen_) {
         // Update all players from the lobby state
         for (const auto& entry : players) {
@@ -346,6 +343,8 @@ void MenuManager::on_lobby_state(const protocol::ServerLobbyStatePayload& state,
             if (name.empty()) {
                 name = "Player " + std::to_string(entry.player_id);
             }
+            std::cout << "[MenuManager] Updating player " << entry.player_id << ": name='" << name
+                      << "' skin_id=" << static_cast<int>(entry.skin_id) << "\n";
             // add_player will update if exists, or add if not
             room_lobby_screen_->add_player(entry.player_id, name, entry.skin_id);
         }

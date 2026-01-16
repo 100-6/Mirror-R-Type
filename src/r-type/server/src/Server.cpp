@@ -290,7 +290,7 @@ void Server::on_client_input(uint32_t client_id, const protocol::ClientInputPayl
 
 void Server::on_lobby_state_changed(uint32_t lobby_id, const std::vector<uint8_t>& payload)
 {
-    std::cout << "[Server] Broadcasting lobby state for lobby/room " << lobby_id << "\n";
+    std::cout << "[Server] Broadcasting lobby state for lobby/room " << lobby_id << " (payload size: " << payload.size() << ")\n";
 
     // If payload is empty (from RoomManager), build it ourselves with player info
     std::vector<uint8_t> actual_payload = payload;
@@ -321,13 +321,17 @@ void Server::on_lobby_state_changed(uint32_t lobby_id, const std::vector<uint8_t
                     if (info_it != connected_clients_.end()) {
                         entry.set_name(info_it->second.player_name);
                         entry.skin_id = info_it->second.skin_id;
+                        std::cout << "[Server] Adding player " << player_id << " to lobby state: name='"
+                                  << info_it->second.player_name << "' skin_id=" << static_cast<int>(info_it->second.skin_id) << "\n";
                     } else {
                         entry.set_name("Player " + std::to_string(player_id));
                         entry.skin_id = 0;
+                        std::cout << "[Server] Adding player " << player_id << " to lobby state: (not found in connected_clients)\n";
                     }
                 } else {
                     entry.set_name("Player " + std::to_string(player_id));
                     entry.skin_id = 0;
+                    std::cout << "[Server] Adding player " << player_id << " to lobby state: (not found in player_to_client)\n";
                 }
                 entry.player_level = 0;
 
@@ -563,6 +567,17 @@ void Server::on_player_respawn(uint32_t session_id, const std::vector<uint8_t>& 
     std::cout << "[Server] Broadcasting player respawn to session " << session_id << std::endl;
     packet_sender_->broadcast_udp_to_session(session_id, protocol::PacketType::SERVER_PLAYER_RESPAWN,
                                             respawn_data, session->get_player_ids(), connected_clients_);
+}
+
+void Server::on_player_level_up(uint32_t session_id, const std::vector<uint8_t>& level_up_data)
+{
+    auto* session = session_manager_->get_session(session_id);
+
+    if (!session)
+        return;
+    std::cout << "[Server] Broadcasting player level-up to session " << session_id << std::endl;
+    packet_sender_->broadcast_udp_to_session(session_id, protocol::PacketType::SERVER_PLAYER_LEVEL_UP,
+                                            level_up_data, session->get_player_ids(), connected_clients_);
 }
 
 void Server::on_game_over(uint32_t session_id, const std::vector<uint32_t>& player_ids, bool is_victory)
