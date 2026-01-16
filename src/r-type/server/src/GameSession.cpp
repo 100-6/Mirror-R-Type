@@ -74,6 +74,7 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
     registry_.register_component<ToDestroy>();
     registry_.register_component<Collider>();
     registry_.register_component<Projectile>();
+    registry_.register_component<ProjectileOwner>();
     registry_.register_component<Damage>();
     registry_.register_component<Invulnerability>();
     registry_.register_component<Score>();

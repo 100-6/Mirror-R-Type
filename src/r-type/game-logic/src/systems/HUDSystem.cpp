@@ -340,22 +340,64 @@ void HUDSystem::update(Registry& registry, float dt) {
         return;
     }
 
-    // Find the LOCAL player entity (entity with LocalPlayer component)
+    // Find the LOCAL player entity
+    // We need to find the entity that has the Score component, not just LocalPlayer/Controllable
+    // because the Score might be on a different entity (the network entity)
     Entity playerEntity = 0;
     bool playerFound = false;
 
+    static bool logged_entity = false;
 
-    for (size_t i = 0; i < localPlayers.size(); ++i) {
-        playerEntity = localPlayers.get_entity_at(i);
-        playerFound = true;
-        break;
+    // Strategy: Find an entity that has BOTH LocalPlayer AND Score components
+    // This ensures we get the right entity that receives network score updates
+    if (!logged_entity) {
+        std::cout << "[HUDSystem] DEBUG - Searching for player entity..." << std::endl;
+        std::cout << "[HUDSystem]   Total entities with Score: " << scores.size() << std::endl;
+        std::cout << "[HUDSystem]   Total entities with LocalPlayer: " << localPlayers.size() << std::endl;
+        for (size_t i = 0; i < scores.size(); ++i) {
+            Entity entity = scores.get_entity_at(i);
+            std::cout << "[HUDSystem]   Score entity " << entity
+                      << ": score=" << scores[entity].value
+                      << ", has_LocalPlayer=" << localPlayers.has_entity(entity) << std::endl;
+        }
     }
 
-    // Fallback: if no LocalPlayer component found, use first Controllable
+    for (size_t i = 0; i < scores.size(); ++i) {
+        Entity entity = scores.get_entity_at(i);
+        if (localPlayers.has_entity(entity)) {
+            playerEntity = entity;
+            playerFound = true;
+            if (!logged_entity) {
+                std::cout << "[HUDSystem] ✅ Found entity with LocalPlayer + Score: " << playerEntity
+                          << " (score: " << scores[playerEntity].value << ")" << std::endl;
+                logged_entity = true;
+            }
+            break;
+        }
+    }
+
+    // Fallback 1: Find LocalPlayer (for health display even if no score yet)
+    if (!playerFound) {
+        for (size_t i = 0; i < localPlayers.size(); ++i) {
+            playerEntity = localPlayers.get_entity_at(i);
+            playerFound = true;
+            if (!logged_entity) {
+                std::cout << "[HUDSystem] Found LocalPlayer entity (no score): " << playerEntity << std::endl;
+                logged_entity = true;
+            }
+            break;
+        }
+    }
+
+    // Fallback 2: Use first Controllable
     if (!playerFound) {
         for (size_t i = 0; i < controllables.size(); ++i) {
             playerEntity = controllables.get_entity_at(i);
             playerFound = true;
+            if (!logged_entity) {
+                std::cout << "[HUDSystem] Fallback to Controllable entity: " << playerEntity << std::endl;
+                logged_entity = true;
+            }
             break;
         }
     }
@@ -409,6 +451,18 @@ void HUDSystem::update(Registry& registry, float dt) {
         std::stringstream ss;
         ss << std::setw(8) << std::setfill('0') << score.value;
         scoreText.text = ss.str();
+    } else {
+        // Debug: log why score isn't updating
+        static bool logged = false;
+        if (!logged) {
+            std::cout << "[HUDSystem] Score debug - playerEntity: " << playerEntity
+                      << ", has_score: " << scores.has_entity(playerEntity)
+                      << ", has_score_text: " << uitexts.has_entity(m_scoreTextEntity) << std::endl;
+            if (scores.has_entity(playerEntity)) {
+                std::cout << "[HUDSystem] Score value: " << scores[playerEntity].value << std::endl;
+            }
+            logged = true;
+        }
     }
 
     // Update wave indicator

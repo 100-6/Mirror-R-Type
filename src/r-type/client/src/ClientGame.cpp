@@ -303,6 +303,7 @@ void ClientGame::setup_registry() {
     registry_->register_component<Wall>();
     registry_->register_component<Damage>();
     registry_->register_component<Projectile>();
+    registry_->register_component<ProjectileOwner>();
     registry_->register_component<Enemy>();
     registry_->register_component<NoFriction>();
     registry_->register_component<BonusWeapon>();
@@ -694,15 +695,38 @@ void ClientGame::setup_network_callbacks() {
     });
 
     network_client_->set_on_score_update([this](const protocol::ServerScoreUpdatePayload& score) {
-        uint32_t local_server_id = entity_manager_->get_local_player_entity_id();
-        if (entity_manager_->has_entity(local_server_id)) {
-            Entity entity = entity_manager_->get_entity(local_server_id);
+        // Use entity_id from payload to find the correct entity (like level-up does)
+        uint32_t server_entity_id = score.entity_id;
+        uint32_t player_id = score.player_id;
+
+        std::cout << "[CLIENT] Received score update - player_id: " << player_id
+                  << ", entity_id: " << server_entity_id
+                  << ", score: " << score.new_total_score
+                  << ", has_entity: " << entity_manager_->has_entity(server_entity_id) << std::endl;
+
+        if (entity_manager_->has_entity(server_entity_id)) {
+            Entity entity = entity_manager_->get_entity(server_entity_id);
             auto& scores = registry_->get_components<Score>();
+
+            std::cout << "[CLIENT]   Local entity: " << entity
+                      << ", has_score_component: " << scores.has_entity(entity) << std::endl;
+
             if (scores.has_entity(entity)) {
                 scores[entity].value = score.new_total_score;
-                // Save the score for game over screen (in case entity is destroyed)
-                last_known_score_ = static_cast<int>(score.new_total_score);
+                std::cout << "[CLIENT] ✅ Score updated for player " << player_id
+                          << " (server_entity " << server_entity_id
+                          << ", local_entity " << entity << "): " << score.new_total_score << std::endl;
+
+                // Save the score for game over screen only if this is the local player
+                uint32_t local_server_id = entity_manager_->get_local_player_entity_id();
+                if (server_entity_id == local_server_id) {
+                    last_known_score_ = static_cast<int>(score.new_total_score);
+                }
+            } else {
+                std::cout << "[CLIENT] ❌ Entity " << entity << " has no Score component!" << std::endl;
             }
+        } else {
+            std::cout << "[CLIENT] ❌ No entity found for server_entity_id " << server_entity_id << std::endl;
         }
     });
 

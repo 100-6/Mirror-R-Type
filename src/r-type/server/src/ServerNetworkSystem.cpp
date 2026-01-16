@@ -62,21 +62,35 @@ void ServerNetworkSystem::init(Registry& registry)
     enemyKilledSubId_ = registry.get_event_bus().subscribe<ecs::EnemyKilledEvent>(
         [this, &registry](const ecs::EnemyKilledEvent& event) {
             auto& scores = registry.get_components<Score>();
-            uint32_t current_total_score = 0;
-            if (player_entities_ && !player_entities_->empty()) {
-                Entity first_player = player_entities_->begin()->second;
-                if (scores.has_entity(first_player))
-                    current_total_score = scores[first_player].value;
+
+            // Find the network player_id for the killer entity
+            uint32_t killer_player_id = 0;
+            uint32_t killer_score = 0;
+
+            if (event.killer != 0 && player_entities_) {
+                // Find which player_id corresponds to the killer entity
+                for (const auto& [player_id, player_entity] : *player_entities_) {
+                    if (player_entity == event.killer) {
+                        killer_player_id = player_id;
+                        if (scores.has_entity(event.killer)) {
+                            killer_score = scores[event.killer].value;
+                        }
+                        break;
+                    }
+                }
             }
+
             protocol::ServerScoreUpdatePayload score_update;
+            score_update.player_id = ByteOrder::host_to_net32(killer_player_id);
+            score_update.entity_id = ByteOrder::host_to_net32(static_cast<uint32_t>(event.killer));
             score_update.score_delta = ByteOrder::host_to_net32(event.scoreValue);
-            score_update.new_total_score = ByteOrder::host_to_net32(current_total_score);
+            score_update.new_total_score = ByteOrder::host_to_net32(killer_score);
             {
                 std::lock_guard lock(scores_mutex_);
                 pending_scores_.push(score_update);
             }
-            std::cout << "[SCORE] Queued score update: +" << event.scoreValue
-                      << " (Total: " << current_total_score << ")\n";
+            std::cout << "[SCORE] Queued score update for player " << killer_player_id
+                      << ": +" << event.scoreValue << " (Total: " << killer_score << ")\n";
         });
 
     explosionSubId_ = registry.get_event_bus().subscribe<ecs::ExplosionEvent>(
@@ -549,6 +563,7 @@ void ServerNetworkSystem::spawn_projectile(Registry& registry, Entity owner, flo
     registry.add_component(projectile, Collider{config::PROJECTILE_WIDTH, config::PROJECTILE_HEIGHT});
     registry.add_component(projectile, Damage{config::PROJECTILE_DAMAGE});
     registry.add_component(projectile, Projectile{0.0f, config::PROJECTILE_LIFETIME, 0.0f, ProjectileFaction::Player});
+    registry.add_component(projectile, ProjectileOwner{owner});  // Track who fired this projectile
     registry.add_component(projectile, NoFriction{});
     protocol::ServerProjectileSpawnPayload spawn;
     spawn.projectile_id = ByteOrder::host_to_net32(projectile);
@@ -572,6 +587,7 @@ void ServerNetworkSystem::spawn_enemy_projectile(Registry& registry, Entity owne
     registry.add_component(projectile, Collider{config::PROJECTILE_WIDTH, config::PROJECTILE_HEIGHT});
     registry.add_component(projectile, Damage{config::ENEMY_PROJECTILE_DAMAGE});
     registry.add_component(projectile, Projectile{0.0f, config::PROJECTILE_LIFETIME, 0.0f, ProjectileFaction::Enemy});
+    registry.add_component(projectile, ProjectileOwner{owner});  // Track which enemy fired this
     registry.add_component(projectile, NoFriction{});
     protocol::ServerProjectileSpawnPayload spawn;
     spawn.projectile_id = ByteOrder::host_to_net32(projectile);

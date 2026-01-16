@@ -25,7 +25,7 @@ public:
 private:
     engine::IGraphicsPlugin* graphics_;
 
-    void fireBonusWeapon(Registry& registry, Entity bonusWeaponEntity, const Position& weaponPos);
+    void fireBonusWeapon(Registry& registry, Entity bonusWeaponEntity, const Position& weaponPos, Entity playerOwner);
 };
 
 #endif /* !BONUSWEAPONSYSTEM_HPP_ */

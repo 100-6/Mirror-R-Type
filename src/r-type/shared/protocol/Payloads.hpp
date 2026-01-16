@@ -512,17 +512,18 @@ static_assert(sizeof(ServerPowerupCollectedPayload) == 6, "ServerPowerupCollecte
  */
 PACK_START
 struct PACKED ServerScoreUpdatePayload {
-    uint32_t player_id;
+    uint32_t player_id;          // Network player ID (for identification)
+    uint32_t entity_id;          // Server entity ID (for client lookup)
     int32_t score_delta;
     uint32_t new_total_score;
     uint8_t combo_multiplier;
 
     ServerScoreUpdatePayload()
-        : player_id(0), score_delta(0), new_total_score(0), combo_multiplier(1) {}
+        : player_id(0), entity_id(0), score_delta(0), new_total_score(0), combo_multiplier(1) {}
 };
 PACK_END
 
-static_assert(sizeof(ServerScoreUpdatePayload) == 13, "ServerScoreUpdatePayload must be 13 bytes");
+static_assert(sizeof(ServerScoreUpdatePayload) == 17, "ServerScoreUpdatePayload must be 17 bytes");
 
 /**
  * @brief SERVER_WAVE_START payload (0xC2)

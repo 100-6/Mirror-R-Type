@@ -623,11 +623,15 @@ void NetworkClient::handle_score_update(const std::vector<uint8_t>& payload) {
 
     protocol::ServerScoreUpdatePayload score_update;
     std::memcpy(&score_update, payload.data(), sizeof(score_update));
+    score_update.player_id = ntohl(score_update.player_id);
+    score_update.entity_id = ntohl(score_update.entity_id);
     score_update.score_delta = ntohl(score_update.score_delta);
     score_update.new_total_score = ntohl(score_update.new_total_score);
 
-    // std::cout << "[NetworkClient] Score update: +" << static_cast<int>(score_update.score_delta)
-    //           << " (Total: " << score_update.new_total_score << ")\n";
+    std::cout << "[NetworkClient] Score update for player " << score_update.player_id
+              << " (entity " << score_update.entity_id << ")"
+              << ": +" << static_cast<int>(score_update.score_delta)
+              << " (Total: " << score_update.new_total_score << ")\n";
 
     if (on_score_update_)
         on_score_update_(score_update);
