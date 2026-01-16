@@ -17,6 +17,7 @@
 #include <deque>
 #include <memory>
 #include <string>
+#include <unordered_map>
 
 namespace rtype {
 
@@ -31,7 +32,7 @@ namespace rtype {
 class ChunkManagerSystem : public ISystem {
 public:
     ChunkManagerSystem(engine::IGraphicsPlugin& graphics, int screenWidth, int screenHeight);
-    virtual ~ChunkManagerSystem() = default;
+    virtual ~ChunkManagerSystem();  // Must be defined in .cpp where ProceduralMapGenerator is complete
 
     void init(Registry& registry) override;
     void shutdown() override;
@@ -116,10 +117,19 @@ public:
      */
     bool isInitialized() const;
 
+    /**
+     * @brief Set procedural seed (for client-server synchronization)
+     * @param seed Seed to use for procedural generation (0 = random)
+     */
+    void setProceduralSeed(uint32_t seed);
+
 private:
     void loadChunk(Registry& registry, int segmentId, int chunkIndex);
     void unloadChunk(Registry& registry, int chunkIndex);
     int getChunksNeeded() const;
+
+    // Procedural generation helper
+    SegmentData* getOrGenerateSegment(int segmentId);
     
     engine::IGraphicsPlugin& m_graphics;
     int m_screenWidth;
@@ -128,9 +138,15 @@ private:
     MapConfig m_config;
     AutoTiler m_autoTiler;
     engine::TextureHandle m_tileSheetHandle = engine::INVALID_HANDLE;
-    
-    std::vector<SegmentData> m_segments;
+
+    std::vector<SegmentData> m_segments;  // For static maps
+    std::unordered_map<int, SegmentData> m_generatedSegments;  // For procedural maps
     std::deque<Chunk> m_activeChunks;
+
+    // Procedural generation
+    bool m_proceduralEnabled = false;
+    std::unique_ptr<class ProceduralMapGenerator> m_generator;
+    ProceduralConfig m_proceduralConfig;
 
     // Two scroll positions to prevent visual stuttering:
     // - m_confirmedScrollX: Authoritative scroll from server, used for chunk loading decisions

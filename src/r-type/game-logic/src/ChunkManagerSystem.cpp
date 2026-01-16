@@ -7,6 +7,7 @@
 
 #include "systems/ChunkManagerSystem.hpp"
 #include "systems/MapConfigLoader.hpp"
+#include "ProceduralMapGenerator.hpp"
 #include "ecs/Registry.hpp"
 #include <iostream>
 #include <algorithm>
@@ -19,6 +20,8 @@ ChunkManagerSystem::ChunkManagerSystem(engine::IGraphicsPlugin& graphics, int sc
     , m_screenHeight(screenHeight)
 {
 }
+
+ChunkManagerSystem::~ChunkManagerSystem() = default;
 
 void ChunkManagerSystem::init(Registry& registry) {
     (void)registry;
@@ -42,6 +45,22 @@ void ChunkManagerSystem::initWithConfig(const MapConfig& config) {
     m_renderScrollX = 0.0;
     m_nextChunkIndex = 0;
     m_currentSegment = 0;
+
+    // Initialize procedural generation if enabled
+    m_proceduralEnabled = config.procedural.enabled;
+    m_proceduralConfig = config.procedural;
+
+    if (m_proceduralEnabled) {
+        // Note: seed will be set by setProceduralSeed() when server sends it
+        // For now, create generator with config seed (may be 0 = random)
+        m_generator = std::make_unique<ProceduralMapGenerator>(config.procedural.seed);
+        m_generatedSegments.clear();
+        std::cout << "[ChunkManagerSystem] Procedural generation enabled (seed: "
+                  << config.procedural.seed << ")" << std::endl;
+    } else {
+        m_generator.reset();
+        m_generatedSegments.clear();
+    }
 }
 
 void ChunkManagerSystem::reset(Registry& registry) {
@@ -64,15 +83,30 @@ bool ChunkManagerSystem::loadTileSheet(const std::string& path) {
 }
 
 void ChunkManagerSystem::loadSegments(const std::vector<std::string>& segmentPaths) {
+    if (m_proceduralEnabled) {
+        // Procedural mode: ignore JSON files, generate on-demand
+        m_segments.clear();
+        m_generatedSegments.clear();
+        std::cout << "[ChunkManagerSystem] Procedural mode: segments will be generated on-demand" << std::endl;
+
+        // Pre-generate segment 0 to ensure map starts properly
+        if (m_generator) {
+            getOrGenerateSegment(0);
+            std::cout << "[ChunkManagerSystem] Pre-generated initial segment" << std::endl;
+        }
+        return;
+    }
+
+    // Static mode: load from JSON
     m_segments.clear();
-    
+
     for (const auto& path : segmentPaths) {
         SegmentData segment = MapConfigLoader::loadSegment(path);
         m_segments.push_back(segment);
-        std::cout << "Loaded segment " << segment.segmentId 
+        std::cout << "Loaded segment " << segment.segmentId
                   << " (" << segment.width << "x" << segment.height << ")" << std::endl;
     }
-    
+
     // Initial chunk loading will be handled in update() since we need registry
     // to spawn entities
 }
@@ -84,11 +118,18 @@ int ChunkManagerSystem::getChunksNeeded() const {
 }
 
 void ChunkManagerSystem::loadChunk(Registry& registry, int segmentId, int chunkIndex) {
-    if (segmentId >= static_cast<int>(m_segments.size())) {
+    std::cout << "[ChunkManagerSystem] Loading chunk - segment: " << segmentId << ", chunk: " << chunkIndex << std::endl;
+
+    // Get segment (either from static vector or generate procedurally)
+    SegmentData* segmentDataPtr = getOrGenerateSegment(segmentId);
+    if (!segmentDataPtr) {
+        std::cerr << "[ChunkManagerSystem] ERROR: Failed to get segment " << segmentId << std::endl;
         return;
     }
-    
-    const SegmentData& segmentData = m_segments[segmentId];
+
+    const SegmentData& segmentData = *segmentDataPtr;
+    std::cout << "[ChunkManagerSystem] Segment size: " << segmentData.width << "x" << segmentData.height
+              << ", tiles size: " << segmentData.tiles.size() << std::endl;
     
     int startX = chunkIndex * m_config.chunkWidth;
     int endX = std::min(startX + m_config.chunkWidth, segmentData.width);
@@ -107,7 +148,10 @@ void ChunkManagerSystem::loadChunk(Registry& registry, int segmentId, int chunkI
     // This ensures visual tiles align with server collision walls
     double segment_world_x = 0.0;
     for (int i = 0; i < segmentId; ++i) {
-        segment_world_x += static_cast<double>(m_segments[i].width * m_config.tileSize);
+        SegmentData* prevSeg = getOrGenerateSegment(i);
+        if (prevSeg) {
+            segment_world_x += static_cast<double>(prevSeg->width * m_config.tileSize);
+        }
     }
     // Add offset within current segment based on chunk index
     chunk.worldX = segment_world_x + static_cast<double>(startX * m_config.tileSize);
@@ -124,9 +168,10 @@ void ChunkManagerSystem::loadChunk(Registry& registry, int segmentId, int chunkI
         if (startX > 0) {
             paddedGrid[y][0] = static_cast<TileType>(segmentData.tiles[y][startX - 1]);
         } else if (segmentId > 0) {
-            const auto& prevSeg = m_segments[segmentId - 1];
-            if (y < static_cast<int>(prevSeg.tiles.size()) && !prevSeg.tiles[y].empty()) {
-                paddedGrid[y][0] = static_cast<TileType>(prevSeg.tiles[y].back());
+            // Get previous segment (may be procedurally generated)
+            SegmentData* prevSegPtr = getOrGenerateSegment(segmentId - 1);
+            if (prevSegPtr && y < static_cast<int>(prevSegPtr->tiles.size()) && !prevSegPtr->tiles[y].empty()) {
+                paddedGrid[y][0] = static_cast<TileType>(prevSegPtr->tiles[y].back());
             } else {
                 paddedGrid[y][0] = TileType::EMPTY;
             }
@@ -147,21 +192,27 @@ void ChunkManagerSystem::loadChunk(Registry& registry, int segmentId, int chunkI
         
         // Right padding
         if (endX < segmentData.width) {
-            if (y < static_cast<int>(segmentData.tiles.size()) && 
+            if (y < static_cast<int>(segmentData.tiles.size()) &&
                 endX < static_cast<int>(segmentData.tiles[y].size())) {
                 paddedGrid[y][paddedWidth - 1] = static_cast<TileType>(segmentData.tiles[y][endX]);
             } else {
                 paddedGrid[y][paddedWidth - 1] = TileType::EMPTY;
             }
-        } else if (segmentId + 1 < static_cast<int>(m_segments.size())) {
-            const auto& nextSeg = m_segments[segmentId + 1];
-            if (y < static_cast<int>(nextSeg.tiles.size()) && !nextSeg.tiles[y].empty()) {
-                paddedGrid[y][paddedWidth - 1] = static_cast<TileType>(nextSeg.tiles[y][0]);
+        } else {
+            // Check if we need padding from next segment
+            // In procedural mode, we can always generate the next segment
+            // In static mode, check if next segment exists
+            bool hasNextSegment = m_proceduralEnabled || (segmentId + 1 < static_cast<int>(m_segments.size()));
+            if (hasNextSegment) {
+                SegmentData* nextSegPtr = getOrGenerateSegment(segmentId + 1);
+                if (nextSegPtr && y < static_cast<int>(nextSegPtr->tiles.size()) && !nextSegPtr->tiles[y].empty()) {
+                    paddedGrid[y][paddedWidth - 1] = static_cast<TileType>(nextSegPtr->tiles[y][0]);
+                } else {
+                    paddedGrid[y][paddedWidth - 1] = TileType::EMPTY;
+                }
             } else {
                 paddedGrid[y][paddedWidth - 1] = TileType::EMPTY;
             }
-        } else {
-            paddedGrid[y][paddedWidth - 1] = TileType::EMPTY;
         }
     }
     
@@ -176,12 +227,19 @@ void ChunkManagerSystem::loadChunk(Registry& registry, int segmentId, int chunkI
     std::vector<std::vector<bool>> processed(chunk.height, std::vector<bool>(chunk.width, false));
 
     // Populate actual tiles first
+    int wallTileCount = 0;
     for (int y = 0; y < chunk.height; ++y) {
         chunk.tiles[y].resize(chunk.width);
-        for (int x = 0; x < chunk.width; ++x) { 
+        for (int x = 0; x < chunk.width; ++x) {
             chunk.tiles[y][x] = processedPadded[y][x + 1];
+            if (chunk.tiles[y][x].type != TileType::EMPTY) {
+                wallTileCount++;
+            }
         }
     }
+
+    std::cout << "[ChunkManagerSystem] Chunk processed: " << chunk.width << "x" << chunk.height
+              << " with " << wallTileCount << " wall tiles at worldX=" << chunk.worldX << std::endl;
 
     // NO COLLISION ENTITIES ARE CREATED ON CLIENT
     // Wall collisions are handled server-side only
@@ -208,8 +266,14 @@ void ChunkManagerSystem::unloadChunk(Registry& registry, int chunkIndex) {
 
 void ChunkManagerSystem::update(Registry& registry, float dt) {
     (void)dt;
-    
-    if (!m_initialized || m_segments.empty()) {
+
+    if (!m_initialized) {
+        return;
+    }
+
+    // In procedural mode, we always have segments available
+    // In static mode, check if segments were loaded
+    if (!m_proceduralEnabled && m_segments.empty()) {
         return;
     }
 
@@ -229,7 +293,13 @@ void ChunkManagerSystem::update(Registry& registry, float dt) {
             int currentSegment = m_activeChunks.back().segmentId;
             int nextChunkInSegment = m_activeChunks.back().chunkIndex + 1;
 
-            int segWidth = m_segments[currentSegment].width;
+            // Get segment (either from static vector or generate procedurally)
+            SegmentData* currentSegData = getOrGenerateSegment(currentSegment);
+            if (!currentSegData) {
+                break; // Failed to get segment
+            }
+
+            int segWidth = currentSegData->width;
             int chunksInSeg = (segWidth + m_config.chunkWidth - 1) / m_config.chunkWidth;
 
             if (nextChunkInSegment >= chunksInSeg) {
@@ -237,7 +307,9 @@ void ChunkManagerSystem::update(Registry& registry, float dt) {
                 nextChunkInSegment = 0;
             }
 
-            if (currentSegment >= static_cast<int>(m_segments.size())) {
+            // In procedural mode, we can generate infinite segments
+            // In static mode, check if we've reached the end
+            if (!m_proceduralEnabled && currentSegment >= static_cast<int>(m_segments.size())) {
                 break; // End of map
             }
 
@@ -309,13 +381,22 @@ bool ChunkManagerSystem::isInitialized() const {
 
 void ChunkManagerSystem::render() const {
     if (m_tileSheetHandle == engine::INVALID_HANDLE) {
+        std::cerr << "[ChunkManagerSystem] Render skipped: No tilesheet loaded" << std::endl;
         return;
     }
+
+    static int renderCallCount = 0;
+    if (renderCallCount % 60 == 0) {  // Log every 60 frames
+        std::cout << "[ChunkManagerSystem] Rendering " << m_activeChunks.size() << " chunks at scrollX="
+                  << m_renderScrollX << std::endl;
+    }
+    renderCallCount++;
 
     float tileSize = static_cast<float>(m_config.tileSize);
     // Use RENDER scroll for smooth visual display (may be slightly ahead of confirmed)
     float scrollX = static_cast<float>(m_renderScrollX);
 
+    int tilesRendered = 0;
     for (const auto& chunk : m_activeChunks) {
         float chunkScreenX = static_cast<float>(chunk.worldX) - scrollX;
         
@@ -362,11 +443,80 @@ void ChunkManagerSystem::render() const {
                     sprite.source_rect.y += sprite.source_rect.height;
                     sprite.source_rect.height = -sprite.source_rect.height;
                 }
-                
+
                 m_graphics.draw_sprite(sprite, {drawX, drawY});
+                tilesRendered++;
             }
         }
     }
+
+    if (renderCallCount % 60 == 0 && tilesRendered > 0) {
+        std::cout << "[ChunkManagerSystem] Rendered " << tilesRendered << " tiles" << std::endl;
+    }
+}
+
+void ChunkManagerSystem::setProceduralSeed(uint32_t seed) {
+    if (!m_proceduralEnabled || !m_generator) {
+        return;
+    }
+
+    // Reset generator with new seed from server
+    m_generator = std::make_unique<ProceduralMapGenerator>(seed);
+    m_generatedSegments.clear();
+
+    std::cout << "[ChunkManagerSystem] Procedural seed set to: " << seed << std::endl;
+}
+
+SegmentData* ChunkManagerSystem::getOrGenerateSegment(int segmentId) {
+    if (!m_proceduralEnabled) {
+        // Static mode: return from vector
+        if (segmentId >= 0 && segmentId < static_cast<int>(m_segments.size())) {
+            return &m_segments[segmentId];
+        }
+        return nullptr;
+    }
+
+    // Procedural mode: check cache or generate
+    auto it = m_generatedSegments.find(segmentId);
+    if (it != m_generatedSegments.end()) {
+        return &it->second;
+    }
+
+    // Generate new segment
+    if (!m_generator) {
+        std::cerr << "[ChunkManagerSystem] ERROR: Generator not initialized!" << std::endl;
+        return nullptr;
+    }
+
+    // Get entry state from previous segment
+    ProceduralMapGenerator::PathState* entryState = nullptr;
+    if (segmentId > 0) {
+        auto prevIt = m_generatedSegments.find(segmentId - 1);
+        if (prevIt == m_generatedSegments.end()) {
+            // Previous segment not generated yet - this shouldn't happen
+            std::cerr << "[ChunkManagerSystem] WARNING: Generating segment " << segmentId
+                      << " before segment " << (segmentId - 1) << std::endl;
+        } else {
+            // Use last exit state from generator
+            entryState = const_cast<ProceduralMapGenerator::PathState*>(&m_generator->getLastExitState());
+        }
+    }
+
+    // Convert ProceduralConfig to GenerationParams
+    ProceduralMapGenerator::GenerationParams params;
+    params.minPassageHeight = m_proceduralConfig.minPassageHeight;
+    params.stalactiteChance = m_proceduralConfig.stalactiteChance;
+    params.maxStalactiteLength = m_proceduralConfig.maxStalactiteLength;
+    params.pathVariation = m_proceduralConfig.pathVariation;
+
+    SegmentData segment = m_generator->generateSegment(segmentId, entryState, params);
+
+    std::cout << "[ChunkManagerSystem] Generated procedural segment " << segmentId
+              << " (" << segment.width << "x" << segment.height << ")" << std::endl;
+
+    // Cache the generated segment
+    auto result = m_generatedSegments.insert({segmentId, std::move(segment)});
+    return &result.first->second;
 }
 
 } // namespace rtype

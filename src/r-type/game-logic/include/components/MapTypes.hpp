@@ -11,6 +11,7 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include <cstdint>
 
 namespace rtype {
 
@@ -73,6 +74,20 @@ struct MapInfo {
 };
 
 /**
+ * @brief Procedural generation configuration
+ */
+struct ProceduralConfig {
+    bool enabled = false;
+    uint32_t seed = 0;  // 0 = random
+
+    // Generation parameters
+    int minPassageHeight = 45;
+    float stalactiteChance = 0.25f;
+    int maxStalactiteLength = 6;
+    int pathVariation = 5;
+};
+
+/**
  * @brief Map configuration loaded from JSON
  */
 struct MapConfig {
@@ -85,6 +100,7 @@ struct MapConfig {
     std::string tileSheetPath;
     std::unordered_map<std::string, SourceRect> wallSourceRects;
     std::vector<ParallaxLayerConfig> parallaxLayers;
+    ProceduralConfig procedural;  // Procedural generation config
 };
 
 /**
