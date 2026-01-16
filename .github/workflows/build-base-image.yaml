@@ -21,8 +21,8 @@ env:
 
 jobs:
   build-base-image:
-    runs-on: ubuntu-latest
-    timeout-minutes: 180  # Long timeout for ARM64 build with QEMU emulation
+    runs-on: ubuntu-24.04-arm  # Native ARM64 runner (requires public repo)
+    timeout-minutes: 60  # Much faster with native ARM64
 
     steps:
       - name: Checkout code
@@ -56,25 +56,35 @@ jobs:
         run: |
           DATE=$(date +%Y%m%d)
           SHA=${GITHUB_SHA::7}
+          echo "date=${DATE}" >> $GITHUB_OUTPUT
+          echo "sha=${SHA}" >> $GITHUB_OUTPUT
           echo "tags=${{ env.REGISTRY }}/${{ env.BUILDER_IMAGE }}:latest,${{ env.REGISTRY }}/${{ env.BUILDER_IMAGE }}:${DATE}-${SHA}" >> $GITHUB_OUTPUT
 
-      - name: Build and push Builder Image
+      - name: Build Builder Image (cache only, no push)
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile.builder
           platforms: linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.BUILDER_IMAGE }}:buildcache
-          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.BUILDER_IMAGE }}:buildcache,mode=max
+          push: false
+          load: false
+          tags: ${{ env.REGISTRY }}/${{ env.BUILDER_IMAGE }}:latest
+          labels: |
+            org.opencontainers.image.source=${{ github.repositoryUrl }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.created=${{ steps.meta.outputs.date }}
+          cache-from: type=gha,scope=builder
+          cache-to: type=gha,mode=max,scope=builder
           provenance: false
           sbom: false
+          outputs: type=cacheonly
 
       - name: Notify success
         if: success()
         run: |
           echo "=========================================="
-          echo "Base builder image pushed successfully!"
-          echo "Image: ${{ env.REGISTRY }}/${{ env.BUILDER_IMAGE }}:latest"
+          echo "✅ Base builder image cached successfully!"
+          echo "Cache scope: builder"
+          echo "Note: Image is NOT pushed to registry (too large)"
+          echo "Deploy workflows will build server images using this cache"
           echo "=========================================="

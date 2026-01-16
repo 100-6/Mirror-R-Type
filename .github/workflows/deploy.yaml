@@ -25,8 +25,8 @@ env:
 
 jobs:
   build-and-push:
-    runs-on: ubuntu-latest
-    timeout-minutes: 120  # Increased timeout for ARM64 emulation
+    runs-on: ubuntu-24.04-arm  # Native ARM64 runner (requires public repo)
+    timeout-minutes: 30  # Much faster with native ARM64
 
     steps:
       - name: Checkout code
@@ -77,16 +77,12 @@ jobs:
           platforms: linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.rtype_tags }}
-          build-args: |
-            REGISTRY=${{ env.REGISTRY }}
           labels: |
             org.opencontainers.image.source=${{ github.repositoryUrl }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.created=${{ steps.meta.outputs.date }}
-          cache-from: |
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.RTYPE_IMAGE }}:buildcache
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.BUILDER_IMAGE }}:latest
-          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.RTYPE_IMAGE }}:buildcache,mode=max
+          cache-from: type=gha,scope=rtype-server
+          cache-to: type=gha,mode=max,scope=rtype-server
           provenance: false
           sbom: false
 
@@ -101,16 +97,12 @@ jobs:
           platforms: linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.bagario_tags }}
-          build-args: |
-            REGISTRY=${{ env.REGISTRY }}
           labels: |
             org.opencontainers.image.source=${{ github.repositoryUrl }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.created=${{ steps.meta.outputs.date }}
-          cache-from: |
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.BAGARIO_IMAGE }}:buildcache
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.BUILDER_IMAGE }}:latest
-          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.BAGARIO_IMAGE }}:buildcache,mode=max
+          cache-from: type=gha,scope=bagario-server
+          cache-to: type=gha,mode=max,scope=bagario-server
           provenance: false
           sbom: false
 

@@ -6,7 +6,7 @@
 # pre-bootstrapped to speed up CI builds significantly.
 # ==========================================
 
-FROM --platform=linux/arm64 debian:bookworm-slim
+FROM debian:bookworm-slim
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
@@ -32,7 +32,8 @@ WORKDIR /vcpkg
 
 # Clone and bootstrap vcpkg at specific commit
 ARG VCPKG_COMMIT=bd52fac7114fdaa2208de8dd1227212a6683e562
-RUN git clone https://github.com/Microsoft/vcpkg.git . && \
+RUN git clone --depth 1 --branch master https://github.com/Microsoft/vcpkg.git . && \
+    git fetch --depth 1 origin ${VCPKG_COMMIT} && \
     git checkout ${VCPKG_COMMIT} && \
     ./bootstrap-vcpkg.sh -disableMetrics
 
@@ -42,7 +43,9 @@ WORKDIR /prebuild
 COPY vcpkg.json .
 
 # Install vcpkg dependencies (this is the slow part we want to cache)
-RUN /vcpkg/vcpkg install --triplet arm64-linux-dynamic
+# Clean up after install to reduce image size (keep .git until after install)
+RUN /vcpkg/vcpkg install --triplet arm64-linux-dynamic && \
+    rm -rf /vcpkg/.git /vcpkg/buildtrees /vcpkg/downloads /vcpkg/packages
 
 # Set environment variables for builds
 ENV VCPKG_ROOT=/vcpkg
