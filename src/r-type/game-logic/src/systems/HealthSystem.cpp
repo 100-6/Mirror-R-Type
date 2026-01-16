@@ -49,6 +49,7 @@ void HealthSystem::init(Registry& registry)
                 if (isEnemy) {
                     registry.get_event_bus().publish(ecs::EnemyKilledEvent{event.target, 100});
                     auto& positions = registry.get_components<Position>();
+                    auto& ais = registry.get_components<AI>();
                     if (positions.has_entity(event.target)) {
                         const Position& pos = positions[event.target];
 
@@ -73,6 +74,27 @@ void HealthSystem::init(Registry& registry)
                                 scale
                             });
                         }
+
+                        // Emit explosion sound event based on enemy type
+                        ecs::ExplosionSoundEvent::ExplosionType soundType =
+                            ecs::ExplosionSoundEvent::ExplosionType::ENEMY_BASIC;
+                        if (ais.has_entity(event.target)) {
+                            const AI& ai = ais[event.target];
+                            switch (ai.type) {
+                                case EnemyType::Boss:
+                                    soundType = ecs::ExplosionSoundEvent::ExplosionType::ENEMY_BOSS;
+                                    break;
+                                case EnemyType::Tank:
+                                    soundType = ecs::ExplosionSoundEvent::ExplosionType::ENEMY_TANK;
+                                    break;
+                                default:
+                                    soundType = ecs::ExplosionSoundEvent::ExplosionType::ENEMY_BASIC;
+                                    break;
+                            }
+                        }
+                        registry.get_event_bus().publish(ecs::ExplosionSoundEvent{
+                            soundType, pos.x, pos.y, 1.0f
+                        });
 
                         // Random chance to drop a bonus (20% chance)
                         std::uniform_real_distribution<float> drop_chance(0.0f, 1.0f);
@@ -106,6 +128,15 @@ void HealthSystem::init(Registry& registry)
                 std::cout << "[HealthSystem] ToDestroy component added to entity " << event.target << std::endl;
 
                 if (isPlayer) {
+                    // Emit player explosion sound
+                    auto& positions = registry.get_components<Position>();
+                    if (positions.has_entity(event.target)) {
+                        const Position& pos = positions[event.target];
+                        registry.get_event_bus().publish(ecs::ExplosionSoundEvent{
+                            ecs::ExplosionSoundEvent::ExplosionType::PLAYER,
+                            pos.x, pos.y, 1.0f
+                        });
+                    }
                     // Destroy companion turret when player dies
                     registry.get_event_bus().publish(ecs::CompanionDestroyEvent{event.target});
                     std::cout << "GAME OVER! Player died!" << std::endl;

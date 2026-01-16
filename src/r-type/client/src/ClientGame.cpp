@@ -1,6 +1,7 @@
 #include "ClientGame.hpp"
 #include "ecs/systems/SpriteAnimationSystem.hpp"
 #include "ecs/systems/MovementSystem.hpp"
+#include "ecs/systems/AudioSystem.hpp"
 #include "systems/AttachmentSystem.hpp"
 #include "systems/ScrollingSystem.hpp"
 #include "ecs/systems/RenderSystem.hpp"
@@ -22,6 +23,7 @@
 #include "ClientComponents.hpp"
 #include "components/GameComponents.hpp"
 #include "components/LevelComponents.hpp"
+#include "AssetsPaths.hpp"
 #include <iostream>
 #include <fstream>
 #include <chrono>
@@ -92,6 +94,11 @@ bool ClientGame::initialize(const std::string& host, uint16_t tcp_port, const st
             gameStates[entity].finalScore = 0;
         }
 
+        // Emit scene change event for menu music
+        registry_->get_event_bus().publish(ecs::SceneChangeEvent{
+            ecs::SceneChangeEvent::SceneType::MENU, 0
+        });
+
         // Reset to main menu
         menu_manager_->set_screen(GameScreen::MAIN_MENU);
         screen_manager_->set_screen(GameScreen::MAIN_MENU);
@@ -160,6 +167,11 @@ bool ClientGame::initialize(const std::string& host, uint16_t tcp_port, const st
 
     // Start at main menu instead of auto-joining
     screen_manager_->set_screen(GameScreen::MAIN_MENU);
+
+    // Emit scene change event for menu music at startup
+    registry_->get_event_bus().publish(ecs::SceneChangeEvent{
+        ecs::SceneChangeEvent::SceneType::MENU, 0
+    });
 
     running_ = true;
 
@@ -280,6 +292,11 @@ void ClientGame::setup_registry() {
 void ClientGame::setup_systems() {
     if (!registry_)
         return;
+
+    // Audio system - handles sound effects and music
+    if (audio_plugin_) {
+        registry_->register_system<AudioSystem>(*audio_plugin_, assets::paths::AUDIO_CONFIG);
+    }
 
     // Background scrolling
     registry_->register_system<ScrollingSystem>(-100.0f, static_cast<float>(screen_width_));
@@ -520,6 +537,12 @@ void ClientGame::setup_network_callbacks() {
         entity_manager_->clear_all();
         screen_manager_->set_screen(GameScreen::PLAYING);
         server_scroll_speed_ = scroll_speed;
+
+        // Emit scene change event for gameplay music
+        registry_->get_event_bus().publish(ecs::SceneChangeEvent{
+            ecs::SceneChangeEvent::SceneType::GAMEPLAY,
+            static_cast<int>(map_id)
+        });
 
         // Reset score at start of new game
         last_known_score_ = 0;
@@ -893,6 +916,13 @@ void ClientGame::setup_network_callbacks() {
             gameStates[entity].finalScore = final_score;
         }
 
+        // Emit scene change event for victory/game over music
+        registry_->get_event_bus().publish(ecs::SceneChangeEvent{
+            victory ? ecs::SceneChangeEvent::SceneType::VICTORY
+                    : ecs::SceneChangeEvent::SceneType::GAME_OVER,
+            0
+        });
+
         screen_manager_->show_result(victory, final_score);
     });
 
@@ -1030,6 +1060,15 @@ void ClientGame::run() {
         if (network_client_->is_in_game() &&
             std::chrono::duration_cast<std::chrono::milliseconds>(now - last_input_send).count() >= 15) {
             uint16_t input_flags = input_handler_->gather_input();
+
+            // Client-side shoot sound with cooldown
+            bool is_shooting = (input_flags & static_cast<uint16_t>(protocol::InputFlags::INPUT_SHOOT)) != 0;
+            shoot_sound_cooldown_ -= dt;
+            if (is_shooting && shoot_sound_cooldown_ <= 0.0f) {
+                // Emit shoot sound event
+                registry_->get_event_bus().publish(ecs::ShotFiredEvent{0, 0});
+                shoot_sound_cooldown_ = 0.15f; // 150ms cooldown between sounds
+            }
 
             // NOUVEAU: Appliquer la vélocité localement AVANT d'envoyer au serveur
             apply_input_to_local_player(input_flags);

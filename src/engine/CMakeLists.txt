@@ -9,10 +9,14 @@ add_library(game_engine
     src/ecs/systems/NetworkSystem.cpp
     src/ecs/systems/DestroySystem.cpp
     src/ecs/systems/AudioSystem.cpp
+    src/ecs/systems/AudioConfigLoader.cpp
     src/ecs/systems/SpriteAnimationSystem.cpp
     src/core/event/EventBus.cpp
     src/plugin_manager/PluginManager.cpp
 )
+
+# Find nlohmann_json for audio config
+find_package(nlohmann_json REQUIRED)
 
 target_include_directories(game_engine
     PUBLIC
@@ -22,9 +26,9 @@ target_include_directories(game_engine
 
 # Link system libraries for dynamic loading
 if(WIN32)
-    target_link_libraries(game_engine PUBLIC)
+    target_link_libraries(game_engine PUBLIC nlohmann_json::nlohmann_json)
 else()
-    target_link_libraries(game_engine PUBLIC ${CMAKE_DL_LIBS})
+    target_link_libraries(game_engine PUBLIC ${CMAKE_DL_LIBS} nlohmann_json::nlohmann_json)
 endif()
 
 # ============================================

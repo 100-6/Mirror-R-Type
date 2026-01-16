@@ -6,6 +6,7 @@
 */
 
 #include "systems/LevelSystem.hpp"
+#include "ecs/events/GameEvents.hpp"
 #include <iostream>
 
 namespace rtype {
@@ -120,12 +121,23 @@ void LevelSystem::on_boss_fight_started(Registry& registry, LevelController& lc)
 {
     std::cout << "[LevelSystem] Boss fight started!\n";
     // Boss spawning is handled by GameSession::update() (see GameSession.cpp lines 374-447)
+
+    // Emit scene change event for boss fight music
+    registry.get_event_bus().publish(ecs::SceneChangeEvent{
+        ecs::SceneChangeEvent::SceneType::BOSS_FIGHT,
+        static_cast<int>(lc.current_level)
+    });
 }
 
 void LevelSystem::on_level_completed(Registry& registry, LevelController& lc)
 {
     std::cout << "[LevelSystem] Level " << static_cast<int>(lc.current_level) << " completed!\n";
-    // TODO: Show victory animation, calculate score bonus
+
+    // Emit scene change event for victory music
+    registry.get_event_bus().publish(ecs::SceneChangeEvent{
+        ecs::SceneChangeEvent::SceneType::VICTORY,
+        static_cast<int>(lc.current_level)
+    });
 }
 
 // ============================================================================
@@ -229,6 +241,8 @@ void LevelSystem::transition_to_game_over(LevelController& lc)
     lc.state = LevelState::GAME_OVER;
     lc.state_timer = 0.0f;
     std::cout << "[LevelSystem] Transition: GAME_OVER\n";
+    // Note: SceneChangeEvent for GAME_OVER should be emitted by GameStateSystem
+    // which has access to the registry's event bus
 }
 
 // ============================================================================
