@@ -2,7 +2,7 @@
 # R-Type Server Production Dockerfile
 # Target: ARM64 (Raspberry Pi)
 # ==========================================
-# Builds with vcpkg dependencies inline (no separate builder image)
+# Builds with vcpkg dependencies inline
 # ==========================================
 
 # ==========================================
