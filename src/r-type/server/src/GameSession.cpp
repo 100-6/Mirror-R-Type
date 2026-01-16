@@ -966,15 +966,26 @@ void GameSession::resync_client(uint32_t player_id, uint32_t tcp_client_id)
 
 void GameSession::load_map_segments(uint16_t map_id)
 {
-    // Map ID to folder mapping - all levels use nebula_outpost visual map for now
+    // Map ID to folder mapping
     // The gameplay logic (waves, boss) is defined in level JSON files
     std::string map_folder;
     switch (map_id) {
         case 0:   // Debug: Quick Test
-        case 1:   // Level 1: Asteroid Belt
-        case 2:   // Level 2: Nebula Station
-        case 3:   // Level 3: Bydo Fortress
         case 99:  // Debug: Instant Boss
+            map_folder = "nebula_outpost";
+            break;
+        case 1:   // Level 1: Mars Assault
+            map_folder = "mars_outpost";
+            break;
+        case 2:   // Level 2: Nebula Station
+            map_folder = "nebula_outpost";
+            break;
+        case 3:   // Level 3: Uranus Station
+            map_folder = "urasnus_outpost";
+            break;
+        case 4:   // Level 4: Jupiter Orbit
+            map_folder = "jupiter_outpost";
+            break;
         default:
             map_folder = "nebula_outpost";
             break;

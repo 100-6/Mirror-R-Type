@@ -26,8 +26,8 @@ bool InputHandler::handle_map_click(
     float size = Config::DIFFICULTY_CIRCLE_SIZE;  // Same size as difficulty
     float spacing = Config::DIFFICULTY_CIRCLE_SPACING;
 
-    // Support up to 3 maps
-    size_t maps_to_show = std::min(num_maps, static_cast<size_t>(3));
+    // Support all available maps (no limit)
+    size_t maps_to_show = num_maps;
     if (maps_to_show == 0) return false;
 
     float total_width = size * maps_to_show + spacing * (maps_to_show - 1);
