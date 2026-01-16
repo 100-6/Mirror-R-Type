@@ -6,7 +6,7 @@
 # pre-bootstrapped to speed up CI builds significantly.
 # ==========================================
 
-FROM --platform=linux/arm64 debian:bookworm-slim
+FROM debian:bookworm-slim
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y \

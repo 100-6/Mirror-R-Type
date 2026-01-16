@@ -21,8 +21,8 @@ env:
 
 jobs:
   build-base-image:
-    runs-on: ubuntu-latest
-    timeout-minutes: 180  # Long timeout for ARM64 build with QEMU emulation
+    runs-on: ubuntu-24.04-arm  # Native ARM64 runner (requires public repo)
+    timeout-minutes: 60  # Much faster with native ARM64
 
     steps:
       - name: Checkout code
