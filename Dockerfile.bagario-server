@@ -52,6 +52,7 @@ COPY CMakeLists.txt .
 COPY cmake/ cmake/
 COPY src/ src/
 COPY vcpkg.json .
+COPY assets/ assets/
 
 # Configure CMake with pre-installed vcpkg
 RUN cmake -S . -B build \
