@@ -312,12 +312,14 @@ src/r-type/game-logic/
 │   ├── components/
 │   │   ├── GameComponents.hpp     # Wave components definitions
 │   │   └── WaveConfig.hpp         # Wave configuration defines
-│   └── systems/
-│       ├── WaveSpawnerSystem.hpp  # Wave spawner system header
+│   ├── systems/
+│   │   └── WaveSpawnerSystem.hpp  # Wave spawner system header
+│   └── utils/
 │       └── WaveConfigLoader.hpp   # JSON loader header
 └── src/
-    └── systems/
-        ├── WaveSpawnerSystem.cpp  # Wave spawner implementation
+    ├── systems/
+    │   └── WaveSpawnerSystem.cpp  # Wave spawner implementation
+    └── utils/
         └── WaveConfigLoader.cpp   # JSON loader implementation
 
 src/r-type/assets/

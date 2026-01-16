@@ -562,7 +562,7 @@ void ClientGame::setup_network_callbacks() {
         status_overlay_->refresh();
     });
 
-    network_client_->set_on_game_start([this](uint32_t session_id, uint16_t udp_port, uint16_t map_id, float scroll_speed) {
+    network_client_->set_on_game_start([this](uint32_t session_id, uint16_t udp_port, uint16_t map_id, float scroll_speed, uint32_t seed) {
         (void)udp_port;
         status_overlay_->set_session("In game (session " + std::to_string(session_id) + ")");
         status_overlay_->refresh();
@@ -609,6 +609,10 @@ void ClientGame::setup_network_callbacks() {
         if (chunk_manager_) {
             // Pass registry to update velocities of existing wall entities
             chunk_manager_->setScrollSpeed(server_scroll_speed_, registry_.get());
+            
+            // Set the map seed for procedural generation (ensure this happens AFTER map load/init)
+            // load_map() resets the generator with config seed, so we must override it here
+            chunk_manager_->setProceduralSeed(seed);
         }
 
         // Apply map-specific theme (background color)
