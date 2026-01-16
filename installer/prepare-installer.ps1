@@ -37,11 +37,11 @@ function Copy-WithCheck {
 # Copy executables
 Write-Host "`nCopying executables..." -ForegroundColor Cyan
 $executablesCopied = 0
-if (Copy-WithCheck "$BuildDir/Release/r_type_client.exe" "$packageDir/") { $executablesCopied++ }
-elseif (Copy-WithCheck "$BuildDir/r_type_client.exe" "$packageDir/") { $executablesCopied++ }
+if (Copy-WithCheck "$BuildDir/Release/r-type_client.exe" "$packageDir/") { $executablesCopied++ }
+elseif (Copy-WithCheck "$BuildDir/r-type_client.exe" "$packageDir/") { $executablesCopied++ }
 
-if (Copy-WithCheck "$BuildDir/Release/r_type_server.exe" "$packageDir/") { $executablesCopied++ }
-elseif (Copy-WithCheck "$BuildDir/r_type_server.exe" "$packageDir/") { $executablesCopied++ }
+if (Copy-WithCheck "$BuildDir/Release/r-type_server.exe" "$packageDir/") { $executablesCopied++ }
+elseif (Copy-WithCheck "$BuildDir/r-type_server.exe" "$packageDir/") { $executablesCopied++ }
 
 if ($executablesCopied -eq 0) {
     Write-Host "Error: No executables found!" -ForegroundColor Red

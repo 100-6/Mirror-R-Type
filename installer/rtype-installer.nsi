@@ -36,8 +36,8 @@ VIAddVersionKey "FileVersion" "1.0.0.0"
 ; Interface Settings
 
 !define MUI_ABORTWARNING
-!define MUI_ICON "${NSISDIR}\Contrib\Graphics\Icons\modern-install.ico"
-!define MUI_UNICON "${NSISDIR}\Contrib\Graphics\Icons\modern-uninstall.ico"
+!define MUI_ICON "installer.ico"
+!define MUI_UNICON "installer.ico"
 
 ;--------------------------------
 ; Pages
@@ -46,8 +46,9 @@ VIAddVersionKey "FileVersion" "1.0.0.0"
 !insertmacro MUI_PAGE_LICENSE "..\LICENSE"
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
-!define MUI_FINISHPAGE_RUN "$INSTDIR\r_type_client.exe"
+!define MUI_FINISHPAGE_RUN
 !define MUI_FINISHPAGE_RUN_TEXT "Launch R-Type"
+!define MUI_FINISHPAGE_RUN_FUNCTION "LaunchGame"
 !insertmacro MUI_PAGE_FINISH
 
 !insertmacro MUI_UNPAGE_CONFIRM
@@ -68,22 +69,25 @@ Section "Core Files" SecCore
   SetOutPath "$INSTDIR"
 
   ; Client executable
-  File "..\build\r_type_client.exe"
+  File "..\build\r-type_client.exe"
 
   ; Server executable (optional, but included)
-  File "..\build\r_type_server.exe"
+  File "..\build\r-type_server.exe"
 
   ; Plugins directory
   SetOutPath "$INSTDIR\plugins"
   File /r "..\build\plugins\*.dll"
 
-  ; Assets directory
+  ; Assets directory (from build/assets which contains all game assets)
   SetOutPath "$INSTDIR\assets"
-  File /r "..\assets\*.*"
+  File /r "..\build\assets\*.*"
 
-  ; DLL dependencies from vcpkg
+  ; DLL dependencies from build directory (non-recursive to avoid copying subdirs)
   SetOutPath "$INSTDIR"
-  File /r "..\build\*.dll"
+  File "..\build\*.dll"
+
+  ; Copy icon file for shortcuts
+  File "client.ico"
 
   ; Store installation folder
   WriteRegStr HKCU "Software\R-Type" "" $INSTDIR
@@ -91,19 +95,20 @@ Section "Core Files" SecCore
   ; Create uninstaller
   WriteUninstaller "$INSTDIR\Uninstall.exe"
 
-  ; Create shortcuts
+  ; Create shortcuts (SetOutPath sets the working directory for shortcuts)
+  SetOutPath "$INSTDIR"
   CreateDirectory "$SMPROGRAMS\R-Type"
-  CreateShortcut "$SMPROGRAMS\R-Type\R-Type Client.lnk" "$INSTDIR\r_type_client.exe"
-  CreateShortcut "$SMPROGRAMS\R-Type\R-Type Server.lnk" "$INSTDIR\r_type_server.exe"
+  CreateShortcut "$SMPROGRAMS\R-Type\R-Type Client.lnk" "$INSTDIR\r-type_client.exe" "" "$INSTDIR\client.ico" 0 SW_SHOWNORMAL "" "R-Type Client"
+  CreateShortcut "$SMPROGRAMS\R-Type\R-Type Server.lnk" "$INSTDIR\r-type_server.exe" "" "$INSTDIR\client.ico" 0 SW_SHOWNORMAL "" "R-Type Server"
   CreateShortcut "$SMPROGRAMS\R-Type\Uninstall.lnk" "$INSTDIR\Uninstall.exe"
-  CreateShortcut "$DESKTOP\R-Type.lnk" "$INSTDIR\r_type_client.exe"
+  CreateShortcut "$DESKTOP\R-Type.lnk" "$INSTDIR\r-type_client.exe" "" "$INSTDIR\client.ico" 0 SW_SHOWNORMAL "" "R-Type"
 
   ; Add to Add/Remove Programs
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\R-Type" "DisplayName" "R-Type Game"
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\R-Type" "UninstallString" "$\"$INSTDIR\Uninstall.exe$\""
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\R-Type" "QuietUninstallString" "$\"$INSTDIR\Uninstall.exe$\" /S"
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\R-Type" "InstallLocation" "$INSTDIR"
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\R-Type" "DisplayIcon" "$INSTDIR\r_type_client.exe"
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\R-Type" "DisplayIcon" "$INSTDIR\client.ico"
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\R-Type" "Publisher" "EPITECH"
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\R-Type" "DisplayVersion" "1.0.0"
   WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\R-Type" "NoModify" 1
@@ -145,16 +150,21 @@ LangString DESC_SecVCRedist ${LANG_FRENCH} "Visual C++ Runtime (requis pour exé
 Section "Uninstall"
 
   ; Remove files
-  Delete "$INSTDIR\r_type_client.exe"
-  Delete "$INSTDIR\r_type_server.exe"
+  Delete "$INSTDIR\r-type_client.exe"
+  Delete "$INSTDIR\r-type_server.exe"
   Delete "$INSTDIR\Uninstall.exe"
   Delete "$INSTDIR\*.dll"
+  Delete "$INSTDIR\client.ico"
 
   ; Remove plugins
   RMDir /r "$INSTDIR\plugins"
 
   ; Remove assets
   RMDir /r "$INSTDIR\assets"
+
+  ; Remove extra directories (from File /r)
+  RMDir /r "$INSTDIR\installer-package"
+  RMDir /r "$INSTDIR\vcpkg_installed"
 
   ; Remove shortcuts
   Delete "$SMPROGRAMS\R-Type\R-Type Client.lnk"
@@ -183,4 +193,10 @@ Function .onInit
     MessageBox MB_OK|MB_ICONSTOP "This application requires a 64-bit version of Windows."
     Abort
   ${EndIf}
+FunctionEnd
+
+Function LaunchGame
+  ; Launch the game with the correct working directory
+  SetOutPath "$INSTDIR"
+  Exec "$INSTDIR\r-type_client.exe"
 FunctionEnd
