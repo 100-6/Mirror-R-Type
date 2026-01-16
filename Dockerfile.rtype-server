@@ -38,18 +38,16 @@ RUN git clone --depth 1 --branch master https://github.com/Microsoft/vcpkg.git .
     git checkout ${VCPKG_COMMIT} && \
     ./bootstrap-vcpkg.sh -disableMetrics
 
-# Pre-install dependencies
-WORKDIR /prebuild
-COPY vcpkg.json .
-RUN /vcpkg/vcpkg install --triplet arm64-linux-dynamic && \
-    rm -rf /vcpkg/.git /vcpkg/buildtrees /vcpkg/downloads /vcpkg/packages
-
 ENV VCPKG_ROOT=/vcpkg
 ENV VCPKG_DEFAULT_TRIPLET=arm64-linux-dynamic
 
-WORKDIR /build
+# Pre-install vcpkg dependencies (separate from build)
+WORKDIR /tmp/vcpkg-prebuild
+COPY vcpkg.json .
+RUN /vcpkg/vcpkg install --triplet arm64-linux-dynamic
 
-# Copy only necessary files for build (better cache)
+# Setup build directory and copy files
+WORKDIR /build
 COPY CMakeLists.txt .
 COPY cmake/ cmake/
 COPY src/ src/
@@ -68,7 +66,8 @@ RUN cmake -S . -B build \
     -DBUILD_BAGARIO=OFF
 
 # Build R-Type server only
-RUN cmake --build build --target r-type_server -j$(nproc)
+RUN cmake --build build --target r-type_server -j$(nproc) && \
+    rm -rf /vcpkg/.git /vcpkg/buildtrees /vcpkg/downloads /vcpkg/packages
 
 # Verify the binary exists
 RUN ls -lh /build/build/r-type_server
