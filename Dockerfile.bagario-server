@@ -67,11 +67,17 @@ RUN cmake -S . -B build \
     -DBUILD_BAGARIO=ON
 
 # Build Bagario server only
-RUN cmake --build build --target bagario_server -j$(nproc) && \
-    rm -rf /vcpkg/.git /vcpkg/buildtrees /vcpkg/downloads /vcpkg/packages
+RUN cmake --build build --target bagario_server -j$(nproc)
 
-# Verify the binary exists
+# Debug: List build directory structure
+RUN echo "=== Build directory structure ===" && \
+    find /build/build -type f -name "*bagario*" -o -name "*server*" | head -20
+
+# Verify the binary exists before cleanup
 RUN ls -lh /build/build/bin/bagario_server
+
+# Cleanup vcpkg cache
+RUN rm -rf /vcpkg/.git /vcpkg/buildtrees /vcpkg/downloads /vcpkg/packages
 
 # ==========================================
 # STAGE 2: Runtime (Production)
