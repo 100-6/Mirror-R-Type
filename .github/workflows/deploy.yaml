@@ -83,10 +83,8 @@ jobs:
             org.opencontainers.image.source=${{ github.repositoryUrl }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.created=${{ steps.meta.outputs.date }}
-          cache-from: |
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.RTYPE_IMAGE }}:buildcache
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.BUILDER_IMAGE }}:latest
-          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.RTYPE_IMAGE }}:buildcache,mode=max
+          cache-from: type=gha,scope=rtype-server
+          cache-to: type=gha,mode=max,scope=rtype-server
           provenance: false
           sbom: false
 
@@ -107,10 +105,8 @@ jobs:
             org.opencontainers.image.source=${{ github.repositoryUrl }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.created=${{ steps.meta.outputs.date }}
-          cache-from: |
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.BAGARIO_IMAGE }}:buildcache
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.BUILDER_IMAGE }}:latest
-          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.BAGARIO_IMAGE }}:buildcache,mode=max
+          cache-from: type=gha,scope=bagario-server
+          cache-to: type=gha,mode=max,scope=bagario-server
           provenance: false
           sbom: false
 
