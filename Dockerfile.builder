@@ -35,8 +35,7 @@ ARG VCPKG_COMMIT=bd52fac7114fdaa2208de8dd1227212a6683e562
 RUN git clone --depth 1 --branch master https://github.com/Microsoft/vcpkg.git . && \
     git fetch --depth 1 origin ${VCPKG_COMMIT} && \
     git checkout ${VCPKG_COMMIT} && \
-    ./bootstrap-vcpkg.sh -disableMetrics && \
-    rm -rf .git
+    ./bootstrap-vcpkg.sh -disableMetrics
 
 # Pre-install common dependencies to cache them
 # Copy vcpkg.json to install dependencies
@@ -44,8 +43,9 @@ WORKDIR /prebuild
 COPY vcpkg.json .
 
 # Install vcpkg dependencies (this is the slow part we want to cache)
+# Clean up after install to reduce image size (keep .git until after install)
 RUN /vcpkg/vcpkg install --triplet arm64-linux-dynamic && \
-    rm -rf /vcpkg/buildtrees /vcpkg/downloads /vcpkg/packages
+    rm -rf /vcpkg/.git /vcpkg/buildtrees /vcpkg/downloads /vcpkg/packages
 
 # Set environment variables for builds
 ENV VCPKG_ROOT=/vcpkg
