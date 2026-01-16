@@ -4,13 +4,22 @@ set -e
 
 BUILD_DIR="build"
 BUILD_TESTS="OFF"
+BUILD_RTYPE="OFF"
+BUILD_BAGARIO="OFF"
 VCPKG_DIR="vcpkg"
 # Commit ID from CI/vcpkg.json to ensure consistency
 VCPKG_COMMIT="bd52fac7114fdaa2208de8dd1227212a6683e562"
 
 # Usage function
 usage() {
-    echo "Usage: $0 [COMMAND] [OPTIONS]"
+    echo "Usage: $0 [TARGET] [COMMAND]"
+    echo ""
+    echo "Targets:"
+    echo "  rtype        - Build R-Type game only (engine + r-type plugins)"
+    echo "  bagario      - Build Bagario game only (engine + bagario plugins)"
+    echo "  test         - Build tests only (engine + tests)"
+    echo "  all          - Build everything (R-Type + Bagario + tests)"
+    echo "  (none)       - Build R-Type + Bagario (no tests, default)"
     echo ""
     echo "Commands:"
     echo "  (none)       - Full rebuild (clean + configure + build)"
@@ -19,30 +28,60 @@ usage() {
     echo "  fclean       - Remove entire build directory"
     echo "  re           - Alias for fclean + full rebuild"
     echo ""
-    echo "Options:"
-    echo "  test         - Enable tests compilation"
-    echo ""
     echo "Examples:"
-    echo "  ./build.sh                 # Full rebuild"
-    echo "  ./build.sh make            # Incremental build"
-    echo "  ./build.sh make test       # Incremental build with tests"
+    echo "  ./build.sh rtype           # Build R-Type only (full rebuild)"
+    echo "  ./build.sh rtype make      # Build R-Type only (incremental)"
+    echo "  ./build.sh bagario         # Build Bagario only (full rebuild)"
+    echo "  ./build.sh bagario make    # Build Bagario only (incremental)"
+    echo "  ./build.sh test            # Build tests only"
+    echo "  ./build.sh test make       # Build tests only (incremental)"
+    echo "  ./build.sh all             # Build everything"
+    echo "  ./build.sh                 # Build R-Type + Bagario (no tests)"
+    echo "  ./build.sh make            # Incremental build (R-Type + Bagario)"
     echo "  ./build.sh clean           # Clean artifacts"
     echo "  ./build.sh fclean          # Remove build directory"
-    echo "  ./build.sh re              # Full clean + rebuild"
     exit 0
 }
 
-# Parse commands
-CMD="${1:-rebuild}"
-
-if [ "$CMD" == "help" ] || [ "$CMD" == "-h" ] || [ "$CMD" == "--help" ]; then
+# Parse first argument for help
+if [ "$1" == "help" ] || [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
     usage
 fi
 
-# Check for test flag
-if [ "$1" == "test" ] || [ "$2" == "test" ]; then
+# Parse target (rtype, bagario, test, or all)
+CMD="${1:-rebuild}"
+
+if [ "$1" == "rtype" ]; then
+    BUILD_RTYPE="ON"
+    BUILD_BAGARIO="OFF"
+    BUILD_TESTS="OFF"
+    CMD="${2:-rebuild}"
+    echo "Building R-Type only"
+elif [ "$1" == "bagario" ]; then
+    BUILD_RTYPE="OFF"
+    BUILD_BAGARIO="ON"
+    BUILD_TESTS="OFF"
+    CMD="${2:-rebuild}"
+    echo "Building Bagario only"
+elif [ "$1" == "test" ]; then
+    BUILD_RTYPE="OFF"
+    BUILD_BAGARIO="OFF"
     BUILD_TESTS="ON"
-    echo "Tests enabled"
+    CMD="${2:-rebuild}"
+    echo "Building Tests only"
+elif [ "$1" == "all" ]; then
+    BUILD_RTYPE="ON"
+    BUILD_BAGARIO="ON"
+    BUILD_TESTS="ON"
+    CMD="${2:-rebuild}"
+    echo "Building everything (R-Type + Bagario + Tests)"
+fi
+
+# If no specific target, build R-Type + Bagario by default (backward compatibility)
+if [ "$BUILD_RTYPE" == "OFF" ] && [ "$BUILD_BAGARIO" == "OFF" ] && [ "$BUILD_TESTS" == "OFF" ]; then
+    BUILD_RTYPE="ON"
+    BUILD_BAGARIO="ON"
+    echo "Building R-Type + Bagario (no tests)"
 fi
 
 # Function to setup vcpkg
@@ -94,7 +133,11 @@ case "$CMD" in
         setup_vcpkg
         if [ ! -d "$BUILD_DIR" ] || [ ! -f "$BUILD_DIR/CMakeCache.txt" ]; then
             echo "Build directory not found. Running full configuration first..."
-            cmake -S . -B "$BUILD_DIR" -DBUILD_TESTS="$BUILD_TESTS" -DCMAKE_TOOLCHAIN_FILE="$VCPKG_DIR/scripts/buildsystems/vcpkg.cmake"
+            cmake -S . -B "$BUILD_DIR" \
+                -DBUILD_TESTS="$BUILD_TESTS" \
+                -DBUILD_RTYPE="$BUILD_RTYPE" \
+                -DBUILD_BAGARIO="$BUILD_BAGARIO" \
+                -DCMAKE_TOOLCHAIN_FILE="$VCPKG_DIR/scripts/buildsystems/vcpkg.cmake"
         fi
         echo "Building (incremental)..."
         cmake --build "$BUILD_DIR" -j$(nproc)
@@ -116,7 +159,11 @@ setup_vcpkg
 
 echo "Configuring CMake..."
 # Explicitly use the local vcpkg toolchain
-cmake -S . -B "$BUILD_DIR" -DBUILD_TESTS="$BUILD_TESTS" -DCMAKE_TOOLCHAIN_FILE="$VCPKG_DIR/scripts/buildsystems/vcpkg.cmake"
+cmake -S . -B "$BUILD_DIR" \
+    -DBUILD_TESTS="$BUILD_TESTS" \
+    -DBUILD_RTYPE="$BUILD_RTYPE" \
+    -DBUILD_BAGARIO="$BUILD_BAGARIO" \
+    -DCMAKE_TOOLCHAIN_FILE="$VCPKG_DIR/scripts/buildsystems/vcpkg.cmake"
 
 echo "Building..."
 cmake --build "$BUILD_DIR" -j$(nproc)
