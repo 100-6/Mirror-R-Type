@@ -6,6 +6,7 @@
 */
 
 #include "systems/HUDSystem.hpp"
+#include "AssetsPaths.hpp"
 #include <sstream>
 #include <iomanip>
 #include <iostream>
@@ -133,20 +134,47 @@ void HUDSystem::init(Registry& registry) {
         102
     });
 
-    // Create lives display
-    m_livesTextEntity = registry.spawn_entity();
-    registry.add_component(m_livesTextEntity, Position{10.0f, 120.0f});
-    registry.add_component(m_livesTextEntity, UIText{
-        "Lives: 3",
-        engine::Color{255, 255, 255, 255},       // white
-        engine::Color{0, 0, 0, 200},              // shadow
-        20,                                       // fontSize
-        true,                                     // hasShadow
-        2.0f,                                     // shadowOffsetX
-        2.0f,                                     // shadowOffsetY
-        true,                                     // active
-        102                                       // layer
-    });
+    // Load heart texture
+    m_heartTexture = m_graphicsPlugin.load_texture(assets::paths::UI_HEART_ICON);
+
+    // Create heart sprites for lives display - centered above health bar
+    // Health bar is at x=750 with width=400, so center is at 750 + 200 = 950
+    float healthBarCenterX = 750.0f + HEALTH_BAR_WIDTH / 2.0f;
+    float livesY = 962.0f - 55.0f;  // 55px above health bar
+    float heartSize = 32.0f;  // Size of each heart icon
+    float heartSpacing = 10.0f;  // Space between hearts
+
+    // Starting X position to center the hearts (assuming 3 lives initially)
+    int initialLives = 3;
+    float totalWidth = (initialLives * heartSize) + ((initialLives - 1) * heartSpacing);
+    float startX = healthBarCenterX - (totalWidth / 2.0f);
+
+    // Create heart sprite entities
+    registry.register_component<Sprite>();
+    for (int i = 0; i < MAX_LIVES_DISPLAY; ++i) {
+        m_heartEntities[i] = registry.spawn_entity();
+        float heartX = startX + (i * (heartSize + heartSpacing));
+
+        registry.add_component(m_heartEntities[i], Position{heartX, livesY});
+        registry.add_component(m_heartEntities[i], Sprite{
+            m_heartTexture,                      // heart texture
+            heartSize,                           // width
+            heartSize,                           // height
+            0.0f,                                // rotation
+            engine::Color{255, 255, 255, 255},  // white tint (full color)
+            0.0f,                                // origin_x
+            0.0f,                                // origin_y
+            102                                  // layer (on top)
+        });
+    }
+
+    // Hide extra hearts initially (only show 3)
+    for (int i = initialLives; i < MAX_LIVES_DISPLAY; ++i) {
+        auto& sprites = registry.get_components<Sprite>();
+        if (sprites.has_entity(m_heartEntities[i])) {
+            sprites[m_heartEntities[i]].tint = engine::Color{255, 255, 255, 0};  // Invisible
+        }
+    }
 
     // Wave text will be rendered directly in update() instead of using UIText entity
 
@@ -442,9 +470,38 @@ float HUDSystem::lerp(float a, float b, float t) const {
 void HUDSystem::update_lives(Registry& registry, uint8_t lives) {
     std::cout << "[HUDSystem] Lives updated: " << static_cast<int>(lives) << std::endl;
 
-    // Update the lives display text
-    auto& uitexts = registry.get_components<UIText>();
-    if (uitexts.has_entity(m_livesTextEntity)) {
-        uitexts[m_livesTextEntity].text = "Lives: " + std::to_string(lives);
+    // Update heart sprites visibility and opacity
+    auto& sprites = registry.get_components<Sprite>();
+
+    // Clamp lives to max display
+    int displayLives = std::min(static_cast<int>(lives), MAX_LIVES_DISPLAY);
+
+    // Show hearts based on lives count
+    for (int i = 0; i < MAX_LIVES_DISPLAY; ++i) {
+        if (sprites.has_entity(m_heartEntities[i])) {
+            if (i < displayLives) {
+                // Show heart with full opacity
+                sprites[m_heartEntities[i]].tint = engine::Color{255, 255, 255, 255};
+            } else {
+                // Hide heart (transparent)
+                sprites[m_heartEntities[i]].tint = engine::Color{255, 255, 255, 0};
+            }
+        }
+    }
+
+    // Recenter hearts based on current lives count
+    if (displayLives > 0) {
+        float healthBarCenterX = 750.0f + HEALTH_BAR_WIDTH / 2.0f;
+        float heartSize = 32.0f;
+        float heartSpacing = 10.0f;
+        float totalWidth = (displayLives * heartSize) + ((displayLives - 1) * heartSpacing);
+        float startX = healthBarCenterX - (totalWidth / 2.0f);
+
+        auto& positions = registry.get_components<Position>();
+        for (int i = 0; i < displayLives; ++i) {
+            if (positions.has_entity(m_heartEntities[i])) {
+                positions[m_heartEntities[i]].x = startX + (i * (heartSize + heartSpacing));
+            }
+        }
     }
 }

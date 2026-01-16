@@ -94,6 +94,11 @@ private:
     Entity m_waveTextEntity = 0;
     Entity m_livesTextEntity = 0;
 
+    // Lives heart sprites (up to 5 hearts)
+    static constexpr int MAX_LIVES_DISPLAY = 5;
+    Entity m_heartEntities[MAX_LIVES_DISPLAY] = {0};
+    engine::TextureHandle m_heartTexture = engine::INVALID_HANDLE;
+
     // Edit mode for HUD positioning
     bool m_editMode = false;  // Set to true to enable edit mode
     int m_selectedElement = 0;  // 0=HEALTH, 1=SCORE, 2=WAVE
