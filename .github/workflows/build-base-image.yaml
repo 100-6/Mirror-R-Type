@@ -8,6 +8,7 @@ on:
   push:
     branches:
       - main
+      - 200-prod-ci-prod-installer
     paths:
       - 'Dockerfile.builder'
       - 'vcpkg.json'
@@ -18,7 +19,8 @@ env:
 
 jobs:
   build-base-image:
-    runs-on: ubuntu-24.04-arm  # Native ARM64 runner
+    runs-on: ubuntu-latest
+    timeout-minutes: 180  # Long timeout for ARM64 build with QEMU emulation
 
     steps:
       - name: Checkout code
