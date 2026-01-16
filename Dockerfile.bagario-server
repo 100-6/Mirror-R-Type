@@ -69,19 +69,9 @@ RUN cmake -S . -B build \
 # Build Bagario server only
 RUN cmake --build build --target bagario_server -j$(nproc)
 
-# Debug: List build directory structure
-RUN echo "=== Listing /build/build contents ===" && \
-    ls -la /build/build/ && \
-    echo "=== Checking for bin directory ===" && \
-    ls -la /build/build/bin/ || echo "bin/ does not exist" && \
-    echo "=== Finding all executables ===" && \
-    find /build/build -type f -executable || echo "No executables found"
-
-# Verify the binary exists before cleanup
-RUN ls -lh /build/build/bin/bagario_server
-
-# Cleanup vcpkg cache
-RUN rm -rf /vcpkg/.git /vcpkg/buildtrees /vcpkg/downloads /vcpkg/packages
+# Verify the binary exists and cleanup vcpkg cache
+RUN ls -lh /build/build/bagario_server && \
+    rm -rf /vcpkg/.git /vcpkg/buildtrees /vcpkg/downloads /vcpkg/packages
 
 # ==========================================
 # STAGE 2: Runtime (Production)
@@ -98,7 +88,7 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Copy the server binary
-COPY --from=builder /build/build/bin/bagario_server /app/bagario_server
+COPY --from=builder /build/build/bagario_server /app/bagario_server
 
 # Copy vcpkg dynamic libraries
 COPY --from=builder /build/build/vcpkg_installed/arm64-linux-dynamic/lib /app/lib
@@ -108,7 +98,7 @@ COPY --from=builder /build/src/bagario/assets /app/assets/bagario
 COPY --from=builder /build/assets /app/assets
 
 # Set library path for dynamic linking
-ENV LD_LIBRARY_PATH=/app/lib:$LD_LIBRARY_PATH
+ENV LD_LIBRARY_PATH=/app/lib
 
 # Expose ports (TCP + UDP)
 EXPOSE 4444/tcp
