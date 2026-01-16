@@ -25,7 +25,8 @@ env:
 
 jobs:
   build-and-push:
-    runs-on: ubuntu-24.04-arm  # Native ARM64 runner for fast builds
+    runs-on: ubuntu-latest
+    timeout-minutes: 120  # Increased timeout for ARM64 emulation
 
     steps:
       - name: Checkout code
