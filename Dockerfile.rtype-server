@@ -1,0 +1,102 @@
+# ==========================================
+# R-Type Server Production Dockerfile
+# Target: ARM64 (Raspberry Pi)
+# ==========================================
+
+# ==========================================
+# STAGE 1: Builder
+# ==========================================
+FROM --platform=linux/arm64 debian:bookworm-slim AS builder
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    ninja-build \
+    git \
+    curl \
+    zip \
+    unzip \
+    tar \
+    pkg-config \
+    libx11-dev \
+    libxrandr-dev \
+    libxinerama-dev \
+    libxcursor-dev \
+    libxi-dev \
+    libudev-dev \
+    libgl1-mesa-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+
+# Copy project files
+COPY . .
+
+# Bootstrap vcpkg if needed
+RUN if [ ! -f "vcpkg/vcpkg" ]; then \
+        cd vcpkg && \
+        ./bootstrap-vcpkg.sh -disableMetrics; \
+    fi
+
+# Configure CMake with vcpkg for ARM64 dynamic linking
+RUN cmake -S . -B build \
+    -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_TOOLCHAIN_FILE=/build/vcpkg/scripts/buildsystems/vcpkg.cmake \
+    -DVCPKG_TARGET_TRIPLET=arm64-linux-dynamic \
+    -DBUILD_CLIENT=OFF \
+    -DBUILD_SERVER=ON \
+    -DBUILD_TESTS=OFF \
+    -DBUILD_RTYPE=ON \
+    -DBUILD_BAGARIO=OFF
+
+# Build R-Type server only
+RUN cmake --build build --target r-type_server -j$(nproc)
+
+# Verify the binary exists
+RUN ls -lh /build/build/r-type_server
+
+# ==========================================
+# STAGE 2: Runtime (Production)
+# ==========================================
+FROM --platform=linux/arm64 debian:bookworm-slim AS production
+
+# Install only runtime dependencies
+RUN apt-get update && apt-get install -y \
+    libstdc++6 \
+    libc6 \
+    libgcc-s1 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy the server binary
+COPY --from=builder /build/build/r-type_server /app/r-type_server
+
+# Copy vcpkg dynamic libraries
+COPY --from=builder /build/build/vcpkg_installed/arm64-linux-dynamic/lib /app/lib
+
+# Copy R-Type assets (sounds, sprites, levels, maps)
+COPY --from=builder /build/src/r-type/assets /app/assets/r-type
+COPY --from=builder /build/assets /app/assets
+
+# Set library path for dynamic linking
+ENV LD_LIBRARY_PATH=/app/lib:$LD_LIBRARY_PATH
+
+# Expose ports (TCP + UDP)
+EXPOSE 4242/tcp
+EXPOSE 4343/udp
+
+# Create a non-root user for security
+RUN useradd -m -u 1000 rtype && \
+    chown -R rtype:rtype /app
+
+USER rtype
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD timeout 2 bash -c "echo -n > /dev/tcp/127.0.0.1/4242" || exit 1
+
+# Default command
+CMD ["/app/r-type_server"]
