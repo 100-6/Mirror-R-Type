@@ -2,48 +2,28 @@
 # Bagario Server Production Dockerfile
 # Target: ARM64 (Raspberry Pi)
 # ==========================================
+# Uses pre-built base image with vcpkg for faster builds
+# ==========================================
 
 # ==========================================
-# STAGE 1: Builder
+# STAGE 1: Builder (using cached base image)
 # ==========================================
-FROM --platform=linux/arm64 debian:bookworm-slim AS builder
-
-# Install build dependencies
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    cmake \
-    ninja-build \
-    git \
-    curl \
-    zip \
-    unzip \
-    tar \
-    pkg-config \
-    libx11-dev \
-    libxrandr-dev \
-    libxinerama-dev \
-    libxcursor-dev \
-    libxi-dev \
-    libudev-dev \
-    libgl1-mesa-dev \
-    && rm -rf /var/lib/apt/lists/*
+ARG REGISTRY=registry.eliasdrissi.dev
+FROM ${REGISTRY}/rtype-builder:latest AS builder
 
 WORKDIR /build
 
-# Copy project files (excluding vcpkg submodule)
-COPY . .
+# Copy only necessary files for build (better cache)
+COPY CMakeLists.txt .
+COPY cmake/ cmake/
+COPY src/ src/
+COPY vcpkg.json .
 
-# Clone and bootstrap vcpkg at specific commit (matching CI)
-RUN git clone https://github.com/Microsoft/vcpkg.git vcpkg && \
-    cd vcpkg && \
-    git checkout bd52fac7114fdaa2208de8dd1227212a6683e562 && \
-    ./bootstrap-vcpkg.sh -disableMetrics
-
-# Configure CMake with vcpkg for ARM64 dynamic linking
+# Configure CMake with pre-installed vcpkg
 RUN cmake -S . -B build \
     -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_TOOLCHAIN_FILE=/build/vcpkg/scripts/buildsystems/vcpkg.cmake \
+    -DCMAKE_TOOLCHAIN_FILE=/vcpkg/scripts/buildsystems/vcpkg.cmake \
     -DVCPKG_TARGET_TRIPLET=arm64-linux-dynamic \
     -DBUILD_CLIENT=OFF \
     -DBUILD_SERVER=ON \

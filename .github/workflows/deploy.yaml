@@ -21,16 +21,15 @@ env:
   REGISTRY: registry.eliasdrissi.dev
   RTYPE_IMAGE: rtype-server
   BAGARIO_IMAGE: bagario-server
+  BUILDER_IMAGE: rtype-builder
 
 jobs:
   build-and-push:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm  # Native ARM64 runner for fast builds
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - name: Install CA certificate
         run: |
@@ -77,12 +76,16 @@ jobs:
           platforms: linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.rtype_tags }}
+          build-args: |
+            REGISTRY=${{ env.REGISTRY }}
           labels: |
             org.opencontainers.image.source=${{ github.repositoryUrl }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.created=${{ steps.meta.outputs.date }}
-          cache-from: type=gha,scope=rtype-server
-          cache-to: type=gha,mode=max,scope=rtype-server
+          cache-from: |
+            type=registry,ref=${{ env.REGISTRY }}/${{ env.RTYPE_IMAGE }}:buildcache
+            type=registry,ref=${{ env.REGISTRY }}/${{ env.BUILDER_IMAGE }}:latest
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.RTYPE_IMAGE }}:buildcache,mode=max
           provenance: false
           sbom: false
 
@@ -97,12 +100,16 @@ jobs:
           platforms: linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.bagario_tags }}
+          build-args: |
+            REGISTRY=${{ env.REGISTRY }}
           labels: |
             org.opencontainers.image.source=${{ github.repositoryUrl }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.created=${{ steps.meta.outputs.date }}
-          cache-from: type=gha,scope=bagario-server
-          cache-to: type=gha,mode=max,scope=bagario-server
+          cache-from: |
+            type=registry,ref=${{ env.REGISTRY }}/${{ env.BAGARIO_IMAGE }}:buildcache
+            type=registry,ref=${{ env.REGISTRY }}/${{ env.BUILDER_IMAGE }}:latest
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.BAGARIO_IMAGE }}:buildcache,mode=max
           provenance: false
           sbom: false
 
@@ -138,14 +145,14 @@ jobs:
         if: success()
         run: |
           echo "=========================================="
-          echo "✅ R-Type & Bagario Images pushed successfully!"
+          echo "R-Type & Bagario Images pushed successfully!"
           echo "=========================================="
           echo ""
-          echo "🎮 R-Type Server tags:"
+          echo "R-Type Server tags:"
           echo "   - ${{ env.REGISTRY }}/${{ env.RTYPE_IMAGE }}:latest"
           echo "   - ${{ env.REGISTRY }}/${{ env.RTYPE_IMAGE }}:${{ steps.meta.outputs.date }}-${{ steps.meta.outputs.sha }}"
           echo ""
-          echo "🎮 Bagario Server tags:"
+          echo "Bagario Server tags:"
           echo "   - ${{ env.REGISTRY }}/${{ env.BAGARIO_IMAGE }}:latest"
           echo "   - ${{ env.REGISTRY }}/${{ env.BAGARIO_IMAGE }}:${{ steps.meta.outputs.date }}-${{ steps.meta.outputs.sha }}"
           echo ""

@@ -1,0 +1,76 @@
+name: Build Base Builder Image
+
+# This workflow builds the base image with vcpkg pre-installed
+# Run manually or when vcpkg.json/Dockerfile.builder changes
+
+on:
+  workflow_dispatch:  # Manual trigger
+  push:
+    branches:
+      - main
+    paths:
+      - 'Dockerfile.builder'
+      - 'vcpkg.json'
+
+env:
+  REGISTRY: registry.eliasdrissi.dev
+  BUILDER_IMAGE: rtype-builder
+
+jobs:
+  build-base-image:
+    runs-on: ubuntu-24.04-arm  # Native ARM64 runner
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install CA certificate
+        run: |
+          echo -n | openssl s_client -connect registry.eliasdrissi.dev:443 -servername registry.eliasdrissi.dev 2>/dev/null | openssl x509 > /tmp/registry-ca.crt
+          sudo mkdir -p /usr/local/share/ca-certificates/
+          sudo cp /tmp/registry-ca.crt /usr/local/share/ca-certificates/registry-eliasdrissi-dev.crt
+          sudo update-ca-certificates
+          sudo mkdir -p /etc/docker/certs.d/registry.eliasdrissi.dev
+          sudo cp /tmp/registry-ca.crt /etc/docker/certs.d/registry.eliasdrissi.dev/ca.crt
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          buildkitd-config-inline: |
+            [registry."registry.eliasdrissi.dev"]
+              ca=["/etc/docker/certs.d/registry.eliasdrissi.dev/ca.crt"]
+
+      - name: Log in to Docker Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Extract metadata
+        id: meta
+        run: |
+          DATE=$(date +%Y%m%d)
+          SHA=${GITHUB_SHA::7}
+          echo "tags=${{ env.REGISTRY }}/${{ env.BUILDER_IMAGE }}:latest,${{ env.REGISTRY }}/${{ env.BUILDER_IMAGE }}:${DATE}-${SHA}" >> $GITHUB_OUTPUT
+
+      - name: Build and push Builder Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.builder
+          platforms: linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.BUILDER_IMAGE }}:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.BUILDER_IMAGE }}:buildcache,mode=max
+          provenance: false
+          sbom: false
+
+      - name: Notify success
+        if: success()
+        run: |
+          echo "=========================================="
+          echo "Base builder image pushed successfully!"
+          echo "Image: ${{ env.REGISTRY }}/${{ env.BUILDER_IMAGE }}:latest"
+          echo "=========================================="
