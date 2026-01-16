@@ -66,11 +66,11 @@ RUN cmake -S . -B build \
     -DBUILD_RTYPE=OFF \
     -DBUILD_BAGARIO=ON
 
-# Build Bagario server only
-RUN cmake --build build --target bagario_server -j$(nproc)
+# Build Bagario server and required network plugin
+RUN cmake --build build --target bagario_server enet_network -j$(nproc)
 
-# Verify the binary exists and cleanup vcpkg cache
-RUN ls -lh /build/build/bagario_server && \
+# Verify the binary and plugin exist, then cleanup vcpkg cache
+RUN ls -lh /build/build/bagario_server /build/build/plugins/enet_network.so && \
     rm -rf /vcpkg/.git /vcpkg/buildtrees /vcpkg/downloads /vcpkg/packages
 
 # ==========================================

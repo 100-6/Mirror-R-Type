@@ -66,12 +66,12 @@ RUN cmake -S . -B build \
     -DBUILD_RTYPE=ON \
     -DBUILD_BAGARIO=OFF
 
-# Build R-Type server only
-RUN cmake --build build --target r-type_server -j$(nproc) && \
+# Build R-Type server and required network plugin
+RUN cmake --build build --target r-type_server asio_network -j$(nproc) && \
     rm -rf /vcpkg/.git /vcpkg/buildtrees /vcpkg/downloads /vcpkg/packages
 
-# Verify the binary exists
-RUN ls -lh /build/build/r-type_server
+# Verify the binary and plugin exist
+RUN ls -lh /build/build/r-type_server /build/build/plugins/asio_network.so
 
 # ==========================================
 # STAGE 2: Runtime (Production)
