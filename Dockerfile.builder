@@ -32,9 +32,11 @@ WORKDIR /vcpkg
 
 # Clone and bootstrap vcpkg at specific commit
 ARG VCPKG_COMMIT=bd52fac7114fdaa2208de8dd1227212a6683e562
-RUN git clone https://github.com/Microsoft/vcpkg.git . && \
+RUN git clone --depth 1 --branch master https://github.com/Microsoft/vcpkg.git . && \
+    git fetch --depth 1 origin ${VCPKG_COMMIT} && \
     git checkout ${VCPKG_COMMIT} && \
-    ./bootstrap-vcpkg.sh -disableMetrics
+    ./bootstrap-vcpkg.sh -disableMetrics && \
+    rm -rf .git
 
 # Pre-install common dependencies to cache them
 # Copy vcpkg.json to install dependencies
@@ -42,7 +44,8 @@ WORKDIR /prebuild
 COPY vcpkg.json .
 
 # Install vcpkg dependencies (this is the slow part we want to cache)
-RUN /vcpkg/vcpkg install --triplet arm64-linux-dynamic
+RUN /vcpkg/vcpkg install --triplet arm64-linux-dynamic && \
+    rm -rf /vcpkg/buildtrees /vcpkg/downloads /vcpkg/packages
 
 # Set environment variables for builds
 ENV VCPKG_ROOT=/vcpkg
