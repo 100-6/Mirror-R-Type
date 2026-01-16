@@ -90,6 +90,9 @@ WORKDIR /app
 # Copy the server binary
 COPY --from=builder /build/build/bagario_server /app/bagario_server
 
+# Copy network plugins (enet_network.so required by bagario server)
+COPY --from=builder /build/build/plugins /app/plugins
+
 # Copy vcpkg dynamic libraries
 COPY --from=builder /build/build/vcpkg_installed/arm64-linux-dynamic/lib /app/lib
 
