@@ -544,6 +544,13 @@ Entity EntityManager::spawn_or_update_entity(uint32_t server_id, protocol::Entit
             registry_.get_event_bus().publish(ecs::MuzzleFlashSpawnEvent{
                 closestShooter, x, y, isCompanionShot, false, shooterWidth
             });
+
+            // Emit companion shot sound event if this is a companion turret shot
+            if (isCompanionShot) {
+                registry_.get_event_bus().publish(ecs::CompanionShotEvent{
+                    closestShooter, x, y
+                });
+            }
         }
     }
 
@@ -615,6 +622,48 @@ void EntityManager::remove_entity(uint32_t server_id) {
         return;
 
     Entity entity_to_remove = it->second;
+
+    // Emit explosion sound based on entity type
+    auto type_it = server_types_.find(server_id);
+    if (type_it != server_types_.end()) {
+        protocol::EntityType entity_type = type_it->second;
+        auto& positions = registry_.get_components<Position>();
+        float pos_x = 0.0f, pos_y = 0.0f;
+        if (positions.has_entity(entity_to_remove)) {
+            pos_x = positions[entity_to_remove].x;
+            pos_y = positions[entity_to_remove].y;
+        }
+
+        // Determine explosion sound type based on entity type
+        ecs::ExplosionSoundEvent::ExplosionType sound_type;
+        bool should_emit_sound = true;
+
+        switch (entity_type) {
+            case protocol::EntityType::ENEMY_BASIC:
+            case protocol::EntityType::ENEMY_FAST:
+                sound_type = ecs::ExplosionSoundEvent::ExplosionType::ENEMY_BASIC;
+                break;
+            case protocol::EntityType::ENEMY_TANK:
+                sound_type = ecs::ExplosionSoundEvent::ExplosionType::ENEMY_TANK;
+                break;
+            case protocol::EntityType::ENEMY_BOSS:
+                sound_type = ecs::ExplosionSoundEvent::ExplosionType::ENEMY_BOSS;
+                break;
+            case protocol::EntityType::PLAYER:
+                sound_type = ecs::ExplosionSoundEvent::ExplosionType::PLAYER;
+                break;
+            default:
+                // Don't emit sound for projectiles, walls, powerups, etc.
+                should_emit_sound = false;
+                break;
+        }
+
+        if (should_emit_sound) {
+            registry_.get_event_bus().publish(ecs::ExplosionSoundEvent{
+                sound_type, pos_x, pos_y, 1.0f
+            });
+        }
+    }
 
     // If this entity has a companion turret, destroy it directly before killing the player
     // This ensures the companion is cleaned up while the player entity still exists

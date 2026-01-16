@@ -174,8 +174,8 @@ bool MiniaudioPlugin::play_sound(SoundHandle handle, float volume, float pitch) 
     // Clamp pitch to reasonable range [0.1, 10.0]
     pitch = std::max(0.1f, std::min(10.0f, pitch));
 
-    // Set volume (apply master volume and mute)
-    float final_volume = muted_ ? 0.0f : volume * master_volume_;
+    // Set volume (volume already includes master from AudioSystem)
+    float final_volume = muted_ ? 0.0f : volume;
     ma_sound_set_volume(it->second.sound.get(), final_volume);
 
     // Set pitch
@@ -318,8 +318,8 @@ bool MiniaudioPlugin::play_music(MusicHandle handle, bool loop, float volume) {
     ma_sound_set_looping(it->second.sound.get(), loop ? MA_TRUE : MA_FALSE);
     it->second.is_looping = loop;
 
-    // Set volume (apply master volume and mute)
-    float final_volume = muted_ ? 0.0f : volume * master_volume_;
+    // Set volume (volume already includes master from AudioSystem)
+    float final_volume = muted_ ? 0.0f : volume;
     ma_sound_set_volume(it->second.sound.get(), final_volume);
     it->second.volume = volume;
     music_volume_ = volume;
@@ -418,7 +418,9 @@ void MiniaudioPlugin::set_music_volume(float volume) {
 
     auto it = musics_.find(current_music_handle_);
     if (it != musics_.end() && it->second.sound) {
-        float final_volume = muted_ ? 0.0f : volume * master_volume_;
+        // Don't multiply by master_volume_ here - AudioSystem already includes
+        // master volume in the value it passes to this function
+        float final_volume = muted_ ? 0.0f : volume;
         ma_sound_set_volume(it->second.sound.get(), final_volume);
         it->second.volume = volume;
     }
@@ -437,27 +439,8 @@ void MiniaudioPlugin::set_master_volume(float volume) {
     volume = std::max(0.0f, std::min(1.0f, volume));
 
     master_volume_ = volume;
-
-    if (!initialized_) {
-        return;
-    }
-
-    // Update all sounds
-    for (auto& [handle, sound_data] : sounds_) {
-        if (sound_data.sound && ma_sound_is_playing(sound_data.sound.get())) {
-            float final_volume = muted_ ? 0.0f : volume;
-            ma_sound_set_volume(sound_data.sound.get(), final_volume);
-        }
-    }
-
-    // Update music
-    if (current_music_handle_ != INVALID_HANDLE) {
-        auto it = musics_.find(current_music_handle_);
-        if (it != musics_.end() && it->second.sound) {
-            float final_volume = muted_ ? 0.0f : music_volume_ * volume;
-            ma_sound_set_volume(it->second.sound.get(), final_volume);
-        }
-    }
+    // Note: AudioSystem handles all volume calculations and calls set_music_volume()
+    // This function just stores the master value for reference/mute functionality
 }
 
 float MiniaudioPlugin::get_master_volume() const {
