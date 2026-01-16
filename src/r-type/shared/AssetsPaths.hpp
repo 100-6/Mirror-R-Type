@@ -32,6 +32,9 @@ inline constexpr const char* UI_GAMEMODE_DUO = "assets/sprite/ui/duo.png";
 inline constexpr const char* UI_GAMEMODE_TRIO = "assets/sprite/ui/trio.png";
 inline constexpr const char* UI_GAMEMODE_SQUAD = "assets/sprite/ui/squad.png";
 
+// ========== UI HUD ICONS ==========
+inline constexpr const char* UI_HEART_ICON = "assets/sprite/ui/coeur.png";
+
 // ========== MAP THUMBNAILS ==========
 inline constexpr const char* MAP_THUMBNAIL_NEBULA = "assets/sprite/maps/nebula-map.png";
 inline constexpr const char* MAP_THUMBNAIL_ASTEROID = "assets/sprite/maps/asteroid-map.png";
