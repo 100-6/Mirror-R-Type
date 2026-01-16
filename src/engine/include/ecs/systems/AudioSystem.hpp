@@ -36,12 +36,6 @@ private:
     std::unordered_map<std::string, engine::MusicHandle> musicHandles_;
     std::unordered_map<std::string, engine::MusicHandle> ambianceHandles_;
 
-    // Legacy sound handles (backward compatible)
-    engine::SoundHandle enemy_death_sound = engine::INVALID_HANDLE;
-    engine::SoundHandle player_hit_sound = engine::INVALID_HANDLE;
-    engine::SoundHandle powerup_sound = engine::INVALID_HANDLE;
-    engine::SoundHandle shoot_sound = engine::INVALID_HANDLE;
-
     // Current playback state
     std::string currentMusicId_;
     std::string currentAmbianceId_;
@@ -85,7 +79,6 @@ private:
     void preloadSounds();
     void preloadMusic();
     void preloadAmbiance();
-    void loadLegacySounds();
 
     // Sound playback helpers
     void playSfx(const std::string& sfxId, float volumeMultiplier = 1.0f);
@@ -106,6 +99,7 @@ private:
 
     // Event handlers
     void onEnemyKilled(const ecs::EnemyKilledEvent& event);
+    void onEnemyHit(const ecs::EnemyHitEvent& event);
     void onPlayerHit(const ecs::PlayerHitEvent& event);
     void onPowerUpCollected(const ecs::PowerUpCollectedEvent& event);
     void onShotFired(const ecs::ShotFiredEvent& event);

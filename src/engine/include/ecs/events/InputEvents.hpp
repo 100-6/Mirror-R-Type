@@ -106,6 +106,16 @@ struct EnemyKilledEvent : public core::Event {
 };
 
 /**
+ * @brief Event fired when an enemy takes damage but survives
+ */
+struct EnemyHitEvent : public core::Event {
+    Entity enemy;
+    Entity source;
+
+    EnemyHitEvent(Entity e, Entity src = Entity{0}) : enemy(e), source(src) {}
+};
+
+/**
  * @brief Event fired when an entity takes damage
  */
 struct DamageEvent : public core::Event {
