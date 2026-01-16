@@ -15,17 +15,38 @@ void SettingsScreen::initialize() {
     rebuild_ui();
 }
 
+void SettingsScreen::set_initial_volumes(float master, float music, float sfx, float ambiance) {
+    master_volume_ = static_cast<int>(master * 100.0f);
+    music_volume_ = static_cast<int>(music * 100.0f);
+    sfx_volume_ = static_cast<int>(sfx * 100.0f);
+    ambiance_volume_ = static_cast<int>(ambiance * 100.0f);
+    update_volume_labels();
+}
+
+void SettingsScreen::notify_audio_change() {
+    if (on_audio_settings_change_) {
+        AudioSettings settings;
+        settings.master = master_volume_ / 100.0f;
+        settings.music = music_volume_ / 100.0f;
+        settings.sfx = sfx_volume_ / 100.0f;
+        settings.ambiance = ambiance_volume_ / 100.0f;
+        on_audio_settings_change_(settings);
+    }
+}
+
 void SettingsScreen::rebuild_ui() {
     labels_.clear();
     buttons_.clear();
+    master_value_label_ = nullptr;
     music_value_label_ = nullptr;
     sfx_value_label_ = nullptr;
+    ambiance_value_label_ = nullptr;
 
     float center_x = screen_width_ / 2.0f;
 
     // Font sizes
     int title_size = 70;
-    int label_size = 35;
+    int label_size = 32;
     int button_text_size = 30;
 
     // Title label - centered
@@ -69,77 +90,163 @@ void SettingsScreen::rebuild_ui() {
         audio_title->set_alignment(UILabel::Alignment::CENTER);
         labels_.push_back(std::move(audio_title));
 
+        float row_height = 65.0f;
+        float label_x = center_x - 250.0f;
+        float minus_x = center_x + 50.0f;
+        float value_x = center_x + 125.0f;
+        float plus_x = center_x + 200.0f;
+
+        // Master Volume section
+        float master_y = content_start_y + 60.0f;
+
+        auto master_label = std::make_unique<UILabel>(
+            label_x, master_y, "Master Volume", label_size);
+        master_label->set_color(engine::Color{255, 220, 100, 255});  // Gold for master
+        labels_.push_back(std::move(master_label));
+
+        auto master_minus = std::make_unique<UIButton>(
+            minus_x, master_y - 10.0f, 60.0f, 50.0f, "-");
+        master_minus->set_on_click([this]() {
+            if (master_volume_ > 0) {
+                master_volume_ -= 10;
+                if (master_volume_ < 0) master_volume_ = 0;
+                update_volume_labels();
+                notify_audio_change();
+            }
+        });
+        buttons_.push_back(std::move(master_minus));
+
+        auto master_value = std::make_unique<UILabel>(
+            value_x, master_y, std::to_string(master_volume_) + "%", label_size);
+        master_value->set_color(engine::Color{255, 220, 100, 255});
+        master_value_label_ = master_value.get();
+        labels_.push_back(std::move(master_value));
+
+        auto master_plus = std::make_unique<UIButton>(
+            plus_x, master_y - 10.0f, 60.0f, 50.0f, "+");
+        master_plus->set_on_click([this]() {
+            if (master_volume_ < 100) {
+                master_volume_ += 10;
+                if (master_volume_ > 100) master_volume_ = 100;
+                update_volume_labels();
+                notify_audio_change();
+            }
+        });
+        buttons_.push_back(std::move(master_plus));
+
         // Music Volume section
-        float music_y = content_start_y + 60.0f;
+        float music_y = master_y + row_height;
 
         auto music_label = std::make_unique<UILabel>(
-            center_x - 250.0f, music_y, "Music Volume", label_size);
+            label_x, music_y, "Music Volume", label_size);
         music_label->set_color(engine::Color{255, 255, 255, 255});
         labels_.push_back(std::move(music_label));
 
         auto music_minus = std::make_unique<UIButton>(
-            center_x + 50.0f, music_y - 10.0f, 60.0f, 50.0f, "-");
+            minus_x, music_y - 10.0f, 60.0f, 50.0f, "-");
         music_minus->set_on_click([this]() {
             if (music_volume_ > 0) {
                 music_volume_ -= 10;
                 if (music_volume_ < 0) music_volume_ = 0;
                 update_volume_labels();
+                notify_audio_change();
             }
         });
         buttons_.push_back(std::move(music_minus));
 
         auto music_value = std::make_unique<UILabel>(
-            center_x + 125.0f, music_y, std::to_string(music_volume_) + "%", label_size);
+            value_x, music_y, std::to_string(music_volume_) + "%", label_size);
         music_value->set_color(engine::Color{150, 255, 150, 255});
         music_value_label_ = music_value.get();
         labels_.push_back(std::move(music_value));
 
         auto music_plus = std::make_unique<UIButton>(
-            center_x + 200.0f, music_y - 10.0f, 60.0f, 50.0f, "+");
+            plus_x, music_y - 10.0f, 60.0f, 50.0f, "+");
         music_plus->set_on_click([this]() {
             if (music_volume_ < 100) {
                 music_volume_ += 10;
                 if (music_volume_ > 100) music_volume_ = 100;
                 update_volume_labels();
+                notify_audio_change();
             }
         });
         buttons_.push_back(std::move(music_plus));
 
         // SFX Volume section
-        float sfx_y = music_y + 80.0f;
+        float sfx_y = music_y + row_height;
 
         auto sfx_label = std::make_unique<UILabel>(
-            center_x - 250.0f, sfx_y, "SFX Volume", label_size);
+            label_x, sfx_y, "SFX Volume", label_size);
         sfx_label->set_color(engine::Color{255, 255, 255, 255});
         labels_.push_back(std::move(sfx_label));
 
         auto sfx_minus = std::make_unique<UIButton>(
-            center_x + 50.0f, sfx_y - 10.0f, 60.0f, 50.0f, "-");
+            minus_x, sfx_y - 10.0f, 60.0f, 50.0f, "-");
         sfx_minus->set_on_click([this]() {
             if (sfx_volume_ > 0) {
                 sfx_volume_ -= 10;
                 if (sfx_volume_ < 0) sfx_volume_ = 0;
                 update_volume_labels();
+                notify_audio_change();
             }
         });
         buttons_.push_back(std::move(sfx_minus));
 
         auto sfx_value = std::make_unique<UILabel>(
-            center_x + 125.0f, sfx_y, std::to_string(sfx_volume_) + "%", label_size);
+            value_x, sfx_y, std::to_string(sfx_volume_) + "%", label_size);
         sfx_value->set_color(engine::Color{150, 255, 150, 255});
         sfx_value_label_ = sfx_value.get();
         labels_.push_back(std::move(sfx_value));
 
         auto sfx_plus = std::make_unique<UIButton>(
-            center_x + 200.0f, sfx_y - 10.0f, 60.0f, 50.0f, "+");
+            plus_x, sfx_y - 10.0f, 60.0f, 50.0f, "+");
         sfx_plus->set_on_click([this]() {
             if (sfx_volume_ < 100) {
                 sfx_volume_ += 10;
                 if (sfx_volume_ > 100) sfx_volume_ = 100;
                 update_volume_labels();
+                notify_audio_change();
             }
         });
         buttons_.push_back(std::move(sfx_plus));
+
+        // Ambiance Volume section
+        float ambiance_y = sfx_y + row_height;
+
+        auto ambiance_label = std::make_unique<UILabel>(
+            label_x, ambiance_y, "Ambiance Volume", label_size);
+        ambiance_label->set_color(engine::Color{255, 255, 255, 255});
+        labels_.push_back(std::move(ambiance_label));
+
+        auto ambiance_minus = std::make_unique<UIButton>(
+            minus_x, ambiance_y - 10.0f, 60.0f, 50.0f, "-");
+        ambiance_minus->set_on_click([this]() {
+            if (ambiance_volume_ > 0) {
+                ambiance_volume_ -= 10;
+                if (ambiance_volume_ < 0) ambiance_volume_ = 0;
+                update_volume_labels();
+                notify_audio_change();
+            }
+        });
+        buttons_.push_back(std::move(ambiance_minus));
+
+        auto ambiance_value = std::make_unique<UILabel>(
+            value_x, ambiance_y, std::to_string(ambiance_volume_) + "%", label_size);
+        ambiance_value->set_color(engine::Color{150, 255, 150, 255});
+        ambiance_value_label_ = ambiance_value.get();
+        labels_.push_back(std::move(ambiance_value));
+
+        auto ambiance_plus = std::make_unique<UIButton>(
+            plus_x, ambiance_y - 10.0f, 60.0f, 50.0f, "+");
+        ambiance_plus->set_on_click([this]() {
+            if (ambiance_volume_ < 100) {
+                ambiance_volume_ += 10;
+                if (ambiance_volume_ > 100) ambiance_volume_ = 100;
+                update_volume_labels();
+                notify_audio_change();
+            }
+        });
+        buttons_.push_back(std::move(ambiance_plus));
     } else if (current_tab_ == SettingsTab::CONTROLS) {
         // Controls settings section
         std::cout << "[SettingsScreen] Building CONTROLS tab UI" << std::endl;
@@ -269,11 +376,17 @@ void SettingsScreen::switch_tab(SettingsTab tab) {
 }
 
 void SettingsScreen::update_volume_labels() {
+    if (master_value_label_) {
+        master_value_label_->set_text(std::to_string(master_volume_) + "%");
+    }
     if (music_value_label_) {
         music_value_label_->set_text(std::to_string(music_volume_) + "%");
     }
     if (sfx_value_label_) {
         sfx_value_label_->set_text(std::to_string(sfx_volume_) + "%");
+    }
+    if (ambiance_value_label_) {
+        ambiance_value_label_->set_text(std::to_string(ambiance_volume_) + "%");
     }
 }
 

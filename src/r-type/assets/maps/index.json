@@ -1,28 +1,12 @@
 {
     "maps": [
         {
-            "id": "level_0_test",
-            "name": "[DEBUG] Quick Test",
-            "description": "Only 3 waves - Fast boss testing",
-            "difficulty": 0,
-            "thumbnail": "assets/maps/nebula_outpost/thumbnail.png",
-            "wavesConfig": "assets/levels/level_0_test.json"
-        },
-        {
-            "id": "level_99_instant_boss",
-            "name": "[DEBUG] Instant Boss",
-            "description": "Boss spawns immediately - No waves",
-            "difficulty": 99,
-            "thumbnail": "assets/maps/nebula_outpost/thumbnail.png",
-            "wavesConfig": "assets/levels/level_99_instant_boss.json"
-        },
-        {
-            "id": "level_1_asteroid_belt",
-            "name": "Level 1: Asteroid Belt",
-            "description": "Break through the outer asteroid defenses (15 waves + boss)",
+            "id": "level_1_mars_assault",
+            "name": "Level 1: Mars Assault",
+            "description": "Storm the Martian defense installations (13 waves + boss)",
             "difficulty": 1,
-            "thumbnail": "assets/maps/nebula_outpost/thumbnail.png",
-            "wavesConfig": "assets/levels/level_1_asteroid_belt.json"
+            "thumbnail": "assets/maps/mars_outpost/thumbnail.png",
+            "wavesConfig": "assets/levels/level_1_mars_assault.json"
         },
         {
             "id": "level_2_nebula_station",
@@ -33,12 +17,20 @@
             "wavesConfig": "assets/levels/level_2_nebula_station.json"
         },
         {
-            "id": "level_3_bydo_fortress",
-            "name": "Level 3: Bydo Fortress",
-            "description": "Final assault on the enemy stronghold (20 waves + boss)",
+            "id": "level_3_uranus_station",
+            "name": "Level 3: Uranus Station",
+            "description": "Assault the frozen ice planet installations (15 waves + boss)",
             "difficulty": 3,
-            "thumbnail": "assets/maps/nebula_outpost/thumbnail.png",
-            "wavesConfig": "assets/levels/level_3_bydo_fortress.json"
+            "thumbnail": "assets/maps/urasnus_outpost/thumbnail.png",
+            "wavesConfig": "assets/levels/level_3_uranus_station.json"
+        },
+        {
+            "id": "level_4_jupiter_orbit",
+            "name": "Level 4: Jupiter Orbit",
+            "description": "Navigate the turbulent orbital installations around Jupiter (16 waves + boss)",
+            "difficulty": 4,
+            "thumbnail": "assets/maps/jupiter_outpost/thumbnail.png",
+            "wavesConfig": "assets/levels/level_4_jupiter_orbit.json"
         }
     ]
 }

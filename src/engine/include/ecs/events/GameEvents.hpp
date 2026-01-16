@@ -9,6 +9,7 @@
 
 #include "core/event/Event.hpp"
 #include "ecs/CoreComponents.hpp" // For Entity
+#include <string>
 
 namespace ecs {
 
@@ -134,6 +135,94 @@ struct MuzzleFlashDestroyEvent : public core::Event {
 
     explicit MuzzleFlashDestroyEvent(Entity s)
         : shooter(s) {}
+};
+
+/**
+ * @brief Event fired when a companion turret fires (for audio)
+ */
+struct CompanionShotEvent : public core::Event {
+    Entity companion;
+    float x;
+    float y;
+
+    CompanionShotEvent(Entity c, float px, float py)
+        : companion(c)
+        , x(px)
+        , y(py) {}
+};
+
+// ========== AUDIO-RELATED EVENTS ==========
+
+/**
+ * @brief Event fired when the game scene/level changes (for music transitions)
+ */
+struct SceneChangeEvent : public core::Event {
+    enum class SceneType {
+        MENU,
+        GAMEPLAY,
+        BOSS_FIGHT,
+        VICTORY,
+        GAME_OVER
+    };
+
+    SceneType newScene;
+    int levelId;
+
+    SceneChangeEvent(SceneType scene, int level = 0)
+        : newScene(scene)
+        , levelId(level) {}
+};
+
+/**
+ * @brief Event fired when an explosion sound should play (differentiated by type)
+ */
+struct ExplosionSoundEvent : public core::Event {
+    enum class ExplosionType {
+        ENEMY_BASIC,
+        ENEMY_TANK,
+        ENEMY_BOSS,
+        PLAYER
+    };
+
+    ExplosionType type;
+    float x;
+    float y;
+    float scale;
+
+    ExplosionSoundEvent(ExplosionType t, float px, float py, float s = 1.0f)
+        : type(t)
+        , x(px)
+        , y(py)
+        , scale(s) {}
+};
+
+/**
+ * @brief Event to request music change with fade transition
+ */
+struct MusicChangeRequestEvent : public core::Event {
+    std::string musicId;
+    float fadeOutDuration;
+    float fadeInDuration;
+    bool loop;
+
+    MusicChangeRequestEvent(const std::string& id, float fadeOut = 1.0f,
+                            float fadeIn = 1.0f, bool shouldLoop = true)
+        : musicId(id)
+        , fadeOutDuration(fadeOut)
+        , fadeInDuration(fadeIn)
+        , loop(shouldLoop) {}
+};
+
+/**
+ * @brief Event to request ambiance change with crossfade
+ */
+struct AmbianceChangeRequestEvent : public core::Event {
+    std::string ambianceId;
+    float crossfadeDuration;
+
+    AmbianceChangeRequestEvent(const std::string& id = "", float crossfade = 2.0f)
+        : ambianceId(id)
+        , crossfadeDuration(crossfade) {}
 };
 
 }

@@ -71,4 +71,7 @@ inline constexpr const char* SOUND_PLAYER_HIT = "assets/sounds/android.mp3";
 inline constexpr const char* SOUND_POWERUP = "assets/sounds/rizz.mp3";
 inline constexpr const char* SOUND_SHOOT = "assets/sounds/shoot.mp3";
 
+// Audio configuration
+inline constexpr const char* AUDIO_CONFIG = "assets/audio/audio_config.json";
+
 } // namespace assets::paths
