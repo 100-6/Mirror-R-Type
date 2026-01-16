@@ -90,6 +90,9 @@ WORKDIR /app
 # Copy the server binary
 COPY --from=builder /build/build/r-type_server /app/r-type_server
 
+# Copy network plugins (asio_network.so required by r-type server)
+COPY --from=builder /build/build/plugins /app/plugins
+
 # Copy vcpkg dynamic libraries
 COPY --from=builder /build/build/vcpkg_installed/arm64-linux-dynamic/lib /app/lib
 
@@ -98,7 +101,7 @@ COPY --from=builder /build/src/r-type/assets /app/assets/r-type
 COPY --from=builder /build/assets /app/assets
 
 # Set library path for dynamic linking
-ENV LD_LIBRARY_PATH=/app/lib:$LD_LIBRARY_PATH
+ENV LD_LIBRARY_PATH=/app/lib
 
 # Expose ports (TCP + UDP)
 EXPOSE 4242/tcp

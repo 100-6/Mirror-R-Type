@@ -8,8 +8,8 @@ on:
   push:
     branches:
       - main
+      - dev
       - test-CI
-      - 200-prod-ci-prod-installer
     paths:
       - 'Dockerfile.builder'
       - 'vcpkg.json'
