@@ -1,0 +1,122 @@
+# ==========================================
+# Bagario Server Production Dockerfile
+# Target: ARM64 (Raspberry Pi)
+# ==========================================
+# Builds with vcpkg dependencies inline (no separate builder image)
+# ==========================================
+
+# ==========================================
+# STAGE 1: Builder (inline vcpkg setup)
+# ==========================================
+FROM debian:bookworm-slim AS builder
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    ninja-build \
+    git \
+    curl \
+    zip \
+    unzip \
+    tar \
+    pkg-config \
+    libx11-dev \
+    libxrandr-dev \
+    libxinerama-dev \
+    libxcursor-dev \
+    libxi-dev \
+    libudev-dev \
+    libgl1-mesa-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Clone and bootstrap vcpkg
+WORKDIR /vcpkg
+ARG VCPKG_COMMIT=bd52fac7114fdaa2208de8dd1227212a6683e562
+RUN git clone --depth 1 --branch master https://github.com/Microsoft/vcpkg.git . && \
+    git fetch --depth 1 origin ${VCPKG_COMMIT} && \
+    git checkout ${VCPKG_COMMIT} && \
+    ./bootstrap-vcpkg.sh -disableMetrics
+
+ENV VCPKG_ROOT=/vcpkg
+ENV VCPKG_DEFAULT_TRIPLET=arm64-linux-dynamic
+
+# Pre-install vcpkg dependencies (separate from build)
+WORKDIR /tmp/vcpkg-prebuild
+COPY vcpkg.json .
+RUN /vcpkg/vcpkg install --triplet arm64-linux-dynamic
+
+# Setup build directory and copy files
+WORKDIR /build
+COPY CMakeLists.txt .
+COPY cmake/ cmake/
+COPY src/ src/
+COPY vcpkg.json .
+COPY assets/ assets/
+
+# Configure CMake with pre-installed vcpkg
+RUN cmake -S . -B build \
+    -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_TOOLCHAIN_FILE=/vcpkg/scripts/buildsystems/vcpkg.cmake \
+    -DVCPKG_TARGET_TRIPLET=arm64-linux-dynamic \
+    -DBUILD_CLIENT=OFF \
+    -DBUILD_SERVER=ON \
+    -DBUILD_TESTS=OFF \
+    -DBUILD_RTYPE=OFF \
+    -DBUILD_BAGARIO=ON
+
+# Build Bagario server and required network plugin
+RUN cmake --build build --target bagario_server enet_network -j$(nproc)
+
+# Verify the binary and plugin exist, then cleanup vcpkg cache
+RUN ls -lh /build/build/bagario_server /build/build/enet_network.so && \
+    rm -rf /vcpkg/.git /vcpkg/buildtrees /vcpkg/downloads /vcpkg/packages
+
+# ==========================================
+# STAGE 2: Runtime (Production)
+# ==========================================
+FROM debian:bookworm-slim AS production
+
+# Install only runtime dependencies
+RUN apt-get update && apt-get install -y \
+    libstdc++6 \
+    libc6 \
+    libgcc-s1 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy the server binary
+COPY --from=builder /build/build/bagario_server /app/bagario_server
+
+# Copy network plugin (enet_network.so required by bagario server)
+RUN mkdir -p /app/plugins
+COPY --from=builder /build/build/enet_network.so /app/plugins/enet_network.so
+
+# Copy vcpkg dynamic libraries
+COPY --from=builder /build/build/vcpkg_installed/arm64-linux-dynamic/lib /app/lib
+
+# Copy Bagario assets (if any in the future)
+COPY --from=builder /build/src/bagario/assets /app/assets/bagario
+COPY --from=builder /build/assets /app/assets
+
+# Set library path for dynamic linking
+ENV LD_LIBRARY_PATH=/app/lib
+
+# Expose ports (TCP + UDP)
+EXPOSE 4444/tcp
+EXPOSE 4545/udp
+
+# Create a non-root user for security
+RUN useradd -m -u 1001 bagario && \
+    chown -R bagario:bagario /app
+
+USER bagario
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD timeout 2 bash -c "echo -n > /dev/tcp/127.0.0.1/4444" || exit 1
+
+# Default command
+CMD ["/app/bagario_server"]

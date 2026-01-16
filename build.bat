@@ -8,6 +8,14 @@ set BUILD_BAGARIO=OFF
 set VCPKG_DIR=vcpkg
 set VCPKG_COMMIT=bd52fac7114fdaa2208de8dd1227212a6683e562
 
+REM Load environment variables from .env if it exists
+if exist ".env" (
+    echo Loading environment variables from .env...
+    for /f "usebackq tokens=*" %%a in (".env") do (
+        echo %%a | findstr /r "^[^#]" >nul && set %%a
+    )
+)
+
 set CMD=%1
 if "%CMD%"=="" set CMD=rebuild
 if "%CMD%"=="help" goto :usage
@@ -131,6 +139,14 @@ if %errorlevel% neq 0 (
     echo ✗ Build failed
     exit /b 1
 )
+
+REM Copy .env file to build directory if it exists
+if exist ".env" (
+    echo Copying .env to build directory...
+    copy .env "%BUILD_DIR%\.env" >nul
+    echo ✓ .env copied to %BUILD_DIR%\
+)
+
 echo ✓ Build completed
 exit /b 0
 
@@ -154,6 +170,13 @@ cmake --build "%BUILD_DIR%" -j %NUMBER_OF_PROCESSORS%
 if %errorlevel% neq 0 (
     echo ✗ Build failed
     exit /b 1
+)
+
+REM Copy .env file to build directory if it exists
+if exist ".env" (
+    echo Copying .env to build directory...
+    copy .env "%BUILD_DIR%\.env" >nul
+    echo ✓ .env copied to %BUILD_DIR%\
 )
 
 echo ✓ Build completed successfully
