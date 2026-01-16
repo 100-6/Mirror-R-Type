@@ -66,12 +66,7 @@ inline constexpr const char* MAPS_BASE_PATH = "assets/maps";
 inline constexpr const char* WAVES_CONFIG = "assets/waves_nebula_outpost.json";
 
 // ========== AUDIO ==========
-inline constexpr const char* SOUND_DEATH = "assets/sounds/death.mp3";
-inline constexpr const char* SOUND_PLAYER_HIT = "assets/sounds/android.mp3";
-inline constexpr const char* SOUND_POWERUP = "assets/sounds/rizz.mp3";
-inline constexpr const char* SOUND_SHOOT = "assets/sounds/shoot.mp3";
-
-// Audio configuration
+// Audio configuration (all audio paths are defined in this JSON file)
 inline constexpr const char* AUDIO_CONFIG = "assets/audio/audio_config.json";
 
 } // namespace assets::paths
