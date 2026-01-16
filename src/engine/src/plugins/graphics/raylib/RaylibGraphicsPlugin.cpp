@@ -390,10 +390,54 @@ TextureHandle RaylibGraphicsPlugin::load_texture(const std::string& path) {
     
     // Generate handle
     TextureHandle handle = next_texture_handle_++;
-    
+
     // Store in cache
     textures_[handle] = std::move(data);
-    
+
+    return handle;
+}
+
+TextureHandle RaylibGraphicsPlugin::load_texture_from_memory(const uint8_t* data, size_t size) {
+    if (!initialized_) {
+        throw std::runtime_error("Plugin not initialized");
+    }
+
+    if (data == nullptr || size == 0) {
+        throw std::runtime_error("Invalid texture data");
+    }
+
+    // Load image from memory - Raylib auto-detects format (PNG, JPG, etc.)
+    // We pass ".png" as extension hint but Raylib will detect the actual format
+    Image image = LoadImageFromMemory(".png", data, static_cast<int>(size));
+
+    if (image.data == nullptr) {
+        throw std::runtime_error("Failed to load image from memory");
+    }
+
+    // Convert image to texture
+    Texture2D rl_texture = LoadTextureFromImage(image);
+
+    // Free image data (texture is now in GPU memory)
+    UnloadImage(image);
+
+    if (rl_texture.id == 0) {
+        throw std::runtime_error("Failed to create texture from image");
+    }
+
+    // Create texture data
+    TextureData tex_data;
+    store_in_vector(tex_data.data, rl_texture);
+    tex_data.size = Vector2f(
+        static_cast<float>(rl_texture.width),
+        static_cast<float>(rl_texture.height)
+    );
+
+    // Generate handle
+    TextureHandle handle = next_texture_handle_++;
+
+    // Store in cache
+    textures_[handle] = std::move(tex_data);
+
     return handle;
 }
 
@@ -521,6 +565,10 @@ void RaylibGraphicsPlugin::create_default_texture() {
 
 TextureHandle RaylibGraphicsPlugin::get_default_texture() const {
     return default_texture_;
+}
+
+void* RaylibGraphicsPlugin::get_window_handle() const {
+    return nullptr;
 }
 
 void RaylibGraphicsPlugin::begin_blend_mode(int mode) {

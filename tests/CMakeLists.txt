@@ -214,6 +214,20 @@ target_link_libraries(test_raylib_plugin
 add_test(NAME RaylibPluginTest COMMAND test_raylib_plugin WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TARGET test_raylib_plugin PROPERTY CXX_STANDARD 20)
 
+# Test SFML Graphics Plugin (only if SFML plugins are built)
+if(TARGET sfml_graphics)
+    add_executable(test_sfml_plugin
+        plugins/graphics/sfml/test_sfml_plugin.cpp
+    )
+    target_link_libraries(test_sfml_plugin
+        PRIVATE
+            game_engine
+    )
+    add_test(NAME SFMLPluginTest COMMAND test_sfml_plugin WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+    set_property(TARGET test_sfml_plugin PROPERTY CXX_STANDARD 20)
+endif()
+
+
 if(GTest_FOUND)
     # Test Collision Simple (GTest)
     add_executable(test_collision_simple_gtest

@@ -140,6 +140,19 @@ public:
      * This method updates the "just pressed/released" states
      */
     virtual void update() = 0;
+
+    /**
+     * @brief Set the window handle for coordinate conversion
+     * @param handle Pointer to the window handle (platform specific void*)
+     */
+    virtual void set_window_handle(void* handle) = 0;
+
+    /**
+     * @brief Check if the window has focus
+     * @return true if window has focus, false otherwise
+     * Used to ensure input is only processed when the window is focused
+     */
+    virtual bool has_focus() const { return true; }
 };
 
 }

@@ -244,3 +244,165 @@ if(WIN32)
 else()
     set_target_properties(raylib_input PROPERTIES SUFFIX ".so")
 endif()
+
+# ============================================
+# PLUGIN: SFML Graphics (Dynamic Library)
+# ============================================
+# SFML 3.0 uses capitalized component names (Graphics, Window, System)
+find_package(SFML COMPONENTS Network Graphics Window Audio System CONFIG QUIET)
+
+if(SFML_FOUND)
+    message(STATUS "SFML found, building SFML plugins")
+
+    add_library(sfml_graphics SHARED
+        src/plugins/graphics/sfml/SFMLGraphicsPlugin.cpp
+    )
+
+    target_include_directories(sfml_graphics
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+
+    # Try different target names (vcpkg uses sfml-*, system packages use SFML::*)
+    if(TARGET sfml-graphics)
+        target_link_libraries(sfml_graphics
+            PRIVATE
+                sfml-graphics
+                sfml-window
+                sfml-system
+        )
+    elseif(TARGET SFML::Graphics)
+        target_link_libraries(sfml_graphics
+            PRIVATE
+                SFML::Graphics
+                SFML::Window
+                SFML::System
+        )
+    endif()
+
+    target_compile_definitions(sfml_graphics PRIVATE PLUGIN_EXPORTS)
+
+    set_target_properties(sfml_graphics PROPERTIES
+        LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/plugins"
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/plugins"
+        ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/plugins"
+        OUTPUT_NAME "sfml_graphics"
+        PREFIX ""
+    )
+
+    # For multi-config generators (Visual Studio, Xcode)
+    foreach(CONFIG_TYPE ${CMAKE_CONFIGURATION_TYPES})
+        string(TOUPPER ${CONFIG_TYPE} CONFIG_TYPE_UPPER)
+        set_target_properties(sfml_graphics PROPERTIES
+            LIBRARY_OUTPUT_DIRECTORY_${CONFIG_TYPE_UPPER} "${CMAKE_BINARY_DIR}/plugins"
+            RUNTIME_OUTPUT_DIRECTORY_${CONFIG_TYPE_UPPER} "${CMAKE_BINARY_DIR}/plugins"
+            ARCHIVE_OUTPUT_DIRECTORY_${CONFIG_TYPE_UPPER} "${CMAKE_BINARY_DIR}/plugins"
+        )
+    endforeach()
+
+    if(WIN32)
+        set_target_properties(sfml_graphics PROPERTIES SUFFIX ".dll")
+    else()
+        set_target_properties(sfml_graphics PROPERTIES SUFFIX ".so")
+    endif()
+
+    # ============================================
+    # PLUGIN: SFML Input (Dynamic Library)
+    # ============================================
+    add_library(sfml_input SHARED
+        src/plugins/input/sfml/SFMLInputPlugin.cpp
+    )
+
+    target_include_directories(sfml_input
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+
+    if(TARGET sfml-window)
+        target_link_libraries(sfml_input
+            PRIVATE
+                sfml-window
+                sfml-system
+        )
+    elseif(TARGET SFML::Window)
+        target_link_libraries(sfml_input
+            PRIVATE
+                SFML::Window
+                SFML::System
+        )
+    endif()
+
+    target_compile_definitions(sfml_input PRIVATE PLUGIN_EXPORTS)
+
+    set_target_properties(sfml_input PROPERTIES
+        LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/plugins"
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/plugins"
+        ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/plugins"
+        OUTPUT_NAME "sfml_input"
+        PREFIX ""
+    )
+
+    # For multi-config generators (Visual Studio, Xcode)
+    foreach(CONFIG_TYPE ${CMAKE_CONFIGURATION_TYPES})
+        string(TOUPPER ${CONFIG_TYPE} CONFIG_TYPE_UPPER)
+        set_target_properties(sfml_input PROPERTIES
+            LIBRARY_OUTPUT_DIRECTORY_${CONFIG_TYPE_UPPER} "${CMAKE_BINARY_DIR}/plugins"
+            RUNTIME_OUTPUT_DIRECTORY_${CONFIG_TYPE_UPPER} "${CMAKE_BINARY_DIR}/plugins"
+            ARCHIVE_OUTPUT_DIRECTORY_${CONFIG_TYPE_UPPER} "${CMAKE_BINARY_DIR}/plugins"
+        )
+    endforeach()
+
+    if(WIN32)
+        set_target_properties(sfml_input PROPERTIES SUFFIX ".dll")
+    else()
+        set_target_properties(sfml_input PROPERTIES SUFFIX ".so")
+    endif()
+
+else()
+    message(WARNING "SFML not found. SFML plugins will not be built. Install via vcpkg: vcpkg install sfml")
+endif()
+
+find_package(unofficial-enet CONFIG REQUIRED)
+
+add_library(enet_network SHARED
+    src/plugins/network/enet/EnetNetworkPlugin.cpp
+)
+
+target_include_directories(enet_network
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+target_link_libraries(enet_network
+    PRIVATE
+        unofficial::enet::enet
+)
+
+if(WIN32)
+    target_link_libraries(enet_network PRIVATE ws2_32 winmm)
+endif()
+
+target_compile_definitions(enet_network PRIVATE PLUGIN_EXPORTS)
+
+set_target_properties(enet_network PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/plugins"
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/plugins"
+    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/plugins"
+    OUTPUT_NAME "enet_network"
+    PREFIX ""
+)
+
+foreach(CONFIG_TYPE ${CMAKE_CONFIGURATION_TYPES})
+    string(TOUPPER ${CONFIG_TYPE} CONFIG_TYPE_UPPER)
+    set_target_properties(enet_network PROPERTIES
+        LIBRARY_OUTPUT_DIRECTORY_${CONFIG_TYPE_UPPER} "${CMAKE_BINARY_DIR}/plugins"
+        RUNTIME_OUTPUT_DIRECTORY_${CONFIG_TYPE_UPPER} "${CMAKE_BINARY_DIR}/plugins"
+        ARCHIVE_OUTPUT_DIRECTORY_${CONFIG_TYPE_UPPER} "${CMAKE_BINARY_DIR}/plugins"
+    )
+endforeach()
+
+if(WIN32)
+    set_target_properties(enet_network PROPERTIES SUFFIX ".dll")
+else()
+    set_target_properties(enet_network PROPERTIES SUFFIX ".so")
+endif()
