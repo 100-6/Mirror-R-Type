@@ -219,6 +219,7 @@ Packet types are organized by functional category:
 | 0xC1    | SERVER_SCORE_UPDATE          | Player score updated                  |
 | 0xC2    | SERVER_WAVE_START            | New enemy wave starting               |
 | 0xC3    | SERVER_WAVE_COMPLETE         | Wave completed                        |
+| 0xC4    | SERVER_PLAYER_LEVEL_UP       | Player leveled up                     |
 | 0xC5    | SERVER_PLAYER_RESPAWN        | Player respawned                      |
 | 0xC6    | SERVER_GAME_OVER             | Game session ended                    |
 | 0xF0    | SERVER_ADMIN_AUTH_RESULT     | Admin authentication result           |
@@ -1248,7 +1249,46 @@ This allows clients to:
 
 **Rationale**: Notifies clients of wave completion, allowing them to display completion statistics, award bonus points, and potentially trigger victory conditions if all waves are complete.
 
-#### 5.6.5 SERVER_PLAYER_RESPAWN (0xC5)
+#### 5.6.5 SERVER_PLAYER_LEVEL_UP (0xC4)
+
+```
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                          Player ID                            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                          Entity ID                            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   | New Level     |New Ship Type  |New Weapon Type| New Skin ID   |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                        Current Score                          |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```
+
+| Field           | Size    | Description                                    |
+|-----------------|---------|------------------------------------------------|
+| Player ID       | 4 bytes | Network player identifier                      |
+| Entity ID       | 4 bytes | Server-side entity identifier                  |
+| New Level       | 1 byte  | New player level (1-5)                         |
+| New Ship Type   | 1 byte  | New ship type (0=SCOUT, 1=FIGHTER, 2=CRUISER, 3=BOMBER, 4=CARRIER) |
+| New Weapon Type | 1 byte  | New weapon type (0=BASIC, 1=SPREAD, 2=BURST, 3=LASER, 4=CHARGE) |
+| New Skin ID     | 1 byte  | Computed skin_id (color * 5 + ship_type)       |
+| Current Score   | 4 bytes | Player's current score after level up          |
+
+**Total Size**: 16 bytes
+
+**Level Thresholds**:
+| Level | Score Required | Ship Type | Weapon Type |
+|-------|----------------|-----------|-------------|
+| 1     | 0              | SCOUT     | BASIC       |
+| 2     | 2000           | FIGHTER   | SPREAD      |
+| 3     | 5000           | CRUISER   | BURST       |
+| 4     | 10000          | BOMBER    | LASER       |
+| 5     | 20000          | CARRIER   | CHARGE      |
+
+**Rationale**: Notifies all clients when a player reaches a new level based on their score. The client uses this information to update the player's sprite, hitbox dimensions, and weapon type. The skin_id allows clients to select the correct sprite variant based on the player's chosen color and new ship type.
+
+#### 5.6.6 SERVER_PLAYER_RESPAWN (0xC5)
 
 ```
     0                   1                   2                   3
@@ -1274,7 +1314,7 @@ This allows clients to:
 
 **Total Size**: 15 bytes
 
-#### 5.6.6 SERVER_GAME_OVER (0xC6)
+#### 5.6.7 SERVER_GAME_OVER (0xC6)
 
 ```
     0                   1                   2                   3
@@ -1750,6 +1790,7 @@ Implementations SHOULD provide encoder/decoder functions that:
 | 0xC1 | SERVER_SCORE_UPDATE       |     | ✓   | Event        |
 | 0xC2 | SERVER_WAVE_START         |     | ✓   | Event        |
 | 0xC3 | SERVER_WAVE_COMPLETE      |     | ✓   | Event        |
+| 0xC4 | SERVER_PLAYER_LEVEL_UP    |     | ✓   | Event        |
 | 0xC5 | SERVER_PLAYER_RESPAWN     |     | ✓   | Event        |
 | 0xC6 | SERVER_GAME_OVER          |     | ✓   | Once         |
 

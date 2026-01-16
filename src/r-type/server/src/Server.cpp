@@ -290,7 +290,7 @@ void Server::on_client_input(uint32_t client_id, const protocol::ClientInputPayl
 
 void Server::on_lobby_state_changed(uint32_t lobby_id, const std::vector<uint8_t>& payload)
 {
-    std::cout << "[Server] Broadcasting lobby state for lobby/room " << lobby_id << "\n";
+    std::cout << "[Server] Broadcasting lobby state for lobby/room " << lobby_id << " (payload size: " << payload.size() << ")\n";
 
     // If payload is empty (from RoomManager), build it ourselves with player info
     std::vector<uint8_t> actual_payload = payload;
@@ -321,13 +321,17 @@ void Server::on_lobby_state_changed(uint32_t lobby_id, const std::vector<uint8_t
                     if (info_it != connected_clients_.end()) {
                         entry.set_name(info_it->second.player_name);
                         entry.skin_id = info_it->second.skin_id;
+                        std::cout << "[Server] Adding player " << player_id << " to lobby state: name='"
+                                  << info_it->second.player_name << "' skin_id=" << static_cast<int>(info_it->second.skin_id) << "\n";
                     } else {
                         entry.set_name("Player " + std::to_string(player_id));
                         entry.skin_id = 0;
+                        std::cout << "[Server] Adding player " << player_id << " to lobby state: (not found in connected_clients)\n";
                     }
                 } else {
                     entry.set_name("Player " + std::to_string(player_id));
                     entry.skin_id = 0;
+                    std::cout << "[Server] Adding player " << player_id << " to lobby state: (not found in player_to_client)\n";
                 }
                 entry.player_level = 0;
 
