@@ -312,6 +312,9 @@ void NetworkClient::handle_packet(const engine::NetworkPacket& packet) {
         case protocol::PacketType::SERVER_SCORE_UPDATE:
             handle_score_update(payload);
             break;
+        case protocol::PacketType::SERVER_PLAYER_LEVEL_UP:
+            handle_player_level_up(payload);
+            break;
         case protocol::PacketType::SERVER_POWERUP_COLLECTED:
             handle_powerup_collected(payload);
             break;
@@ -630,6 +633,27 @@ void NetworkClient::handle_score_update(const std::vector<uint8_t>& payload) {
         on_score_update_(score_update);
 }
 
+void NetworkClient::handle_player_level_up(const std::vector<uint8_t>& payload) {
+    if (payload.size() < sizeof(protocol::ServerPlayerLevelUpPayload)) {
+        return;
+    }
+
+    protocol::ServerPlayerLevelUpPayload level_up;
+    std::memcpy(&level_up, payload.data(), sizeof(level_up));
+    level_up.player_id = ntohl(level_up.player_id);
+    level_up.entity_id = ntohl(level_up.entity_id);
+    level_up.current_score = ntohl(level_up.current_score);
+
+    std::cout << "[NetworkClient] Player " << level_up.player_id
+              << " leveled up to level " << static_cast<int>(level_up.new_level)
+              << " (ship: " << static_cast<int>(level_up.new_ship_type)
+              << ", weapon: " << static_cast<int>(level_up.new_weapon_type)
+              << ", skin_id: " << static_cast<int>(level_up.new_skin_id) << ")\n";
+
+    if (on_player_level_up_)
+        on_player_level_up_(level_up);
+}
+
 void NetworkClient::handle_powerup_collected(const std::vector<uint8_t>& payload) {
     if (payload.size() < sizeof(protocol::ServerPowerupCollectedPayload)) {
         return;
@@ -942,6 +966,10 @@ void NetworkClient::set_on_wave_complete(std::function<void(const protocol::Serv
 
 void NetworkClient::set_on_score_update(std::function<void(const protocol::ServerScoreUpdatePayload&)> callback) {
     on_score_update_ = callback;
+}
+
+void NetworkClient::set_on_player_level_up(std::function<void(const protocol::ServerPlayerLevelUpPayload&)> callback) {
+    on_player_level_up_ = callback;
 }
 
 void NetworkClient::set_on_powerup_collected(std::function<void(const protocol::ServerPowerupCollectedPayload&)> callback) {

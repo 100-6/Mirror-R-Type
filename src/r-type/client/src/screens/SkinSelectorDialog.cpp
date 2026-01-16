@@ -2,12 +2,15 @@
 ** EPITECH PROJECT, 2025
 ** Mirror-R-Type
 ** File description:
-** SkinSelectorDialog - Modal for selecting player skin
+** SkinSelectorDialog - Modal for selecting player color
 */
 
 #include "screens/SkinSelectorDialog.hpp"
 
 namespace rtype::client {
+
+// Color names for labels
+static const char* COLOR_NAMES[] = {"Green", "Red", "Blue"};
 
 SkinSelectorDialog::SkinSelectorDialog(int screen_width, int screen_height)
     : screen_width_(screen_width)
@@ -22,29 +25,29 @@ void SkinSelectorDialog::initialize() {
     float center_y = screen_height_ / 2.0f;
 
     // Title
-    auto title = std::make_unique<UILabel>(center_x, center_y - 225, "Select Your Ship", 28);
+    auto title = std::make_unique<UILabel>(center_x, center_y - 150, "Select Your Color", 28);
     title->set_alignment(UILabel::Alignment::CENTER);
     title->set_color(engine::Color{220, 210, 255, 255});
     labels_.push_back(std::move(title));
 
-    // Subtitle with color/type legend
-    auto subtitle = std::make_unique<UILabel>(center_x + 70, center_y - 195, "Colors: Green | Red | Blue - Types: Scout | Fighter | Cruiser | Bomber | Carrier", 14);
+    // Subtitle
+    auto subtitle = std::make_unique<UILabel>(center_x, center_y - 115, "Ship type is determined by your level", 14);
     subtitle->set_alignment(UILabel::Alignment::CENTER);
     subtitle->set_color(engine::Color{160, 150, 200, 200});
     labels_.push_back(std::move(subtitle));
 
     // Confirm button
-    auto confirm_btn = std::make_unique<UIButton>(center_x - 185, center_y + 170, 170, 50, "Confirm");
+    auto confirm_btn = std::make_unique<UIButton>(center_x - 185, center_y + 120, 170, 50, "Confirm");
     confirm_btn->set_on_click([this]() {
         if (on_confirm_) {
-            on_confirm_(selected_skin_);
+            on_confirm_(selected_color_);
         }
         hide();
     });
     buttons_.push_back(std::move(confirm_btn));
 
     // Cancel button
-    auto cancel_btn = std::make_unique<UIButton>(center_x + 15, center_y + 170, 170, 50, "Cancel");
+    auto cancel_btn = std::make_unique<UIButton>(center_x + 15, center_y + 120, 170, 50, "Cancel");
     cancel_btn->set_on_click([this]() {
         if (on_cancel_) {
             on_cancel_();
@@ -67,28 +70,25 @@ void SkinSelectorDialog::update(engine::IGraphicsPlugin* graphics, engine::IInpu
     bool mouse_clicked = mouse_pressed && !was_mouse_pressed_;
     was_mouse_pressed_ = mouse_pressed;
 
-    // Calculate grid position
+    // Calculate grid position (3 colors in a horizontal row)
     float grid_width = GRID_COLS * (CELL_SIZE + CELL_PADDING) - CELL_PADDING;
     float grid_height = GRID_ROWS * (CELL_SIZE + CELL_PADDING) - CELL_PADDING;
     float grid_x = (screen_width_ - grid_width) / 2.0f;
-    float grid_y = (screen_height_ - grid_height) / 2.0f - 30.0f;
+    float grid_y = (screen_height_ - grid_height) / 2.0f - 20.0f;
 
     // Check hover and click on grid cells
-    hovered_skin_ = 255;  // Reset hover
+    hovered_color_ = 255;  // Reset hover
 
-    for (int row = 0; row < GRID_ROWS; ++row) {
-        for (int col = 0; col < GRID_COLS; ++col) {
-            float cell_x = grid_x + col * (CELL_SIZE + CELL_PADDING);
-            float cell_y = grid_y + row * (CELL_SIZE + CELL_PADDING);
+    for (int col = 0; col < GRID_COLS; ++col) {
+        float cell_x = grid_x + col * (CELL_SIZE + CELL_PADDING);
+        float cell_y = grid_y;
 
-            if (mouse_x >= cell_x && mouse_x < cell_x + CELL_SIZE &&
-                mouse_y >= cell_y && mouse_y < cell_y + CELL_SIZE) {
-                uint8_t skin_id = static_cast<uint8_t>(row * GRID_COLS + col);
-                hovered_skin_ = skin_id;
+        if (mouse_x >= cell_x && mouse_x < cell_x + CELL_SIZE &&
+            mouse_y >= cell_y && mouse_y < cell_y + CELL_SIZE) {
+            hovered_color_ = static_cast<uint8_t>(col);
 
-                if (mouse_clicked) {
-                    selected_skin_ = skin_id;
-                }
+            if (mouse_clicked) {
+                selected_color_ = static_cast<uint8_t>(col);
             }
         }
     }
@@ -106,9 +106,9 @@ void SkinSelectorDialog::draw(engine::IGraphicsPlugin* graphics) {
     engine::Rectangle overlay{0, 0, static_cast<float>(screen_width_), static_cast<float>(screen_height_)};
     graphics->draw_rectangle(overlay, engine::Color{0, 0, 0, 200});
 
-    // Dialog dimensions
-    float dialog_width = 580.0f;
-    float dialog_height = 480.0f;
+    // Dialog dimensions (smaller than before since we have fewer items)
+    float dialog_width = 480.0f;
+    float dialog_height = 350.0f;
     float dialog_x = (screen_width_ - dialog_width) / 2.0f;
     float dialog_y = (screen_height_ - dialog_height) / 2.0f;
     float corner_radius = 22.0f;
@@ -175,55 +175,67 @@ void SkinSelectorDialog::draw(engine::IGraphicsPlugin* graphics) {
         label->draw(graphics);
     }
 
-    // Draw ship grid
+    // Draw color selection grid (3 colors in a row)
     float grid_width = GRID_COLS * (CELL_SIZE + CELL_PADDING) - CELL_PADDING;
-    float grid_height = GRID_ROWS * (CELL_SIZE + CELL_PADDING) - CELL_PADDING;
     float grid_x = (screen_width_ - grid_width) / 2.0f;
-    float grid_y = (screen_height_ - grid_height) / 2.0f - 30.0f;
+    float grid_y = (screen_height_ - CELL_SIZE) / 2.0f - 20.0f;
 
-    for (int row = 0; row < GRID_ROWS; ++row) {
-        for (int col = 0; col < GRID_COLS; ++col) {
-            uint8_t skin_id = static_cast<uint8_t>(row * GRID_COLS + col);
-            float cell_x = grid_x + col * (CELL_SIZE + CELL_PADDING);
-            float cell_y = grid_y + row * (CELL_SIZE + CELL_PADDING);
+    // Determine ship type based on current level (level 1 = SCOUT, level 2 = FIGHTER, etc.)
+    uint8_t ship_type = (current_level_ > 0 && current_level_ <= 5) ? (current_level_ - 1) : 0;
 
-            // Cell background
-            engine::Color cell_bg{40, 35, 55, 255};
-            if (skin_id == selected_skin_) {
-                cell_bg = engine::Color{80, 60, 140, 255};  // Selected - purple
-            } else if (skin_id == hovered_skin_) {
-                cell_bg = engine::Color{60, 50, 90, 255};   // Hover - lighter
-            }
+    for (int col = 0; col < GRID_COLS; ++col) {
+        uint8_t color_id = static_cast<uint8_t>(col);
+        float cell_x = grid_x + col * (CELL_SIZE + CELL_PADDING);
+        float cell_y = grid_y;
 
-            engine::Rectangle cell{cell_x, cell_y, CELL_SIZE, CELL_SIZE};
-            graphics->draw_rectangle(cell, cell_bg);
-
-            // Selection border
-            if (skin_id == selected_skin_) {
-                engine::Color sel_border{180, 140, 255, 255};
-                engine::Rectangle sel_top{cell_x, cell_y, CELL_SIZE, 3.0f};
-                engine::Rectangle sel_bot{cell_x, cell_y + CELL_SIZE - 3.0f, CELL_SIZE, 3.0f};
-                engine::Rectangle sel_lft{cell_x, cell_y, 3.0f, CELL_SIZE};
-                engine::Rectangle sel_rgt{cell_x + CELL_SIZE - 3.0f, cell_y, 3.0f, CELL_SIZE};
-                graphics->draw_rectangle(sel_top, sel_border);
-                graphics->draw_rectangle(sel_bot, sel_border);
-                graphics->draw_rectangle(sel_lft, sel_border);
-                graphics->draw_rectangle(sel_rgt, sel_border);
-            }
-
-            // Draw ship sprite
-            if (spaceship_manager_ && spaceship_manager_->is_loaded()) {
-                ShipColor color = static_cast<ShipColor>(row);
-                ShipType type = static_cast<ShipType>(col);
-                engine::Sprite ship_sprite = spaceship_manager_->create_ship_sprite(color, type, 1.0f);
-
-                // Sprite origin is set to center in SpaceshipManager, so we invoke draw at the cell center
-                float sprite_x = cell_x + CELL_SIZE / 2.0f;
-                float sprite_y = cell_y + CELL_SIZE / 2.0f;
-
-                graphics->draw_sprite(ship_sprite, {sprite_x, sprite_y});
-            }
+        // Cell background with color hint
+        engine::Color cell_bg{40, 35, 55, 255};
+        if (color_id == selected_color_) {
+            cell_bg = engine::Color{80, 60, 140, 255};  // Selected - purple
+        } else if (color_id == hovered_color_) {
+            cell_bg = engine::Color{60, 50, 90, 255};   // Hover - lighter
         }
+
+        engine::Rectangle cell{cell_x, cell_y, CELL_SIZE, CELL_SIZE};
+        graphics->draw_rectangle(cell, cell_bg);
+
+        // Selection border
+        if (color_id == selected_color_) {
+            engine::Color sel_border{180, 140, 255, 255};
+            engine::Rectangle sel_top{cell_x, cell_y, CELL_SIZE, 3.0f};
+            engine::Rectangle sel_bot{cell_x, cell_y + CELL_SIZE - 3.0f, CELL_SIZE, 3.0f};
+            engine::Rectangle sel_lft{cell_x, cell_y, 3.0f, CELL_SIZE};
+            engine::Rectangle sel_rgt{cell_x + CELL_SIZE - 3.0f, cell_y, 3.0f, CELL_SIZE};
+            graphics->draw_rectangle(sel_top, sel_border);
+            graphics->draw_rectangle(sel_bot, sel_border);
+            graphics->draw_rectangle(sel_lft, sel_border);
+            graphics->draw_rectangle(sel_rgt, sel_border);
+        }
+
+        // Draw ship sprite (same ship type for all, different colors)
+        if (spaceship_manager_ && spaceship_manager_->is_loaded()) {
+            ShipColor color = static_cast<ShipColor>(col);
+            ShipType type = static_cast<ShipType>(ship_type);
+            engine::Sprite ship_sprite = spaceship_manager_->create_ship_sprite(color, type, 1.2f);
+
+            // Sprite origin is set to center in SpaceshipManager
+            float sprite_x = cell_x + CELL_SIZE / 2.0f;
+            float sprite_y = cell_y + CELL_SIZE / 2.0f;
+
+            graphics->draw_sprite(ship_sprite, {sprite_x, sprite_y});
+        }
+
+        // Draw color name label below each cell
+        float label_x = cell_x + CELL_SIZE / 2.0f;
+        float label_y = cell_y + CELL_SIZE + 8.0f;
+
+        // Color indicator circle
+        engine::Color indicator_colors[] = {
+            {100, 255, 100, 255},  // Green
+            {255, 100, 100, 255},  // Red
+            {100, 100, 255, 255}   // Blue
+        };
+        graphics->draw_circle({label_x, label_y + 5.0f}, 6.0f, indicator_colors[col]);
     }
 
     // Draw buttons
@@ -232,16 +244,16 @@ void SkinSelectorDialog::draw(engine::IGraphicsPlugin* graphics) {
     }
 }
 
-void SkinSelectorDialog::show(uint8_t current_skin_id) {
-    selected_skin_ = current_skin_id % 15;  // Ensure valid range
+void SkinSelectorDialog::show(uint8_t current_color_id) {
+    selected_color_ = current_color_id % 3;  // Ensure valid range (0-2)
     visible_ = true;
-    hovered_skin_ = 255;
+    hovered_color_ = 255;
     was_mouse_pressed_ = true;  // Prevent immediate click on show
 }
 
 void SkinSelectorDialog::hide() {
     visible_ = false;
-    hovered_skin_ = 255;
+    hovered_color_ = 255;
 }
 
 }  // namespace rtype::client

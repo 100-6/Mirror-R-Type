@@ -45,8 +45,7 @@ uint16_t InputHandler::gather_input() const {
         flags |= static_cast<uint16_t>(protocol::InputFlags::INPUT_CHARGE);
     if (is_action_pressed(GameAction::SPECIAL))
         flags |= static_cast<uint16_t>(protocol::InputFlags::INPUT_SPECIAL);
-    if (is_action_pressed(GameAction::SWITCH_WEAPON))
-        flags |= static_cast<uint16_t>(protocol::InputFlags::INPUT_SWITCH_WEAPON);
+    // SWITCH_WEAPON removed - weapon is now determined by player level
 
     return flags;
 }

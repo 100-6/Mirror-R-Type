@@ -803,7 +803,7 @@ void RoomLobbyScreen::draw_player_slot(engine::IGraphicsPlugin* graphics, int sl
     if (has_player) {
         // Get player data if available, otherwise use default
         std::string player_name = "Player " + std::to_string(slot_index + 1);
-        uint8_t ship_type = (slot_index * 3) % 15;  // Default ship rotation (0-14 for all ship combinations)
+        uint8_t ship_type = slot_index % 3;  // Default color rotation (0-2 for GREEN, RED, BLUE)
         bool is_ready = false;
 
         // Find player data by slot_index - search all players
@@ -818,10 +818,10 @@ void RoomLobbyScreen::draw_player_slot(engine::IGraphicsPlugin* graphics, int sl
 
         // Draw ship sprite from Spaceships.png spritesheet
         if (spaceship_manager_ && spaceship_manager_->is_loaded()) {
-            // Map ship_type to color and type
-            // ship_type 0-14 covers all combinations (3 colors × 5 types)
-            ShipColor color = static_cast<ShipColor>(ship_type / 5);  // 0-2
-            ShipType type = static_cast<ShipType>(ship_type % 5);      // 0-4
+            // ship_type is now just the color (0-2)
+            // In lobby, all players are level 1, so always show SCOUT ship
+            ShipColor color = static_cast<ShipColor>(ship_type % 3);  // 0-2 (GREEN, RED, BLUE)
+            ShipType type = ShipType::SCOUT;  // Level 1 = SCOUT
 
             // Create sprite from spritesheet with larger scale
             float ship_scale = 4.2f;  // Increased from 3.5 for bigger slots

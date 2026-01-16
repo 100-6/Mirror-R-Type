@@ -71,7 +71,7 @@
             "pitchVariation": 0.15
         },
         "powerup_collect": {
-            "path": "assets/sounds/rizz.mp3",
+            "path": "assets/audio/conditions/win.mp3",
             "volume": 1.0
         },
         "explosion_enemy_basic": {

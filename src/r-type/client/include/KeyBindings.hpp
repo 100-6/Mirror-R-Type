@@ -17,7 +17,7 @@ enum class GameAction {
     SHOOT,
     CHARGE,
     SPECIAL,
-    SWITCH_WEAPON,
+    // SWITCH_WEAPON removed - weapon is now determined by player level
     TOGGLE_HITBOX,
     TOGGLE_NETWORK_DEBUG
 };

@@ -574,6 +574,34 @@ PACK_END
 static_assert(sizeof(ServerWaveCompletePayload) == 13, "ServerWaveCompletePayload must be 13 bytes");
 
 /**
+ * @brief SERVER_PLAYER_LEVEL_UP payload (0xC4)
+ * Broadcast when a player levels up (ship and weapon change)
+ * Total size: 16 bytes
+ */
+PACK_START
+struct PACKED ServerPlayerLevelUpPayload {
+    uint32_t player_id;           // Network player ID
+    uint32_t entity_id;           // Server entity ID
+    uint8_t new_level;            // New level (1-5)
+    uint8_t new_ship_type;        // Ship type (0-4: SCOUT to CARRIER)
+    uint8_t new_weapon_type;      // Weapon type (0-4: BASIC to CHARGE)
+    uint8_t new_skin_id;          // Computed skin_id (color * 5 + ship_type)
+    uint32_t current_score;       // Player's current score
+
+    ServerPlayerLevelUpPayload()
+        : player_id(0)
+        , entity_id(0)
+        , new_level(1)
+        , new_ship_type(0)
+        , new_weapon_type(0)
+        , new_skin_id(0)
+        , current_score(0) {}
+};
+PACK_END
+
+static_assert(sizeof(ServerPlayerLevelUpPayload) == 16, "ServerPlayerLevelUpPayload must be 16 bytes");
+
+/**
  * @brief SERVER_PLAYER_RESPAWN payload (0xC5)
  * Total size: 15 bytes
  */

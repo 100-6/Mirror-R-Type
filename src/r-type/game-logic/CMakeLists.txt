@@ -5,6 +5,7 @@ add_library(rtype_logic
     src/systems/HealthSystem.cpp
     src/systems/HitEffectSystem.cpp
     src/systems/ScoreSystem.cpp
+    src/systems/LevelUpSystem.cpp
     src/systems/ScrollingSystem.cpp
     src/systems/ShootingSystem.cpp
     src/systems/CollisionSystem.cpp

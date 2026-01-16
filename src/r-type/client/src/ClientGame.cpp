@@ -706,6 +706,19 @@ void ClientGame::setup_network_callbacks() {
         }
     });
 
+    network_client_->set_on_player_level_up([this](const protocol::ServerPlayerLevelUpPayload& level_up) {
+        // Update the player's sprite with the new skin
+        entity_manager_->update_player_skin(level_up.entity_id, level_up.new_skin_id);
+
+        // Check if this is the local player for HUD feedback
+        uint32_t local_server_id = entity_manager_->get_local_player_entity_id();
+        if (level_up.entity_id == local_server_id) {
+            std::cout << "[ClientGame] Local player leveled up to level "
+                      << static_cast<int>(level_up.new_level) << "!\n";
+            // TODO: Trigger level-up visual effect in HUD
+        }
+    });
+
     network_client_->set_on_powerup_collected([this](const protocol::ServerPowerupCollectedPayload& powerup) {
         // Only handle WEAPON_UPGRADE type (bonus weapon / companion turret)
         if (powerup.powerup_type != protocol::PowerupType::WEAPON_UPGRADE)
