@@ -78,6 +78,10 @@ public:
     void reset_view() override;
     void* get_window_handle() const override;
 
+    // Blend modes
+    void begin_blend_mode(int mode) override;
+    void end_blend_mode() override;
+
 private:
     struct TextureData {
         std::unique_ptr<sf::Texture> texture;

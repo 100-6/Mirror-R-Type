@@ -598,6 +598,17 @@ void* SFMLGraphicsPlugin::get_window_handle() const {
     return window_.get();
 }
 
+void SFMLGraphicsPlugin::begin_blend_mode(int mode) {
+    // SFML blend modes are handled per-draw call via sf::BlendMode
+    // This is a stub for API compatibility - SFML handles blending differently
+    // For proper SFML blending, use sf::BlendMode when drawing sprites
+    (void)mode; // Suppress unused parameter warning
+}
+
+void SFMLGraphicsPlugin::end_blend_mode() {
+    // SFML blend modes are handled per-draw call, no state to reset
+}
+
 }
 
 // Plugin factory functions
