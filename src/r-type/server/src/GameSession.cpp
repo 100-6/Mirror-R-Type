@@ -379,6 +379,9 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
     Entity level_controller_entity = registry_.spawn_entity();
     game::LevelController lc;
     lc.current_level = starting_level;
+    const auto& level_config = level_manager_.get_level_config();
+    lc.total_chunks = level_config.total_chunks;
+    // Default total_scroll_distance also maintained for now if needed by other systems
     lc.state = game::LevelState::LEVEL_START;
     lc.state_timer = 0.0f;
     lc.current_phase_index = 0;

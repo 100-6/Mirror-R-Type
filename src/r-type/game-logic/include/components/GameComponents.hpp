@@ -230,7 +230,9 @@ struct WaveSpawnData {
 };
 
 struct WaveTrigger {
-    float scrollDistance = 0.0f;              // Scroll distance to trigger wave
+    float scrollDistance = 0.0f;              // DEPRECATED: Legacy scroll trigger
+    int chunkId = 0;                          // Trigger at specific map chunk
+    float offset = 0.0f;                      // Offset within chunk (0.0 - 1.0)
     float timeDelay = 0.0f;                   // Optional time delay after scroll trigger
     bool triggered = false;                   // Has this wave been triggered?
 };

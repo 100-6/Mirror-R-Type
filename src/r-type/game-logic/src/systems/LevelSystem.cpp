@@ -48,7 +48,27 @@ void LevelSystem::update(Registry& registry, float dt)
             break;
 
         case LevelState::WAVES:
+            // Check if we passed the map end
+            // 1 Chunk = 480px (30 tiles * 16px)
+            {
+               auto& scroll_states = registry.get_components<ScrollState>();
+               float current_scroll = 0.0f;
+               if (scroll_states.size() > 0) {
+                   current_scroll = scroll_states.get_data_at(0).current_scroll;
+               }
+               
+               float level_end_scroll = static_cast<float>(lc.total_chunks * 30 * 16);
+               
+               if (current_scroll >= level_end_scroll) {
+                   std::cout << "[LevelSystem] Reached end of map (" << level_end_scroll << "px) - Forcing boss transition\n";
+                   transition_to_boss_transition(lc);
+                   on_boss_transition_started(registry, lc);
+                   break;
+               }
+            }
+            
             // Check if all phases complete and no enemies remain
+            // Only end early if explicit trigger
             if (all_phases_complete(registry, lc)) {
                 if (no_enemies_remaining(registry)) {
                     std::cout << "[LevelSystem] All waves complete and no enemies remaining - starting boss transition\n";

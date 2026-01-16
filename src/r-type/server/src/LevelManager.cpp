@@ -124,6 +124,7 @@ bool LevelManager::parse_level_metadata(const nlohmann::json& j)
     config_.map_id = j.value("map_id", 1);
     config_.base_scroll_speed = j.value("base_scroll_speed", 60.0f);
     config_.total_scroll_distance = j.value("total_scroll_distance", 8000.0f);
+    config_.total_chunks = j.value("total_chunks", 20);
 
     return true;
 }
@@ -203,6 +204,8 @@ Wave LevelManager::parse_wave(const nlohmann::json& j)
     if (j.contains("trigger")) {
         const auto& trigger = j["trigger"];
         wave.trigger.scroll_distance = trigger.value("scrollDistance", 0.0f);
+        wave.trigger.chunk_id = trigger.value("chunkId", 0);
+        wave.trigger.offset = trigger.value("offset", 0.0f);
         wave.trigger.time_delay = trigger.value("timeDelay", 0.0f);
     }
 

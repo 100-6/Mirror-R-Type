@@ -45,6 +45,7 @@ struct LevelController {
     bool boss_spawned;               ///< Has the boss been spawned?
     engine::Entity boss_entity;      ///< Handle to the boss entity
     bool all_waves_triggered;        ///< Have all waves been triggered?
+    uint32_t total_chunks;           ///< Total length of level in chunks
 
     LevelController()
         : current_level(1)
@@ -55,6 +56,7 @@ struct LevelController {
         , boss_spawned(false)
         , boss_entity(engine::INVALID_HANDLE)
         , all_waves_triggered(false)
+        , total_chunks(20)           // Default to 20 chunks (10 segments)
     {}
 };
 

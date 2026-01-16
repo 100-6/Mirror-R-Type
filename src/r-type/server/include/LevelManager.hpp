@@ -76,6 +76,7 @@ struct LevelConfig {
     uint16_t map_id;
     float base_scroll_speed;
     float total_scroll_distance;
+    uint32_t total_chunks;           // New chunk-based duration
 
     // Checkpoints removed
     std::vector<PhaseConfig> phases;
@@ -88,6 +89,7 @@ struct LevelConfig {
         , map_id(1)
         , base_scroll_speed(60.0f)
         , total_scroll_distance(8000.0f)
+        , total_chunks(20)           // Default 20 chunks
     {}
 };
 
@@ -134,6 +136,7 @@ public:
     const std::string& get_level_description() const { return config_.level_description; }
     float get_base_scroll_speed() const { return config_.base_scroll_speed; }
     float get_total_scroll_distance() const { return config_.total_scroll_distance; }
+    uint32_t get_total_chunks() const { return config_.total_chunks; }
 
     // === Checkpoint Access ===
 

@@ -51,8 +51,9 @@ Les constantes de configuration sont définies dans [`WaveConfig.hpp`](src/r-typ
 ```json
 {
   "trigger": {
-    "scrollDistance": 500,    // Distance de scroll pour trigger (en pixels)
-    "timeDelay": 2.0          // Délai après trigger (en secondes)
+    "chunkId": 1,        // Index du chunk map (0-based, 1 chunk = 480px)
+    "offset": 0.5,       // Position dans le chunk (0.0 - 1.0)
+    "timeDelay": 2.0     // Délai après trigger (en secondes)
   },
   "spawns": [...]
 }
@@ -157,7 +158,8 @@ Voir [`waves_simple.json`](src/r-type/assets/waves_simple.json):
   "waves": [
     {
       "trigger": {
-        "scrollDistance": 0,
+        "chunkId": 0,
+        "offset": 0.0,
         "timeDelay": 0
       },
       "spawns": [
@@ -229,7 +231,7 @@ Exemple de spawn de bonus:
 
 - Commencer avec des vagues simples (SINGLE, LINE)
 - Augmenter progressivement la difficulté
-- Utiliser `scrollDistance` pour espacer les vagues
+- Utiliser `chunkId` pour positionner les vagues par rapport au décor (1 chunk = 30 tiles)
 - Utiliser `timeDelay` pour créer du suspense avant les boss
 
 ### 2. Patterns de spawn
@@ -289,7 +291,7 @@ Définies dans [`WaveConfig.hpp`](src/r-type/game-logic/include/components/WaveC
 ### Les vagues ne se déclenchent pas
 
 - Vérifier que le système de scrolling est actif
-- Vérifier que `scrollDistance` est correctement configuré
+- Vérifier que `chunkId` et `offset` sont corrects (0-based)
 - Regarder les logs console pour les messages de debug
 
 ### Les entités spawn au mauvais endroit

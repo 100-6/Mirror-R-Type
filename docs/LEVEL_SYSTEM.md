@@ -74,7 +74,13 @@ The game scrolls automatically at a constant speed defined per level.
 | Parameter | Description | Example |
 |-----------|-------------|---------|
 | `base_scroll_speed` | Pixels per second | 60.0 |
-| `total_scroll_distance` | Total level length | 7000.0 |
+| `base_scroll_speed` | Pixels per second | 60.0 |
+| `total_chunks` | Total level length in chunks (1 chunk = 480px = 30 tiles) | 20 |
+
+### Chunk Coordinate System
+Calculations are now based on **Chunk Segments** rather than absolute pixels to ensure map sync.
+- 1 Chunk = 30 Tiles width = 480 Pixels
+- Total Scroll Distance = `total_chunks` * 480.0
 
 ### When Does Scroll Stop?
 
@@ -95,8 +101,11 @@ Waves spawn based on scroll distance, not time.
 {
     "wave_number": 1,
     "trigger": {
-        "scrollDistance": 500,
+    "trigger": {
+        "chunkId": 1,
+        "offset": 0.5,
         "timeDelay": 0
+    },
     },
     "spawns": [
         {
@@ -116,7 +125,9 @@ Waves spawn based on scroll distance, not time.
 
 | Field | Description |
 |-------|-------------|
-| `scrollDistance` | Scroll position (pixels) when wave spawns |
+| `chunkId` | Index of the map chunk to trigger (0-based) |
+| `offset` | Percentage progression within chunk (0.0 to 1.0) |
+| `scrollDistance`| (Legacy/Backup) Absolute pixel distance |
 | `timeDelay` | Additional delay after scroll trigger (seconds) |
 
 ### Spawn Patterns
@@ -214,8 +225,9 @@ assets/levels/
     "level_name": "Mars Assault",
     "level_description": "Storm the Martian defense installations",
     "map_id": 1,
+    "map_id": 1,
     "base_scroll_speed": 60.0,
-    "total_scroll_distance": 7000.0,
+    "total_chunks": 20,
 
     "phases": [
         {
