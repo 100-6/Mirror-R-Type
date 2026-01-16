@@ -17,92 +17,55 @@
         {
           "wave_number": 1,
           "trigger": {"scrollDistance": 100, "timeDelay": 0},
-          "formation": "dual_flanks",
+          "formation": "wavy_flanks",
           "spawns": [
-            {"type": "enemy", "enemyType": "basic", "positionX": 2100, "positionY": 150, "count": 2, "pattern": "line", "spacing": 100},
-            {"type": "enemy", "enemyType": "basic", "positionX": 2100, "positionY": 850, "count": 2, "pattern": "line", "spacing": 100}
+            {"type": "enemy", "enemyType": "basic", "positionX": 2100, "positionY": 150, "count": 3, "pattern": "line", "spacing": 100},
+            {"type": "enemy", "enemyType": "basic", "positionX": 2100, "positionY": 850, "count": 3, "pattern": "line", "spacing": 100}
           ]
         },
         {
           "wave_number": 2,
           "trigger": {"scrollDistance": 600, "timeDelay": 0},
-          "formation": "fast_scouts",
+          "formation": "zigzag_scouts",
           "spawns": [
-            {"type": "enemy", "enemyType": "fast", "positionX": 2200, "positionY": 300, "count": 3, "pattern": "line", "spacing": 100}
+            {"type": "enemy", "enemyType": "zigzag", "positionX": 2200, "positionY": 300, "count": 4, "pattern": "line", "spacing": 100}
           ]
         },
         {
           "wave_number": 3,
           "trigger": {"scrollDistance": 1200, "timeDelay": 0},
-          "formation": "mixed_formation",
+          "formation": "bouncer_chaos",
           "spawns": [
-            {
-              "type": "enemy",
-              "enemyType": "tank",
-              "positionX": 2300,
-              "positionY": 500,
-              "count": 1,
-              "pattern": "single",
-              "bonusDrop": {
-                "enabled": true,
-                "bonusType": "shield",
-                "dropChance": 0.7
-              }
-            },
-            {
-              "type": "enemy",
-              "enemyType": "fast",
-              "positionX": 2400,
-              "positionY": 350,
-              "count": 2,
-              "pattern": "line",
-              "spacing": 80,
-              "bonusDrop": {
-                "enabled": true,
-                "bonusType": "speed",
-                "dropChance": 0.3
-              }
-            },
-            {
-              "type": "enemy",
-              "enemyType": "fast",
-              "positionX": 2400,
-              "positionY": 650,
-              "count": 2,
-              "pattern": "line",
-              "spacing": 80,
-              "bonusDrop": {
-                "enabled": true,
-                "bonusType": "speed",
-                "dropChance": 0.3
-              }
-            }
+            {"type": "enemy", "enemyType": "bouncer", "positionX": 2300, "positionY": 300, "count": 3, "pattern": "line", "spacing": 150},
+            {"type": "enemy", "enemyType": "bouncer", "positionX": 2300, "positionY": 600, "count": 3, "pattern": "line", "spacing": 150}
           ]
         },
         {
           "wave_number": 4,
           "trigger": {"scrollDistance": 1800, "timeDelay": 0},
-          "formation": "grid_assault",
+          "formation": "orbiter_grid",
           "spawns": [
-            {"type": "enemy", "enemyType": "basic", "positionX": 2500, "positionY": 250, "count": 8, "pattern": "formation", "spacing": 90}
+            {"type": "enemy", "enemyType": "bouncer", "positionX": 2500, "positionY": 250, "count": 4, "pattern": "line", "spacing": 150},
+            {"type": "enemy", "enemyType": "bouncer", "positionX": 2500, "positionY": 650, "count": 4, "pattern": "line", "spacing": 150}
           ]
         },
         {
           "wave_number": 5,
           "trigger": {"scrollDistance": 2400, "timeDelay": 0},
-          "formation": "tank_convoy",
+          "formation": "kamikaze_rush",
           "spawns": [
-            {"type": "enemy", "enemyType": "tank", "positionX": 2700, "positionY": 300, "count": 2, "pattern": "line", "spacing": 200},
-            {"type": "enemy", "enemyType": "basic", "positionX": 2800, "positionY": 450, "count": 3, "pattern": "line", "spacing": 100}
+            {"type": "enemy", "enemyType": "kamikaze", "positionX": 2700, "positionY": 200, "count": 3, "pattern": "line", "spacing": 150},
+            {"type": "enemy", "enemyType": "kamikaze", "positionX": 2700, "positionY": 700, "count": 3, "pattern": "line", "spacing": 150}
           ]
         },
         {
           "wave_number": 6,
           "trigger": {"scrollDistance": 2800, "timeDelay": 0},
-          "formation": "reward_wave",
+          "formation": "ambush_party",
           "spawns": [
-            {"type": "enemy", "enemyType": "fast", "positionX": 2900, "positionY": 400, "count": 2, "pattern": "line", "spacing": 150},
-            {"type": "powerup", "bonusType": "health", "positionX": 3000, "positionY": 500, "count": 1, "pattern": "single"}
+            {"type": "enemy", "enemyType": "basic", "positionX": 2900, "positionY": 300, "count": 3, "pattern": "line", "spacing": 150},
+            {"type": "enemy", "enemyType": "basic", "positionX": 2900, "positionY": 600, "count": 3, "pattern": "line", "spacing": 150},
+            {"type": "powerup", "bonusType": "health", "positionX": 3000, "positionY": 450, "count": 1, "pattern": "single"}
           ]
         }
       ]
@@ -117,49 +80,50 @@
         {
           "wave_number": 7,
           "trigger": {"scrollDistance": 3100, "timeDelay": 0},
-          "formation": "triple_threat",
+          "formation": "patrol_guard",
           "spawns": [
-            {"type": "enemy", "enemyType": "tank", "positionX": 5100, "positionY": 250, "count": 1, "pattern": "single"},
-            {"type": "enemy", "enemyType": "tank", "positionX": 5100, "positionY": 540, "count": 1, "pattern": "single"},
-            {"type": "enemy", "enemyType": "tank", "positionX": 5100, "positionY": 830, "count": 1, "pattern": "single"}
+            {"type": "enemy", "enemyType": "tank", "positionX": 2100, "positionY": 250, "count": 1, "pattern": "single"},
+            {"type": "enemy", "enemyType": "tank", "positionX": 2100, "positionY": 540, "count": 1, "pattern": "single"},
+            {"type": "enemy", "enemyType": "tank", "positionX": 2100, "positionY": 830, "count": 1, "pattern": "single"}
           ]
         },
         {
           "wave_number": 8,
           "trigger": {"scrollDistance": 3700, "timeDelay": 0},
-          "formation": "fast_swarm",
+          "formation": "coward_swarm",
           "spawns": [
-            {"type": "enemy", "enemyType": "fast", "positionX": 5300, "positionY": 300, "count": 6, "pattern": "line", "spacing": 90}
+            {"type": "enemy", "enemyType": "zigzag", "positionX": 2100, "positionY": 300, "count": 5, "pattern": "line", "spacing": 90},
+            {"type": "enemy", "enemyType": "zigzag", "positionX": 2100, "positionY": 600, "count": 5, "pattern": "line", "spacing": 90}
           ]
         },
         {
           "wave_number": 9,
           "trigger": {"scrollDistance": 4300, "timeDelay": 0},
-          "formation": "diamond_formation",
+          "formation": "sniper_formation",
           "spawns": [
-            {"type": "enemy", "enemyType": "basic", "positionX": 5500, "positionY": 540, "count": 1, "pattern": "single"},
-            {"type": "enemy", "enemyType": "basic", "positionX": 5550, "positionY": 400, "count": 1, "pattern": "single"},
-            {"type": "enemy", "enemyType": "basic", "positionX": 5550, "positionY": 680, "count": 1, "pattern": "single"},
-            {"type": "enemy", "enemyType": "basic", "positionX": 5600, "positionY": 540, "count": 1, "pattern": "single"}
+            {"type": "enemy", "enemyType": "basic", "positionX": 2100, "positionY": 250, "count": 2, "pattern": "line", "spacing": 200},
+            {"type": "enemy", "enemyType": "basic", "positionX": 2100, "positionY": 650, "count": 2, "pattern": "line", "spacing": 200}
           ]
         },
         {
           "wave_number": 10,
           "trigger": {"scrollDistance": 4900, "timeDelay": 0},
-          "formation": "heavy_escort",
+          "formation": "spiral_escort",
           "spawns": [
-            {"type": "enemy", "enemyType": "tank", "positionX": 5700, "positionY": 450, "count": 2, "pattern": "line", "spacing": 180},
-            {"type": "enemy", "enemyType": "fast", "positionX": 5800, "positionY": 300, "count": 3, "pattern": "line", "spacing": 90},
-            {"type": "enemy", "enemyType": "fast", "positionX": 5800, "positionY": 700, "count": 3, "pattern": "line", "spacing": 90}
+            {"type": "enemy", "enemyType": "tank", "positionX": 2100, "positionY": 450, "count": 2, "pattern": "line", "spacing": 200},
+            {"type": "enemy", "enemyType": "kamikaze", "positionX": 2200, "positionY": 300, "count": 3, "pattern": "line", "spacing": 90},
+            {"type": "enemy", "enemyType": "kamikaze", "positionX": 2200, "positionY": 700, "count": 3, "pattern": "line", "spacing": 90}
           ]
         },
         {
           "wave_number": 11,
           "trigger": {"scrollDistance": 5500, "timeDelay": 0},
-          "formation": "shield_powerup",
+          "formation": "mixed_new_types",
           "spawns": [
-            {"type": "enemy", "enemyType": "basic", "positionX": 5900, "positionY": 400, "count": 4, "pattern": "formation", "spacing": 100},
-            {"type": "powerup", "bonusType": "shield", "positionX": 6000, "positionY": 540, "count": 1, "pattern": "single"}
+            {"type": "enemy", "enemyType": "basic", "positionX": 2100, "positionY": 200, "count": 2, "pattern": "line", "spacing": 100},
+            {"type": "enemy", "enemyType": "zigzag", "positionX": 2100, "positionY": 400, "count": 2, "pattern": "line", "spacing": 100},
+            {"type": "enemy", "enemyType": "bouncer", "positionX": 2100, "positionY": 600, "count": 2, "pattern": "line", "spacing": 100},
+            {"type": "powerup", "bonusType": "shield", "positionX": 2300, "positionY": 540, "count": 1, "pattern": "single"}
           ]
         }
       ]

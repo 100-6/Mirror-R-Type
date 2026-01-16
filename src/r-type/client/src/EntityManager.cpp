@@ -112,10 +112,24 @@ Sprite EntityManager::build_sprite(protocol::EntityType type, bool is_local_play
             break;
         }
         case protocol::EntityType::ENEMY_FAST:
-            sprite.tint = engine::Color{255, 180, 0, 255};
+            // Apply color based on subtype
+            switch (subtype) {
+                case 1:  sprite.tint = engine::Color{255, 180, 0, 255}; break;   // Orange (default fast)
+                case 11: sprite.tint = engine::Color{180, 255, 0, 255}; break;   // Lime green (zigzag)
+                case 12: sprite.tint = engine::Color{255, 50, 50, 255}; break;   // Bright red (kamikaze)
+                case 17: sprite.tint = engine::Color{100, 200, 255, 255}; break; // Light blue (coward)
+                case 20: sprite.tint = engine::Color{255, 215, 0, 255}; break;   // Gold (chaser)
+                default: sprite.tint = engine::Color{255, 180, 0, 255}; break;   // Default orange
+            }
             break;
         case protocol::EntityType::ENEMY_TANK:
-            sprite.tint = engine::Color{200, 80, 80, 255};
+            // Apply color based on subtype
+            switch (subtype) {
+                case 2:  sprite.tint = engine::Color{200, 80, 80, 255}; break;   // Red (default tank)
+                case 15: sprite.tint = engine::Color{80, 200, 80, 255}; break;   // Green (patrol)
+                case 19: sprite.tint = engine::Color{255, 100, 200, 255}; break; // Pink (spiral)
+                default: sprite.tint = engine::Color{200, 80, 80, 255}; break;   // Default red
+            }
             break;
         case protocol::EntityType::ENEMY_BOSS:
             sprite.layer = 6;
@@ -178,8 +192,17 @@ Sprite EntityManager::build_sprite(protocol::EntityType type, bool is_local_play
             break;
     }
 
-    if (type == protocol::EntityType::ENEMY_BASIC && subtype != 0) {
-        sprite.tint = engine::Color{200, 200, 255, 255};
+    // Apply colors for ENEMY_BASIC based on subtype (new enemy types)
+    if (type == protocol::EntityType::ENEMY_BASIC) {
+        switch (subtype) {
+            case 0:  sprite.tint = engine::Color::White; break;                  // White (default basic)
+            case 10: sprite.tint = engine::Color{0, 255, 255, 255}; break;       // Cyan (wavy)
+            case 13: sprite.tint = engine::Color{255, 0, 255, 255}; break;       // Magenta (bouncer)
+            case 14: sprite.tint = engine::Color{50, 150, 255, 255}; break;      // Blue (orbiter)
+            case 16: sprite.tint = engine::Color{255, 140, 0, 255}; break;       // Dark orange (ambusher)
+            case 18: sprite.tint = engine::Color{255, 255, 0, 255}; break;       // Yellow (sniper)
+            default: sprite.tint = engine::Color{200, 200, 255, 255}; break;     // Light blue (other)
+        }
     }
 
     // Adjust sprite dimensions to preserve aspect ratio while fitting in collider box

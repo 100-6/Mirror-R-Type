@@ -196,6 +196,8 @@ private:
 
     // Helper for procedural generation
     rtype::SegmentData* get_or_generate_segment(int segment_id);
+
+    std::unordered_map<std::string, std::string> enemy_scripts_; // Map enemy type to script path
 };
 
 }

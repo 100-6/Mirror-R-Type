@@ -67,6 +67,8 @@ inline constexpr const char* THRUSTER_04 = "assets/sprite/effect/thruster-04.png
 inline constexpr const char* MAPS_INDEX = "assets/maps/index.json";
 inline constexpr const char* MAPS_BASE_PATH = "assets/maps";
 inline constexpr const char* WAVES_CONFIG = "assets/waves_nebula_outpost.json";
+inline constexpr const char* ENEMIES_CONFIG = "assets/config/enemies.json";
+inline constexpr const char* AI_SCRIPTS_BASE_PATH = "assets/scripts/ai/";
 
 // ========== AUDIO ==========
 // Audio configuration (all audio paths are defined in this JSON file)

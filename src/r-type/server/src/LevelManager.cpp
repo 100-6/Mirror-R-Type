@@ -46,26 +46,69 @@ bool LevelManager::load_from_file(const std::string& filepath)
 
 bool LevelManager::load_level(uint8_t level_id)
 {
+    // Clear existing config basics
+    config_ = LevelConfig();
+    
     // Allow debug levels (0, 99) in addition to regular levels (1-3)
     std::string filepath = get_level_file(level_id);
     return load_from_file(filepath);
 }
 
+bool LevelManager::load_level_index(const std::string& filepath)
+{
+    std::ifstream file(filepath);
+    if (!file.is_open()) {
+        std::cerr << "[LevelManager] Failed to open level index: " << filepath << "\n";
+        return false;
+    }
+
+    try {
+        nlohmann::json j;
+        file >> j;
+
+        if (j.contains("maps") && j["maps"].is_array()) {
+            for (const auto& map : j["maps"]) {
+                std::string id_str = map.value("id", "");
+                std::string config_path = map.value("wavesConfig", "");
+                
+                // Extract level number from id string "level_X_..."
+                int level_id = 0;
+                if (sscanf(id_str.c_str(), "level_%d_", &level_id) == 1) {
+                    level_files_[static_cast<uint8_t>(level_id)] = config_path;
+                    std::cout << "[LevelManager] Registered level " << level_id << ": " << config_path << "\n";
+                }
+            }
+        }
+        return true;
+    } catch (const std::exception& e) {
+        std::cerr << "[LevelManager] Index parse error: " << e.what() << "\n";
+        return false;
+    }
+}
+
 std::string LevelManager::get_level_file(uint8_t level_id)
 {
+    // Check map first
+    if (level_files_.find(level_id) != level_files_.end()) {
+        return level_files_[level_id];
+    }
+
+    // Fallback logic
     switch (level_id) {
         case 0:
             return "assets/levels/level_0_test.json";
         case 1:
-            return "assets/levels/level_1_asteroid_belt.json";
+            return "assets/levels/level_1_mars_assault.json";
         case 2:
             return "assets/levels/level_2_nebula_station.json";
         case 3:
-            return "assets/levels/level_3_bydo_fortress.json";
+            return "assets/levels/level_3_uranus_station.json";
+        case 4:
+            return "assets/levels/level_4_jupiter_orbit.json";
         case 99:
             return "assets/levels/level_99_instant_boss.json";
         default:
-            return "assets/levels/level_1_asteroid_belt.json";
+            return "assets/levels/level_1_mars_assault.json";
     }
 }
 

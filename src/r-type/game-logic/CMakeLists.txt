@@ -1,4 +1,5 @@
 find_package(nlohmann_json CONFIG REQUIRED)
+find_package(Lua REQUIRED)
 
 add_library(rtype_logic
     src/systems/AISystem.cpp
@@ -22,6 +23,7 @@ add_library(rtype_logic
     src/systems/HUDSystem.cpp
     src/systems/GameStateSystem.cpp
     src/systems/AttachmentSystem.cpp
+    src/systems/LuaSystem.cpp
     # Map system
     src/AutoTiler.cpp
     src/MapConfigLoader.cpp
@@ -37,6 +39,7 @@ target_include_directories(rtype_logic
     PRIVATE
         ${CMAKE_SOURCE_DIR}/src/engine/include
         ${CMAKE_SOURCE_DIR}/src/r-type/shared
+        ${SOL2_INCLUDE_DIR}
 )
 
 target_link_libraries(rtype_logic
@@ -44,4 +47,5 @@ target_link_libraries(rtype_logic
         game_engine
         nlohmann_json::nlohmann_json
         rtype_protocol
+        ${LUA_LIBRARIES}
 )

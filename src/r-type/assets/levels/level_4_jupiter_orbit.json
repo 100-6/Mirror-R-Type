@@ -20,9 +20,10 @@
             "scrollDistance": 250,
             "timeDelay": 0
           },
-          "formation": "jovian_patrol",
+          "formation": "bouncer_storm",
           "spawns": [
-            {"type": "enemy", "enemyType": "basic", "positionX": 2100, "positionY": 300, "count": 5, "pattern": "line", "spacing": 110}
+            {"type": "enemy", "enemyType": "bouncer", "positionX": 2100, "positionY": 200, "count": 3, "pattern": "line", "spacing": 150},
+            {"type": "enemy", "enemyType": "bouncer", "positionX": 2100, "positionY": 600, "count": 3, "pattern": "line", "spacing": 150}
           ]
         },
         {
@@ -31,10 +32,10 @@
             "scrollDistance": 700,
             "timeDelay": 0
           },
-          "formation": "gas_giant_defenders",
+          "formation": "orbiter_gas_cloud",
           "spawns": [
-            {"type": "enemy", "enemyType": "fast", "positionX": 2400, "positionY": 250, "count": 3, "pattern": "line", "spacing": 120},
-            {"type": "enemy", "enemyType": "basic", "positionX": 2500, "positionY": 600, "count": 2, "pattern": "line", "spacing": 150}
+            {"type": "enemy", "enemyType": "bouncer", "positionX": 2400, "positionY": 250, "count": 4, "pattern": "line", "spacing": 120},
+            {"type": "enemy", "enemyType": "bouncer", "positionX": 2500, "positionY": 650, "count": 4, "pattern": "line", "spacing": 120}
           ]
         },
         {
@@ -43,9 +44,10 @@
             "scrollDistance": 1200,
             "timeDelay": 0
           },
-          "formation": "storm_front",
+          "formation": "spiral_storm",
           "spawns": [
-            {"type": "enemy", "enemyType": "tank", "positionX": 2800, "positionY": 350, "count": 2, "pattern": "line", "spacing": 180}
+            {"type": "enemy", "enemyType": "tank", "positionX": 2800, "positionY": 350, "count": 2, "pattern": "line", "spacing": 300},
+            {"type": "enemy", "enemyType": "basic", "positionX": 2800, "positionY": 650, "count": 3, "pattern": "line", "spacing": 120}
           ]
         },
         {

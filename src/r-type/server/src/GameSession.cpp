@@ -14,6 +14,9 @@
     #include <arpa/inet.h>
 #endif
 
+#include <fstream>
+#include <nlohmann/json.hpp>
+
 #include "GameSession.hpp"
 #include "ServerConfig.hpp"
 #include "systems/ShootingSystem.hpp"
@@ -22,11 +25,13 @@
 #include "systems/AttachmentSystem.hpp"
 #include "systems/ScoreSystem.hpp"
 #include "systems/LevelUpSystem.hpp"
+#include "systems/LuaSystem.hpp"
 #include "components/CombatHelpers.hpp"
 #include "components/ShipComponents.hpp"
 #include "components/PlayerLevelComponent.hpp"
 #include "components/LevelComponents.hpp"
 #include "ProceduralMapGenerator.hpp"
+#include "AssetsPaths.hpp"
 
 #undef ENEMY_BASIC_SPEED
 #undef ENEMY_BASIC_HEALTH
@@ -39,6 +44,7 @@
 
 #include "NetworkUtils.hpp"
 #include <iostream>
+#include <unordered_map>
 
 #include "ecs/CoreComponents.hpp"
 #include "components/GameComponents.hpp"
@@ -61,6 +67,23 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
     , scroll_speed_(config::GAME_SCROLL_SPEED)
     , session_start_time_(std::chrono::steady_clock::now())
 {
+    // Load local enemy config
+    try {
+        std::ifstream f(assets::paths::ENEMIES_CONFIG);
+        if (f.good()) {
+            nlohmann::json data = nlohmann::json::parse(f);
+            for (auto& [key, value] : data.items()) {
+                 if (value.contains("script")) {
+                     enemy_scripts_[key] = value["script"];
+                 }
+            }
+        } else {
+            std::cerr << "[GameSession] Warning: Could not load enemies.json at " << assets::paths::ENEMIES_CONFIG << std::endl;
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "[GameSession] Error loading enemies.json: " << e.what() << std::endl;
+    }
+
     // std::cout << "[GameSession " << session_id_ << "] Created (mode: " << static_cast<int>(game_mode)
     //           << ", difficulty: " << static_cast<int>(difficulty) << ", map: " << map_id << ")\n";
 
@@ -91,6 +114,7 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
     registry_.register_component<BonusWeapon>();
     registry_.register_component<BonusLifetime>();
     registry_.register_component<Camera>();
+    registry_.register_component<Kamikaze>();
 
     // Register Level System components
     registry_.register_component<game::LevelController>();
@@ -108,8 +132,10 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
     registry_.register_system<ShootingSystem>();
     registry_.register_system<BonusSystem>();
     registry_.register_system<BonusWeaponSystem>();
+
     registry_.register_system<ScoreSystem>();
     registry_.register_system<game::LevelUpSystem>();
+    registry_.register_system<LuaSystem>();
 
     registry_.get_system<HealthSystem>().init(registry_);
     registry_.get_system<ShootingSystem>().init(registry_);
@@ -117,6 +143,7 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
     registry_.get_system<BonusWeaponSystem>().init(registry_);
     registry_.get_system<ScoreSystem>().init(registry_);
     registry_.get_system<game::LevelUpSystem>().init(registry_);
+    registry_.get_system<LuaSystem>().init(registry_);
 
     registry_.register_system<ServerNetworkSystem>(session_id_, config::SNAPSHOT_INTERVAL);
     network_system_ = &registry_.get_system<ServerNetworkSystem>();
@@ -761,51 +788,97 @@ void GameSession::on_wave_completed(const Wave& wave)
 
 void GameSession::on_spawn_enemy(const std::string& enemy_type, float x, float y, const BonusDropConfig& bonus_drop)
 {
-    Entity enemy = registry_.spawn_entity();
-    float velocity_x = -config::ENEMY_BASIC_SPEED;
-    uint16_t health = config::ENEMY_BASIC_HEALTH;
-    float width = config::ENEMY_BASIC_WIDTH;
-    float height = config::ENEMY_BASIC_HEIGHT;
-    EntityType entity_type = EntityType::ENEMY_BASIC;
-    protocol::EnemySubtype subtype = protocol::EnemySubtype::BASIC;
-    EnemyType ai_type = EnemyType::Basic;
+    struct EnemyStats {
+        float velocity_x = -config::ENEMY_BASIC_SPEED;
+        uint16_t health = config::ENEMY_BASIC_HEALTH;
+        float width = config::ENEMY_BASIC_WIDTH;
+        float height = config::ENEMY_BASIC_HEIGHT;
+        EntityType entity_type = EntityType::ENEMY_BASIC;
+        uint8_t color_subtype = 0;
+        EnemyType ai_type = EnemyType::Basic;
+    };
 
-    if (enemy_type == "fast") {
-        velocity_x = -config::ENEMY_FAST_SPEED;
-        health = config::ENEMY_FAST_HEALTH;
-        width = config::ENEMY_FAST_WIDTH;
-        height = config::ENEMY_FAST_HEIGHT;
-        entity_type = EntityType::ENEMY_FAST;
-        subtype = protocol::EnemySubtype::FAST;
-        ai_type = EnemyType::Fast;
-    } else if (enemy_type == "tank") {
-        velocity_x = -config::ENEMY_TANK_SPEED;
-        health = config::ENEMY_TANK_HEALTH;
-        width = config::ENEMY_TANK_WIDTH;
-        height = config::ENEMY_TANK_HEIGHT;
-        entity_type = EntityType::ENEMY_TANK;
-        subtype = protocol::EnemySubtype::TANK;
-        ai_type = EnemyType::Tank;
-    } else if (enemy_type == "boss") {
-        velocity_x = -config::ENEMY_BOSS_SPEED;
-        health = config::ENEMY_BOSS_HEALTH;
-        width = config::ENEMY_BOSS_WIDTH;
-        height = config::ENEMY_BOSS_HEIGHT;
-        entity_type = EntityType::ENEMY_BOSS;
-        subtype = protocol::EnemySubtype::BOSS;
-        ai_type = EnemyType::Boss;
+    static const std::unordered_map<std::string, EnemyStats> enemy_presets = []{
+        std::unordered_map<std::string, EnemyStats> m;
+
+        // Base templates
+        EnemyStats basic; // Default constructor has basic stats
+        
+        EnemyStats fast;
+        fast.velocity_x = -config::ENEMY_FAST_SPEED;
+        fast.health = config::ENEMY_FAST_HEALTH;
+        fast.width = config::ENEMY_FAST_WIDTH;
+        fast.height = config::ENEMY_FAST_HEIGHT;
+        fast.entity_type = EntityType::ENEMY_FAST;
+        fast.color_subtype = 1;
+        fast.ai_type = EnemyType::Fast;
+
+        EnemyStats tank;
+        tank.velocity_x = -config::ENEMY_TANK_SPEED;
+        tank.health = config::ENEMY_TANK_HEALTH;
+        tank.width = config::ENEMY_TANK_WIDTH;
+        tank.height = config::ENEMY_TANK_HEIGHT;
+        tank.entity_type = EntityType::ENEMY_TANK;
+        tank.color_subtype = 2;
+        tank.ai_type = EnemyType::Tank;
+
+        EnemyStats boss;
+        boss.velocity_x = -config::ENEMY_BOSS_SPEED;
+        boss.health = config::ENEMY_BOSS_HEALTH;
+        boss.width = config::ENEMY_BOSS_WIDTH;
+        boss.height = config::ENEMY_BOSS_HEIGHT;
+        boss.entity_type = EntityType::ENEMY_BOSS;
+        boss.color_subtype = 3;
+        boss.ai_type = EnemyType::Boss;
+
+        // Register base types
+        m["basic"] = basic;
+        m["fast"] = fast;
+        m["tank"] = tank;
+        m["boss"] = boss;
+
+        // Register variations
+        auto add_variant = [&](const std::string& name, EnemyStats stats, uint8_t color) {
+            stats.color_subtype = color;
+            m[name] = stats;
+        };
+
+        add_variant("zigzag", fast, 11);
+        add_variant("kamikaze", fast, 12);
+        add_variant("bouncer", basic, 13);
+
+        return m;
+    }();
+
+    EnemyStats stats; // Default basic
+    auto it = enemy_presets.find(enemy_type);
+    if (it != enemy_presets.end()) {
+        stats = it->second;
     }
-    float center_x = x + width / 2.0f;
-    float center_y = y + height / 2.0f;
+
+    Entity enemy = registry_.spawn_entity();
+    float center_x = x + stats.width / 2.0f;
+    float center_y = y + stats.height / 2.0f;
+    
     registry_.add_component(enemy, Position{center_x, center_y});
-    registry_.add_component(enemy, Velocity{velocity_x, 0.0f});
-    registry_.add_component(enemy, Health{static_cast<int>(health), static_cast<int>(health)});
+    registry_.add_component(enemy, Velocity{stats.velocity_x, 0.0f});
+    registry_.add_component(enemy, Health{static_cast<int>(stats.health), static_cast<int>(stats.health)});
 
     // Add AI component for enemy type detection in snapshots
     AI ai;
-    ai.type = ai_type;
-    ai.moveSpeed = std::abs(velocity_x);
+    ai.type = stats.ai_type;
+    ai.moveSpeed = std::abs(stats.velocity_x);
     registry_.add_component(enemy, ai);
+
+    // Initialize Level Manager with index
+    level_manager_.load_level_index(assets::paths::MAPS_INDEX);
+
+    // Lua System Initegration
+    Script script;
+    if (enemy_scripts_.find(enemy_type) != enemy_scripts_.end()) {
+        script.path = enemy_scripts_[enemy_type];
+    }
+    registry_.add_component(enemy, script);
 
     // Convert BonusDropConfig to BonusDrop component
     BonusDrop drop;
@@ -823,17 +896,15 @@ void GameSession::on_spawn_enemy(const std::string& enemy_type, float x, float y
 
     registry_.add_component(enemy, Enemy{drop});
     registry_.add_component(enemy, NoFriction{});
-    registry_.add_component(enemy, Collider{width, height});
+    registry_.add_component(enemy, Collider{stats.width, stats.height});
 
-    // std::cout << "[GameSession " << session_id_ << "] Spawned " << enemy_type << " enemy " << enemy
-    //           << " at (" << x << ", " << y << ")";
-    // if (bonus_drop.enabled) {
-    //     std::cout << " with bonusDrop: " << bonus_drop.bonus_type;
-    // }
-    // std::cout << "\n";
+    // Add Kamikaze tag for kamikaze enemies
+    if (enemy_type == "kamikaze") {
+        registry_.add_component(enemy, Kamikaze{});
+    }
 
     if (network_system_)
-        network_system_->queue_entity_spawn(enemy, entity_type, center_x, center_y, health, static_cast<uint8_t>(subtype));
+        network_system_->queue_entity_spawn(enemy, stats.entity_type, center_x, center_y, stats.health, stats.color_subtype);
 }
 
 void GameSession::on_spawn_wall(float x, float y)

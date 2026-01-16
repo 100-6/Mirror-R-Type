@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 #include <cstdint>
+#include <unordered_map>
 #include <nlohmann/json.hpp>
 
 #include "components/LevelComponents.hpp"
@@ -169,14 +170,22 @@ public:
     // === Static Utilities ===
 
     /**
+     * @brief Load level index configuration (map ID to file)
+     * @param filepath Path to index JSON file
+     * @return true if successful
+     */
+    bool load_level_index(const std::string& filepath);
+
+    /**
      * @brief Get level file path based on level ID
-     * @param level_id Level number (1, 2, or 3)
+     * @param level_id Level number
      * @return Path to level JSON file
      */
-    static std::string get_level_file(uint8_t level_id);
+    std::string get_level_file(uint8_t level_id);
 
 private:
     LevelConfig config_;
+    std::unordered_map<uint8_t, std::string> level_files_;
 
     // === JSON Parsing Helpers ===
 

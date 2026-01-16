@@ -87,3 +87,14 @@ endif()
 if (BUILD_TESTS)
     add_subdirectory(tests)
 endif()
+
+# Lua and Sol2
+find_package(Lua REQUIRED)
+find_path(SOL2_INCLUDE_DIR NAMES sol/sol.hpp)
+
+if(NOT SOL2_INCLUDE_DIR)
+    message(FATAL_ERROR "sol2 not found!")
+endif()
+
+message(STATUS "Found Lua: ${LUA_LIBRARIES}")
+message(STATUS "Found Sol2: ${SOL2_INCLUDE_DIR}")

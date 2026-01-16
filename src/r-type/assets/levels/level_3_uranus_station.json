@@ -20,9 +20,10 @@
             "scrollDistance": 200,
             "timeDelay": 0
           },
-          "formation": "ice_patrol",
+          "formation": "wavy_ice_patrol",
           "spawns": [
-            {"type": "enemy", "enemyType": "fast", "positionX": 2100, "positionY": 300, "count": 4, "pattern": "line", "spacing": 100}
+            {"type": "enemy", "enemyType": "basic", "positionX": 2100, "positionY": 200, "count": 4, "pattern": "line", "spacing": 100},
+            {"type": "enemy", "enemyType": "basic", "positionX": 2100, "positionY": 700, "count": 4, "pattern": "line", "spacing": 100}
           ]
         },
         {
@@ -31,9 +32,9 @@
             "scrollDistance": 600,
             "timeDelay": 0
           },
-          "formation": "frozen_defenders",
+          "formation": "kamikaze_frozen",
           "spawns": [
-            {"type": "enemy", "enemyType": "basic", "positionX": 2300, "positionY": 250, "count": 2, "pattern": "line", "spacing": 150},
+            {"type": "enemy", "enemyType": "kamikaze", "positionX": 2300, "positionY": 250, "count": 3, "pattern": "line", "spacing": 150},
             {"type": "enemy", "enemyType": "tank", "positionX": 2400, "positionY": 600, "count": 1, "pattern": "single"}
           ]
         },
@@ -43,9 +44,10 @@
             "scrollDistance": 1000,
             "timeDelay": 0
           },
-          "formation": "ice_swarm",
+          "formation": "chaser_swarm",
           "spawns": [
-            {"type": "enemy", "enemyType": "fast", "positionX": 2600, "positionY": 200, "count": 6, "pattern": "line", "spacing": 80}
+            {"type": "enemy", "enemyType": "kamikaze", "positionX": 2600, "positionY": 200, "count": 5, "pattern": "line", "spacing": 80},
+            {"type": "enemy", "enemyType": "kamikaze", "positionX": 2600, "positionY": 700, "count": 5, "pattern": "line", "spacing": 80}
           ]
         },
         {

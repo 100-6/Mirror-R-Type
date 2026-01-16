@@ -27,6 +27,11 @@ struct AI {
     float moveSpeed = 100.0f;
 };
 
+struct Script {
+    std::string path;
+    bool loaded = false;
+};
+
 // Scrolling
 
 struct Scrollable {
@@ -124,6 +129,9 @@ struct ExplosionAnimation {
 
 struct Wall {};
 struct Background {};
+
+// Kamikaze enemy: dies on collision with player and deals damage
+struct Kamikaze {};
 
 // Camera entity for scroll management via ECS
 // The camera's Position.x represents the current scroll offset
