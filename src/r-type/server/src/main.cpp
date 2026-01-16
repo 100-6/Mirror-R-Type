@@ -148,6 +148,30 @@ bool parse_ports(int argc, char* argv[], uint16_t& tcp_port, uint16_t& udp_port)
 }
 
 /**
+ * @brief Load ports from environment variables if set
+ * Environment variables override default values but are overridden by command-line arguments
+ */
+void load_ports_from_env(uint16_t& tcp_port, uint16_t& udp_port)
+{
+    if (const char* env_tcp = std::getenv("RTYPE_SERVER_PORT_TCP")) {
+        try {
+            tcp_port = static_cast<uint16_t>(std::stoi(env_tcp));
+            std::cout << "[Server] Using TCP port from environment: " << tcp_port << "\n";
+        } catch (...) {
+            std::cerr << "[Server] Warning: Invalid RTYPE_SERVER_PORT_TCP value, using default\n";
+        }
+    }
+    if (const char* env_udp = std::getenv("RTYPE_SERVER_PORT_UDP")) {
+        try {
+            udp_port = static_cast<uint16_t>(std::stoi(env_udp));
+            std::cout << "[Server] Using UDP port from environment: " << udp_port << "\n";
+        } catch (...) {
+            std::cerr << "[Server] Warning: Invalid RTYPE_SERVER_PORT_UDP value, using default\n";
+        }
+    }
+}
+
+/**
  * @brief Setup signal handlers for graceful shutdown
  */
 void setup_signal_handlers()
@@ -195,6 +219,7 @@ int main(int argc, char* argv[])
 
     if (check_help_flag(argc, argv))
         return 0;
+    load_ports_from_env(tcp_port, udp_port);
     listen_on_all_interfaces = parse_network_flag(argc, argv);
     admin_password = parse_admin_password(argc, argv);
     if (!parse_ports(argc, argv, tcp_port, udp_port))
