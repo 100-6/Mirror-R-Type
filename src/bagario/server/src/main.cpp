@@ -26,37 +26,33 @@ struct ServerConfig {
 };
 
 bool parse_arguments(int argc, char* argv[], ServerConfig& config) {
-    config.tcp_port = bagario::config::DEFAULT_TCP_PORT;
-    config.udp_port = bagario::config::DEFAULT_UDP_PORT;
-    config.listen_on_all_interfaces = false;
+    int port_count = 0;
 
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
-
         if (arg == "-h" || arg == "--help") {
             print_usage(argv[0]);
             return false;
         } else if (arg == "--network") {
             config.listen_on_all_interfaces = true;
         } else {
-            // Try to parse as port number
             try {
                 uint16_t port = static_cast<uint16_t>(std::stoi(arg));
-                if (config.tcp_port == bagario::config::DEFAULT_TCP_PORT) {
+                if (port_count == 0) {
                     config.tcp_port = port;
-                } else if (config.udp_port == bagario::config::DEFAULT_UDP_PORT) {
+                } else if (port_count == 1) {
                     config.udp_port = port;
                 } else {
                     std::cerr << "[Main] Too many port arguments" << std::endl;
                     return false;
                 }
+                port_count++;
             } catch (const std::exception& e) {
                 std::cerr << "[Main] Invalid argument: " << arg << std::endl;
                 return false;
             }
         }
     }
-
     return true;
 }
 
