@@ -57,13 +57,13 @@ void BonusWeaponSystem::update(Registry& registry, float dt)
         // Tirer si le cooldown est écoulé
         if (bonusWeapon.timeSinceLastFire >= WEAPON_BONUS_FIRERATE) {
             const Position& weaponPos = positions[bonusWeapon.weaponEntity];
-            fireBonusWeapon(registry, bonusWeapon.weaponEntity, weaponPos);
+            fireBonusWeapon(registry, bonusWeapon.weaponEntity, weaponPos, playerEntity);
             bonusWeapon.timeSinceLastFire = 0.0f;
         }
     }
 }
 
-void BonusWeaponSystem::fireBonusWeapon(Registry& registry, Entity bonusWeaponEntity, const Position& weaponPos)
+void BonusWeaponSystem::fireBonusWeapon(Registry& registry, Entity bonusWeaponEntity, const Position& weaponPos, Entity playerOwner)
 {
     auto& sprites = registry.get_components<Sprite>();
 
@@ -123,6 +123,9 @@ void BonusWeaponSystem::fireBonusWeapon(Registry& registry, Entity bonusWeaponEn
 
     // Composant Projectile
     registry.add_component(projectile, Projectile{0.0f, 5.0f, 0.0f, ProjectileFaction::Player});
+
+    // Track the player owner of this projectile
+    registry.add_component(projectile, ProjectileOwner{playerOwner});
 
     // Pas de friction
     registry.add_component(projectile, NoFriction{});

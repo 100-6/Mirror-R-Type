@@ -86,6 +86,13 @@ public:
     void queue_player_respawn(uint32_t player_id, float x, float y,
                               float invuln_duration, uint8_t lives_remaining);
 
+    /**
+     * @brief Queue a player level-up notification to broadcast
+     */
+    void queue_player_level_up(uint32_t player_id, Entity entity, uint8_t new_level,
+                               uint8_t new_ship_type, uint8_t new_weapon_type,
+                               uint8_t new_skin_id, uint32_t current_score);
+
     uint32_t get_tick_count() const { return tick_count_; }
 
     /**
@@ -123,6 +130,12 @@ public:
      */
     std::queue<protocol::ServerScoreUpdatePayload> drain_pending_scores();
 
+    /**
+     * @brief Drain all pending level-up notifications atomically
+     * @return Queue of pending level-ups (queue in this object is cleared)
+     */
+    std::queue<protocol::ServerPlayerLevelUpPayload> drain_pending_level_ups();
+
 private:
     struct PendingRespawn {
         uint32_t player_id;
@@ -140,6 +153,7 @@ private:
     void broadcast_pending_scores();
     void broadcast_pending_powerups();
     void broadcast_pending_respawns();
+    void broadcast_pending_level_ups();
     void spawn_projectile(Registry& registry, Entity owner, float x, float y);
     void spawn_enemy_projectile(Registry& registry, Entity owner, float x, float y);
     void update_enemy_shooting(Registry& registry, float dt);
@@ -160,6 +174,7 @@ private:
     std::queue<protocol::ServerScoreUpdatePayload> pending_scores_;
     std::queue<protocol::ServerPowerupCollectedPayload> pending_powerups_;
     std::vector<PendingRespawn> pending_respawns_;
+    std::queue<protocol::ServerPlayerLevelUpPayload> pending_level_ups_;
 
     std::mutex spawns_mutex_;
     std::mutex destroys_mutex_;
@@ -167,6 +182,7 @@ private:
     std::mutex explosions_mutex_;
     std::mutex scores_mutex_;
     std::mutex powerups_mutex_;
+    std::mutex level_ups_mutex_;
 
     std::unordered_map<uint32_t, float> shoot_cooldowns_;
     std::unordered_map<uint32_t, float> switch_cooldowns_;

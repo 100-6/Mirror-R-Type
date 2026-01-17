@@ -62,21 +62,35 @@ void ServerNetworkSystem::init(Registry& registry)
     enemyKilledSubId_ = registry.get_event_bus().subscribe<ecs::EnemyKilledEvent>(
         [this, &registry](const ecs::EnemyKilledEvent& event) {
             auto& scores = registry.get_components<Score>();
-            uint32_t current_total_score = 0;
-            if (player_entities_ && !player_entities_->empty()) {
-                Entity first_player = player_entities_->begin()->second;
-                if (scores.has_entity(first_player))
-                    current_total_score = scores[first_player].value;
+
+            // Find the network player_id for the killer entity
+            uint32_t killer_player_id = 0;
+            uint32_t killer_score = 0;
+
+            if (event.killer != 0 && player_entities_) {
+                // Find which player_id corresponds to the killer entity
+                for (const auto& [player_id, player_entity] : *player_entities_) {
+                    if (player_entity == event.killer) {
+                        killer_player_id = player_id;
+                        if (scores.has_entity(event.killer)) {
+                            killer_score = scores[event.killer].value;
+                        }
+                        break;
+                    }
+                }
             }
+
             protocol::ServerScoreUpdatePayload score_update;
+            score_update.player_id = ByteOrder::host_to_net32(killer_player_id);
+            score_update.entity_id = ByteOrder::host_to_net32(static_cast<uint32_t>(event.killer));
             score_update.score_delta = ByteOrder::host_to_net32(event.scoreValue);
-            score_update.new_total_score = ByteOrder::host_to_net32(current_total_score);
+            score_update.new_total_score = ByteOrder::host_to_net32(killer_score);
             {
                 std::lock_guard lock(scores_mutex_);
                 pending_scores_.push(score_update);
             }
-            std::cout << "[SCORE] Queued score update: +" << event.scoreValue
-                      << " (Total: " << current_total_score << ")\n";
+            std::cout << "[SCORE] Queued score update for player " << killer_player_id
+                      << ": +" << event.scoreValue << " (Total: " << killer_score << ")\n";
         });
 
     explosionSubId_ = registry.get_event_bus().subscribe<ecs::ExplosionEvent>(
@@ -143,6 +157,7 @@ void ServerNetworkSystem::update(Registry& registry, float dt)
     broadcast_pending_destroys();
     broadcast_pending_powerups();
     broadcast_pending_respawns();
+    broadcast_pending_level_ups();
 }
 
 void ServerNetworkSystem::shutdown()
@@ -197,6 +212,26 @@ void ServerNetworkSystem::queue_player_respawn(uint32_t player_id, float x, floa
               << " pos=(" << x << "," << y << ") lives=" << static_cast<int>(lives) << std::endl;
 }
 
+void ServerNetworkSystem::queue_player_level_up(uint32_t player_id, Entity entity, uint8_t new_level,
+                                                uint8_t new_ship_type, uint8_t new_weapon_type,
+                                                uint8_t new_skin_id, uint32_t current_score)
+{
+    protocol::ServerPlayerLevelUpPayload payload;
+    payload.player_id = ByteOrder::host_to_net32(player_id);
+    payload.entity_id = ByteOrder::host_to_net32(static_cast<uint32_t>(entity));
+    payload.new_level = new_level;
+    payload.new_ship_type = new_ship_type;
+    payload.new_weapon_type = new_weapon_type;
+    payload.new_skin_id = new_skin_id;
+    payload.current_score = ByteOrder::host_to_net32(current_score);
+
+    std::lock_guard lock(level_ups_mutex_);
+    pending_level_ups_.push(payload);
+    std::cout << "[ServerNetworkSystem] Queued player level-up: player=" << player_id
+              << " entity=" << entity << " level=" << static_cast<int>(new_level)
+              << " skin_id=" << static_cast<int>(new_skin_id) << std::endl;
+}
+
 void ServerNetworkSystem::process_pending_inputs(Registry& registry)
 {
     if (!player_entities_)
@@ -240,18 +275,7 @@ void ServerNetworkSystem::process_pending_inputs(Registry& registry)
                 registry.get_event_bus().publish(ecs::PlayerStopFireEvent{player_entity});
             }
         }
-        if (input.is_switch_weapon_pressed()) {
-            if (switch_cooldowns_.find(player_id) == switch_cooldowns_.end())
-                switch_cooldowns_[player_id] = SWITCH_COOLDOWN;
-            if (switch_cooldowns_[player_id] >= SWITCH_COOLDOWN) {
-                if (weapons.has_entity(player_entity)) {
-                    Weapon& w = weapons[player_entity];
-                    int nextType = (static_cast<int>(w.type) + 1) % 5;
-                    w = create_weapon(static_cast<WeaponType>(nextType), engine::INVALID_HANDLE);
-                    switch_cooldowns_[player_id] = 0.0f;
-                }
-            }
-        }
+        // Weapon switching removed - weapon is now determined by player level (LevelUpSystem)
     }
 }
 
@@ -509,6 +533,27 @@ void ServerNetworkSystem::broadcast_pending_respawns()
     pending_respawns_.clear();
 }
 
+void ServerNetworkSystem::broadcast_pending_level_ups()
+{
+    if (!listener_)
+        return;
+    std::lock_guard lock(level_ups_mutex_);
+    while (!pending_level_ups_.empty()) {
+        const auto& level_up = pending_level_ups_.front();
+        std::vector<uint8_t> payload;
+        const uint8_t* bytes = reinterpret_cast<const uint8_t*>(&level_up);
+        payload.insert(payload.end(), bytes, bytes + sizeof(level_up));
+
+        // Send multiple times to ensure delivery (UDP can lose packets)
+        for (int i = 0; i < 3; ++i) {
+            listener_->on_player_level_up(session_id_, payload);
+        }
+
+        pending_level_ups_.pop();
+        std::cout << "[ServerNetworkSystem] Broadcast player level-up to clients (3x for reliability)\n";
+    }
+}
+
 void ServerNetworkSystem::spawn_projectile(Registry& registry, Entity owner, float x, float y)
 {
     Entity projectile = registry.spawn_entity();
@@ -518,6 +563,7 @@ void ServerNetworkSystem::spawn_projectile(Registry& registry, Entity owner, flo
     registry.add_component(projectile, Collider{config::PROJECTILE_WIDTH, config::PROJECTILE_HEIGHT});
     registry.add_component(projectile, Damage{config::PROJECTILE_DAMAGE});
     registry.add_component(projectile, Projectile{0.0f, config::PROJECTILE_LIFETIME, 0.0f, ProjectileFaction::Player});
+    registry.add_component(projectile, ProjectileOwner{owner});  // Track who fired this projectile
     registry.add_component(projectile, NoFriction{});
     protocol::ServerProjectileSpawnPayload spawn;
     spawn.projectile_id = ByteOrder::host_to_net32(projectile);
@@ -541,6 +587,7 @@ void ServerNetworkSystem::spawn_enemy_projectile(Registry& registry, Entity owne
     registry.add_component(projectile, Collider{config::PROJECTILE_WIDTH, config::PROJECTILE_HEIGHT});
     registry.add_component(projectile, Damage{config::ENEMY_PROJECTILE_DAMAGE});
     registry.add_component(projectile, Projectile{0.0f, config::PROJECTILE_LIFETIME, 0.0f, ProjectileFaction::Enemy});
+    registry.add_component(projectile, ProjectileOwner{owner});  // Track which enemy fired this
     registry.add_component(projectile, NoFriction{});
     protocol::ServerProjectileSpawnPayload spawn;
     spawn.projectile_id = ByteOrder::host_to_net32(projectile);
@@ -633,6 +680,14 @@ std::queue<protocol::ServerScoreUpdatePayload> ServerNetworkSystem::drain_pendin
     std::lock_guard lock(scores_mutex_);
     std::queue<protocol::ServerScoreUpdatePayload> temp;
     temp.swap(pending_scores_);
+    return temp;
+}
+
+std::queue<protocol::ServerPlayerLevelUpPayload> ServerNetworkSystem::drain_pending_level_ups()
+{
+    std::lock_guard lock(level_ups_mutex_);
+    std::queue<protocol::ServerPlayerLevelUpPayload> temp;
+    temp.swap(pending_level_ups_);
     return temp;
 }
 

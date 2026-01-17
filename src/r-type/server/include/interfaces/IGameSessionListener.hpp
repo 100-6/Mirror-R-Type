@@ -103,6 +103,13 @@ public:
      * @param respawn_data Serialized respawn data
      */
     virtual void on_player_respawn(uint32_t session_id, const std::vector<uint8_t>& respawn_data) = 0;
+
+    /**
+     * @brief Called when a player levels up
+     * @param session_id The game session
+     * @param level_up_data Serialized level-up data
+     */
+    virtual void on_player_level_up(uint32_t session_id, const std::vector<uint8_t>& level_up_data) = 0;
 };
 
 }

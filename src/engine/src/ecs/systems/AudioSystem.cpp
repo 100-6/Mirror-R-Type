@@ -6,7 +6,6 @@
 */
 
 #include "ecs/systems/AudioSystem.hpp"
-#include "../../../../r-type/shared/AssetsPaths.hpp"
 #include <iostream>
 #include <algorithm>
 #include <cmath>
@@ -26,18 +25,17 @@ void AudioSystem::init(Registry& registry)
 {
     std::cout << "AudioSystem: Initialisation" << std::endl;
 
-    // Try to load configuration
+    // Load configuration
     loadConfiguration(configPath_);
 
-    // Load sounds based on config or legacy paths
+    // Load sounds from config
     if (configLoaded_) {
         preloadSounds();
         preloadMusic();
         preloadAmbiance();
+    } else {
+        std::cerr << "AudioSystem: No configuration loaded, audio will not work" << std::endl;
     }
-
-    // Always load legacy sounds as fallback
-    loadLegacySounds();
 
     // Initialize volume from config if available
     if (configLoaded_ && config_) {
@@ -57,9 +55,13 @@ void AudioSystem::init(Registry& registry)
 
     auto& eventBus = registry.get_event_bus();
 
-    // Legacy event subscriptions (backward compatible)
+    // Event subscriptions
     subscriptions.push_back(eventBus.subscribe<ecs::EnemyKilledEvent>(
         [this](const ecs::EnemyKilledEvent& e) { onEnemyKilled(e); }
+    ));
+
+    subscriptions.push_back(eventBus.subscribe<ecs::EnemyHitEvent>(
+        [this](const ecs::EnemyHitEvent& e) { onEnemyHit(e); }
     ));
 
     subscriptions.push_back(eventBus.subscribe<ecs::PlayerHitEvent>(
@@ -117,21 +119,7 @@ void AudioSystem::shutdown()
     stopMusic();
     stopAmbiance();
 
-    // Unload legacy sounds
-    if (enemy_death_sound != engine::INVALID_HANDLE) {
-        audio_plugin.unload_sound(enemy_death_sound);
-    }
-    if (player_hit_sound != engine::INVALID_HANDLE) {
-        audio_plugin.unload_sound(player_hit_sound);
-    }
-    if (powerup_sound != engine::INVALID_HANDLE) {
-        audio_plugin.unload_sound(powerup_sound);
-    }
-    if (shoot_sound != engine::INVALID_HANDLE) {
-        audio_plugin.unload_sound(shoot_sound);
-    }
-
-    // Unload config-based sounds
+    // Unload sounds
     for (auto& [id, handle] : sfxHandles_) {
         if (handle != engine::INVALID_HANDLE) {
             audio_plugin.unload_sound(handle);
@@ -221,27 +209,6 @@ void AudioSystem::preloadAmbiance()
     }
 
     std::cout << "AudioSystem: Preloaded " << ambianceHandles_.size() << " ambiance tracks" << std::endl;
-}
-
-void AudioSystem::loadLegacySounds()
-{
-    enemy_death_sound = audio_plugin.load_sound(assets::paths::SOUND_DEATH);
-    player_hit_sound = audio_plugin.load_sound(assets::paths::SOUND_PLAYER_HIT);
-    powerup_sound = audio_plugin.load_sound(assets::paths::SOUND_POWERUP);
-    shoot_sound = audio_plugin.load_sound(assets::paths::SOUND_SHOOT);
-
-    if (enemy_death_sound == engine::INVALID_HANDLE) {
-        std::cerr << "AudioSystem: Failed to load legacy enemy death sound" << std::endl;
-    }
-    if (player_hit_sound == engine::INVALID_HANDLE) {
-        std::cerr << "AudioSystem: Failed to load legacy player hit sound" << std::endl;
-    }
-    if (powerup_sound == engine::INVALID_HANDLE) {
-        std::cerr << "AudioSystem: Failed to load legacy powerup sound" << std::endl;
-    }
-    if (shoot_sound == engine::INVALID_HANDLE) {
-        std::cerr << "AudioSystem: Failed to load legacy shoot sound" << std::endl;
-    }
 }
 
 // ========== Sound Playback Helpers ==========
@@ -542,69 +509,41 @@ void AudioSystem::updateAllVolumes()
 void AudioSystem::onEnemyKilled(const ecs::EnemyKilledEvent& event)
 {
     (void)event;
+    playSfx("enemy_death");
+}
 
-    // Try config-based sound first
-    if (configLoaded_ && sfxHandles_.count("enemy_death")) {
-        playSfx("enemy_death");
-    } else if (enemy_death_sound != engine::INVALID_HANDLE) {
-        float volume = getEffectiveVolume(audio::AudioCategory::SFX);
-        audio_plugin.play_sound(enemy_death_sound, volume);
-    }
+void AudioSystem::onEnemyHit(const ecs::EnemyHitEvent& event)
+{
+    (void)event;
+    playSfx("enemy_hit");
 }
 
 void AudioSystem::onPlayerHit(const ecs::PlayerHitEvent& event)
 {
     (void)event;
-
-    if (configLoaded_ && sfxHandles_.count("player_hit")) {
-        playSfx("player_hit");
-    } else if (player_hit_sound != engine::INVALID_HANDLE) {
-        float volume = getEffectiveVolume(audio::AudioCategory::SFX);
-        audio_plugin.play_sound(player_hit_sound, volume);
-    }
+    playSfx("player_hit");
 }
 
 void AudioSystem::onPowerUpCollected(const ecs::PowerUpCollectedEvent& event)
 {
     (void)event;
-
-    if (configLoaded_ && sfxHandles_.count("powerup_collect")) {
-        playSfx("powerup_collect");
-    } else if (powerup_sound != engine::INVALID_HANDLE) {
-        float volume = getEffectiveVolume(audio::AudioCategory::SFX);
-        audio_plugin.play_sound(powerup_sound, volume);
-    }
+    playSfx("powerup_collect");
 }
 
 void AudioSystem::onShotFired(const ecs::ShotFiredEvent& event)
 {
     (void)event;
-
-    if (configLoaded_ && sfxHandles_.count("shoot")) {
-        playSfx("shoot");
-    } else if (shoot_sound != engine::INVALID_HANDLE) {
-        float volume = getEffectiveVolume(audio::AudioCategory::SFX);
-        audio_plugin.play_sound(shoot_sound, volume);
-    }
+    playSfx("shoot");
 }
 
 void AudioSystem::onCompanionShot(const ecs::CompanionShotEvent& event)
 {
     (void)event;
-
-    if (configLoaded_ && sfxHandles_.count("companion_shoot")) {
-        playSfx("companion_shoot");
-    } else if (shoot_sound != engine::INVALID_HANDLE) {
-        // Fallback to regular shoot sound with lower volume
-        float volume = getEffectiveVolume(audio::AudioCategory::SFX) * 0.6f;
-        audio_plugin.play_sound(shoot_sound, volume);
-    }
+    playSfx("companion_shoot");
 }
 
 void AudioSystem::onExplosionSound(const ecs::ExplosionSoundEvent& event)
 {
-    if (!configLoaded_) return;
-
     std::string sfxId;
     switch (event.type) {
         case ecs::ExplosionSoundEvent::ExplosionType::ENEMY_BASIC:

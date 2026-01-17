@@ -34,6 +34,11 @@
 #include "systems/MapConfigLoader.hpp"
 #include "components/MapTypes.hpp"
 
+// Forward declaration for procedural generation
+namespace rtype {
+    class ProceduralMapGenerator;
+}
+
 // Level System includes
 #include "LevelManager.hpp"
 #include "components/LevelComponents.hpp"
@@ -77,7 +82,7 @@ class GameSession : public IWaveListener, public INetworkSystemListener {
 public:
     GameSession(uint32_t session_id, protocol::GameMode game_mode,
                 protocol::Difficulty difficulty, uint16_t map_id);
-    ~GameSession() = default;
+    ~GameSession();  // Must be defined in .cpp where ProceduralMapGenerator is complete
 
     /**
      * @brief Set the listener for game session events
@@ -109,6 +114,7 @@ public:
     ServerNetworkSystem* get_network_system() { return network_system_; }
     float get_scroll_speed() const { return scroll_speed_; }
     double get_current_scroll() const { return current_scroll_; }  // NEW: For checkpoint system
+    uint32_t get_map_seed() const { return map_seed_; }
 
     /**
      * @brief Resync a client with all existing entities
@@ -135,6 +141,7 @@ private:
     void on_score_updated(uint32_t session_id, const std::vector<uint8_t>& score_data) override;
     void on_powerup_collected(uint32_t session_id, const std::vector<uint8_t>& powerup_data) override;
     void on_player_respawn(uint32_t session_id, const std::vector<uint8_t>& respawn_data) override;
+    void on_player_level_up(uint32_t session_id, const std::vector<uint8_t>& level_up_data) override;
 
     void spawn_player_entity(GamePlayer& player);
     void check_game_over();
@@ -177,9 +184,19 @@ private:
 
     // Map segment data for tile-based walls
     rtype::MapConfig map_config_;
-    std::vector<rtype::SegmentData> map_segments_;
+    std::vector<rtype::SegmentData> map_segments_;  // For static maps
+    std::unordered_map<int, rtype::SegmentData> generated_segments_;  // For procedural maps
     size_t next_segment_to_spawn_ = 0;
     int tile_size_ = 16;
+
+    // Procedural generation
+    bool procedural_enabled_ = false;
+    std::unique_ptr<class rtype::ProceduralMapGenerator> generator_;
+    rtype::ProceduralConfig procedural_config_;
+    uint32_t map_seed_ = 0;
+
+    // Helper for procedural generation
+    rtype::SegmentData* get_or_generate_segment(int segment_id);
 };
 
 }

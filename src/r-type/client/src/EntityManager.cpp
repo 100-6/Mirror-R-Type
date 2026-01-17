@@ -964,4 +964,48 @@ bool EntityManager::get_entity_type(uint32_t server_id, protocol::EntityType& ou
     return false;
 }
 
+void EntityManager::update_player_skin(uint32_t server_id, uint8_t new_skin_id) {
+    auto it = server_to_local_.find(server_id);
+    if (it == server_to_local_.end())
+        return;
+
+    Entity entity = it->second;
+
+    // Extract color and ship type from skin_id
+    // skin_id = color * 5 + ship_type
+    ShipColor color = static_cast<ShipColor>(new_skin_id / 5);
+    ShipType ship_type = static_cast<ShipType>(new_skin_id % 5);
+
+    // Get new sprite from ship manager
+    engine::Sprite ship_sprite = textures_.get_ship_manager().create_ship_sprite(color, ship_type, 4.0f);
+
+    // Update sprite component
+    auto& sprites = registry_.get_components<Sprite>();
+    if (sprites.has_entity(entity)) {
+        Sprite& sprite = sprites[entity];
+        sprite.texture = ship_sprite.texture_handle;
+        sprite.source_rect.x = ship_sprite.source_rect.x;
+        sprite.source_rect.y = ship_sprite.source_rect.y;
+        sprite.source_rect.width = ship_sprite.source_rect.width;
+        sprite.source_rect.height = ship_sprite.source_rect.height;
+        sprite.width = ship_sprite.size.x;
+        sprite.height = ship_sprite.size.y;
+        sprite.origin_x = ship_sprite.origin.x;
+        sprite.origin_y = ship_sprite.origin.y;
+    }
+
+    // Update collider based on new ship type
+    auto& colliders = registry_.get_components<Collider>();
+    if (colliders.has_entity(entity)) {
+        auto hitbox = rtype::game::get_hitbox_dimensions_from_skin_id(new_skin_id);
+        colliders[entity].width = hitbox.width;
+        colliders[entity].height = hitbox.height;
+    }
+
+    std::cout << "[EntityManager] Updated player " << server_id
+              << " skin to " << static_cast<int>(new_skin_id)
+              << " (color: " << static_cast<int>(color)
+              << ", ship: " << static_cast<int>(ship_type) << ")\n";
+}
+
 }

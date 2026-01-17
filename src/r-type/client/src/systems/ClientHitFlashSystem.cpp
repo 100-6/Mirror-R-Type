@@ -8,6 +8,8 @@
 #include "systems/ClientHitFlashSystem.hpp"
 #include "components/GameComponents.hpp"
 #include "ecs/CoreComponents.hpp"
+#include "ecs/events/GameEvents.hpp"
+#include "ecs/events/InputEvents.hpp"
 #include <iostream>
 
 namespace rtype::client {
@@ -29,6 +31,7 @@ void ClientHitFlashSystem::update(Registry& registry, float dt)
     auto& healths = registry.get_components<Health>();
     auto& sprites = registry.get_components<Sprite>();
     auto& overlays = registry.get_components<FlashOverlay>();
+    auto& localPlayers = registry.get_components<LocalPlayer>();
 
     // Check for HP decreases and create new flash overlays
     for (size_t i = 0; i < healths.size(); ++i) {
@@ -45,21 +48,38 @@ void ClientHitFlashSystem::update(Registry& registry, float dt)
         if (it != previous_hp_.end()) {
             int prev_hp = it->second;
 
-            // HP decreased? Apply flash effect
-            if (current_hp < prev_hp && current_hp > 0) {
-                constexpr float FLASH_DURATION = 0.25f;
+            // HP decreased?
+            if (current_hp < prev_hp) {
+                bool is_local_player = localPlayers.has_entity(entity);
 
-                if (overlays.has_entity(entity)) {
-                    // Reset existing overlay
-                    overlays[entity].time_remaining = FLASH_DURATION;
-                    overlays[entity].total_duration = FLASH_DURATION;
-                } else {
-                    // Create new flash overlay - RenderSystem will draw white rectangle
-                    registry.add_component(entity, FlashOverlay{
-                        FLASH_DURATION,
-                        FLASH_DURATION,
-                        200.0f  // Max alpha
-                    });
+                // Apply flash effect only if still alive
+                if (current_hp > 0) {
+                    constexpr float FLASH_DURATION = 0.25f;
+
+                    if (overlays.has_entity(entity)) {
+                        // Reset existing overlay
+                        overlays[entity].time_remaining = FLASH_DURATION;
+                        overlays[entity].total_duration = FLASH_DURATION;
+                    } else {
+                        // Create new flash overlay - RenderSystem will draw white rectangle
+                        registry.add_component(entity, FlashOverlay{
+                            FLASH_DURATION,
+                            FLASH_DURATION,
+                            200.0f  // Max alpha
+                        });
+                    }
+
+                    // Emit hit events to trigger sounds
+                    if (is_local_player) {
+                        registry.get_event_bus().publish(ecs::PlayerHitEvent{entity, Entity{0}});
+                    } else {
+                        registry.get_event_bus().publish(ecs::EnemyHitEvent{entity, Entity{0}});
+                    }
+                }
+
+                // Emit EnemyKilledEvent when non-player entity dies (HP drops to 0 or below)
+                if (current_hp <= 0 && !is_local_player) {
+                    registry.get_event_bus().publish(ecs::EnemyKilledEvent{entity, 100});
                 }
             }
         }

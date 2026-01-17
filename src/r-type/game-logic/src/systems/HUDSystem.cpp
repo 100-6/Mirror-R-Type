@@ -6,6 +6,7 @@
 */
 
 #include "systems/HUDSystem.hpp"
+#include "AssetsPaths.hpp"
 #include <sstream>
 #include <iomanip>
 #include <iostream>
@@ -133,20 +134,47 @@ void HUDSystem::init(Registry& registry) {
         102
     });
 
-    // Create lives display
-    m_livesTextEntity = registry.spawn_entity();
-    registry.add_component(m_livesTextEntity, Position{10.0f, 120.0f});
-    registry.add_component(m_livesTextEntity, UIText{
-        "Lives: 3",
-        engine::Color{255, 255, 255, 255},       // white
-        engine::Color{0, 0, 0, 200},              // shadow
-        20,                                       // fontSize
-        true,                                     // hasShadow
-        2.0f,                                     // shadowOffsetX
-        2.0f,                                     // shadowOffsetY
-        true,                                     // active
-        102                                       // layer
-    });
+    // Load heart texture
+    m_heartTexture = m_graphicsPlugin.load_texture(assets::paths::UI_HEART_ICON);
+
+    // Create heart sprites for lives display - centered above health bar
+    // Health bar is at x=750 with width=400, so center is at 750 + 200 = 950
+    float healthBarCenterX = 750.0f + HEALTH_BAR_WIDTH / 2.0f;
+    float livesY = 962.0f - 55.0f;  // 55px above health bar
+    float heartSize = 32.0f;  // Size of each heart icon
+    float heartSpacing = 10.0f;  // Space between hearts
+
+    // Starting X position to center the hearts (assuming 3 lives initially)
+    int initialLives = 3;
+    float totalWidth = (initialLives * heartSize) + ((initialLives - 1) * heartSpacing);
+    float startX = healthBarCenterX - (totalWidth / 2.0f);
+
+    // Create heart sprite entities
+    registry.register_component<Sprite>();
+    for (int i = 0; i < MAX_LIVES_DISPLAY; ++i) {
+        m_heartEntities[i] = registry.spawn_entity();
+        float heartX = startX + (i * (heartSize + heartSpacing));
+
+        registry.add_component(m_heartEntities[i], Position{heartX, livesY});
+        registry.add_component(m_heartEntities[i], Sprite{
+            m_heartTexture,                      // heart texture
+            heartSize,                           // width
+            heartSize,                           // height
+            0.0f,                                // rotation
+            engine::Color{255, 255, 255, 255},  // white tint (full color)
+            0.0f,                                // origin_x
+            0.0f,                                // origin_y
+            102                                  // layer (on top)
+        });
+    }
+
+    // Hide extra hearts initially (only show 3)
+    for (int i = initialLives; i < MAX_LIVES_DISPLAY; ++i) {
+        auto& sprites = registry.get_components<Sprite>();
+        if (sprites.has_entity(m_heartEntities[i])) {
+            sprites[m_heartEntities[i]].tint = engine::Color{255, 255, 255, 0};  // Invisible
+        }
+    }
 
     // Wave text will be rendered directly in update() instead of using UIText entity
 
@@ -312,22 +340,64 @@ void HUDSystem::update(Registry& registry, float dt) {
         return;
     }
 
-    // Find the LOCAL player entity (entity with LocalPlayer component)
+    // Find the LOCAL player entity
+    // We need to find the entity that has the Score component, not just LocalPlayer/Controllable
+    // because the Score might be on a different entity (the network entity)
     Entity playerEntity = 0;
     bool playerFound = false;
 
+    static bool logged_entity = false;
 
-    for (size_t i = 0; i < localPlayers.size(); ++i) {
-        playerEntity = localPlayers.get_entity_at(i);
-        playerFound = true;
-        break;
+    // Strategy: Find an entity that has BOTH LocalPlayer AND Score components
+    // This ensures we get the right entity that receives network score updates
+    if (!logged_entity) {
+        std::cout << "[HUDSystem] DEBUG - Searching for player entity..." << std::endl;
+        std::cout << "[HUDSystem]   Total entities with Score: " << scores.size() << std::endl;
+        std::cout << "[HUDSystem]   Total entities with LocalPlayer: " << localPlayers.size() << std::endl;
+        for (size_t i = 0; i < scores.size(); ++i) {
+            Entity entity = scores.get_entity_at(i);
+            std::cout << "[HUDSystem]   Score entity " << entity
+                      << ": score=" << scores[entity].value
+                      << ", has_LocalPlayer=" << localPlayers.has_entity(entity) << std::endl;
+        }
     }
 
-    // Fallback: if no LocalPlayer component found, use first Controllable
+    for (size_t i = 0; i < scores.size(); ++i) {
+        Entity entity = scores.get_entity_at(i);
+        if (localPlayers.has_entity(entity)) {
+            playerEntity = entity;
+            playerFound = true;
+            if (!logged_entity) {
+                std::cout << "[HUDSystem] ✅ Found entity with LocalPlayer + Score: " << playerEntity
+                          << " (score: " << scores[playerEntity].value << ")" << std::endl;
+                logged_entity = true;
+            }
+            break;
+        }
+    }
+
+    // Fallback 1: Find LocalPlayer (for health display even if no score yet)
+    if (!playerFound) {
+        for (size_t i = 0; i < localPlayers.size(); ++i) {
+            playerEntity = localPlayers.get_entity_at(i);
+            playerFound = true;
+            if (!logged_entity) {
+                std::cout << "[HUDSystem] Found LocalPlayer entity (no score): " << playerEntity << std::endl;
+                logged_entity = true;
+            }
+            break;
+        }
+    }
+
+    // Fallback 2: Use first Controllable
     if (!playerFound) {
         for (size_t i = 0; i < controllables.size(); ++i) {
             playerEntity = controllables.get_entity_at(i);
             playerFound = true;
+            if (!logged_entity) {
+                std::cout << "[HUDSystem] Fallback to Controllable entity: " << playerEntity << std::endl;
+                logged_entity = true;
+            }
             break;
         }
     }
@@ -381,6 +451,18 @@ void HUDSystem::update(Registry& registry, float dt) {
         std::stringstream ss;
         ss << std::setw(8) << std::setfill('0') << score.value;
         scoreText.text = ss.str();
+    } else {
+        // Debug: log why score isn't updating
+        static bool logged = false;
+        if (!logged) {
+            std::cout << "[HUDSystem] Score debug - playerEntity: " << playerEntity
+                      << ", has_score: " << scores.has_entity(playerEntity)
+                      << ", has_score_text: " << uitexts.has_entity(m_scoreTextEntity) << std::endl;
+            if (scores.has_entity(playerEntity)) {
+                std::cout << "[HUDSystem] Score value: " << scores[playerEntity].value << std::endl;
+            }
+            logged = true;
+        }
     }
 
     // Update wave indicator
@@ -442,9 +524,38 @@ float HUDSystem::lerp(float a, float b, float t) const {
 void HUDSystem::update_lives(Registry& registry, uint8_t lives) {
     std::cout << "[HUDSystem] Lives updated: " << static_cast<int>(lives) << std::endl;
 
-    // Update the lives display text
-    auto& uitexts = registry.get_components<UIText>();
-    if (uitexts.has_entity(m_livesTextEntity)) {
-        uitexts[m_livesTextEntity].text = "Lives: " + std::to_string(lives);
+    // Update heart sprites visibility and opacity
+    auto& sprites = registry.get_components<Sprite>();
+
+    // Clamp lives to max display
+    int displayLives = std::min(static_cast<int>(lives), MAX_LIVES_DISPLAY);
+
+    // Show hearts based on lives count
+    for (int i = 0; i < MAX_LIVES_DISPLAY; ++i) {
+        if (sprites.has_entity(m_heartEntities[i])) {
+            if (i < displayLives) {
+                // Show heart with full opacity
+                sprites[m_heartEntities[i]].tint = engine::Color{255, 255, 255, 255};
+            } else {
+                // Hide heart (transparent)
+                sprites[m_heartEntities[i]].tint = engine::Color{255, 255, 255, 0};
+            }
+        }
+    }
+
+    // Recenter hearts based on current lives count
+    if (displayLives > 0) {
+        float healthBarCenterX = 750.0f + HEALTH_BAR_WIDTH / 2.0f;
+        float heartSize = 32.0f;
+        float heartSpacing = 10.0f;
+        float totalWidth = (displayLives * heartSize) + ((displayLives - 1) * heartSpacing);
+        float startX = healthBarCenterX - (totalWidth / 2.0f);
+
+        auto& positions = registry.get_components<Position>();
+        for (int i = 0; i < displayLives; ++i) {
+            if (positions.has_entity(m_heartEntities[i])) {
+                positions[m_heartEntities[i]].x = startX + (i * (heartSize + heartSpacing));
+            }
+        }
     }
 }

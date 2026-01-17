@@ -166,6 +166,7 @@ void AISystem::updateEnemyBehavior(Registry& registry, float dt)
                      registry.add_component(bullet, bulletSprite);
                      registry.add_component(bullet, Collider{bulletWidth, bulletHeight});
                      registry.add_component(bullet, Projectile{180.0f, 5.0f, 0.0f, ProjectileFaction::Enemy});
+                     registry.add_component(bullet, ProjectileOwner{e});  // Track which enemy fired this
                      registry.add_component(bullet, NoFriction{});
                  };
 

@@ -177,7 +177,7 @@ public:
      * @brief Set callback for game start
      * @param callback Function receiving session_id, udp_port, map_id and scroll speed
      */
-    void set_on_game_start(std::function<void(uint32_t session_id, uint16_t udp_port, uint16_t map_id, float scroll_speed)> callback);
+    void set_on_game_start(std::function<void(uint32_t session_id, uint16_t udp_port, uint16_t map_id, float scroll_speed, uint32_t seed)> callback);
 
     /**
      * @brief Set callback for entity spawn
@@ -235,6 +235,11 @@ public:
      * @brief Set callback for score update events
      */
     void set_on_score_update(std::function<void(const protocol::ServerScoreUpdatePayload&)> callback);
+
+    /**
+     * @brief Set callback for player level-up events
+     */
+    void set_on_player_level_up(std::function<void(const protocol::ServerPlayerLevelUpPayload&)> callback);
 
     /**
      * @brief Set callback for powerup collected events
@@ -340,6 +345,7 @@ private:
     void handle_wave_start(const std::vector<uint8_t>& payload);
     void handle_wave_complete(const std::vector<uint8_t>& payload);
     void handle_score_update(const std::vector<uint8_t>& payload);
+    void handle_player_level_up(const std::vector<uint8_t>& payload);
     void handle_powerup_collected(const std::vector<uint8_t>& payload);
     void handle_player_respawn(const std::vector<uint8_t>& payload);
     void handle_room_created(const std::vector<uint8_t>& payload);
@@ -393,7 +399,7 @@ private:
     std::function<void(uint8_t, const std::string&)> on_rejected_;
     std::function<void(const protocol::ServerLobbyStatePayload&, const std::vector<protocol::PlayerLobbyEntry>&)> on_lobby_state_;
     std::function<void(uint8_t)> on_countdown_;
-    std::function<void(uint32_t, uint16_t, uint16_t, float)> on_game_start_;
+    std::function<void(uint32_t, uint16_t, uint16_t, float, uint32_t)> on_game_start_;
     std::function<void(const protocol::ServerEntitySpawnPayload&)> on_entity_spawn_;
     std::function<void(const protocol::ServerEntityDestroyPayload&)> on_entity_destroy_;
     std::function<void(const protocol::ServerProjectileSpawnPayload&)> on_projectile_spawn_;
@@ -404,6 +410,7 @@ private:
     std::function<void(const protocol::ServerWaveStartPayload&)> on_wave_start_;
     std::function<void(const protocol::ServerWaveCompletePayload&)> on_wave_complete_;
     std::function<void(const protocol::ServerScoreUpdatePayload&)> on_score_update_;
+    std::function<void(const protocol::ServerPlayerLevelUpPayload&)> on_player_level_up_;
     std::function<void(const protocol::ServerPowerupCollectedPayload&)> on_powerup_collected_;
     std::function<void(const protocol::ServerPlayerRespawnPayload&)> on_player_respawn_;
     std::function<void(const protocol::ServerRoomCreatedPayload&)> on_room_created_;

@@ -32,6 +32,9 @@ inline constexpr const char* UI_GAMEMODE_DUO = "assets/sprite/ui/duo.png";
 inline constexpr const char* UI_GAMEMODE_TRIO = "assets/sprite/ui/trio.png";
 inline constexpr const char* UI_GAMEMODE_SQUAD = "assets/sprite/ui/squad.png";
 
+// ========== UI HUD ICONS ==========
+inline constexpr const char* UI_HEART_ICON = "assets/sprite/ui/coeur.png";
+
 // ========== MAP THUMBNAILS ==========
 inline constexpr const char* MAP_THUMBNAIL_NEBULA = "assets/sprite/maps/nebula-map.png";
 inline constexpr const char* MAP_THUMBNAIL_ASTEROID = "assets/sprite/maps/asteroid-map.png";
@@ -66,12 +69,7 @@ inline constexpr const char* MAPS_BASE_PATH = "assets/maps";
 inline constexpr const char* WAVES_CONFIG = "assets/waves_nebula_outpost.json";
 
 // ========== AUDIO ==========
-inline constexpr const char* SOUND_DEATH = "assets/sounds/death.mp3";
-inline constexpr const char* SOUND_PLAYER_HIT = "assets/sounds/android.mp3";
-inline constexpr const char* SOUND_POWERUP = "assets/sounds/rizz.mp3";
-inline constexpr const char* SOUND_SHOOT = "assets/sounds/shoot.mp3";
-
-// Audio configuration
+// Audio configuration (all audio paths are defined in this JSON file)
 inline constexpr const char* AUDIO_CONFIG = "assets/audio/audio_config.json";
 
 } // namespace assets::paths

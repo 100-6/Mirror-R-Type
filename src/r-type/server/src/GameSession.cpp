@@ -21,9 +21,12 @@
 #include "systems/BonusWeaponSystem.hpp"
 #include "systems/AttachmentSystem.hpp"
 #include "systems/ScoreSystem.hpp"
+#include "systems/LevelUpSystem.hpp"
 #include "components/CombatHelpers.hpp"
 #include "components/ShipComponents.hpp"
+#include "components/PlayerLevelComponent.hpp"
 #include "components/LevelComponents.hpp"
+#include "ProceduralMapGenerator.hpp"
 
 #undef ENEMY_BASIC_SPEED
 #undef ENEMY_BASIC_HEALTH
@@ -71,6 +74,7 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
     registry_.register_component<ToDestroy>();
     registry_.register_component<Collider>();
     registry_.register_component<Projectile>();
+    registry_.register_component<ProjectileOwner>();
     registry_.register_component<Damage>();
     registry_.register_component<Invulnerability>();
     registry_.register_component<Score>();
@@ -91,6 +95,7 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
 
     // Register Level System components
     registry_.register_component<game::LevelController>();
+    registry_.register_component<game::PlayerLevel>();
     // CheckpointManager removed
     registry_.register_component<game::BossPhase>();
     registry_.register_component<game::PlayerLives>();
@@ -105,18 +110,64 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
     registry_.register_system<BonusSystem>();
     registry_.register_system<BonusWeaponSystem>();
     registry_.register_system<ScoreSystem>();
+    registry_.register_system<game::LevelUpSystem>();
 
     registry_.get_system<HealthSystem>().init(registry_);
     registry_.get_system<ShootingSystem>().init(registry_);
     registry_.get_system<BonusSystem>().init(registry_);
     registry_.get_system<BonusWeaponSystem>().init(registry_);
     registry_.get_system<ScoreSystem>().init(registry_);
+    registry_.get_system<game::LevelUpSystem>().init(registry_);
 
     registry_.register_system<ServerNetworkSystem>(session_id_, config::SNAPSHOT_INTERVAL);
     network_system_ = &registry_.get_system<ServerNetworkSystem>();
     network_system_->init(registry_);
     network_system_->set_player_entities(&player_entities_);
     network_system_->set_listener(this);
+
+    // Set up level-up callback for network broadcasting (after network_system_ is initialized)
+    registry_.get_system<game::LevelUpSystem>().set_level_up_callback(
+        [this](Entity entity, uint8_t new_level, uint8_t new_skin_id) {
+            // Find player_id from entity
+            uint32_t player_id = 0;
+            for (const auto& [pid, ent] : player_entities_) {
+                if (ent == entity) {
+                    player_id = pid;
+                    break;
+                }
+            }
+            if (player_id == 0) {
+                std::cerr << "[GameSession] Cannot find player_id for leveled-up entity " << entity << "\n";
+                return;
+            }
+
+            // Get current score
+            uint32_t current_score = 0;
+            auto& scores = registry_.get_components<Score>();
+            if (scores.has_entity(entity)) {
+                current_score = static_cast<uint32_t>(scores[entity].value);
+            }
+
+            // Queue level-up for broadcast
+            uint8_t ship_type = game::get_ship_type_for_level(new_level);
+            uint8_t weapon_type = static_cast<uint8_t>(game::get_weapon_type_for_level(new_level));
+            network_system_->queue_player_level_up(player_id, entity, new_level, ship_type, weapon_type, new_skin_id, current_score);
+
+            // Also update the entity spawn for new players joining (so they see correct skin)
+            auto& positions = registry_.get_components<Position>();
+            auto& healths = registry_.get_components<Health>();
+            if (positions.has_entity(entity)) {
+                float x = positions[entity].x;
+                float y = positions[entity].y;
+                uint16_t health = healths.has_entity(entity) ? static_cast<uint16_t>(healths[entity].current) : 100;
+                uint8_t subtype = static_cast<uint8_t>(((player_id & 0x0F) << 4) | (new_skin_id & 0x0F));
+                network_system_->queue_entity_spawn(entity, protocol::EntityType::PLAYER, x, y, health, subtype);
+            }
+
+            std::cout << "[GameSession] Player " << player_id << " leveled up to " << static_cast<int>(new_level)
+                      << " (skin_id=" << static_cast<int>(new_skin_id) << ")\n";
+        }
+    );
 
     registry_.register_system<DestroySystem>();
 
@@ -330,6 +381,8 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
     load_map_segments(map_id);
 }
 
+GameSession::~GameSession() = default;
+
 void GameSession::add_player(uint32_t player_id, const std::string& player_name, uint8_t skin_id)
 {
     if (players_.find(player_id) != players_.end()) {
@@ -355,8 +408,15 @@ void GameSession::add_player(uint32_t player_id, const std::string& player_name,
     //           << ") added with skin " << static_cast<int>(skin_id) << " (entity ID: " << player.entity << ", lives: 3)\n";
     if (network_system_) {
         float spawn_y = config::PLAYER_SPAWN_Y_BASE + ((players_.size() - 1) * config::PLAYER_SPAWN_Y_OFFSET);
-        // Encode both player_id and skin_id in subtype: high 4 bits = player_id, low 4 bits = skin_id
-        uint8_t subtype = static_cast<uint8_t>(((player_id & 0x0F) << 4) | (skin_id & 0x0F));
+        // Get actual skin_id from PlayerLevel component (which was just created in spawn_player_entity)
+        uint8_t actual_skin_id = skin_id;  // fallback
+        auto& player_levels = registry_.get_components<game::PlayerLevel>();
+        if (player_levels.has_entity(player.entity)) {
+            const auto& pl = player_levels[player.entity];
+            actual_skin_id = game::compute_skin_id(pl.current_level, pl.color_id);
+        }
+        // Encode both player_id and actual_skin_id in subtype: high 4 bits = player_id, low 4 bits = skin_id
+        uint8_t subtype = static_cast<uint8_t>(((player_id & 0x0F) << 4) | (actual_skin_id & 0x0F));
         network_system_->queue_entity_spawn(
             player.entity,
             EntityType::PLAYER,
@@ -623,8 +683,23 @@ void GameSession::spawn_player_entity(GamePlayer& player)
     float spawn_x = config::PLAYER_SPAWN_X;
     float spawn_y = config::PLAYER_SPAWN_Y_BASE + (players_.size() * config::PLAYER_SPAWN_Y_OFFSET);
 
-    // Get ship-specific hitbox dimensions based on player's skin_id
-    auto hitbox = rtype::game::get_hitbox_dimensions_from_skin_id(player.skin_id);
+    // Extract color_id from player's skin selection
+    // skin_id from client is now just color (0-2), for backward compatibility also handle old format (0-14)
+    uint8_t color_id = (player.skin_id < 3) ? player.skin_id : game::get_color_from_skin_id(player.skin_id);
+
+    // Create PlayerLevel component - all players start at level 1
+    game::PlayerLevel player_level;
+    player_level.current_level = 1;
+    player_level.color_id = color_id;
+    player_level.level_up_pending = false;
+    player_level.level_up_timer = 0.0f;
+    registry_.add_component(entity, player_level);
+
+    // Calculate actual skin_id based on level (level 1 = SCOUT ship type = 0)
+    uint8_t actual_skin_id = game::compute_skin_id(player_level.current_level, color_id);
+
+    // Get ship-specific hitbox dimensions based on the level-determined skin_id
+    auto hitbox = rtype::game::get_hitbox_dimensions_from_skin_id(actual_skin_id);
     float center_x = spawn_x + hitbox.width / 2.0f;
     float center_y = spawn_y + hitbox.height / 2.0f;
 
@@ -635,11 +710,16 @@ void GameSession::spawn_player_entity(GamePlayer& player)
     registry_.add_component(entity, Collider{hitbox.width, hitbox.height});
     registry_.add_component(entity, Invulnerability{3.0f});
     registry_.add_component(entity, Score{0});
-    Weapon weapon = create_weapon(WeaponType::BASIC, engine::INVALID_HANDLE);
+
+    // Create weapon based on player level (level 1 = BASIC weapon)
+    WeaponType weapon_type = game::get_weapon_type_for_level(player_level.current_level);
+    Weapon weapon = create_weapon(weapon_type, engine::INVALID_HANDLE);
     registry_.add_component(entity, weapon);
 
-    // std::cout << "[GameSession " << session_id_ << "] Spawned player entity " << entity
-    //           << " at (" << spawn_x << ", " << spawn_y << ")\n";
+    std::cout << "[GameSession " << session_id_ << "] Spawned player entity " << entity
+              << " (level " << static_cast<int>(player_level.current_level)
+              << ", color " << static_cast<int>(color_id)
+              << ", skin_id " << static_cast<int>(actual_skin_id) << ")\n";
 }
 
 void GameSession::on_wave_started(const Wave& wave)
@@ -833,6 +913,12 @@ void GameSession::on_player_respawn(uint32_t session_id, const std::vector<uint8
         listener_->on_player_respawn(session_id, respawn_data);
 }
 
+void GameSession::on_player_level_up(uint32_t session_id, const std::vector<uint8_t>& level_up_data)
+{
+    if (listener_)
+        listener_->on_player_level_up(session_id, level_up_data);
+}
+
 void GameSession::check_game_over()
 {
     // Check PlayerLives components, not just is_alive flag
@@ -911,6 +997,7 @@ void GameSession::resync_client(uint32_t player_id, uint32_t tcp_client_id)
     //           << " (player " << player_id << ") with existing entities\n";
     auto& positions = registry_.get_components<Position>();
     auto& healths = registry_.get_components<Health>();
+    auto& player_levels = registry_.get_components<game::PlayerLevel>();
     int entity_count = 0;
     for (const auto& [pid, player] : players_) {
         if (positions.has_entity(player.entity)) {
@@ -918,8 +1005,14 @@ void GameSession::resync_client(uint32_t player_id, uint32_t tcp_client_id)
             uint16_t health = 100;
             if (healths.has_entity(player.entity))
                 health = healths[player.entity].current;
-            // Encode both player_id and skin_id in subtype: high 4 bits = player_id, low 4 bits = skin_id
-            uint8_t subtype = static_cast<uint8_t>(((pid & 0x0F) << 4) | (player.skin_id & 0x0F));
+            // Calculate actual skin_id from PlayerLevel component (level + color)
+            uint8_t actual_skin_id = player.skin_id;  // fallback to stored value
+            if (player_levels.has_entity(player.entity)) {
+                const auto& pl = player_levels[player.entity];
+                actual_skin_id = game::compute_skin_id(pl.current_level, pl.color_id);
+            }
+            // Encode both player_id and actual_skin_id in subtype: high 4 bits = player_id, low 4 bits = skin_id
+            uint8_t subtype = static_cast<uint8_t>(((pid & 0x0F) << 4) | (actual_skin_id & 0x0F));
             network_system_->queue_entity_spawn(
                 player.entity, EntityType::PLAYER,
                 pos.x, pos.y, health, subtype
@@ -998,16 +1091,42 @@ void GameSession::load_map_segments(uint16_t map_id)
             : config::GAME_SCROLL_SPEED;
         tile_size_ = map_config_.tileSize;
 
-        std::string segments_dir = map_config_.basePath + "/segments";
-        auto segment_paths = rtype::MapConfigLoader::getSegmentPaths(segments_dir);
+        // Check if procedural generation is enabled
+        procedural_enabled_ = map_config_.procedural.enabled;
+        procedural_config_ = map_config_.procedural;
 
-        for (const auto& path : segment_paths) {
-            auto segment = rtype::MapConfigLoader::loadSegment(path);
-            map_segments_.push_back(segment);
+        if (procedural_enabled_) {
+            // Procedural mode: generate seed and initialize generator
+            map_seed_ = map_config_.procedural.seed;
+            if (map_seed_ == 0) {
+                // Generate random seed
+                std::random_device rd;
+                map_seed_ = rd();
+            }
+
+            generator_ = std::make_unique<rtype::ProceduralMapGenerator>(map_seed_);
+            generated_segments_.clear();
+            map_segments_.clear();
+
+            std::cout << "[GameSession " << session_id_ << "] Procedural generation enabled (seed: "
+                      << map_seed_ << ")" << std::endl;
+
+            // TODO: Send seed to clients via level start packet
+
+        } else {
+            // Static mode: load segments from JSON
+            std::string segments_dir = map_config_.basePath + "/segments";
+            auto segment_paths = rtype::MapConfigLoader::getSegmentPaths(segments_dir);
+
+            for (const auto& path : segment_paths) {
+                auto segment = rtype::MapConfigLoader::loadSegment(path);
+                map_segments_.push_back(segment);
+            }
+
+            std::cout << "[GameSession " << session_id_ << "] Loaded " << map_segments_.size()
+                      << " static map segments (tileSize=" << tile_size_ << ")" << std::endl;
         }
 
-        // std::cout << "[GameSession " << session_id_ << "] Loaded " << map_segments_.size()
-        //           << " map segments for tile walls (tileSize=" << tile_size_ << ")\n";
     } catch (const std::exception& e) {
         std::cerr << "[GameSession " << session_id_ << "] Failed to load map segments: " << e.what() << "\n";
     }
@@ -1015,21 +1134,34 @@ void GameSession::load_map_segments(uint16_t map_id)
 
 void GameSession::spawn_walls_in_view()
 {
-    if (map_segments_.empty() || next_segment_to_spawn_ >= map_segments_.size())
+    // In procedural mode, we generate segments indefinitely
+    // In static mode, we stop when we've spawned all segments
+    if (!procedural_enabled_ && (map_segments_.empty() || next_segment_to_spawn_ >= map_segments_.size()))
         return;
 
     // Calculate world X position where next segment starts
     double segment_world_x = 0.0;
     for (size_t i = 0; i < next_segment_to_spawn_; ++i) {
-        segment_world_x += static_cast<double>(map_segments_[i].width * tile_size_);
+        rtype::SegmentData* seg = get_or_generate_segment(i);
+        if (seg) {
+            segment_world_x += static_cast<double>(seg->width * tile_size_);
+        }
     }
 
     // Spawn walls from segments that are about to come into view
     // Use double for precision
     double spawn_threshold = current_scroll_ + 1920.0 + 500.0;  // screen width + buffer
 
-    while (next_segment_to_spawn_ < map_segments_.size() && segment_world_x < spawn_threshold) {
-        const auto& segment = map_segments_[next_segment_to_spawn_];
+    // In procedural mode, generate up to a reasonable max (e.g., 1000 segments)
+    size_t max_segments = procedural_enabled_ ? 1000 : map_segments_.size();
+
+    while (next_segment_to_spawn_ < max_segments && segment_world_x < spawn_threshold) {
+        rtype::SegmentData* segmentPtr = get_or_generate_segment(next_segment_to_spawn_);
+        if (!segmentPtr) {
+            break;
+        }
+
+        const auto& segment = *segmentPtr;
         double segment_width = static_cast<double>(segment.width * tile_size_);
 
         // Greedy merge: find rectangular groups of wall tiles
@@ -1166,10 +1298,24 @@ Entity GameSession::respawn_player_at(uint32_t player_id, float x, float y, floa
     registry_.add_component(entity, Collider{rtype::shared::config::PLAYER_WIDTH, rtype::shared::config::PLAYER_HEIGHT});
     registry_.add_component(entity, Invulnerability{invuln_duration});
 
-    // Score handling
-    registry_.add_component(entity, Score{static_cast<int>(it->second.score)});
+    // Score handling (reset score on respawn)
+    registry_.add_component(entity, Score{0});
 
-    // Reset to basic weapon
+    // Extract color from player's skin_id (which is now just color 0-2)
+    uint8_t color_id = (it->second.skin_id < 3) ? it->second.skin_id : game::get_color_from_skin_id(it->second.skin_id);
+
+    // Create PlayerLevel component - respawn at level 1
+    game::PlayerLevel player_level;
+    player_level.current_level = 1;
+    player_level.color_id = color_id;
+    player_level.level_up_pending = false;
+    player_level.level_up_timer = 0.0f;
+    registry_.add_component(entity, player_level);
+
+    // Calculate actual skin_id for level 1
+    uint8_t actual_skin_id = game::compute_skin_id(1, color_id);
+
+    // Reset to basic weapon (level 1 weapon)
     if (registry_.has_component_registered<Weapon>()) {
         Weapon weapon = create_weapon(WeaponType::BASIC, engine::INVALID_HANDLE);
         registry_.add_component(entity, weapon);
@@ -1177,9 +1323,8 @@ Entity GameSession::respawn_player_at(uint32_t player_id, float x, float y, floa
 
     // Network spawn
     if (network_system_) {
-        // Encode skin_id in subtype
-        uint8_t skin_id = it->second.skin_id;
-        uint8_t subtype = static_cast<uint8_t>(((player_id & 0x0F) << 4) | (skin_id & 0x0F));
+        // Encode player_id and actual_skin_id in subtype
+        uint8_t subtype = static_cast<uint8_t>(((player_id & 0x0F) << 4) | (actual_skin_id & 0x0F));
 
         network_system_->queue_entity_spawn(
             entity,
@@ -1219,6 +1364,59 @@ void GameSession::clear_enemies()
         registry_.add_component(enemy_entity, ToDestroy{});
     }
     std::cout << "[GameSession " << session_id_ << "] Cleared " << count << " enemies\n";
+}
+
+rtype::SegmentData* GameSession::get_or_generate_segment(int segment_id)
+{
+    if (!procedural_enabled_) {
+        // Static mode: return from vector
+        if (segment_id >= 0 && segment_id < static_cast<int>(map_segments_.size())) {
+            return &map_segments_[segment_id];
+        }
+        return nullptr;
+    }
+
+    // Procedural mode: check cache or generate
+    auto it = generated_segments_.find(segment_id);
+    if (it != generated_segments_.end()) {
+        return &it->second;
+    }
+
+    // Generate new segment
+    if (!generator_) {
+        std::cerr << "[GameSession " << session_id_ << "] ERROR: Generator not initialized!" << std::endl;
+        return nullptr;
+    }
+
+    // Get entry state from previous segment
+    rtype::ProceduralMapGenerator::PathState* entryState = nullptr;
+    if (segment_id > 0) {
+        auto prevIt = generated_segments_.find(segment_id - 1);
+        if (prevIt == generated_segments_.end()) {
+            // Previous segment not generated yet - generate it first
+            std::cerr << "[GameSession " << session_id_ << "] WARNING: Generating segment " << segment_id
+                      << " before segment " << (segment_id - 1) << std::endl;
+        } else {
+            // Use last exit state from generator
+            entryState = const_cast<rtype::ProceduralMapGenerator::PathState*>(&generator_->getLastExitState());
+        }
+    }
+
+    // Convert ProceduralConfig to GenerationParams
+    rtype::ProceduralMapGenerator::GenerationParams params;
+    params.minPassageHeight = procedural_config_.minPassageHeight;
+    params.stalactiteChance = procedural_config_.stalactiteChance;
+    params.maxStalactiteLength = procedural_config_.maxStalactiteLength;
+    params.pathVariation = procedural_config_.pathVariation;
+
+    rtype::SegmentData segment = generator_->generateSegment(segment_id, entryState, params);
+
+    std::cout << "[GameSession " << session_id_ << "] Generated procedural segment " << segment_id
+              << " (" << segment.width << "x" << segment.height << ")" << std::endl;
+
+    // Cache the generated segment
+    auto result = generated_segments_.insert({segment_id, std::move(segment)});
+    return &result.first->second;
 }
 
 } // namespace rtype::server

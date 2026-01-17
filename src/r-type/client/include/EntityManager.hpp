@@ -89,6 +89,13 @@ public:
      */
     bool get_entity_type(uint32_t server_id, protocol::EntityType& out_type) const;
 
+    /**
+     * @brief Update player sprite when level-up occurs
+     * @param server_id Server entity ID of the player
+     * @param new_skin_id New skin_id (color * 5 + ship_type)
+     */
+    void update_player_skin(uint32_t server_id, uint8_t new_skin_id);
+
 private:
     Registry& registry_;
     TextureManager& textures_;

@@ -10,37 +10,37 @@
 
     "music": {
         "menu_theme": {
-            "path": "assets/sounds/music.mp3",
+            "path": "assets/audio/music/menu.mp3",
             "loop": true,
             "volume": 0.8
         },
         "gameplay_level1": {
-            "path": "assets/sounds/music.mp3",
+            "path": "assets/audio/music/gameplay.mp3",
             "loop": true,
             "volume": 0.7
         },
         "gameplay_level2": {
-            "path": "assets/sounds/music.mp3",
+            "path": "assets/audio/music/gameplay.mp3",
             "loop": true,
             "volume": 0.7
         },
         "gameplay_level3": {
-            "path": "assets/sounds/music.mp3",
+            "path": "assets/audio/music/gameplay.mp3",
             "loop": true,
             "volume": 0.7
         },
         "boss_fight": {
-            "path": "assets/sounds/music.mp3",
+            "path": "assets/audio/music/gameplay.mp3",
             "loop": true,
             "volume": 0.9
         },
         "victory": {
-            "path": "assets/sounds/rizz.mp3",
+            "path": "assets/audio/conditions/win.mp3",
             "loop": false,
             "volume": 1.0
         },
         "game_over": {
-            "path": "assets/sounds/death.mp3",
+            "path": "assets/audio/conditions/lose.mp3",
             "loop": false,
             "volume": 0.8
         }
@@ -48,54 +48,59 @@
 
     "sfx": {
         "shoot": {
-            "path": "assets/sounds/shoot.mp3",
+            "path": "assets/audio/effects/player_shoot.mp3",
             "volume": 0.7,
             "pitchVariation": 0.1
         },
         "companion_shoot": {
-            "path": "assets/sounds/shoot.mp3",
+            "path": "assets/audio/effects/companion_shoot.mp3",
             "volume": 0.5,
             "pitchVariation": 0.2
         },
         "player_hit": {
-            "path": "assets/sounds/android.mp3",
+            "path": "assets/audio/effects/hit.mp3",
             "volume": 1.0
         },
         "enemy_death": {
-            "path": "assets/sounds/death.mp3",
+            "path": "assets/audio/effects/explosion.mp3",
             "volume": 0.8
         },
+        "enemy_hit": {
+            "path": "assets/audio/effects/hit.mp3",
+            "volume": 0.6,
+            "pitchVariation": 0.15
+        },
         "powerup_collect": {
-            "path": "assets/sounds/rizz.mp3",
+            "path": "assets/audio/conditions/win.mp3",
             "volume": 1.0
         },
         "explosion_enemy_basic": {
-            "path": "assets/sounds/death.mp3",
+            "path": "assets/audio/effects/explosion.mp3",
             "volume": 0.8,
             "pitchVariation": 0.15
         },
         "explosion_enemy_tank": {
-            "path": "assets/sounds/death.mp3",
+            "path": "assets/audio/effects/explosion.mp3",
             "volume": 0.9
         },
         "explosion_boss": {
-            "path": "assets/sounds/death.mp3",
+            "path": "assets/audio/effects/explosion.mp3",
             "volume": 1.0
         },
         "explosion_player": {
-            "path": "assets/sounds/death.mp3",
+            "path": "assets/audio/effects/explosion.mp3",
             "volume": 1.0
         }
     },
 
     "ambiance": {
         "space_ambient": {
-            "path": "assets/sounds/music.mp3",
+            "path": "assets/audio/music/gameplay.mp3",
             "loop": true,
             "volume": 0.3
         },
         "menu_ambient": {
-            "path": "assets/sounds/music.mp3",
+            "path": "assets/audio/music/menu.mp3",
             "loop": true,
             "volume": 0.4
         }

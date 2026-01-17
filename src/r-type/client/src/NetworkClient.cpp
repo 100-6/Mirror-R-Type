@@ -312,6 +312,9 @@ void NetworkClient::handle_packet(const engine::NetworkPacket& packet) {
         case protocol::PacketType::SERVER_SCORE_UPDATE:
             handle_score_update(payload);
             break;
+        case protocol::PacketType::SERVER_PLAYER_LEVEL_UP:
+            handle_player_level_up(payload);
+            break;
         case protocol::PacketType::SERVER_POWERUP_COLLECTED:
             handle_powerup_collected(payload);
             break;
@@ -485,17 +488,19 @@ void NetworkClient::handle_game_start(const std::vector<uint8_t>& payload) {
     udp_port_ = ntohs(game_start.udp_port);
     uint16_t map_id = ntohs(game_start.map_id);
     float scroll_speed = game_start.scroll_speed;
+    uint32_t level_seed = ntohl(game_start.level_seed);
     in_lobby_ = false;
     in_game_ = true;
 
     // std::cout << "[NetworkClient] Game started! Session: " << session_id_
-    //           << ", UDP port: " << udp_port_ << ", Map: " << map_id << "\n";
+    //           << ", UDP port: " << udp_port_ << ", Map: " << map_id 
+    //           << ", Seed: " << level_seed << "\n";
 
     // Connect UDP for gameplay
     connect_udp(udp_port_);
 
     if (on_game_start_)
-        on_game_start_(session_id_, udp_port_, map_id, scroll_speed);
+        on_game_start_(session_id_, udp_port_, map_id, scroll_speed, level_seed);
 }
 
 void NetworkClient::handle_entity_spawn(const std::vector<uint8_t>& payload) {
@@ -620,14 +625,39 @@ void NetworkClient::handle_score_update(const std::vector<uint8_t>& payload) {
 
     protocol::ServerScoreUpdatePayload score_update;
     std::memcpy(&score_update, payload.data(), sizeof(score_update));
+    score_update.player_id = ntohl(score_update.player_id);
+    score_update.entity_id = ntohl(score_update.entity_id);
     score_update.score_delta = ntohl(score_update.score_delta);
     score_update.new_total_score = ntohl(score_update.new_total_score);
 
-    // std::cout << "[NetworkClient] Score update: +" << static_cast<int>(score_update.score_delta)
-    //           << " (Total: " << score_update.new_total_score << ")\n";
+    std::cout << "[NetworkClient] Score update for player " << score_update.player_id
+              << " (entity " << score_update.entity_id << ")"
+              << ": +" << static_cast<int>(score_update.score_delta)
+              << " (Total: " << score_update.new_total_score << ")\n";
 
     if (on_score_update_)
         on_score_update_(score_update);
+}
+
+void NetworkClient::handle_player_level_up(const std::vector<uint8_t>& payload) {
+    if (payload.size() < sizeof(protocol::ServerPlayerLevelUpPayload)) {
+        return;
+    }
+
+    protocol::ServerPlayerLevelUpPayload level_up;
+    std::memcpy(&level_up, payload.data(), sizeof(level_up));
+    level_up.player_id = ntohl(level_up.player_id);
+    level_up.entity_id = ntohl(level_up.entity_id);
+    level_up.current_score = ntohl(level_up.current_score);
+
+    std::cout << "[NetworkClient] Player " << level_up.player_id
+              << " leveled up to level " << static_cast<int>(level_up.new_level)
+              << " (ship: " << static_cast<int>(level_up.new_ship_type)
+              << ", weapon: " << static_cast<int>(level_up.new_weapon_type)
+              << ", skin_id: " << static_cast<int>(level_up.new_skin_id) << ")\n";
+
+    if (on_player_level_up_)
+        on_player_level_up_(level_up);
 }
 
 void NetworkClient::handle_powerup_collected(const std::vector<uint8_t>& payload) {
@@ -900,7 +930,7 @@ void NetworkClient::set_on_countdown(std::function<void(uint8_t)> callback) {
     on_countdown_ = callback;
 }
 
-void NetworkClient::set_on_game_start(std::function<void(uint32_t, uint16_t, uint16_t, float)> callback) {
+void NetworkClient::set_on_game_start(std::function<void(uint32_t, uint16_t, uint16_t, float, uint32_t)> callback) {
     on_game_start_ = callback;
 }
 
@@ -942,6 +972,10 @@ void NetworkClient::set_on_wave_complete(std::function<void(const protocol::Serv
 
 void NetworkClient::set_on_score_update(std::function<void(const protocol::ServerScoreUpdatePayload&)> callback) {
     on_score_update_ = callback;
+}
+
+void NetworkClient::set_on_player_level_up(std::function<void(const protocol::ServerPlayerLevelUpPayload&)> callback) {
+    on_player_level_up_ = callback;
 }
 
 void NetworkClient::set_on_powerup_collected(std::function<void(const protocol::ServerPowerupCollectedPayload&)> callback) {

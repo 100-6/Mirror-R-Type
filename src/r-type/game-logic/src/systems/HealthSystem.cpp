@@ -47,7 +47,13 @@ void HealthSystem::init(Registry& registry)
                 registry.get_event_bus().publish(ecs::EntityDeathEvent{event.target, isPlayer});
 
                 if (isEnemy) {
-                    registry.get_event_bus().publish(ecs::EnemyKilledEvent{event.target, 100});
+                    // Get the killer entity from the projectile owner
+                    Entity killer = 0;
+                    auto& projectileOwners = registry.get_components<ProjectileOwner>();
+                    if (projectileOwners.has_entity(event.source)) {
+                        killer = projectileOwners[event.source].owner;
+                    }
+                    registry.get_event_bus().publish(ecs::EnemyKilledEvent{event.target, 100, killer});
                     auto& positions = registry.get_components<Position>();
                     auto& ais = registry.get_components<AI>();
                     if (positions.has_entity(event.target)) {

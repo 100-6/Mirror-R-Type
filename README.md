@@ -33,6 +33,7 @@
 
 ### Game Systems
 - **[Wave System Guide](docs/WAVE_SYSTEM.md)** - JSON-based wave spawning system documentation
+- **[Procedural Generation](docs/PROCEDURAL_GENERATION.md)** - Runtime procedural map generation system
 
 ## Quick Start
 
