@@ -6,6 +6,7 @@
 */
 
 #include <cstring>
+#include <algorithm>
 
 #ifdef _WIN32
     #include <winsock2.h>
@@ -223,6 +224,12 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
             for (auto& [player_id, player] : players_) {
                 if (player.entity == event.entity && player.is_alive) {
                     player.is_alive = false;
+
+                    // Save the player's score before entity is destroyed
+                    auto& scores = registry_.get_components<Score>();
+                    if (scores.has_entity(event.entity)) {
+                        player.score = static_cast<uint32_t>(scores[event.entity].value);
+                    }
 
                     // Destroy companion turret (BonusWeapon) if player has one
                     auto& bonusWeapons = registry_.get_components<BonusWeapon>();
@@ -594,6 +601,7 @@ void GameSession::update(float delta_time)
                 // Final victory: Level 3 complete
                 // std::cout << "[GameSession " << session_id_ << "] FINAL VICTORY - All 3 levels complete!\n";
                 is_active_.store(false, std::memory_order_release);
+                send_leaderboard();  // Send leaderboard before game over
                 if (listener_)
                     listener_->on_game_over(session_id_, get_player_ids(), true);  // Victory
                 return;
@@ -658,6 +666,7 @@ void GameSession::update(float delta_time)
         if (lc.state == game::LevelState::GAME_OVER) {
             // std::cout << "[GameSession " << session_id_ << "] GAME OVER - All players dead!\n";
             is_active_.store(false, std::memory_order_release);
+            send_leaderboard();  // Send leaderboard before game over
             if (listener_)
                 listener_->on_game_over(session_id_, get_player_ids(), false);  // Defeat
             return;
@@ -944,6 +953,7 @@ void GameSession::check_game_over()
         // But kept as safeguard
         is_active_.store(false, std::memory_order_release);
         // std::cout << "[GameSession " << session_id_ << "] Game over - all players out of lives!\n";
+        send_leaderboard();  // Send leaderboard before game over
         if (listener_)
             listener_->on_game_over(session_id_, get_player_ids(), false);  // Defeat
     }
@@ -1298,8 +1308,8 @@ Entity GameSession::respawn_player_at(uint32_t player_id, float x, float y, floa
     registry_.add_component(entity, Collider{rtype::shared::config::PLAYER_WIDTH, rtype::shared::config::PLAYER_HEIGHT});
     registry_.add_component(entity, Invulnerability{invuln_duration});
 
-    // Score handling (reset score on respawn)
-    registry_.add_component(entity, Score{0});
+    // Preserve the player's score across respawns
+    registry_.add_component(entity, Score{static_cast<int>(it->second.score)});
 
     // Extract color from player's skin_id (which is now just color 0-2)
     uint8_t color_id = (it->second.skin_id < 3) ? it->second.skin_id : game::get_color_from_skin_id(it->second.skin_id);
@@ -1417,6 +1427,61 @@ rtype::SegmentData* GameSession::get_or_generate_segment(int segment_id)
     // Cache the generated segment
     auto result = generated_segments_.insert({segment_id, std::move(segment)});
     return &result.first->second;
+}
+
+void GameSession::send_leaderboard()
+{
+    if (!listener_)
+        return;
+
+    // Collect all player scores and sort by score (descending)
+    std::vector<std::pair<uint32_t, const GamePlayer*>> sorted_players;
+    for (const auto& [player_id, player] : players_) {
+        // Get current score from entity if alive, otherwise use stored score
+        uint32_t current_score = player.score;
+        if (player.is_alive && registry_.has_component_registered<Score>()) {
+            auto& scores = registry_.get_components<Score>();
+            if (scores.has_entity(player.entity)) {
+                current_score = static_cast<uint32_t>(scores[player.entity].value);
+            }
+        }
+        // Store current score in a non-const copy for sorting
+        sorted_players.push_back({current_score, &player});
+    }
+
+    // Sort by score descending
+    std::sort(sorted_players.begin(), sorted_players.end(),
+              [](const auto& a, const auto& b) { return a.first > b.first; });
+
+    // Build leaderboard payload
+    protocol::ServerLeaderboardPayload header;
+    header.entry_count = static_cast<uint8_t>(std::min(sorted_players.size(), static_cast<size_t>(255)));
+    header.is_final = 1;
+
+    std::vector<uint8_t> data;
+    data.resize(sizeof(header) + header.entry_count * sizeof(protocol::LeaderboardEntry));
+
+    // Copy header
+    std::memcpy(data.data(), &header, sizeof(header));
+
+    // Copy entries
+    uint8_t rank = 1;
+    for (size_t i = 0; i < header.entry_count; ++i) {
+        protocol::LeaderboardEntry entry;
+        entry.player_id = ByteOrder::host_to_net32(sorted_players[i].second->player_id);
+        entry.set_name(sorted_players[i].second->player_name);
+        entry.score = ByteOrder::host_to_net32(sorted_players[i].first);
+        entry.kills = 0;  // TODO: Track kills per player
+        entry.deaths = 0; // TODO: Track deaths per player
+        entry.rank = rank++;
+
+        std::memcpy(data.data() + sizeof(header) + i * sizeof(entry), &entry, sizeof(entry));
+    }
+
+    std::cout << "[GameSession " << session_id_ << "] Sending leaderboard with "
+              << static_cast<int>(header.entry_count) << " entries\n";
+
+    listener_->on_leaderboard(session_id_, data);
 }
 
 } // namespace rtype::server

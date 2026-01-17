@@ -222,6 +222,7 @@ Packet types are organized by functional category:
 | 0xC4    | SERVER_PLAYER_LEVEL_UP       | Player leveled up                     |
 | 0xC5    | SERVER_PLAYER_RESPAWN        | Player respawned                      |
 | 0xC6    | SERVER_GAME_OVER             | Game session ended                    |
+| 0xC7    | SERVER_LEADERBOARD           | End-game leaderboard with all scores  |
 | 0xF0    | SERVER_ADMIN_AUTH_RESULT     | Admin authentication result           |
 | 0xF1    | SERVER_ADMIN_COMMAND_RESULT  | Admin command execution result        |
 | 0xF2    | SERVER_ADMIN_NOTIFICATION    | Server-wide admin notification        |
@@ -1354,6 +1355,41 @@ This allows clients to:
 
 **Total Size**: 9 + (12 × Player Count) bytes
 
+#### 5.6.8 SERVER_LEADERBOARD (0xC7)
+
+Sent before game over to provide complete leaderboard with all player scores sorted by rank.
+
+```
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   | Entry Count   |   Is Final    |                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+                               +
+   |                  Leaderboard Entry (48 bytes each)            |
+   |                             ...                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```
+
+| Field         | Size     | Description                                 |
+|---------------|----------|---------------------------------------------|
+| Entry Count   | 1 byte   | Number of leaderboard entries (max 255)     |
+| Is Final      | 1 byte   | 1 if game is over, 0 for in-game update     |
+| Entries       | Variable | Array of LeaderboardEntry structures        |
+
+**Leaderboard Entry Format (48 bytes each)**:
+
+| Field       | Size     | Offset | Description                      |
+|-------------|----------|--------|----------------------------------|
+| Player ID   | 4 bytes  | 0      | Player identifier (network order)|
+| Player Name | 32 bytes | 4      | Player name (null-terminated)    |
+| Score       | 4 bytes  | 36     | Player score (network order)     |
+| Kills       | 2 bytes  | 40     | Number of kills                  |
+| Deaths      | 2 bytes  | 42     | Number of deaths                 |
+| Rank        | 1 byte   | 44     | Player rank (1 = first place)    |
+| Padding     | 3 bytes  | 45     | Reserved for alignment           |
+
+**Total Size**: 2 + (48 × Entry Count) bytes
+
 ---
 
 ### 5.7 Admin System Payloads
@@ -1793,6 +1829,7 @@ Implementations SHOULD provide encoder/decoder functions that:
 | 0xC4 | SERVER_PLAYER_LEVEL_UP    |     | ✓   | Event        |
 | 0xC5 | SERVER_PLAYER_RESPAWN     |     | ✓   | Event        |
 | 0xC6 | SERVER_GAME_OVER          |     | ✓   | Once         |
+| 0xC7 | SERVER_LEADERBOARD        |     | ✓   | Once         |
 
 ---
 

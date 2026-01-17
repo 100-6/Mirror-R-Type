@@ -40,6 +40,11 @@ public:
      */
     bool is_network_debug_toggle_pressed() const;
 
+    /**
+     * @brief Check if scoreboard key (Tab) is pressed
+     */
+    bool is_scoreboard_pressed() const;
+
 private:
     engine::IInputPlugin& input_plugin_;
     KeyBindings* key_bindings_;

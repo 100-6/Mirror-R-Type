@@ -324,6 +324,9 @@ void NetworkClient::handle_packet(const engine::NetworkPacket& packet) {
         case protocol::PacketType::SERVER_GAME_OVER:
             handle_game_over(payload);
             break;
+        case protocol::PacketType::SERVER_LEADERBOARD:
+            handle_leaderboard(payload);
+            break;
         case protocol::PacketType::SERVER_ROOM_CREATED:
             handle_room_created(payload);
             break;
@@ -592,6 +595,38 @@ void NetworkClient::handle_game_over(const std::vector<uint8_t>& payload) {
 
     if (on_game_over_)
         on_game_over_(game_over);
+}
+
+void NetworkClient::handle_leaderboard(const std::vector<uint8_t>& payload) {
+    if (payload.size() < sizeof(protocol::ServerLeaderboardPayload)) {
+        return;
+    }
+
+    protocol::ServerLeaderboardPayload header;
+    std::memcpy(&header, payload.data(), sizeof(header));
+
+    // Extract entries
+    std::vector<protocol::LeaderboardEntry> entries;
+    size_t expected_size = sizeof(header) + header.entry_count * sizeof(protocol::LeaderboardEntry);
+    if (payload.size() >= expected_size) {
+        entries.reserve(header.entry_count);
+        const uint8_t* entry_data = payload.data() + sizeof(header);
+        for (uint8_t i = 0; i < header.entry_count; ++i) {
+            protocol::LeaderboardEntry entry;
+            std::memcpy(&entry, entry_data + (i * sizeof(protocol::LeaderboardEntry)), sizeof(entry));
+            // Convert from network byte order
+            entry.player_id = ntohl(entry.player_id);
+            entry.score = ntohl(entry.score);
+            entry.kills = ntohs(entry.kills);
+            entry.deaths = ntohs(entry.deaths);
+            entries.push_back(entry);
+        }
+    }
+
+    std::cout << "[NetworkClient] Received leaderboard with " << static_cast<int>(header.entry_count) << " entries\n";
+
+    if (on_leaderboard_)
+        on_leaderboard_(header, entries);
 }
 
 void NetworkClient::handle_wave_start(const std::vector<uint8_t>& payload) {
@@ -984,6 +1019,10 @@ void NetworkClient::set_on_powerup_collected(std::function<void(const protocol::
 
 void NetworkClient::set_on_player_respawn(std::function<void(const protocol::ServerPlayerRespawnPayload&)> callback) {
     on_player_respawn_ = callback;
+}
+
+void NetworkClient::set_on_leaderboard(std::function<void(const protocol::ServerLeaderboardPayload&, const std::vector<protocol::LeaderboardEntry>&)> callback) {
+    on_leaderboard_ = callback;
 }
 
 void NetworkClient::set_on_room_created(std::function<void(const protocol::ServerRoomCreatedPayload&)> callback) {

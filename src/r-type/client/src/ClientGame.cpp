@@ -732,6 +732,12 @@ void ClientGame::setup_network_callbacks() {
         } else {
             std::cout << "[CLIENT] ❌ No entity found for server_entity_id " << server_entity_id << std::endl;
         }
+
+        // Update HUDSystem scoreboard with player scores
+        if (registry_->has_system<HUDSystem>()) {
+            std::string player_name = entity_manager_->get_player_name(player_id);
+            registry_->get_system<HUDSystem>().update_player_score(player_id, player_name, score.new_total_score);
+        }
     });
 
     network_client_->set_on_player_level_up([this](const protocol::ServerPlayerLevelUpPayload& level_up) {
@@ -1008,6 +1014,37 @@ void ClientGame::setup_network_callbacks() {
         screen_manager_->show_result(victory, final_score);
     });
 
+    network_client_->set_on_leaderboard([this](const protocol::ServerLeaderboardPayload& header,
+                                               const std::vector<protocol::LeaderboardEntry>& entries) {
+        std::cout << "[ClientGame] Received leaderboard with " << static_cast<int>(header.entry_count)
+                  << " entries" << std::endl;
+
+        // Convert to LeaderboardEntryData and publish event
+        std::vector<ecs::LeaderboardEntryData> displayEntries;
+        for (const auto& entry : entries) {
+            ecs::LeaderboardEntryData data;
+            data.player_id = entry.player_id;
+            data.player_name = std::string(entry.player_name, strnlen(entry.player_name, sizeof(entry.player_name)));
+            data.score = entry.score;
+            data.rank = entry.rank;
+            displayEntries.push_back(data);
+        }
+
+        registry_->get_event_bus().publish(ecs::LeaderboardReceivedEvent{displayEntries});
+
+        // Also update ScreenManager for result screen display
+        std::vector<ResultLeaderboardEntry> screenEntries;
+        for (const auto& entry : entries) {
+            ResultLeaderboardEntry e;
+            e.player_id = entry.player_id;
+            e.player_name = std::string(entry.player_name, strnlen(entry.player_name, sizeof(entry.player_name)));
+            e.score = entry.score;
+            e.rank = entry.rank;
+            screenEntries.push_back(e);
+        }
+        screen_manager_->set_leaderboard(screenEntries);
+    });
+
     network_client_->set_on_disconnected([this]() {
         // Only set running flag, don't touch registry from background thread
         running_ = false;
@@ -1138,6 +1175,11 @@ void ClientGame::run() {
             }
         }
 
+        // Toggle scoreboard visibility with Tab key (hold to show)
+        if (registry_->has_system<HUDSystem>()) {
+            bool scoreboard_pressed = input_handler_->is_scoreboard_pressed();
+            registry_->get_system<HUDSystem>().set_scoreboard_visible(scoreboard_pressed);
+        }
 
         if (network_client_->is_in_game() &&
             std::chrono::duration_cast<std::chrono::milliseconds>(now - last_input_send).count() >= 15) {

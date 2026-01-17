@@ -19,7 +19,8 @@ enum class GameAction {
     SPECIAL,
     // SWITCH_WEAPON removed - weapon is now determined by player level
     TOGGLE_HITBOX,
-    TOGGLE_NETWORK_DEBUG
+    TOGGLE_NETWORK_DEBUG,
+    SHOW_SCOREBOARD
 };
 
 /**

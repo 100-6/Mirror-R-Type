@@ -580,6 +580,17 @@ void Server::on_player_level_up(uint32_t session_id, const std::vector<uint8_t>&
                                             level_up_data, session->get_player_ids(), connected_clients_);
 }
 
+void Server::on_leaderboard(uint32_t session_id, const std::vector<uint8_t>& leaderboard_data)
+{
+    auto* session = session_manager_->get_session(session_id);
+
+    if (!session)
+        return;
+    std::cout << "[Server] Broadcasting leaderboard to session " << session_id << std::endl;
+    packet_sender_->broadcast_udp_to_session(session_id, protocol::PacketType::SERVER_LEADERBOARD,
+                                            leaderboard_data, session->get_player_ids(), connected_clients_);
+}
+
 void Server::on_game_over(uint32_t session_id, const std::vector<uint32_t>& player_ids, bool is_victory)
 {
     std::cout << "[Server] Game over for session " << session_id

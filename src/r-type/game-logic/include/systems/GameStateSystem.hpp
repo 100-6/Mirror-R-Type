@@ -13,6 +13,18 @@
 #include "components/GameComponents.hpp"
 #include "ecs/CoreComponents.hpp"
 #include "plugin_manager/IGraphicsPlugin.hpp"
+#include <vector>
+#include <string>
+
+/**
+ * @brief Leaderboard entry for display in GameStateSystem
+ */
+struct LeaderboardDisplayEntry {
+    uint32_t player_id;
+    std::string player_name;
+    uint32_t score;
+    uint8_t rank;
+};
 
 /**
  * @brief System for managing game state transitions and displaying state screens
@@ -22,6 +34,7 @@
  * - Detects mission completion and triggers Victory
  * - Creates UI entities for overlay screens using UIPanel/UIText components
  * - Handles restart input
+ * - Displays leaderboard at end of game
  */
 class GameStateSystem : public ISystem {
 public:
@@ -52,6 +65,17 @@ public:
      */
     void shutdown() override;
 
+    /**
+     * @brief Set leaderboard data to display when game ends
+     * @param entries Sorted leaderboard entries
+     */
+    void setLeaderboard(const std::vector<LeaderboardDisplayEntry>& entries);
+
+    /**
+     * @brief Check if leaderboard data is available
+     */
+    bool hasLeaderboard() const { return !m_leaderboardEntries.empty(); }
+
 private:
     engine::IGraphicsPlugin& m_graphicsPlugin;
     int m_screenWidth;
@@ -77,9 +101,12 @@ private:
 
     // Layout constants
     static constexpr float OVERLAY_WIDTH = 500.0f;
-    static constexpr float OVERLAY_HEIGHT = 300.0f;
+    static constexpr float OVERLAY_HEIGHT = 400.0f;  // Increased for leaderboard
     static constexpr int OVERLAY_LAYER = 200;  // Above HUD
     static constexpr int BACKGROUND_LAYER = 199;  // Below overlay but above game
+
+    // Leaderboard data
+    std::vector<LeaderboardDisplayEntry> m_leaderboardEntries;
 
     /**
      * @brief Check if all players are dead
@@ -105,6 +132,11 @@ private:
      * @brief Update overlay animation
      */
     void updateOverlayAnimation(Registry& registry, float dt);
+
+    /**
+     * @brief Render the leaderboard on the overlay
+     */
+    void renderLeaderboard();
 };
 
 #endif // GAME_STATE_SYSTEM_HPP

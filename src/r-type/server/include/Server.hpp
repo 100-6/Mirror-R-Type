@@ -128,6 +128,7 @@ private:
     void on_powerup_collected(uint32_t session_id, const std::vector<uint8_t>& powerup_data) override;
     void on_player_respawn(uint32_t session_id, const std::vector<uint8_t>& respawn_data) override;
     void on_player_level_up(uint32_t session_id, const std::vector<uint8_t>& level_up_data) override;
+    void on_leaderboard(uint32_t session_id, const std::vector<uint8_t>& leaderboard_data) override;
 
     void on_tcp_client_disconnected(uint32_t client_id);
     uint32_t generate_player_id();

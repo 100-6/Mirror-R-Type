@@ -126,6 +126,11 @@ public:
     void resume();
     void clear_enemies();
 
+    /**
+     * @brief Send the leaderboard to all players (called before game over)
+     */
+    void send_leaderboard();
+
 private:
     void on_wave_started(const Wave& wave) override;
     void on_wave_completed(const Wave& wave) override;
