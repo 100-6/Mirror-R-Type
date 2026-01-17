@@ -105,9 +105,8 @@ COPY --from=builder /build/assets /app/assets
 # Set library path for dynamic linking
 ENV LD_LIBRARY_PATH=/app/lib
 
-# Expose ports (TCP + UDP)
-EXPOSE 4444/tcp
-EXPOSE 4545/udp
+# Expose ports (ENet uses UDP only on primary port)
+EXPOSE 4444/udp
 
 # Create a non-root user for security
 RUN useradd -m -u 1001 bagario && \
