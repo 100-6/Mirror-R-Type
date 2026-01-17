@@ -83,7 +83,7 @@ RUN apt-get update && apt-get install -y \
     libstdc++6 \
     libc6 \
     libgcc-s1 \
-    netcat-openbsd \
+    procps \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -115,9 +115,9 @@ RUN useradd -m -u 1001 bagario && \
 
 USER bagario
 
-# Health check using netcat
+# Health check - ENet uses UDP only, so we check if the process is running
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD nc -z 127.0.0.1 4444 || exit 1
+    CMD pgrep -x bagario_server > /dev/null || exit 1
 
 # Default command (--network to listen on all interfaces for production)
 CMD ["/app/bagario_server", "--network"]
