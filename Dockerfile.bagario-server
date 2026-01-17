@@ -83,6 +83,7 @@ RUN apt-get update && apt-get install -y \
     libstdc++6 \
     libc6 \
     libgcc-s1 \
+    netcat-openbsd \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -114,9 +115,9 @@ RUN useradd -m -u 1001 bagario && \
 
 USER bagario
 
-# Health check
+# Health check using netcat
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD timeout 2 bash -c "echo -n > /dev/tcp/127.0.0.1/4444" || exit 1
+    CMD nc -z 127.0.0.1 4444 || exit 1
 
 # Default command (--network to listen on all interfaces for production)
 CMD ["/app/bagario_server", "--network"]
