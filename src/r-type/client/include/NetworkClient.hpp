@@ -137,6 +137,11 @@ public:
     void send_set_player_skin(uint8_t skin_id);
 
     /**
+     * @brief Request global all-time leaderboard
+     */
+    void send_request_global_leaderboard();
+
+    /**
      * @brief Send player input (via UDP if connected, TCP otherwise)
      * @param input_flags Input bitfield
      * @param client_tick Current client tick
@@ -257,6 +262,11 @@ public:
     void set_on_leaderboard(std::function<void(const protocol::ServerLeaderboardPayload&, const std::vector<protocol::LeaderboardEntry>&)> callback);
 
     /**
+     * @brief Set callback for global leaderboard response
+     */
+    void set_on_global_leaderboard(std::function<void(const protocol::ServerGlobalLeaderboardPayload&, const std::vector<protocol::GlobalLeaderboardEntry>&)> callback);
+
+    /**
      * @brief Set callback for room creation response
      * @param callback Function receiving room_created payload
      */
@@ -354,6 +364,7 @@ private:
     void handle_powerup_collected(const std::vector<uint8_t>& payload);
     void handle_player_respawn(const std::vector<uint8_t>& payload);
     void handle_leaderboard(const std::vector<uint8_t>& payload);
+    void handle_global_leaderboard(const std::vector<uint8_t>& payload);
     void handle_room_created(const std::vector<uint8_t>& payload);
     void handle_room_joined(const std::vector<uint8_t>& payload);
     void handle_room_left(const std::vector<uint8_t>& payload);
@@ -420,6 +431,7 @@ private:
     std::function<void(const protocol::ServerPowerupCollectedPayload&)> on_powerup_collected_;
     std::function<void(const protocol::ServerPlayerRespawnPayload&)> on_player_respawn_;
     std::function<void(const protocol::ServerLeaderboardPayload&, const std::vector<protocol::LeaderboardEntry>&)> on_leaderboard_;
+    std::function<void(const protocol::ServerGlobalLeaderboardPayload&, const std::vector<protocol::GlobalLeaderboardEntry>&)> on_global_leaderboard_;
     std::function<void(const protocol::ServerRoomCreatedPayload&)> on_room_created_;
     std::function<void(const protocol::ServerRoomJoinedPayload&)> on_room_joined_;
     std::function<void(const protocol::ServerRoomLeftPayload&)> on_room_left_;

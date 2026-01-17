@@ -1229,7 +1229,8 @@ void ClientGame::run() {
                        current_screen == GameScreen::CREATE_ROOM ||
                        current_screen == GameScreen::BROWSE_ROOMS ||
                        current_screen == GameScreen::ROOM_LOBBY ||
-                       current_screen == GameScreen::SETTINGS);
+                       current_screen == GameScreen::SETTINGS ||
+                       current_screen == GameScreen::GLOBAL_LEADERBOARD);
         bool in_result = (current_screen == GameScreen::VICTORY ||
                          current_screen == GameScreen::DEFEAT);
         entity_manager_->update_projectiles(dt);

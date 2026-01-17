@@ -33,6 +33,7 @@ enum class GameScreen {
     BROWSE_ROOMS,
     ROOM_LOBBY,
     SETTINGS,
+    GLOBAL_LEADERBOARD,
     WAITING,
     PLAYING,
     VICTORY,

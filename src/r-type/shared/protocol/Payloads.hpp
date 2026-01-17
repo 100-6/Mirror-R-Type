@@ -705,6 +705,44 @@ PACK_END
 static_assert(sizeof(ServerLeaderboardPayload) == 2, "ServerLeaderboardPayload must be 2 bytes");
 
 /**
+ * @brief Global leaderboard entry for all-time top scores
+ * Size: 40 bytes
+ */
+PACK_START
+struct PACKED GlobalLeaderboardEntry {
+    char player_name[32];
+    uint32_t score;
+    uint32_t timestamp;
+
+    GlobalLeaderboardEntry() : score(0), timestamp(0) {
+        std::memset(player_name, 0, sizeof(player_name));
+    }
+
+    void set_name(const std::string& name) {
+        std::memset(player_name, 0, sizeof(player_name));
+        std::strncpy(player_name, name.c_str(), sizeof(player_name) - 1);
+    }
+};
+PACK_END
+
+static_assert(sizeof(GlobalLeaderboardEntry) == 40, "GlobalLeaderboardEntry must be 40 bytes");
+
+/**
+ * @brief SERVER_GLOBAL_LEADERBOARD payload header (0xC8)
+ * Sent in response to CLIENT_REQUEST_GLOBAL_LEADERBOARD
+ * Base size: 1 byte + (40 × entry_count) bytes
+ */
+PACK_START
+struct PACKED ServerGlobalLeaderboardPayload {
+    uint8_t entry_count;
+
+    ServerGlobalLeaderboardPayload() : entry_count(0) {}
+};
+PACK_END
+
+static_assert(sizeof(ServerGlobalLeaderboardPayload) == 1, "ServerGlobalLeaderboardPayload must be 1 byte");
+
+/**
  * @brief CLIENT_CREATE_ROOM payload (0x20)
  * Total size: 105 bytes
  */

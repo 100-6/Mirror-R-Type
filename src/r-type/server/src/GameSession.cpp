@@ -1429,6 +1429,19 @@ rtype::SegmentData* GameSession::get_or_generate_segment(int segment_id)
     return &result.first->second;
 }
 
+std::vector<std::pair<std::string, uint32_t>> GameSession::get_player_scores() const
+{
+    std::vector<std::pair<std::string, uint32_t>> result;
+
+    for (const auto& [player_id, player] : players_) {
+        // Use the stored score from the player structure
+        // Note: This should be kept up-to-date by the score update callbacks
+        result.push_back({player.player_name, player.score});
+    }
+
+    return result;
+}
+
 void GameSession::send_leaderboard()
 {
     if (!listener_)
