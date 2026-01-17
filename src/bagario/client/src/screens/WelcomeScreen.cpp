@@ -65,11 +65,55 @@ void WelcomeScreen::initialize() {
         game_state_.server_ip = text;
     });
 
+    // TCP Port label
+    auto tcp_port_label = std::make_unique<UILabel>(
+        center_x - 90.0f, start_y + 390.0f, "TCP Port:", 18);
+    tcp_port_label->set_color(engine::Color{180, 180, 180, 255});
+    tcp_port_label->set_alignment(UILabel::Alignment::LEFT);
+    labels_.push_back(std::move(tcp_port_label));
+
+    // TCP Port text field
+    float port_field_width = 90.0f;
+    float port_field_height = 40.0f;
+    tcp_port_field_ = std::make_unique<UITextField>(
+        center_x - 90.0f, start_y + 415.0f, port_field_width, port_field_height, "4444");
+    tcp_port_field_->set_text(std::to_string(game_state_.server_tcp_port));
+    tcp_port_field_->set_max_length(5);
+    tcp_port_field_->set_on_change([this](const std::string& text) {
+        try {
+            int port = std::stoi(text);
+            if (port > 0 && port <= 65535) {
+                game_state_.server_tcp_port = static_cast<uint16_t>(port);
+            }
+        } catch (...) {}
+    });
+
+    // UDP Port label
+    auto udp_port_label = std::make_unique<UILabel>(
+        center_x + 10.0f, start_y + 390.0f, "UDP Port:", 18);
+    udp_port_label->set_color(engine::Color{180, 180, 180, 255});
+    udp_port_label->set_alignment(UILabel::Alignment::LEFT);
+    labels_.push_back(std::move(udp_port_label));
+
+    // UDP Port text field
+    udp_port_field_ = std::make_unique<UITextField>(
+        center_x + 10.0f, start_y + 415.0f, port_field_width, port_field_height, "4545");
+    udp_port_field_->set_text(std::to_string(game_state_.server_udp_port));
+    udp_port_field_->set_max_length(5);
+    udp_port_field_->set_on_change([this](const std::string& text) {
+        try {
+            int port = std::stoi(text);
+            if (port > 0 && port <= 65535) {
+                game_state_.server_udp_port = static_cast<uint16_t>(port);
+            }
+        } catch (...) {}
+    });
+
     // Play button
     float button_width = 250.0f;
     float button_height = 70.0f;
     auto play_btn = std::make_unique<UIButton>(
-        center_x - button_width / 2.0f, start_y + 400.0f, button_width, button_height, "PLAY");
+        center_x - button_width / 2.0f, start_y + 475.0f, button_width, button_height, "PLAY");
     play_btn->set_on_click([this]() {
         std::cout << "[WelcomeScreen] Play clicked! Username: " << game_state_.username << "\n";
         // Save user data (username, server_ip) before playing
@@ -84,7 +128,7 @@ void WelcomeScreen::initialize() {
     float settings_width = 180.0f;
     float settings_height = 55.0f;
     auto settings_btn = std::make_unique<UIButton>(
-        center_x - settings_width / 2.0f, start_y + 490.0f, settings_width, settings_height, "Settings");
+        center_x - settings_width / 2.0f, start_y + 565.0f, settings_width, settings_height, "Settings");
     settings_btn->set_on_click([this]() {
         std::cout << "[WelcomeScreen] Settings clicked\n";
         if (on_screen_change_) {
@@ -97,7 +141,7 @@ void WelcomeScreen::initialize() {
     float customize_width = 180.0f;
     float customize_height = 55.0f;
     auto customize_btn = std::make_unique<UIButton>(
-        center_x - customize_width / 2.0f, start_y + 560.0f, customize_width, customize_height, "Customize");
+        center_x - customize_width / 2.0f, start_y + 635.0f, customize_width, customize_height, "Customize");
     customize_btn->set_on_click([this]() {
         std::cout << "[WelcomeScreen] Customize clicked\n";
         if (on_screen_change_) {
@@ -123,6 +167,16 @@ void WelcomeScreen::update(engine::IGraphicsPlugin* graphics, engine::IInputPlug
     // Update IP field
     if (ip_field_) {
         ip_field_->update(graphics, input);
+    }
+
+    // Update TCP port field
+    if (tcp_port_field_) {
+        tcp_port_field_->update(graphics, input);
+    }
+
+    // Update UDP port field
+    if (udp_port_field_) {
+        udp_port_field_->update(graphics, input);
     }
 
     // Update buttons
@@ -169,6 +223,16 @@ void WelcomeScreen::draw(engine::IGraphicsPlugin* graphics) {
     // Draw IP field
     if (ip_field_) {
         ip_field_->draw(graphics);
+    }
+
+    // Draw TCP port field
+    if (tcp_port_field_) {
+        tcp_port_field_->draw(graphics);
+    }
+
+    // Draw UDP port field
+    if (udp_port_field_) {
+        udp_port_field_->draw(graphics);
     }
 
     // Draw buttons
