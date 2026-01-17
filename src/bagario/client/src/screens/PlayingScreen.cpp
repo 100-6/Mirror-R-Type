@@ -94,7 +94,7 @@ void PlayingScreen::on_enter() {
     if (client_game_state_)
         client_game_state_->clear();
     if (network_) {
-        if (network_->connect(game_state_.server_ip, 5002, 5003)) {
+        if (network_->connect(game_state_.server_ip, game_state_.server_tcp_port, game_state_.server_udp_port)) {
             // Connection initiated, wait for on_connected callback
             // Then request join will be sent
         } else {
