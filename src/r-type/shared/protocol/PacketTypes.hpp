@@ -45,6 +45,7 @@ enum class PacketType : uint8_t {
     CLIENT_START_GAME = 0x24,
     CLIENT_SET_PLAYER_NAME = 0x25,  // Change player name in lobby
     CLIENT_SET_PLAYER_SKIN = 0x26,  // Change player skin in lobby
+    CLIENT_REQUEST_GLOBAL_LEADERBOARD = 0x27,  // Request global all-time leaderboard
 
     // Admin Commands (0x30-0x3F)
     CLIENT_ADMIN_AUTH = 0x30,           // Admin authentication request
@@ -91,6 +92,8 @@ enum class PacketType : uint8_t {
     SERVER_PLAYER_LEVEL_UP = 0xC4,  // Player leveled up (ship/weapon changed)
     SERVER_PLAYER_RESPAWN = 0xC5,
     SERVER_GAME_OVER = 0xC6,
+    SERVER_LEADERBOARD = 0xC7,      // End-game leaderboard with all player scores
+    SERVER_GLOBAL_LEADERBOARD = 0xC8,  // Global all-time top 10 leaderboard
 
     // Admin Responses (0xD0-0xDF)
     SERVER_ADMIN_AUTH_RESULT = 0xD0,    // Admin authentication result
@@ -414,6 +417,12 @@ inline std::string packet_type_to_string(PacketType type) {
         return "SERVER_PLAYER_RESPAWN";
     case PacketType::SERVER_GAME_OVER:
         return "SERVER_GAME_OVER";
+    case PacketType::SERVER_LEADERBOARD:
+        return "SERVER_LEADERBOARD";
+    case PacketType::SERVER_GLOBAL_LEADERBOARD:
+        return "SERVER_GLOBAL_LEADERBOARD";
+    case PacketType::CLIENT_REQUEST_GLOBAL_LEADERBOARD:
+        return "CLIENT_REQUEST_GLOBAL_LEADERBOARD";
     case PacketType::CLIENT_SET_PLAYER_NAME:
         return "CLIENT_SET_PLAYER_NAME";
     case PacketType::CLIENT_SET_PLAYER_SKIN:

@@ -110,6 +110,13 @@ public:
      * @param level_up_data Serialized level-up data
      */
     virtual void on_player_level_up(uint32_t session_id, const std::vector<uint8_t>& level_up_data) = 0;
+
+    /**
+     * @brief Called when leaderboard should be sent (before game over)
+     * @param session_id The game session
+     * @param leaderboard_data Serialized leaderboard data
+     */
+    virtual void on_leaderboard(uint32_t session_id, const std::vector<uint8_t>& leaderboard_data) = 0;
 };
 
 }

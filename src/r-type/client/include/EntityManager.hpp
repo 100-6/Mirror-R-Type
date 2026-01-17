@@ -72,6 +72,11 @@ public:
     void set_player_name(uint32_t server_id, const std::string& name);
 
     /**
+     * @brief Get player name by player ID
+     */
+    std::string get_player_name(uint32_t player_id) const;
+
+    /**
      * @brief Get entity by server ID
      */
     Entity get_entity(uint32_t server_id) const;

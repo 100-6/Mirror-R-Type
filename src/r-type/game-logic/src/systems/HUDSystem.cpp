@@ -10,6 +10,7 @@
 #include <sstream>
 #include <iomanip>
 #include <iostream>
+#include <algorithm>
 
 HUDSystem::HUDSystem(engine::IGraphicsPlugin& plugin, engine::IInputPlugin* inputPlugin, int screenWidth, int screenHeight)
     : m_graphicsPlugin(plugin)
@@ -493,6 +494,9 @@ void HUDSystem::update(Registry& registry, float dt) {
 
         break; // Only one WaveController
     }
+
+    // Render scoreboard overlay if Tab is pressed
+    renderScoreboard(registry);
 }
 
 engine::Color HUDSystem::getHealthColor(float healthPercent) const {
@@ -557,5 +561,91 @@ void HUDSystem::update_lives(Registry& registry, uint8_t lives) {
                 positions[m_heartEntities[i]].x = startX + (i * (heartSize + heartSpacing));
             }
         }
+    }
+}
+
+void HUDSystem::update_player_score(uint32_t player_id, const std::string& player_name, uint32_t score) {
+    m_playerScores[player_id] = {player_name, score};
+}
+
+void HUDSystem::renderScoreboard(Registry& registry) {
+    if (!m_showScoreboard)
+        return;
+
+    // Semi-transparent background
+    float overlayWidth = 350.0f;
+    float overlayHeight = 200.0f;
+    float overlayX = (m_screenWidth - overlayWidth) / 2.0f;
+    float overlayY = 100.0f;
+
+    // Draw background panel
+    engine::Rectangle bgRect;
+    bgRect.x = overlayX;
+    bgRect.y = overlayY;
+    bgRect.width = overlayWidth;
+    bgRect.height = overlayHeight;
+    m_graphicsPlugin.draw_rectangle(bgRect, engine::Color{20, 20, 40, 200});
+
+    // Draw border
+    engine::Rectangle borderRect;
+    borderRect.x = overlayX;
+    borderRect.y = overlayY;
+    borderRect.width = overlayWidth;
+    borderRect.height = 3.0f;
+    m_graphicsPlugin.draw_rectangle(borderRect, engine::Color{100, 100, 200, 255});
+
+    // Draw header
+    engine::Vector2f headerPos{overlayX + overlayWidth / 2.0f - 60.0f, overlayY + 15.0f};
+    m_graphicsPlugin.draw_text("SCOREBOARD", headerPos, engine::Color{200, 200, 255, 255}, engine::INVALID_HANDLE, 20);
+
+    // Sort players by score descending
+    std::vector<std::pair<uint32_t, PlayerScoreInfo>> sortedPlayers(m_playerScores.begin(), m_playerScores.end());
+    std::sort(sortedPlayers.begin(), sortedPlayers.end(),
+              [](const auto& a, const auto& b) { return a.second.score > b.second.score; });
+
+    // Draw player entries
+    float entryY = overlayY + 50.0f;
+    float entryHeight = 30.0f;
+    int rank = 1;
+
+    for (size_t i = 0; i < sortedPlayers.size() && i < 4; ++i) {
+        const auto& [player_id, info] = sortedPlayers[i];
+
+        // Rank color
+        engine::Color rankColor;
+        switch (i) {
+            case 0: rankColor = {255, 215, 0, 255}; break;    // Gold
+            case 1: rankColor = {192, 192, 192, 255}; break;  // Silver
+            case 2: rankColor = {205, 127, 50, 255}; break;   // Bronze
+            default: rankColor = {200, 200, 200, 255}; break;
+        }
+
+        // Rank
+        std::stringstream rankSs;
+        rankSs << "#" << rank++;
+        engine::Vector2f rankPos{overlayX + 20.0f, entryY};
+        m_graphicsPlugin.draw_text(rankSs.str(), rankPos, rankColor, engine::INVALID_HANDLE, 16);
+
+        // Name (truncate if too long)
+        std::string displayName = info.name;
+        if (displayName.length() > 12) {
+            displayName = displayName.substr(0, 9) + "...";
+        }
+        engine::Vector2f namePos{overlayX + 60.0f, entryY};
+        m_graphicsPlugin.draw_text(displayName, namePos, {255, 255, 255, 255}, engine::INVALID_HANDLE, 16);
+
+        // Score
+        std::stringstream scoreSs;
+        scoreSs << std::setw(6) << std::setfill('0') << info.score;
+        engine::Vector2f scorePos{overlayX + overlayWidth - 100.0f, entryY};
+        m_graphicsPlugin.draw_text(scoreSs.str(), scorePos, rankColor, engine::INVALID_HANDLE, 16);
+
+        entryY += entryHeight;
+    }
+
+    // If no scores, show message
+    if (m_playerScores.empty()) {
+        engine::Vector2f msgPos{overlayX + overlayWidth / 2.0f - 50.0f, overlayY + 80.0f};
+        m_graphicsPlugin.draw_text("No scores yet", msgPos, {150, 150, 150, 255}, engine::INVALID_HANDLE, 14);
     }
 }

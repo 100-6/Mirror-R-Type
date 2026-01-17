@@ -210,6 +210,11 @@ void NetworkHandler::handle_tcp_packet(uint32_t client_id, protocol::PacketType 
             listener_->on_admin_command(client_id, data);
             break;
         }
+        case protocol::PacketType::CLIENT_REQUEST_GLOBAL_LEADERBOARD: {
+            // No payload for global leaderboard request
+            listener_->on_client_request_global_leaderboard(client_id);
+            break;
+        }
         default:
 //             std::cerr << "[NetworkHandler] Unexpected TCP packet type: 0x" << std::hex
 //                       << static_cast<int>(type) << std::dec << "\n";

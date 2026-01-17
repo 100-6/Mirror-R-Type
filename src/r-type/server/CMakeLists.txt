@@ -12,6 +12,7 @@ add_executable(r-type_server
     src/WaveManager.cpp
     src/LevelManager.cpp
     src/ServerNetworkSystem.cpp
+    src/GlobalLeaderboardManager.cpp
 )
 
 target_include_directories(r-type_server

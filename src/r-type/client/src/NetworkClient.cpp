@@ -205,6 +205,12 @@ void NetworkClient::send_set_player_skin(uint8_t skin_id) {
     send_tcp_packet(protocol::PacketType::CLIENT_SET_PLAYER_SKIN, serialize_payload(&payload, sizeof(payload)));
 }
 
+void NetworkClient::send_request_global_leaderboard() {
+    // std::cout << "[NetworkClient] Requesting global leaderboard\n";
+    // No payload needed for global leaderboard request
+    send_tcp_packet(protocol::PacketType::CLIENT_REQUEST_GLOBAL_LEADERBOARD, std::vector<uint8_t>());
+}
+
 void NetworkClient::send_input(uint16_t input_flags, uint32_t client_tick) {
     protocol::ClientInputPayload payload;
     payload.player_id = htonl(player_id_);
@@ -323,6 +329,12 @@ void NetworkClient::handle_packet(const engine::NetworkPacket& packet) {
             break;
         case protocol::PacketType::SERVER_GAME_OVER:
             handle_game_over(payload);
+            break;
+        case protocol::PacketType::SERVER_LEADERBOARD:
+            handle_leaderboard(payload);
+            break;
+        case protocol::PacketType::SERVER_GLOBAL_LEADERBOARD:
+            handle_global_leaderboard(payload);
             break;
         case protocol::PacketType::SERVER_ROOM_CREATED:
             handle_room_created(payload);
@@ -592,6 +604,69 @@ void NetworkClient::handle_game_over(const std::vector<uint8_t>& payload) {
 
     if (on_game_over_)
         on_game_over_(game_over);
+}
+
+void NetworkClient::handle_leaderboard(const std::vector<uint8_t>& payload) {
+    if (payload.size() < sizeof(protocol::ServerLeaderboardPayload)) {
+        return;
+    }
+
+    protocol::ServerLeaderboardPayload header;
+    std::memcpy(&header, payload.data(), sizeof(header));
+
+    // Extract entries
+    std::vector<protocol::LeaderboardEntry> entries;
+    size_t expected_size = sizeof(header) + header.entry_count * sizeof(protocol::LeaderboardEntry);
+    if (payload.size() >= expected_size) {
+        entries.reserve(header.entry_count);
+        const uint8_t* entry_data = payload.data() + sizeof(header);
+        for (uint8_t i = 0; i < header.entry_count; ++i) {
+            protocol::LeaderboardEntry entry;
+            std::memcpy(&entry, entry_data + (i * sizeof(protocol::LeaderboardEntry)), sizeof(entry));
+            // Convert from network byte order
+            entry.player_id = ntohl(entry.player_id);
+            entry.score = ntohl(entry.score);
+            entry.kills = ntohs(entry.kills);
+            entry.deaths = ntohs(entry.deaths);
+            entries.push_back(entry);
+        }
+    }
+
+    std::cout << "[NetworkClient] Received leaderboard with " << static_cast<int>(header.entry_count) << " entries\n";
+
+    if (on_leaderboard_)
+        on_leaderboard_(header, entries);
+}
+
+void NetworkClient::handle_global_leaderboard(const std::vector<uint8_t>& payload) {
+    if (payload.size() < sizeof(protocol::ServerGlobalLeaderboardPayload)) {
+        std::cerr << "[NetworkClient] Invalid SERVER_GLOBAL_LEADERBOARD payload size\n";
+        return;
+    }
+
+    protocol::ServerGlobalLeaderboardPayload header;
+    std::memcpy(&header, payload.data(), sizeof(header));
+
+    // Extract entries
+    std::vector<protocol::GlobalLeaderboardEntry> entries;
+    size_t expected_size = sizeof(header) + header.entry_count * sizeof(protocol::GlobalLeaderboardEntry);
+    if (payload.size() >= expected_size) {
+        entries.reserve(header.entry_count);
+        const uint8_t* entry_data = payload.data() + sizeof(header);
+        for (uint8_t i = 0; i < header.entry_count; ++i) {
+            protocol::GlobalLeaderboardEntry entry;
+            std::memcpy(&entry, entry_data + (i * sizeof(protocol::GlobalLeaderboardEntry)), sizeof(entry));
+            // Convert from network byte order
+            entry.score = ntohl(entry.score);
+            entry.timestamp = ntohl(entry.timestamp);
+            entries.push_back(entry);
+        }
+    }
+
+    std::cout << "[NetworkClient] Received global leaderboard with " << static_cast<int>(header.entry_count) << " entries\n";
+
+    if (on_global_leaderboard_)
+        on_global_leaderboard_(header, entries);
 }
 
 void NetworkClient::handle_wave_start(const std::vector<uint8_t>& payload) {
@@ -984,6 +1059,14 @@ void NetworkClient::set_on_powerup_collected(std::function<void(const protocol::
 
 void NetworkClient::set_on_player_respawn(std::function<void(const protocol::ServerPlayerRespawnPayload&)> callback) {
     on_player_respawn_ = callback;
+}
+
+void NetworkClient::set_on_leaderboard(std::function<void(const protocol::ServerLeaderboardPayload&, const std::vector<protocol::LeaderboardEntry>&)> callback) {
+    on_leaderboard_ = callback;
+}
+
+void NetworkClient::set_on_global_leaderboard(std::function<void(const protocol::ServerGlobalLeaderboardPayload&, const std::vector<protocol::GlobalLeaderboardEntry>&)> callback) {
+    on_global_leaderboard_ = callback;
 }
 
 void NetworkClient::set_on_room_created(std::function<void(const protocol::ServerRoomCreatedPayload&)> callback) {

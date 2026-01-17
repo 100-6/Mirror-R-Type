@@ -81,6 +81,8 @@ bool Server::start()
     network_handler_ = std::make_unique<NetworkHandler>(network_plugin_);
     packet_sender_ = std::make_unique<PacketSender>(network_plugin_);
     session_manager_ = std::make_unique<GameSessionManager>();
+    global_leaderboard_manager_ = std::make_unique<GlobalLeaderboardManager>("data/global_leaderboard.json");
+    global_leaderboard_manager_->load();
     network_handler_->set_listener(this);
     lobby_manager_.set_listener(this);
     room_manager_.set_listener(this);
@@ -580,10 +582,30 @@ void Server::on_player_level_up(uint32_t session_id, const std::vector<uint8_t>&
                                             level_up_data, session->get_player_ids(), connected_clients_);
 }
 
+void Server::on_leaderboard(uint32_t session_id, const std::vector<uint8_t>& leaderboard_data)
+{
+    auto* session = session_manager_->get_session(session_id);
+
+    if (!session)
+        return;
+    std::cout << "[Server] Broadcasting leaderboard to session " << session_id << std::endl;
+    packet_sender_->broadcast_udp_to_session(session_id, protocol::PacketType::SERVER_LEADERBOARD,
+                                            leaderboard_data, session->get_player_ids(), connected_clients_);
+}
+
 void Server::on_game_over(uint32_t session_id, const std::vector<uint32_t>& player_ids, bool is_victory)
 {
     std::cout << "[Server] Game over for session " << session_id
               << (is_victory ? " - VICTORY!" : " - DEFEAT!") << "\n";
+
+    // Add player scores to global leaderboard
+    auto* session = session_manager_->get_session(session_id);
+    if (session && global_leaderboard_manager_) {
+        auto player_scores = session->get_player_scores();
+        for (const auto& [name, score] : player_scores) {
+            global_leaderboard_manager_->try_add_score(name, score);
+        }
+    }
 
     protocol::ServerGameOverPayload game_over;
     game_over.result = is_victory ? protocol::GameResult::VICTORY : protocol::GameResult::DEFEAT;
@@ -1121,6 +1143,54 @@ bool Server::clear_enemies_in_session(uint32_t session_id)
     session->clear_enemies();
     std::cout << "[Server] Cleared enemies from session " << session_id << "\n";
     return true;
+}
+
+void Server::on_client_request_global_leaderboard(uint32_t client_id)
+{
+    auto it = connected_clients_.find(client_id);
+
+    if (it == connected_clients_.end()) {
+        std::cerr << "[Server] REQUEST_GLOBAL_LEADERBOARD from unknown client " << client_id << "\n";
+        return;
+    }
+
+    std::cout << "[Server] Player " << it->second.player_id << " requesting global leaderboard\n";
+
+    if (!global_leaderboard_manager_) {
+        std::cerr << "[Server] Global leaderboard manager not initialized\n";
+        return;
+    }
+
+    auto entries = global_leaderboard_manager_->get_entries();
+
+    // Build response payload
+    std::vector<uint8_t> payload_data;
+
+    protocol::ServerGlobalLeaderboardPayload header;
+    header.entry_count = static_cast<uint8_t>(std::min(entries.size(), static_cast<size_t>(255)));
+
+    // Add header
+    payload_data.insert(payload_data.end(),
+                        reinterpret_cast<const uint8_t*>(&header),
+                        reinterpret_cast<const uint8_t*>(&header) + sizeof(header));
+
+    // Add entries (already in network byte order from GlobalLeaderboardEntry)
+    for (size_t i = 0; i < header.entry_count; ++i) {
+        protocol::GlobalLeaderboardEntry entry = entries[i];
+        // Convert to network byte order
+        entry.score = ByteOrder::host_to_net32(entry.score);
+        entry.timestamp = ByteOrder::host_to_net32(entry.timestamp);
+
+        payload_data.insert(payload_data.end(),
+                            reinterpret_cast<const uint8_t*>(&entry),
+                            reinterpret_cast<const uint8_t*>(&entry) + sizeof(entry));
+    }
+
+    packet_sender_->send_tcp_packet(client_id, protocol::PacketType::SERVER_GLOBAL_LEADERBOARD,
+                                    payload_data);
+
+    std::cout << "[Server] Sent global leaderboard with " << static_cast<int>(header.entry_count)
+              << " entries to player " << it->second.player_id << "\n";
 }
 
 void Server::on_admin_auth(uint32_t client_id,

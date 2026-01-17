@@ -9,8 +9,20 @@
 #include "ui/UIButton.hpp"
 #include <memory>
 #include <functional>
+#include <vector>
+#include <string>
 
 namespace rtype::client {
+
+/**
+ * @brief Leaderboard entry for result screen display
+ */
+struct ResultLeaderboardEntry {
+    uint32_t player_id;
+    std::string player_name;
+    uint32_t score;
+    uint8_t rank;
+};
 
 /**
  * @brief Game screen states
@@ -21,6 +33,7 @@ enum class GameScreen {
     BROWSE_ROOMS,
     ROOM_LOBBY,
     SETTINGS,
+    GLOBAL_LEADERBOARD,
     WAITING,
     PLAYING,
     VICTORY,
@@ -69,6 +82,11 @@ public:
     void draw_result_screen(engine::IGraphicsPlugin* graphics);
 
     /**
+     * @brief Set leaderboard data for result screen
+     */
+    void set_leaderboard(const std::vector<ResultLeaderboardEntry>& entries);
+
+    /**
      * @brief Get status overlay entity
      */
     Entity get_status_entity() const { return status_entity_; }
@@ -105,6 +123,9 @@ private:
 
     // Result screen score display
     int final_score_ = 0;
+
+    // Leaderboard data for result screen
+    std::vector<ResultLeaderboardEntry> leaderboard_entries_;
 
     void hide_waiting_screen();
     void show_waiting_screen();

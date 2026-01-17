@@ -62,4 +62,8 @@ bool InputHandler::is_network_debug_toggle_pressed() const {
     return is_action_pressed(GameAction::TOGGLE_NETWORK_DEBUG);
 }
 
+bool InputHandler::is_scoreboard_pressed() const {
+    return is_action_pressed(GameAction::SHOW_SCOREBOARD);
+}
+
 }
