@@ -33,8 +33,7 @@ private:
     std::vector<std::unique_ptr<UIButton>> buttons_;
     std::unique_ptr<UITextField> username_field_;
     std::unique_ptr<UITextField> ip_field_;
-    std::unique_ptr<UITextField> tcp_port_field_;
-    std::unique_ptr<UITextField> udp_port_field_;
+    std::unique_ptr<UITextField> port_field_;
     ScreenChangeCallback on_screen_change_;
 };
 

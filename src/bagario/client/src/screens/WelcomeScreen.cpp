@@ -65,46 +65,25 @@ void WelcomeScreen::initialize() {
         game_state_.server_ip = text;
     });
 
-    // TCP Port label
-    auto tcp_port_label = std::make_unique<UILabel>(
-        center_x - 90.0f, start_y + 390.0f, "TCP Port:", 18);
-    tcp_port_label->set_color(engine::Color{180, 180, 180, 255});
-    tcp_port_label->set_alignment(UILabel::Alignment::LEFT);
-    labels_.push_back(std::move(tcp_port_label));
+    // Port label (centered)
+    auto port_label = std::make_unique<UILabel>(
+        center_x, start_y + 390.0f, "Port:", 18);
+    port_label->set_color(engine::Color{180, 180, 180, 255});
+    port_label->set_alignment(UILabel::Alignment::CENTER);
+    labels_.push_back(std::move(port_label));
 
-    // TCP Port text field
-    float port_field_width = 90.0f;
+    // Port text field (centered, single field for ENet UDP port)
+    float port_field_width = 100.0f;
     float port_field_height = 40.0f;
-    tcp_port_field_ = std::make_unique<UITextField>(
-        center_x - 90.0f, start_y + 415.0f, port_field_width, port_field_height, "4444");
-    tcp_port_field_->set_text(std::to_string(game_state_.server_tcp_port));
-    tcp_port_field_->set_max_length(5);
-    tcp_port_field_->set_on_change([this](const std::string& text) {
+    port_field_ = std::make_unique<UITextField>(
+        center_x - port_field_width / 2.0f, start_y + 415.0f, port_field_width, port_field_height, "4444");
+    port_field_->set_text(std::to_string(game_state_.server_port));
+    port_field_->set_max_length(5);
+    port_field_->set_on_change([this](const std::string& text) {
         try {
             int port = std::stoi(text);
             if (port > 0 && port <= 65535) {
-                game_state_.server_tcp_port = static_cast<uint16_t>(port);
-            }
-        } catch (...) {}
-    });
-
-    // UDP Port label
-    auto udp_port_label = std::make_unique<UILabel>(
-        center_x + 10.0f, start_y + 390.0f, "UDP Port:", 18);
-    udp_port_label->set_color(engine::Color{180, 180, 180, 255});
-    udp_port_label->set_alignment(UILabel::Alignment::LEFT);
-    labels_.push_back(std::move(udp_port_label));
-
-    // UDP Port text field
-    udp_port_field_ = std::make_unique<UITextField>(
-        center_x + 10.0f, start_y + 415.0f, port_field_width, port_field_height, "4545");
-    udp_port_field_->set_text(std::to_string(game_state_.server_udp_port));
-    udp_port_field_->set_max_length(5);
-    udp_port_field_->set_on_change([this](const std::string& text) {
-        try {
-            int port = std::stoi(text);
-            if (port > 0 && port <= 65535) {
-                game_state_.server_udp_port = static_cast<uint16_t>(port);
+                game_state_.server_port = static_cast<uint16_t>(port);
             }
         } catch (...) {}
     });
@@ -169,14 +148,9 @@ void WelcomeScreen::update(engine::IGraphicsPlugin* graphics, engine::IInputPlug
         ip_field_->update(graphics, input);
     }
 
-    // Update TCP port field
-    if (tcp_port_field_) {
-        tcp_port_field_->update(graphics, input);
-    }
-
-    // Update UDP port field
-    if (udp_port_field_) {
-        udp_port_field_->update(graphics, input);
+    // Update port field
+    if (port_field_) {
+        port_field_->update(graphics, input);
     }
 
     // Update buttons
@@ -225,14 +199,9 @@ void WelcomeScreen::draw(engine::IGraphicsPlugin* graphics) {
         ip_field_->draw(graphics);
     }
 
-    // Draw TCP port field
-    if (tcp_port_field_) {
-        tcp_port_field_->draw(graphics);
-    }
-
-    // Draw UDP port field
-    if (udp_port_field_) {
-        udp_port_field_->draw(graphics);
+    // Draw port field
+    if (port_field_) {
+        port_field_->draw(graphics);
     }
 
     // Draw buttons
