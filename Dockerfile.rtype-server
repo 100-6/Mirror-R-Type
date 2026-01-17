@@ -124,5 +124,5 @@ USER rtype
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD timeout 2 bash -c "echo -n > /dev/tcp/127.0.0.1/4242" || exit 1
 
-# Default command
-CMD ["/app/r-type_server"]
+# Default command (--network to listen on all interfaces for production)
+CMD ["/app/r-type_server", "--network"]
