@@ -5,6 +5,7 @@
 #include "ScreenManager.hpp"
 #include "SpaceshipManager.hpp"
 #include "screens/SkinSelectorDialog.hpp"
+#include "ui/ChatOverlay.hpp"
 #include <functional>
 #include <string>
 #include <vector>
@@ -40,6 +41,7 @@ public:
     void initialize() override;
     void update(engine::IGraphicsPlugin* graphics, engine::IInputPlugin* input) override;
     void draw(engine::IGraphicsPlugin* graphics) override;
+    void on_enter() override;
 
     void set_screen_change_callback(ScreenChangeCallback callback) {
         on_screen_change_ = callback;
@@ -138,6 +140,11 @@ private:
     std::string name_input_buffer_ = "";
     float cursor_blink_timer_ = 0.0f;
     bool cursor_visible_ = true;
+
+    // Chat overlay
+    std::unique_ptr<ChatOverlay> chat_overlay_;
+    bool t_was_pressed_ = false;
+    bool f1_was_pressed_ = false;
 };
 
 }  // namespace rtype::client

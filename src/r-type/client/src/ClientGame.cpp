@@ -145,6 +145,24 @@ bool ClientGame::initialize(const std::string& host, uint16_t tcp_port, const st
             console_overlay_->add_error(msg);
     });
 
+    // Initialize chat overlay
+    chat_overlay_ = std::make_unique<ChatOverlay>(
+        static_cast<float>(screen_width_),
+        static_cast<float>(screen_height_)
+    );
+    chat_overlay_->set_send_callback([this](const std::string& message) {
+        if (network_client_) {
+            network_client_->send_chat_message(message);
+        }
+    });
+    network_client_->set_on_chat_message([this](uint32_t sender_id, const std::string& sender_name, const std::string& message) {
+        std::cout << "[ClientGame] Chat callback: " << sender_name << ": " << message << "\n";
+        if (chat_overlay_) {
+            chat_overlay_->add_message(sender_id, sender_name, message);
+            std::cout << "[ClientGame] Message added to chat overlay\n";
+        }
+    });
+
     // Initialize menu manager
     menu_manager_ = std::make_unique<MenuManager>(*network_client_, screen_width_, screen_height_);
     menu_manager_->initialize();
@@ -1126,6 +1144,17 @@ void ClientGame::setup_network_callbacks() {
 }
 
 void ClientGame::run() {
+    // Re-register chat callback to ensure it points to this instance's chat overlay
+    // (RoomLobbyScreen may have overwritten it during room phase)
+    network_client_->set_on_chat_message([this](uint32_t sender_id, const std::string& sender_name, const std::string& message) {
+        if (chat_overlay_) {
+            chat_overlay_->add_message(sender_id, sender_name, message);
+        }
+    });
+
+    // Track menu state to detect transition from menu to game
+    bool was_in_menu = true;
+
     auto last_frame = std::chrono::steady_clock::now();
     auto last_input_send = last_frame;
     auto last_ping = last_frame;
@@ -1142,7 +1171,9 @@ void ClientGame::run() {
         network_plugin_->update(dt);
         network_client_->update();
 
-        if (input_handler_->is_escape_pressed()) {
+        // Only quit game with Escape if console overlay is not visible
+        // (Console uses Escape to close, chat uses F1)
+        if (input_handler_->is_escape_pressed() && !console_overlay_->is_visible()) {
             running_ = false;
             break;
         }
@@ -1159,13 +1190,17 @@ void ClientGame::run() {
             }
         }
 
+        // Toggle admin console with Tab key
         static bool tab_was_pressed = false;
         bool tab_pressed = input_plugin_->is_key_pressed(engine::Key::Tab);
-        if (tab_pressed && !tab_was_pressed)
+        if (tab_pressed && !tab_was_pressed && !chat_overlay_->is_visible())
             console_overlay_->toggle();
         tab_was_pressed = tab_pressed;
         if (console_overlay_->is_visible())
             console_overlay_->update(graphics_plugin_, input_plugin_);
+
+        // Chat handling is done later, after in_menu is determined
+        // This prevents double-updating when RoomLobbyScreen has its own chat
         if (input_handler_->is_network_debug_toggle_pressed()) {
             if (debug_network_overlay_) {
                 bool new_state = !debug_network_overlay_->is_enabled();
@@ -1183,21 +1218,29 @@ void ClientGame::run() {
 
         if (network_client_->is_in_game() &&
             std::chrono::duration_cast<std::chrono::milliseconds>(now - last_input_send).count() >= 15) {
-            uint16_t input_flags = input_handler_->gather_input();
 
-            // Client-side shoot sound with cooldown
-            bool is_shooting = (input_flags & static_cast<uint16_t>(protocol::InputFlags::INPUT_SHOOT)) != 0;
-            shoot_sound_cooldown_ -= dt;
-            if (is_shooting && shoot_sound_cooldown_ <= 0.0f) {
-                // Emit shoot sound event
-                registry_->get_event_bus().publish(ecs::ShotFiredEvent{0, 0});
-                shoot_sound_cooldown_ = 0.15f; // 150ms cooldown between sounds
+            // Disable game inputs when chat or console is open
+            uint16_t input_flags = 0;
+            bool overlay_blocking_input = (chat_overlay_ && chat_overlay_->is_visible()) ||
+                                          (console_overlay_ && console_overlay_->is_visible());
+
+            if (!overlay_blocking_input) {
+                input_flags = input_handler_->gather_input();
+
+                // Client-side shoot sound with cooldown
+                bool is_shooting = (input_flags & static_cast<uint16_t>(protocol::InputFlags::INPUT_SHOOT)) != 0;
+                shoot_sound_cooldown_ -= dt;
+                if (is_shooting && shoot_sound_cooldown_ <= 0.0f) {
+                    // Emit shoot sound event
+                    registry_->get_event_bus().publish(ecs::ShotFiredEvent{0, 0});
+                    shoot_sound_cooldown_ = 0.15f; // 150ms cooldown between sounds
+                }
+
+                // NOUVEAU: Appliquer la vélocité localement AVANT d'envoyer au serveur
+                apply_input_to_local_player(input_flags);
             }
 
-            // NOUVEAU: Appliquer la vélocité localement AVANT d'envoyer au serveur
-            apply_input_to_local_player(input_flags);
-
-            // Send input to server
+            // Send input to server (send 0 if overlay is open to stop movement)
             network_client_->send_input(input_flags, client_tick_++);
 
             // Store input in prediction system for reconciliation
@@ -1233,6 +1276,41 @@ void ClientGame::run() {
                        current_screen == GameScreen::GLOBAL_LEADERBOARD);
         bool in_result = (current_screen == GameScreen::VICTORY ||
                          current_screen == GameScreen::DEFEAT);
+
+        // Re-register chat callback when transitioning from menu to game
+        // This ensures ClientGame's ChatOverlay receives messages, not RoomLobbyScreen's
+        if (was_in_menu && !in_menu) {
+            network_client_->set_on_chat_message([this](uint32_t sender_id, const std::string& sender_name, const std::string& message) {
+                if (chat_overlay_) {
+                    chat_overlay_->add_message(sender_id, sender_name, message);
+                }
+            });
+        }
+        was_in_menu = in_menu;
+
+        // Toggle chat with T key (only to OPEN), F1 to close
+        // ONLY handle chat in ClientGame when NOT in menu (RoomLobbyScreen has its own chat)
+        if (!in_menu && chat_overlay_) {
+            static bool t_was_pressed = false;
+            static bool f1_was_pressed = false;
+            bool t_pressed = input_plugin_->is_key_pressed(engine::Key::T);
+            bool f1_pressed = input_plugin_->is_key_pressed(engine::Key::F1);
+
+            // Open chat with T (only when not already open)
+            if (t_pressed && !t_was_pressed && !console_overlay_->is_visible() && !chat_overlay_->is_visible()) {
+                chat_overlay_->set_visible(true);
+            }
+            t_was_pressed = t_pressed;
+
+            // Close chat with F1
+            if (f1_pressed && !f1_was_pressed && chat_overlay_->is_visible()) {
+                chat_overlay_->set_visible(false);
+            }
+            f1_was_pressed = f1_pressed;
+
+            if (chat_overlay_->is_visible())
+                chat_overlay_->update(graphics_plugin_, input_plugin_);
+        }
         entity_manager_->update_projectiles(dt);
         entity_manager_->update_name_tags();
 
@@ -1429,6 +1507,12 @@ void ClientGame::run() {
 
         if (console_overlay_)
             console_overlay_->draw(graphics_plugin_);
+        // Only draw ClientGame's chat overlay when NOT in menu
+        // (RoomLobbyScreen has its own chat overlay that it draws)
+        if (chat_overlay_ && !in_menu) {
+            chat_overlay_->draw(graphics_plugin_);
+            chat_overlay_->draw_notification_badge(graphics_plugin_);
+        }
         graphics_plugin_->display();
         input_plugin_->update();  // Update at END of frame for proper just_pressed detection
     }

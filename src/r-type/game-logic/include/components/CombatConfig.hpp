@@ -90,7 +90,7 @@
 #define WEAPON_BONUS_SPREAD         0.0f
 #define WEAPON_BONUS_DAMAGE         5
 #define WEAPON_BONUS_SPEED          600.0f
-#define WEAPON_BONUS_FIRERATE       0.3f
+#define WEAPON_BONUS_FIRERATE       0.7f
 #define WEAPON_BONUS_BURST_DELAY    0.0f
 #define WEAPON_BONUS_WIDTH          20.0f
 #define WEAPON_BONUS_HEIGHT         8.0f

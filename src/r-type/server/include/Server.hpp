@@ -113,6 +113,7 @@ private:
     void on_admin_auth(uint32_t client_id, const protocol::ClientAdminAuthPayload& payload) override;
     void on_admin_command(uint32_t client_id, const protocol::ClientAdminCommandPayload& payload) override;
     void on_client_request_global_leaderboard(uint32_t client_id) override;
+    void on_client_chat_message(uint32_t client_id, const protocol::ClientChatMessagePayload& payload) override;
 
     void on_lobby_state_changed(uint32_t lobby_id, const std::vector<uint8_t>& payload) override;
     void on_countdown_tick(uint32_t lobby_id, uint8_t seconds_remaining) override;
