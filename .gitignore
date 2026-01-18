@@ -1,6 +1,7 @@
 build/
 .vscode
 doc/
+site/
 
 vcpkg/
 vcpkg_installed/
