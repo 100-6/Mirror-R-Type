@@ -1196,6 +1196,9 @@ void ClientGame::run() {
         }
 
         // Toggle debug visualization with H key (colliders + spawn points)
+        // Toggle debug visualization with H key (colliders + spawn points)
+        // DISABLED: User request to deactivate hitbox debug menu
+        /*
         if (input_handler_->is_hitbox_toggle_pressed()) {
             bool new_state = false;
 
@@ -1206,6 +1209,7 @@ void ClientGame::run() {
                 debug_system.set_enabled(new_state);
             }
         }
+        */
 
         static bool tab_was_pressed = false;
         bool tab_pressed = input_plugin_->is_key_pressed(engine::Key::Tab);

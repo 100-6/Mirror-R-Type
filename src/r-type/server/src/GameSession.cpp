@@ -649,8 +649,14 @@ void GameSession::update(float delta_time)
         // 1. Detect entry into LEVEL_COMPLETE to send fade-out packet ONCE
         if (lc.state == game::LevelState::LEVEL_COMPLETE && last_level_state_ != game::LevelState::LEVEL_COMPLETE) {
             if (lc.current_level < lc.total_levels) {
-                network_system_->queue_level_transition(lc.current_level + 1);
-                std::cout << "[GameSession] Level " << static_cast<int>(lc.current_level) << " Complete! Sending transition signal for Level " << static_cast<int>(lc.current_level + 1) << "\n";
+                uint8_t next_level_id = lc.current_level + 1;
+                // SKIP LEVEL 2 (Nebula) - Match logic in LevelSystem
+                if (next_level_id == 2) {
+                    next_level_id++;
+                }
+
+                network_system_->queue_level_transition(next_level_id);
+                std::cout << "[GameSession] Level " << static_cast<int>(lc.current_level) << " Complete! Sending transition signal for Level " << static_cast<int>(next_level_id) << "\n";
 
                 // IMMEDIATELY reset scroll to 0 to prevent client desync
                 // This ensures all subsequent snapshots have scroll=0 before new level loads
