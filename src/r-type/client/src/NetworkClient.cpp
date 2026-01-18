@@ -330,6 +330,9 @@ void NetworkClient::handle_packet(const engine::NetworkPacket& packet) {
         case protocol::PacketType::SERVER_LEVEL_TRANSITION:
             handle_level_transition(payload);
             break;
+        case protocol::PacketType::SERVER_LEVEL_READY:
+            handle_level_ready(payload);
+            break;
         case protocol::PacketType::SERVER_GAME_OVER:
             handle_game_over(payload);
             break;
@@ -789,6 +792,21 @@ void NetworkClient::handle_level_transition(const std::vector<uint8_t>& payload)
         on_level_transition_(transition);
 }
 
+void NetworkClient::handle_level_ready(const std::vector<uint8_t>& payload) {
+    if (payload.size() < sizeof(protocol::ServerLevelReadyPayload)) {
+        return;
+    }
+
+    protocol::ServerLevelReadyPayload level_ready;
+    std::memcpy(&level_ready, payload.data(), sizeof(level_ready));
+    level_ready.level_id = ntohs(level_ready.level_id);
+
+    std::cout << "[NetworkClient] Level " << level_ready.level_id << " ready\n";
+
+    if (on_level_ready_)
+        on_level_ready_(level_ready);
+}
+
 void NetworkClient::handle_room_created(const std::vector<uint8_t>& payload) {
     if (payload.size() < sizeof(protocol::ServerRoomCreatedPayload)) {
         return;
@@ -1084,6 +1102,10 @@ void NetworkClient::set_on_player_respawn(std::function<void(const protocol::Ser
 
 void NetworkClient::set_on_level_transition(std::function<void(const protocol::ServerLevelTransitionPayload&)> callback) {
     on_level_transition_ = callback;
+}
+
+void NetworkClient::set_on_level_ready(std::function<void(const protocol::ServerLevelReadyPayload&)> callback) {
+    on_level_ready_ = callback;
 }
 
 void NetworkClient::set_on_leaderboard(std::function<void(const protocol::ServerLeaderboardPayload&, const std::vector<protocol::LeaderboardEntry>&)> callback) {

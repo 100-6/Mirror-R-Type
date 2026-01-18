@@ -98,6 +98,7 @@ enum class PacketType : uint8_t {
     SERVER_LEADERBOARD = 0xC7,      // End-game leaderboard with all player scores
     SERVER_GLOBAL_LEADERBOARD = 0xC8,  // Global all-time top 10 leaderboard
     SERVER_LEVEL_TRANSITION = 0xC9,
+    SERVER_LEVEL_READY = 0xCA,  // Level fully loaded, client can stop fading
 
     // Admin Responses (0xD0-0xDF)
     SERVER_ADMIN_AUTH_RESULT = 0xD0,    // Admin authentication result
@@ -432,6 +433,8 @@ inline std::string packet_type_to_string(PacketType type) {
         return "CLIENT_REQUEST_GLOBAL_LEADERBOARD";
     case PacketType::SERVER_LEVEL_TRANSITION:
         return "SERVER_LEVEL_TRANSITION";
+    case PacketType::SERVER_LEVEL_READY:
+        return "SERVER_LEVEL_READY";
     case PacketType::CLIENT_SET_PLAYER_NAME:
         return "CLIENT_SET_PLAYER_NAME";
     case PacketType::CLIENT_SET_PLAYER_SKIN:
