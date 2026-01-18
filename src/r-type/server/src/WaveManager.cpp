@@ -158,9 +158,11 @@ bool WaveManager::spawn_wave(uint32_t wave_number)
 
 float WaveManager::get_wave_start_scroll(uint32_t wave_number) const
 {
+    const float CHUNK_SIZE = 480.0f;
     for (const auto& wave : config_.waves) {
         if (wave.wave_number == wave_number) {
-            return wave.trigger.scroll_distance;
+            return (wave.trigger.chunk_id * CHUNK_SIZE) +
+                   (wave.trigger.offset * CHUNK_SIZE);
         }
     }
     return 0.0f;
@@ -197,16 +199,31 @@ std::string WaveManager::get_map_file(uint16_t map_id)
 
 void WaveManager::check_wave_triggers(float current_scroll)
 {
+    // Calculate current chunk and offset (1 chunk = 480px = 30 tiles * 16px)
+    float chunkSizePx = 480.0f;
+    int currentChunk = static_cast<int>(current_scroll / chunkSizePx);
+    float currentOffset = (current_scroll - (currentChunk * chunkSizePx)) / chunkSizePx;
+
     for (size_t i = current_wave_index_; i < config_.waves.size(); ++i) {
         Wave& wave = config_.waves[i];
 
         if (wave.triggered || wave.completed)
             continue;
 
-        bool scroll_triggered = (current_scroll >= wave.trigger.scroll_distance);
+        bool should_trigger = false;
+
+        // Check chunk trigger
+        if (currentChunk > wave.trigger.chunk_id) {
+            should_trigger = true;
+        } else if (currentChunk == wave.trigger.chunk_id) {
+            if (currentOffset >= wave.trigger.offset) {
+                should_trigger = true;
+            }
+        }
+
         bool time_triggered = (accumulated_time_ >= wave.trigger.time_delay);
 
-        if (scroll_triggered && time_triggered) {
+        if (should_trigger && time_triggered) {
             trigger_wave(wave);
             wave.triggered = true;
             current_wave_index_ = i;

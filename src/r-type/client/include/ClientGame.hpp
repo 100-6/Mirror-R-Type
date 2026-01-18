@@ -108,6 +108,10 @@ private:
     uint16_t current_map_id_ = 1;
     int last_known_score_ = 0;
 
+    // Level transition state (prevents scroll desync during transitions)
+    bool level_transition_in_progress_ = false;
+    float level_transition_timer_ = 0.0f;
+
     // Audio state for client-side sound triggers
     bool was_shooting_ = false;
     float shoot_sound_cooldown_ = 0.0f;

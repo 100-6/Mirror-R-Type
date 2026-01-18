@@ -125,19 +125,35 @@ void CollisionSystem::update(Registry& registry, float dt)
         registry.get_event_bus().publish(ecs::DamageEvent{player, bullet, dmg});
     });
 
-    // Collision Player (Controllable) vs Enemy : Publie PlayerHitEvent
-    scan_collisions<Controllable, Enemy>(registry, [&registry](Entity player, Entity enemy) {
-        (void)enemy;
+    // Collision Player (Controllable) vs Enemy : Publie PlayerHitEvent et inflige des dégâts
+    auto& kamikazes = registry.get_components<Kamikaze>();
+    scan_collisions<Controllable, Enemy>(registry, [&registry, &kamikazes](Entity player, Entity enemy) {
+        bool isKamikaze = kamikazes.has_entity(enemy);
 
+        // Kamikaze ALWAYS dies on contact
+        if (isKamikaze) {
+            // Deal lethal damage to the kamikaze to trigger death events (explosion, bonus drop, etc.)
+            registry.get_event_bus().publish(ecs::DamageEvent{enemy, player, 9999});
+
+            // Kamikaze explosion ALWAYS damages player (ignores invulnerability)
+            // This is intentional - suicide attacks should always hurt!
+            registry.get_event_bus().publish(ecs::PlayerHitEvent{player, enemy});
+            registry.get_event_bus().publish(ecs::DamageEvent{player, enemy, 40});
+            return;
+        }
+
+        // Regular enemy contact - check player invulnerability
         auto& invulnerabilities = registry.get_components<Invulnerability>();
         if (invulnerabilities.has_entity(player)) {
             auto& invul = invulnerabilities[player];
             if (invul.time_remaining > 0.0f)
-                return;
+                return; // Player is invulnerable, don't take damage from regular enemies
             invul.time_remaining = 3.0f;
         }
 
+        // Publish audio event and deal damage for regular enemy contact
         registry.get_event_bus().publish(ecs::PlayerHitEvent{player, enemy});
+        registry.get_event_bus().publish(ecs::DamageEvent{player, enemy, 25});
     });
 
     // Collision Player vs Wall : Scroll-aware collision
@@ -210,6 +226,72 @@ void CollisionSystem::update(Registry& registry, float dt)
                 }
             }
         }
+    }
+
+    // Collision Enemy vs Wall
+    // Enemies are in WORLD coordinates (no Scrollable component, spawned at absolute positions)
+    // Walls are also in WORLD coordinates - compare directly, no conversion needed
+    auto& enemies = registry.get_components<Enemy>();
+    for (size_t i = 0; i < enemies.size(); i++) {
+        Entity enemy = enemies.get_entity_at(i);
+
+        if (!positions.has_entity(enemy) || !colliders.has_entity(enemy))
+            continue;
+
+        Position& posE = positions[enemy];
+        const Collider& colE = colliders[enemy];
+
+        // Enemy hitbox in world coordinates (already in world coords, no conversion)
+        float half_ew = colE.width * 0.5f;
+        float half_eh = colE.height * 0.5f;
+        float e_left = posE.x - half_ew;
+        float e_right = posE.x + half_ew;
+        float e_top = posE.y - half_eh;
+        float e_bottom = posE.y + half_eh;
+
+        for (size_t j = 0; j < walls.size(); j++) {
+            Entity wall = walls.get_entity_at(j);
+
+            if (!positions.has_entity(wall) || !colliders.has_entity(wall))
+                continue;
+
+            const Position& posW = positions[wall];
+            const Collider& colW = colliders[wall];
+
+            // Wall hitbox in world coordinates
+            float half_ww = colW.width * 0.5f;
+            float half_wh = colW.height * 0.5f;
+            float w_left = posW.x - half_ww;
+            float w_right = posW.x + half_ww;
+            float w_top = posW.y - half_wh;
+            float w_bottom = posW.y + half_wh;
+
+            // AABB collision check
+            if (e_right > w_left && e_left < w_right && e_bottom > w_top && e_top < w_bottom) {
+                // Calculate penetration depths
+                float pen_left = e_right - w_left;
+                float pen_right = w_right - e_left;
+                float pen_top = e_bottom - w_top;
+                float pen_bottom = w_bottom - e_top;
+
+                // Find minimum penetration
+                float min_pen = pen_left;
+                int push_dir = 0; // 0=left, 1=right, 2=up, 3=down
+
+                if (pen_right < min_pen) { min_pen = pen_right; push_dir = 1; }
+                if (pen_top < min_pen) { min_pen = pen_top; push_dir = 2; }
+                if (pen_bottom < min_pen) { min_pen = pen_bottom; push_dir = 3; }
+
+                // Push enemy out (in SCREEN coordinates)
+                switch (push_dir) {
+                    case 0: posE.x -= min_pen; break;
+                    case 1: posE.x += min_pen; break;
+                    case 2: posE.y -= min_pen; break;
+                    case 3: posE.y += min_pen; break;
+                }
+            }
+        }
+
     }
 
     // Collision Projectile vs Wall : Scroll-aware collision

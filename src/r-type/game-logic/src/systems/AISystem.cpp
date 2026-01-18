@@ -74,12 +74,16 @@ void AISystem::updateEnemyBehavior(Registry& registry, float dt)
     auto& positions = registry.get_components<Position>();
     auto& velocities = registry.get_components<Velocity>();
     auto& sprites = registry.get_components<Sprite>();
+    auto& kamikazes = registry.get_components<Kamikaze>();
 
     for (size_t i = 0; i < ais.size(); ++i) {
         Entity e = ais.get_entity_at(i);
         auto& ai = ais[e];
-        
+
         if (!positions.has_entity(e) || !velocities.has_entity(e)) continue;
+
+        // Kamikazes don't use standard AI behavior (they use Lua scripts)
+        bool isKamikaze = kamikazes.has_entity(e);
 
         auto& pos = positions[e];
         auto& vel = velocities[e];
@@ -123,7 +127,9 @@ void AISystem::updateEnemyBehavior(Registry& registry, float dt)
             }
         }
 
-        // 2. Shooting Logic
+        // 2. Shooting Logic (kamikazes don't shoot)
+        if (isKamikaze) continue;
+
         ai.timeSinceLastShot += dt;
         if (ai.timeSinceLastShot >= ai.shootCooldown) {
             // Check if player is in front (roughly)

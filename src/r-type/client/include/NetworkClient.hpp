@@ -247,6 +247,11 @@ public:
     void set_on_player_level_up(std::function<void(const protocol::ServerPlayerLevelUpPayload&)> callback);
 
     /**
+     * @brief Set callback for level transition events
+     */
+    void set_on_level_transition(std::function<void(const protocol::ServerLevelTransitionPayload&)> callback);
+
+    /**
      * @brief Set callback for powerup collected events
      */
     void set_on_powerup_collected(std::function<void(const protocol::ServerPowerupCollectedPayload&)> callback);
@@ -361,6 +366,7 @@ private:
     void handle_wave_complete(const std::vector<uint8_t>& payload);
     void handle_score_update(const std::vector<uint8_t>& payload);
     void handle_player_level_up(const std::vector<uint8_t>& payload);
+    void handle_level_transition(const std::vector<uint8_t>& payload);
     void handle_powerup_collected(const std::vector<uint8_t>& payload);
     void handle_player_respawn(const std::vector<uint8_t>& payload);
     void handle_leaderboard(const std::vector<uint8_t>& payload);
@@ -428,6 +434,7 @@ private:
     std::function<void(const protocol::ServerWaveCompletePayload&)> on_wave_complete_;
     std::function<void(const protocol::ServerScoreUpdatePayload&)> on_score_update_;
     std::function<void(const protocol::ServerPlayerLevelUpPayload&)> on_player_level_up_;
+    std::function<void(const protocol::ServerLevelTransitionPayload&)> on_level_transition_;
     std::function<void(const protocol::ServerPowerupCollectedPayload&)> on_powerup_collected_;
     std::function<void(const protocol::ServerPlayerRespawnPayload&)> on_player_respawn_;
     std::function<void(const protocol::ServerLeaderboardPayload&, const std::vector<protocol::LeaderboardEntry>&)> on_leaderboard_;

@@ -269,7 +269,7 @@ void SettingsScreen::rebuild_ui() {
             GameAction::CHARGE,
             GameAction::SPECIAL,
             // SWITCH_WEAPON removed - weapon is now determined by player level
-            GameAction::TOGGLE_HITBOX,
+            // GameAction::TOGGLE_HITBOX, // REmoved from menu
             GameAction::TOGGLE_NETWORK_DEBUG
         };
 
