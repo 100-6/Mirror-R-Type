@@ -359,8 +359,12 @@ void WaveManager::generate_procedural_wave(float current_scroll)
     // Randomize Content
     int enemyCount = 3 + (std::rand() % 4); // 3-6 enemies
     
-    std::string types[] = {"basic", "fast", "tank"};
-    std::string selectedType = types[std::rand() % 3];
+    // Expanded types list including new variants
+    static const std::vector<std::string> types = {
+        "basic", "basic_v1", "basic_v2", "basic_v3", "basic_v4", "basic_v5",
+        "fast", "tank"
+    };
+    std::string selectedType = types[std::rand() % types.size()];
     
     std::string patterns[] = {"line", "formation", "single"}; // "grid" not in SpawnConfig string set yet? Check WaveManager.cpp implementation
     std::string selectedPattern = patterns[std::rand() % 3];

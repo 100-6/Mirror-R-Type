@@ -72,7 +72,7 @@ EntityManager::EntityManager(Registry& registry, TextureManager& textures,
 
 Sprite EntityManager::build_sprite(protocol::EntityType type, bool is_local_player, uint8_t subtype) {
     Sprite sprite{};
-    sprite.texture = textures_.get_enemy();
+    sprite.texture = textures_.get_enemy_9();
     auto dims = get_collider_dimensions(type, subtype);
     bool use_fixed_dimensions = false;
 
@@ -112,43 +112,34 @@ Sprite EntityManager::build_sprite(protocol::EntityType type, bool is_local_play
             break;
         }
         case protocol::EntityType::ENEMY_FAST:
-            // Apply color based on subtype
-            switch (subtype) {
-                case 1:  sprite.tint = engine::Color{255, 180, 0, 255}; break;   // Orange (default fast)
-                case 11: sprite.tint = engine::Color{180, 255, 0, 255}; break;   // Lime green (zigzag)
-                case 12: 
-                    // Kamikaze - Special texture
-                    sprite.texture = textures_.get_kamikaze();
-                    sprite.tint = engine::Color::White; // No tint
-                    // Override scale for this specific sprite because it's large
-                    {
-                        engine::Vector2f tex_size = textures_.get_texture_size(sprite.texture);
-                        if (tex_size.x > 0 && tex_size.y > 0) {
-                            // Calculate scale to fit collider (approx 40x40) or based on visual need
-                            // Default fast enemy is around 40x40
-                            // Let's ensure it's not too huge. 
-                            // Let's ensure it's not too huge. 
-                            float target_width = 200.0f; // Adjusted to be larger per user feedback
-                            float scale = target_width / tex_size.x;
-                            sprite.width = tex_size.x * scale;
-                            sprite.height = tex_size.y * scale;
-                            use_fixed_dimensions = true; // Use these custom dimensions
-                        }
+            // Unify all FAST enemies to use the same sprite (enemie13)
+            // Except Kamikaze which is special
+            if (subtype == 12) {
+                 // Kamikaze
+                 sprite.texture = textures_.get_kamikaze();
+                 sprite.tint = engine::Color::White;
+                 {
+                    engine::Vector2f tex_size = textures_.get_texture_size(sprite.texture);
+                    if (tex_size.x > 0) {
+                        float target_width = 200.0f;
+                        float scale = target_width / tex_size.x;
+                        sprite.width = tex_size.x * scale;
+                        sprite.height = tex_size.y * scale;
+                        use_fixed_dimensions = true;
                     }
-                    break;
-                case 17: sprite.tint = engine::Color{100, 200, 255, 255}; break; // Light blue (coward)
-                case 20: sprite.tint = engine::Color{255, 215, 0, 255}; break;   // Gold (chaser)
-                default: sprite.tint = engine::Color{255, 180, 0, 255}; break;   // Default orange
+                 }
+            } else {
+                // All other FAST types (Default, Zigzag, Coward, Chaser) use enemie13
+                sprite.texture = textures_.get_enemy_13();
+                sprite.tint = engine::Color::White;
             }
             break;
+
         case protocol::EntityType::ENEMY_TANK:
-            // Apply color based on subtype
-            switch (subtype) {
-                case 2:  sprite.tint = engine::Color{200, 80, 80, 255}; break;   // Red (default tank)
-                case 15: sprite.tint = engine::Color{80, 200, 80, 255}; break;   // Green (patrol)
-                case 19: sprite.tint = engine::Color{255, 100, 200, 255}; break; // Pink (spiral)
-                default: sprite.tint = engine::Color{200, 80, 80, 255}; break;   // Default red
-            }
+            // Unify all TANK enemies to use the same sprite (enemie11)
+            // Default, Patrol, Spiral
+            sprite.texture = textures_.get_enemy_11();
+            sprite.tint = engine::Color::White;
             break;
         case protocol::EntityType::ENEMY_BOSS:
             // Select boss sprite based on current map
@@ -224,13 +215,48 @@ Sprite EntityManager::build_sprite(protocol::EntityType type, bool is_local_play
     // Apply colors for ENEMY_BASIC based on subtype (new enemy types)
     if (type == protocol::EntityType::ENEMY_BASIC) {
         switch (subtype) {
-            case 0:  sprite.tint = engine::Color::White; break;                  // White (default basic)
-            case 10: sprite.tint = engine::Color{0, 255, 255, 255}; break;       // Cyan (wavy)
-            case 13: sprite.tint = engine::Color{255, 0, 255, 255}; break;       // Magenta (bouncer)
-            case 14: sprite.tint = engine::Color{50, 150, 255, 255}; break;      // Blue (orbiter)
-            case 16: sprite.tint = engine::Color{255, 140, 0, 255}; break;       // Dark orange (ambusher)
-            case 18: sprite.tint = engine::Color{255, 255, 0, 255}; break;       // Yellow (sniper)
-            default: sprite.tint = engine::Color{200, 200, 255, 255}; break;     // Light blue (other)
+            case 0:
+                sprite.texture = textures_.get_enemy_9();
+                sprite.tint = engine::Color::White;
+                break;
+            case 10:
+                sprite.texture = textures_.get_enemy_10();
+                sprite.tint = engine::Color::White;
+                break;
+            case 13:
+                sprite.texture = textures_.get_enemy_11();
+                sprite.tint = engine::Color::White;
+                break;
+            case 14:
+                sprite.texture = textures_.get_enemy_12();
+                sprite.tint = engine::Color::White;
+                break;
+            case 16:
+                sprite.texture = textures_.get_enemy_13();
+                sprite.tint = engine::Color::White;
+                break;
+            case 18:
+                // Re-use 9 for variety
+                sprite.texture = textures_.get_enemy_9();
+                sprite.tint = engine::Color::White;
+                break;
+            default:
+                // Default fallback
+                sprite.texture = textures_.get_enemy_10();
+                sprite.tint = engine::Color::White;
+                break;
+        }
+
+        // Apply scale fix if texture is large
+        engine::Vector2f tex_size = textures_.get_texture_size(sprite.texture);
+        if (tex_size.x > 0) {
+           float target_width = dims.width; // Use collider width (approx 64-80)
+           if (tex_size.x > target_width) {
+               float scale = target_width / tex_size.x;
+               sprite.width = tex_size.x * scale;
+               sprite.height = tex_size.y * scale;
+               use_fixed_dimensions = true;
+           }
         }
     }
 

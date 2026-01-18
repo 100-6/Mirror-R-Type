@@ -1067,6 +1067,14 @@ void GameSession::on_spawn_enemy(const std::string& enemy_type, float x, float y
         add_variant("kamikaze", fast, 12);
         add_variant("bouncer", basic, 13);
 
+        // New variants for visual diversity (Enemies 9-13)
+        // Subtypes map to specific sprites in EntityManager
+        add_variant("basic_v1", basic, 0);  // Enemy 9
+        add_variant("basic_v2", basic, 10); // Enemy 10
+        add_variant("basic_v3", basic, 13); // Enemy 11
+        add_variant("basic_v4", basic, 14); // Enemy 12
+        add_variant("basic_v5", basic, 16); // Enemy 13
+
         return m;
     }();
 
