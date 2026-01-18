@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 #include <cstdint>
+#include <unordered_map>
 #include <nlohmann/json.hpp>
 
 #include "components/LevelComponents.hpp"
@@ -31,6 +32,7 @@ struct BossConfig {
     float spawn_position_y;
     std::string enemy_type;                        // "boss"
     uint8_t total_phases;
+    std::string script_path;                       // Lua script path for boss behavior
     std::vector<game::BossPhaseConfig> phases;
 
     BossConfig()
@@ -40,6 +42,7 @@ struct BossConfig {
         , spawn_position_y(540.0f)
         , enemy_type("boss")
         , total_phases(3)
+        , script_path("boss/boss1_mars_guardian.lua")
     {}
 };
 
@@ -73,6 +76,7 @@ struct LevelConfig {
     uint16_t map_id;
     float base_scroll_speed;
     float total_scroll_distance;
+    uint32_t total_chunks;           // New chunk-based duration
 
     // Checkpoints removed
     std::vector<PhaseConfig> phases;
@@ -85,6 +89,7 @@ struct LevelConfig {
         , map_id(1)
         , base_scroll_speed(60.0f)
         , total_scroll_distance(8000.0f)
+        , total_chunks(20)           // Default 20 chunks
     {}
 };
 
@@ -131,6 +136,7 @@ public:
     const std::string& get_level_description() const { return config_.level_description; }
     float get_base_scroll_speed() const { return config_.base_scroll_speed; }
     float get_total_scroll_distance() const { return config_.total_scroll_distance; }
+    uint32_t get_total_chunks() const { return config_.total_chunks; }
 
     // === Checkpoint Access ===
 
@@ -169,14 +175,22 @@ public:
     // === Static Utilities ===
 
     /**
+     * @brief Load level index configuration (map ID to file)
+     * @param filepath Path to index JSON file
+     * @return true if successful
+     */
+    bool load_level_index(const std::string& filepath);
+
+    /**
      * @brief Get level file path based on level ID
-     * @param level_id Level number (1, 2, or 3)
+     * @param level_id Level number
      * @return Path to level JSON file
      */
-    static std::string get_level_file(uint8_t level_id);
+    std::string get_level_file(uint8_t level_id);
 
 private:
     LevelConfig config_;
+    std::unordered_map<uint8_t, std::string> level_files_;
 
     // === JSON Parsing Helpers ===
 

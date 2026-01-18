@@ -4,72 +4,72 @@
   "level_description": "Assault the frozen ice planet installations",
   "map_id": 3,
   "base_scroll_speed": 60.0,
-  "total_scroll_distance": 8000.0,
-
+  "total_chunks": 6,
   "phases": [
     {
       "phase_number": 1,
       "phase_name": "Frozen Entry",
       "scroll_start": 0.0,
-      "scroll_end": 2500.0,
+      "scroll_end": 1440.0,
       "difficulty": "medium",
       "waves": [
         {
-          "waveNumber": 1,
+          "wave_number": 1,
           "trigger": {
-            "scrollDistance": 200,
+            "chunkId": 0,
+            "offset": 0.42,
             "timeDelay": 0
           },
-          "formation": "ice_patrol",
           "spawns": [
-            {"type": "enemy", "enemyType": "fast", "positionX": 2100, "positionY": 300, "count": 4, "pattern": "line", "spacing": 100}
+            {"type": "enemy", "enemyType": "basic", "positionX": 2100, "positionY": 200, "count": 4, "pattern": "line", "spacing": 100},
+            {"type": "enemy", "enemyType": "basic", "positionX": 2100, "positionY": 700, "count": 4, "pattern": "line", "spacing": 100}
           ]
         },
         {
-          "waveNumber": 2,
+          "wave_number": 2,
           "trigger": {
-            "scrollDistance": 600,
+            "chunkId": 0,
+            "offset": 0.8,
             "timeDelay": 0
           },
-          "formation": "frozen_defenders",
           "spawns": [
-            {"type": "enemy", "enemyType": "basic", "positionX": 2300, "positionY": 250, "count": 2, "pattern": "line", "spacing": 150},
-            {"type": "enemy", "enemyType": "tank", "positionX": 2400, "positionY": 600, "count": 1, "pattern": "single"}
+            {"type": "enemy", "enemyType": "kamikaze", "positionX": 2300, "positionY": 250, "count": 3, "pattern": "line", "spacing": 150},
+            {"type": "powerup", "bonusType": "health", "positionX": 2600, "positionY": 450, "count": 1, "pattern": "single"}
           ]
         },
         {
-          "waveNumber": 3,
+          "wave_number": 3,
           "trigger": {
-            "scrollDistance": 1000,
+            "chunkId": 1,
+            "offset": 0.0,
             "timeDelay": 0
           },
-          "formation": "ice_swarm",
           "spawns": [
-            {"type": "enemy", "enemyType": "fast", "positionX": 2600, "positionY": 200, "count": 6, "pattern": "line", "spacing": 80}
+            {"type": "enemy", "enemyType": "basic", "positionX": 2100, "positionY": 300, "count": 5, "pattern": "line", "spacing": 120}
           ]
         },
         {
-          "waveNumber": 4,
+          "wave_number": 4,
           "trigger": {
-            "scrollDistance": 1500,
+            "chunkId": 1,
+            "offset": 0.5,
             "timeDelay": 0
           },
-          "formation": "mixed_assault",
           "spawns": [
-            {"type": "enemy", "enemyType": "tank", "positionX": 2900, "positionY": 300, "count": 2, "pattern": "line", "spacing": 200},
-            {"type": "enemy", "enemyType": "basic", "positionX": 3000, "positionY": 500, "count": 3, "pattern": "line", "spacing": 100}
+            {"type": "enemy", "enemyType": "kamikaze", "positionX": 2100, "positionY": 150, "count": 2, "pattern": "line", "spacing": 100},
+            {"type": "enemy", "enemyType": "kamikaze", "positionX": 2100, "positionY": 750, "count": 1, "pattern": "single", "spacing": 0}
           ]
         },
         {
-          "waveNumber": 5,
+          "wave_number": 5,
           "trigger": {
-            "scrollDistance": 2000,
+            "chunkId": 2,
+            "offset": 0.0,
             "timeDelay": 0
           },
-          "formation": "power_delivery",
           "spawns": [
-            {"type": "enemy", "enemyType": "fast", "positionX": 3300, "positionY": 350, "count": 3, "pattern": "line", "spacing": 120},
-            {"type": "powerup", "bonusType": "health", "positionX": 3500, "positionY": 450, "count": 1, "pattern": "single"}
+            {"type": "enemy", "enemyType": "bouncer", "positionX": 2100, "positionY": 350, "count": 4, "pattern": "line", "spacing": 130},
+            {"type": "powerup", "bonusType": "shield", "positionX": 2500, "positionY": 540, "count": 1, "pattern": "single"}
           ]
         }
       ]
@@ -77,136 +77,57 @@
     {
       "phase_number": 2,
       "phase_name": "Crystal Caverns",
-      "scroll_start": 2500.0,
-      "scroll_end": 5000.0,
+      "scroll_start": 1440.0,
+      "scroll_end": 2880.0,
       "difficulty": "hard",
       "waves": [
         {
-          "waveNumber": 6,
+          "wave_number": 6,
           "trigger": {
-            "scrollDistance": 2700,
+            "chunkId": 2,
+            "offset": 0.5,
             "timeDelay": 0
           },
-          "formation": "crystal_guards",
           "spawns": [
-            {"type": "enemy", "enemyType": "tank", "positionX": 4000, "positionY": 300, "count": 3, "pattern": "line", "spacing": 150}
+            {"type": "enemy", "enemyType": "basic", "positionX": 2100, "positionY": 280, "count": 6, "pattern": "formation", "spacing": 90}
           ]
         },
         {
-          "waveNumber": 7,
+          "wave_number": 7,
           "trigger": {
-            "scrollDistance": 3100,
+            "chunkId": 3,
+            "offset": 0.0,
             "timeDelay": 0
           },
-          "formation": "heavy_assault",
           "spawns": [
-            {"type": "enemy", "enemyType": "basic", "positionX": 4300, "positionY": 250, "count": 4, "pattern": "line", "spacing": 100},
-            {"type": "enemy", "enemyType": "fast", "positionX": 4400, "positionY": 600, "count": 4, "pattern": "line", "spacing": 90}
+            {"type": "enemy", "enemyType": "kamikaze", "positionX": 2100, "positionY": 200, "count": 2, "pattern": "line", "spacing": 120},
+            {"type": "enemy", "enemyType": "kamikaze", "positionX": 2100, "positionY": 650, "count": 2, "pattern": "line", "spacing": 120},
+            {"type": "enemy", "enemyType": "basic", "positionX": 2300, "positionY": 400, "count": 3, "pattern": "line", "spacing": 100}
           ]
         },
         {
-          "waveNumber": 8,
+          "wave_number": 8,
           "trigger": {
-            "scrollDistance": 3600,
+            "chunkId": 3,
+            "offset": 0.5,
             "timeDelay": 0
           },
-          "formation": "ice_storm",
           "spawns": [
-            {"type": "enemy", "enemyType": "fast", "positionX": 4700, "positionY": 200, "count": 8, "pattern": "line", "spacing": 70}
+            {"type": "enemy", "enemyType": "bouncer", "positionX": 2100, "positionY": 300, "count": 5, "pattern": "line", "spacing": 120},
+            {"type": "powerup", "bonusType": "health", "positionX": 2600, "positionY": 540, "count": 1, "pattern": "single"}
           ]
         },
         {
-          "waveNumber": 9,
+          "wave_number": 9,
           "trigger": {
-            "scrollDistance": 4100,
+            "chunkId": 4,
+            "offset": 0.0,
             "timeDelay": 0
           },
-          "formation": "reinforcements",
           "spawns": [
-            {"type": "enemy", "enemyType": "tank", "positionX": 5000, "positionY": 350, "count": 2, "pattern": "line", "spacing": 180},
-            {"type": "enemy", "enemyType": "basic", "positionX": 5100, "positionY": 500, "count": 5, "pattern": "line", "spacing": 90}
-          ]
-        },
-        {
-          "waveNumber": 10,
-          "trigger": {
-            "scrollDistance": 4600,
-            "timeDelay": 0
-          },
-          "formation": "bonus_wave",
-          "spawns": [
-            {"type": "enemy", "enemyType": "tank", "positionX": 5400, "positionY": 400, "count": 1, "pattern": "single", "bonusDrop": {"enabled": true, "bonusType": "shield", "dropChance": 1.0}},
-            {"type": "enemy", "enemyType": "fast", "positionX": 5500, "positionY": 250, "count": 3, "pattern": "line", "spacing": 100}
-          ]
-        }
-      ]
-    },
-    {
-      "phase_number": 3,
-      "phase_name": "Final Freeze",
-      "scroll_start": 5000.0,
-      "scroll_end": 7500.0,
-      "difficulty": "very_hard",
-      "waves": [
-        {
-          "waveNumber": 11,
-          "trigger": {
-            "scrollDistance": 5200,
-            "timeDelay": 0
-          },
-          "formation": "elite_ice_squadron",
-          "spawns": [
-            {"type": "enemy", "enemyType": "fast", "positionX": 5800, "positionY": 200, "count": 4, "pattern": "line", "spacing": 100},
-            {"type": "enemy", "enemyType": "tank", "positionX": 5900, "positionY": 500, "count": 2, "pattern": "line", "spacing": 200}
-          ]
-        },
-        {
-          "waveNumber": 12,
-          "trigger": {
-            "scrollDistance": 5700,
-            "timeDelay": 0
-          },
-          "formation": "overwhelming_force",
-          "spawns": [
-            {"type": "enemy", "enemyType": "basic", "positionX": 6200, "positionY": 300, "count": 6, "pattern": "line", "spacing": 80},
-            {"type": "enemy", "enemyType": "fast", "positionX": 6300, "positionY": 600, "count": 5, "pattern": "line", "spacing": 90}
-          ]
-        },
-        {
-          "waveNumber": 13,
-          "trigger": {
-            "scrollDistance": 6200,
-            "timeDelay": 0
-          },
-          "formation": "armored_wave",
-          "spawns": [
-            {"type": "enemy", "enemyType": "tank", "positionX": 6600, "positionY": 250, "count": 4, "pattern": "line", "spacing": 150}
-          ]
-        },
-        {
-          "waveNumber": 14,
-          "trigger": {
-            "scrollDistance": 6700,
-            "timeDelay": 0
-          },
-          "formation": "final_assault",
-          "spawns": [
-            {"type": "enemy", "enemyType": "fast", "positionX": 7000, "positionY": 200, "count": 3, "pattern": "line", "spacing": 120},
-            {"type": "enemy", "enemyType": "tank", "positionX": 7100, "positionY": 450, "count": 2, "pattern": "line", "spacing": 180},
-            {"type": "enemy", "enemyType": "basic", "positionX": 7200, "positionY": 650, "count": 4, "pattern": "line", "spacing": 100}
-          ]
-        },
-        {
-          "waveNumber": 15,
-          "trigger": {
-            "scrollDistance": 7200,
-            "timeDelay": 0
-          },
-          "formation": "last_stand",
-          "spawns": [
-            {"type": "enemy", "enemyType": "tank", "positionX": 7500, "positionY": 300, "count": 3, "pattern": "line", "spacing": 160},
-            {"type": "enemy", "enemyType": "fast", "positionX": 7600, "positionY": 600, "count": 4, "pattern": "line", "spacing": 100},
-            {"type": "powerup", "bonusType": "health", "positionX": 7800, "positionY": 400, "count": 1, "pattern": "single"}
+            {"type": "enemy", "enemyType": "kamikaze", "positionX": 2100, "positionY": 150, "count": 3, "pattern": "line", "spacing": 100},
+            {"type": "enemy", "enemyType": "kamikaze", "positionX": 2100, "positionY": 700, "count": 3, "pattern": "line", "spacing": 100},
+            {"type": "enemy", "enemyType": "basic", "positionX": 2400, "positionY": 400, "count": 4, "pattern": "line", "spacing": 100}
           ]
         }
       ]
@@ -214,12 +135,13 @@
   ],
 
   "boss": {
-    "boss_name": "Frozen Titan",
-    "spawn_scroll_distance": 7500.0,
+    "boss_name": "Uranus Sentinel",
+    "spawn_scroll_distance": 2000.0,
     "spawn_position_x": 1600.0,
     "spawn_position_y": 540.0,
     "enemy_type": "boss",
     "total_phases": 3,
+    "script_path": "boss/boss3_uranus_sentinel.lua",
     "phases": [
       {
         "phase_number": 1,

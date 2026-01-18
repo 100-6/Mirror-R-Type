@@ -80,8 +80,8 @@ int main(int argc, char* argv[]) {
         player_name = argv[3];
 
     std::cout << "=== R-Type Network Client ===\n";
-    std::cout << "Server: " << host << ":" << tcp_port << "\n";
-    std::cout << "Player: " << player_name << "\n\n";
+    std::cout << "Default server: " << host << ":" << tcp_port << "\n";
+    std::cout << "Default player: " << player_name << "\n\n";
 
     rtype::client::ClientGame game(SCREEN_WIDTH, SCREEN_HEIGHT);
     if (!game.initialize(host, tcp_port, player_name)) {
@@ -90,6 +90,5 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     game.run();
-    game.shutdown();
     return 0;
 }

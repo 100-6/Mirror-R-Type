@@ -18,6 +18,7 @@ set(RTYPE_CLIENT_SOURCES
     src/ui/ConsoleOverlay.cpp
     src/ui/ChatOverlay.cpp
     # Screen classes
+    src/screens/ConnectionScreen.cpp
     src/screens/MainMenuScreen.cpp
     src/screens/CreateRoomScreen.cpp
     src/screens/BrowseRoomsScreen.cpp

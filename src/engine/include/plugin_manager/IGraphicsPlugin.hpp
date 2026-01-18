@@ -207,6 +207,16 @@ public:
      */
     virtual void unload_font(FontHandle handle) = 0;
 
+    /**
+     * @brief Measure the width of text in pixels
+     * @param text Text to measure
+     * @param font_size Font size in pixels
+     * @param font_handle Font to use (INVALID_HANDLE for default font)
+     * @return Width of the text in pixels
+     */
+    virtual float measure_text(const std::string& text, int font_size,
+                               FontHandle font_handle = INVALID_HANDLE) const = 0;
+
     // Camera/View
     /**
      * @brief Set the camera view

@@ -130,6 +130,9 @@ bool ClientGame::initialize(const std::string& host, uint16_t tcp_port, const st
         handle_console_command(cmd);
     });
     network_client_->set_on_admin_auth_result([this](bool success, const std::string& msg) {
+        // Guard against callbacks during shutdown
+        if (is_shutting_down_ || !console_overlay_)
+            return;
         if (success) {
             admin_authenticated_ = true;
             console_overlay_->add_success(msg);
@@ -139,6 +142,9 @@ bool ClientGame::initialize(const std::string& host, uint16_t tcp_port, const st
         }
     });
     network_client_->set_on_admin_command_result([this](bool success, const std::string& msg) {
+        // Guard against callbacks during shutdown
+        if (is_shutting_down_ || !console_overlay_)
+            return;
         if (success)
             console_overlay_->add_success(msg);
         else
@@ -204,18 +210,39 @@ bool ClientGame::initialize(const std::string& host, uint16_t tcp_port, const st
         menu_manager_->get_settings_screen() ? &menu_manager_->get_settings_screen()->get_key_bindings() : nullptr
     );
 
-    status_overlay_->set_connection("Connecting to " + host_ + ":" + std::to_string(tcp_port_));
-    status_overlay_->refresh();
+    // Setup connection screen callback
+    if (menu_manager_->get_connection_screen()) {
+        menu_manager_->get_connection_screen()->set_defaults(host_, tcp_port_, player_name_);
+        menu_manager_->get_connection_screen()->set_connect_callback(
+            [this](const std::string& host, uint16_t port, const std::string& player_name) {
+                // Store connection parameters
+                host_ = host;
+                tcp_port_ = port;
+                player_name_ = player_name;
 
-    if (!network_client_->connect(host_, tcp_port_)) {
-        std::cerr << "[ClientGame] Failed to connect to server\n";
-        return false;
+                status_overlay_->set_connection("Connecting to " + host_ + ":" + std::to_string(tcp_port_));
+                status_overlay_->refresh();
+
+                if (!network_client_->connect(host_, tcp_port_)) {
+                    std::cerr << "[ClientGame] Failed to connect to server\n";
+                    if (menu_manager_->get_connection_screen()) {
+                        menu_manager_->get_connection_screen()->set_error_message("Connection failed");
+                    }
+                    return;
+                }
+
+                network_client_->send_connect(player_name_);
+
+                // Connection successful, switch to main menu
+                menu_manager_->set_screen(GameScreen::MAIN_MENU);
+                screen_manager_->set_screen(GameScreen::MAIN_MENU);
+            }
+        );
     }
 
-    network_client_->send_connect(player_name_);
-
-    // Start at main menu instead of auto-joining
-    screen_manager_->set_screen(GameScreen::MAIN_MENU);
+    // Start at connection screen
+    menu_manager_->set_screen(GameScreen::CONNECTION);
+    screen_manager_->set_screen(GameScreen::CONNECTION);
 
     // Emit scene change event for menu music at startup
     registry_->get_event_bus().publish(ecs::SceneChangeEvent{
@@ -417,7 +444,7 @@ void ClientGame::setup_background() {
     wave_tracker_ = registry_->spawn_entity();
     WaveController wave_ctrl;
     wave_ctrl.totalWaveCount = 0;
-    wave_ctrl.currentWaveNumber = 0;
+    wave_ctrl.currentWaveNumber = 1;
     wave_ctrl.currentWaveIndex = 0;
     wave_ctrl.totalScrollDistance = 0.0f;
     wave_ctrl.allWavesCompleted = false;
@@ -454,6 +481,7 @@ void ClientGame::apply_map_theme(uint16_t map_id) {
     }
 
 //     std::cout << "[ClientGame] Applied theme for map " << map_id << "\n";
+    entity_manager_->set_current_map_id(map_id);
 }
 
 void ClientGame::load_level_checkpoints(uint16_t map_id) {
@@ -538,6 +566,9 @@ void ClientGame::load_map(const std::string& mapId) {
 
 void ClientGame::setup_network_callbacks() {
     network_client_->set_on_accepted([this](uint32_t player_id) {
+        // Guard against callbacks during shutdown
+        if (is_shutting_down_ || !entity_manager_)
+            return;
         entity_manager_->set_local_player_id(player_id);
         status_overlay_->set_connection("Connected (Player " + std::to_string(player_id) + ")");
         status_overlay_->refresh();
@@ -556,6 +587,9 @@ void ClientGame::setup_network_callbacks() {
 
     network_client_->set_on_lobby_state([this](const protocol::ServerLobbyStatePayload& state,
                                                const std::vector<protocol::PlayerLobbyEntry>& players_info) {
+        // Guard against callbacks during shutdown
+        if (is_shutting_down_ || !entity_manager_)
+            return;
         int current = static_cast<int>(state.current_player_count);
         int required = static_cast<int>(state.required_player_count);
         status_overlay_->set_lobby("Lobby " + std::to_string(state.lobby_id) + ": " +
@@ -581,6 +615,9 @@ void ClientGame::setup_network_callbacks() {
     });
 
     network_client_->set_on_game_start([this](uint32_t session_id, uint16_t udp_port, uint16_t map_id, float scroll_speed, uint32_t seed) {
+        // Guard against callbacks during shutdown
+        if (is_shutting_down_ || !registry_ || !entity_manager_ || !screen_manager_)
+            return;
         (void)udp_port;
         status_overlay_->set_session("In game (session " + std::to_string(session_id) + ")");
         status_overlay_->refresh();
@@ -655,7 +692,7 @@ void ClientGame::setup_network_callbacks() {
         auto& wave_controllers = registry_->get_components<WaveController>();
         if (wave_controllers.has_entity(wave_tracker_)) {
             WaveController& ctrl = wave_controllers[wave_tracker_];
-            ctrl.currentWaveNumber = 0;
+            ctrl.currentWaveNumber = 1;
             ctrl.currentWaveIndex = 0;
             ctrl.allWavesCompleted = false;
             ctrl.totalScrollDistance = 0.0f;
@@ -663,6 +700,9 @@ void ClientGame::setup_network_callbacks() {
     });
 
     network_client_->set_on_player_name_updated([this](const protocol::ServerPlayerNameUpdatedPayload& payload) {
+        // Guard against callbacks during shutdown
+        if (is_shutting_down_ || !entity_manager_)
+            return;
         std::string name(payload.new_name, strnlen(payload.new_name, sizeof(payload.new_name)));
         uint32_t playerId = payload.player_id;
         entity_manager_->set_player_name(playerId, name);
@@ -679,6 +719,9 @@ void ClientGame::setup_network_callbacks() {
     });
 
     network_client_->set_on_entity_spawn([this](const protocol::ServerEntitySpawnPayload& spawn) {
+        // Guard against callbacks during shutdown
+        if (is_shutting_down_ || !entity_manager_)
+            return;
         uint32_t server_id = ntohl(spawn.entity_id);
         uint16_t health = ntohs(spawn.health);
         entity_manager_->spawn_or_update_entity(server_id, spawn.entity_type,
@@ -686,11 +729,17 @@ void ClientGame::setup_network_callbacks() {
     });
 
     network_client_->set_on_entity_destroy([this](const protocol::ServerEntityDestroyPayload& destroy) {
+        // Guard against callbacks during shutdown
+        if (is_shutting_down_ || !entity_manager_)
+            return;
         uint32_t server_id = ntohl(destroy.entity_id);
         entity_manager_->remove_entity(server_id);
     });
 
     network_client_->set_on_wave_start([this](const protocol::ServerWaveStartPayload& wave) {
+        // Guard against callbacks during shutdown
+        if (is_shutting_down_ || !registry_)
+            return;
         auto& wave_controllers = registry_->get_components<WaveController>();
         if (!wave_controllers.has_entity(wave_tracker_))
             return;
@@ -704,6 +753,9 @@ void ClientGame::setup_network_callbacks() {
     });
 
     network_client_->set_on_wave_complete([this](const protocol::ServerWaveCompletePayload& wave) {
+        // Guard against callbacks during shutdown
+        if (is_shutting_down_ || !registry_)
+            return;
         auto& wave_controllers = registry_->get_components<WaveController>();
         if (!wave_controllers.has_entity(wave_tracker_))
             return;
@@ -717,6 +769,9 @@ void ClientGame::setup_network_callbacks() {
     });
 
     network_client_->set_on_score_update([this](const protocol::ServerScoreUpdatePayload& score) {
+        // Guard against callbacks during shutdown
+        if (is_shutting_down_ || !entity_manager_ || !registry_)
+            return;
         // Use entity_id from payload to find the correct entity (like level-up does)
         uint32_t server_entity_id = score.entity_id;
         uint32_t player_id = score.player_id;
@@ -759,6 +814,9 @@ void ClientGame::setup_network_callbacks() {
     });
 
     network_client_->set_on_player_level_up([this](const protocol::ServerPlayerLevelUpPayload& level_up) {
+        // Guard against callbacks during shutdown
+        if (is_shutting_down_ || !entity_manager_)
+            return;
         // Update the player's sprite with the new skin
         entity_manager_->update_player_skin(level_up.entity_id, level_up.new_skin_id);
 
@@ -772,6 +830,9 @@ void ClientGame::setup_network_callbacks() {
     });
 
     network_client_->set_on_powerup_collected([this](const protocol::ServerPowerupCollectedPayload& powerup) {
+        // Guard against callbacks during shutdown
+        if (is_shutting_down_ || !entity_manager_ || !registry_)
+            return;
         // Only handle WEAPON_UPGRADE type (bonus weapon / companion turret)
         if (powerup.powerup_type != protocol::PowerupType::WEAPON_UPGRADE)
             return;
@@ -789,6 +850,9 @@ void ClientGame::setup_network_callbacks() {
     });
 
     network_client_->set_on_projectile_spawn([this](const protocol::ServerProjectileSpawnPayload& proj) {
+        // Guard against callbacks during shutdown
+        if (is_shutting_down_ || !entity_manager_ || !registry_)
+            return;
         uint32_t proj_id = ntohl(proj.projectile_id);
         uint32_t owner_id = ntohl(proj.owner_id);
 
@@ -822,7 +886,8 @@ void ClientGame::setup_network_callbacks() {
     });
 
     network_client_->set_on_explosion([this](const protocol::ServerExplosionPayload& explosion) {
-        if (!entity_manager_)
+        // Guard against callbacks during shutdown
+        if (is_shutting_down_ || !entity_manager_)
             return;
         float x = explosion.position_x;
         float y = explosion.position_y;
@@ -832,6 +897,9 @@ void ClientGame::setup_network_callbacks() {
 
     network_client_->set_on_snapshot([this](const protocol::ServerSnapshotPayload& header,
                                             const std::vector<protocol::EntityState>& entities) {
+        // Guard against callbacks during shutdown
+        if (is_shutting_down_ || !registry_ || !entity_manager_)
+            return;
         auto& positions = registry_->get_components<Position>();
         auto& velocities = registry_->get_components<Velocity>();
         auto& healths = registry_->get_components<Health>();
@@ -848,14 +916,16 @@ void ClientGame::setup_network_callbacks() {
 
         // Synchronize scroll position from server for visual tile rendering
         // Wall collisions are handled server-side only, but tiles need to render at correct position
-        // ALWAYS sync to server scroll to ensure visual tiles match server wall positions
-        double server_scroll = static_cast<double>(header.scroll_x);
-        if (chunk_manager_) {
-            // Force chunk manager scroll to match server exactly
-            // This ensures chunk loading/unloading decisions use the same scroll as rendering
-            chunk_manager_->setScrollX(server_scroll);
+        // Skip scroll updates during level transitions to prevent chunk loading desync
+        if (!level_transition_in_progress_) {
+            double server_scroll = static_cast<double>(header.scroll_x);
+            if (chunk_manager_) {
+                // Force chunk manager scroll to match server exactly
+                // This ensures chunk loading/unloading decisions use the same scroll as rendering
+                chunk_manager_->setScrollX(server_scroll);
+            }
+            map_scroll_x_ = server_scroll;
         }
-        map_scroll_x_ = server_scroll;
 
         for (const auto& state : entities) {
             uint32_t server_id = ntohl(state.entity_id);
@@ -994,6 +1064,9 @@ void ClientGame::setup_network_callbacks() {
     });
 
     network_client_->set_on_game_over([this](const protocol::ServerGameOverPayload& result) {
+        // Guard against callbacks during shutdown
+        if (is_shutting_down_ || !registry_ || !screen_manager_)
+            return;
         bool victory = result.result == protocol::GameResult::VICTORY;
         status_overlay_->set_session(victory ? "Victory" : "Defeat");
         status_overlay_->refresh();
@@ -1034,6 +1107,9 @@ void ClientGame::setup_network_callbacks() {
 
     network_client_->set_on_leaderboard([this](const protocol::ServerLeaderboardPayload& header,
                                                const std::vector<protocol::LeaderboardEntry>& entries) {
+        // Guard against callbacks during shutdown
+        if (is_shutting_down_ || !registry_ || !screen_manager_)
+            return;
         std::cout << "[ClientGame] Received leaderboard with " << static_cast<int>(header.entry_count)
                   << " entries" << std::endl;
 
@@ -1070,6 +1146,10 @@ void ClientGame::setup_network_callbacks() {
 
     // Player respawn callback
     network_client_->set_on_player_respawn([this](const protocol::ServerPlayerRespawnPayload& payload) {
+        // Guard against callbacks during shutdown
+        if (is_shutting_down_ || !entity_manager_ || !registry_)
+            return;
+
         uint32_t player_id = ntohl(payload.player_id);
         float respawn_x = payload.respawn_x;
         float respawn_y = payload.respawn_y;
@@ -1081,11 +1161,6 @@ void ClientGame::setup_network_callbacks() {
 //                   << respawn_x << ", " << respawn_y << ") with "
 //                   << static_cast<int>(lives) << " lives and "
 //                   << invuln_duration << "s invulnerability\n";
-
-        if (!entity_manager_) {
-            std::cerr << "[ClientGame] ERROR: EntityManager is null, cannot respawn player\n";
-            return;
-        }
 
         // Update HUD lives display
         if (registry_->has_system<HUDSystem>()) {
@@ -1141,6 +1216,109 @@ void ClientGame::setup_network_callbacks() {
             }
         }
     });
+
+    // Level transition callback
+    network_client_->set_on_level_transition([this](const protocol::ServerLevelTransitionPayload& payload) {
+        // Trigger visual reset (fade to black)
+        fade_trigger_ = true;
+
+        // Enable transition lock to prevent scroll desync during map reload
+        level_transition_in_progress_ = true;
+        level_transition_timer_ = 0.0f;
+
+        uint16_t next_level = payload.next_level_id;
+        std::cout << "[ClientGame] Level transition to Level " << next_level << "\n";
+
+        // Map visual assets based on level
+        std::string mapIdTransitionStr;
+        switch (next_level) {
+            case 0:   // Debug: Quick Test
+            case 99:  // Debug: Instant Boss
+                mapIdTransitionStr = "nebula_outpost";
+                break;
+            case 1:   // Level 1: Mars Assault
+                mapIdTransitionStr = "mars_outpost";
+                break;
+            case 2:   // Level 2: Nebula Station
+                mapIdTransitionStr = "nebula_outpost";
+                break;
+            case 3:   // Level 3: Uranus Station
+                mapIdTransitionStr = "urasnus_outpost";
+                break;
+            case 4:   // Level 4: Jupiter Orbit
+                mapIdTransitionStr = "jupiter_outpost";
+                break;
+            default:
+                mapIdTransitionStr = "nebula_outpost";
+                break;
+        }
+
+        // Load the selected map
+        load_map(mapIdTransitionStr);
+        if (chunk_manager_) {
+            // Pass registry to update velocities of existing wall entities
+            chunk_manager_->setScrollSpeed(server_scroll_speed_, registry_.get());
+        }
+
+        // Apply map-specific theme (background color)
+        apply_map_theme(next_level);
+
+        // Load checkpoints for the level
+        load_level_checkpoints(next_level);
+
+        // Clear local entities (enemies, projectiles, bonuses) to prepare for new level
+        if (registry_) {
+            auto& enemies = registry_->get_components<Enemy>();
+            std::vector<Entity> to_kill;
+            for (size_t i = 0; i < enemies.size(); ++i) {
+                to_kill.push_back(enemies.get_entity_at(i));
+            }
+            auto& projectiles = registry_->get_components<Projectile>();
+            for (size_t i = 0; i < projectiles.size(); ++i) {
+                to_kill.push_back(projectiles.get_entity_at(i));
+            }
+            auto& bonuses = registry_->get_components<Bonus>();
+            for (size_t i = 0; i < bonuses.size(); ++i) {
+                to_kill.push_back(bonuses.get_entity_at(i));
+            }
+            for (Entity e : to_kill) {
+                registry_->kill_entity(e);
+            }
+        }
+        
+        // Also clear walls for level transition as map changes
+        if (registry_) {
+            auto& walls = registry_->get_components<Wall>();
+            std::vector<Entity> to_kill;
+            for (size_t i = 0; i < walls.size(); ++i) {
+                to_kill.push_back(walls.get_entity_at(i));
+            }
+            for (Entity e : to_kill) {
+                registry_->kill_entity(e);
+            }
+        }
+
+        // Reset prediction system
+        if (prediction_system_) {
+            prediction_system_->reset();
+        }
+        
+        // Reset local map scroll tracking
+        map_scroll_x_ = 0.0;
+
+        // Reset ChunkManager to clear old map chunks
+        if (chunk_manager_) {
+            chunk_manager_->reset(*registry_);
+        }
+
+        // Reset background entities position to prevent them from being off-screen
+        auto& positions = registry_->get_components<Position>();
+        if (positions.has_entity(background1_)) positions[background1_].x = 0.0f;
+        if (positions.has_entity(background2_)) positions[background2_].x = 0.0f;
+
+        // Map visual assets based on level
+        std::string mapIdStr;
+    });
 }
 
 void ClientGame::run() {
@@ -1168,6 +1346,14 @@ void ClientGame::run() {
         // Mettre à jour le temps écoulé pour l'extrapolation
         current_time_ += dt;
 
+        // Release transition lock after 200ms safety window
+        if (level_transition_in_progress_) {
+            level_transition_timer_ += dt;
+            if (level_transition_timer_ >= 0.2f) {
+                level_transition_in_progress_ = false;
+            }
+        }
+
         network_plugin_->update(dt);
         network_client_->update();
 
@@ -1179,6 +1365,9 @@ void ClientGame::run() {
         }
 
         // Toggle debug visualization with H key (colliders + spawn points)
+        // Toggle debug visualization with H key (colliders + spawn points)
+        // DISABLED: User request to deactivate hitbox debug menu
+        /*
         if (input_handler_->is_hitbox_toggle_pressed()) {
             bool new_state = false;
 
@@ -1189,6 +1378,7 @@ void ClientGame::run() {
                 debug_system.set_enabled(new_state);
             }
         }
+        */
 
         // Toggle admin console with Tab key
         static bool tab_was_pressed = false;
@@ -1268,7 +1458,8 @@ void ClientGame::run() {
 
         // Check current screen
         GameScreen current_screen = screen_manager_->get_current_screen();
-        bool in_menu = (current_screen == GameScreen::MAIN_MENU ||
+        bool in_menu = (current_screen == GameScreen::CONNECTION ||
+                       current_screen == GameScreen::MAIN_MENU ||
                        current_screen == GameScreen::CREATE_ROOM ||
                        current_screen == GameScreen::BROWSE_ROOMS ||
                        current_screen == GameScreen::ROOM_LOBBY ||
@@ -1519,22 +1710,52 @@ void ClientGame::run() {
 }
 
 void ClientGame::shutdown() {
+    // Prevent double shutdown
+    if (is_shutting_down_.exchange(true)) return;
+
+    running_ = false;
+
+    // 1. Stop network communication first
+    // This stops the background thread and ensures no more callbacks are called
     if (network_client_) {
         network_client_->disconnect();
-        entity_manager_->clear_all();
-        network_client_.reset();
     }
 
-    if (network_plugin_)
-        network_plugin_->shutdown();
-    if (audio_plugin_)
-        audio_plugin_->shutdown();
-    if (input_plugin_)
-        input_plugin_->shutdown();
-    if (graphics_plugin_)
-        graphics_plugin_->shutdown();
+    // 2. Destroy UI and high-level managers that depend on Registry/Plugins
+    menu_manager_.reset();
+    input_handler_.reset();
+    status_overlay_.reset();
+    console_overlay_.reset();
+    debug_network_overlay_.reset();
+    
+    // 3. Clear ECS entities while managers/systems are still partially alive
+    if (entity_manager_) {
+        entity_manager_->clear_all();
+        entity_manager_.reset();
+    }
 
-    std::cout << "[ClientGame] Client terminated.\n";
+    // 4. Destroy remaining gameplay systems
+    prediction_system_.reset();
+    interpolation_system_.reset();
+    parallax_system_.reset();
+    chunk_manager_.reset();
+    screen_manager_.reset();
+    texture_manager_.reset();
+
+    // 5. Destroy the Registry (this destroys all ECS Systems like AudioSystem, RenderSystem)
+    // This MUST happen before plugin shutdown because systems hold plugin references
+    registry_.reset();
+
+    // 6. Finally safely shutdown and release the plugins
+    if (network_client_) network_client_.reset();
+    
+    // Shutdown plugins in reverse order of initialization
+    if (network_plugin_) network_plugin_->shutdown();
+    if (audio_plugin_) audio_plugin_->shutdown();
+    if (input_plugin_) input_plugin_->shutdown();
+    if (graphics_plugin_) graphics_plugin_->shutdown();
+
+    std::cout << "[ClientGame] Client terminated safely.\n";
 }
 
 void ClientGame::apply_input_to_local_player(uint16_t input_flags) {
@@ -1559,7 +1780,8 @@ void ClientGame::apply_input_to_local_player(uint16_t input_flags) {
 
 void ClientGame::handle_console_command(const std::string& command) {
     if (command == "clear") {
-        console_overlay_->add_info("Console cleared");
+        console_overlay_->clear();
+        console_overlay_->add_success("Console cleared");
         return;
     }
 

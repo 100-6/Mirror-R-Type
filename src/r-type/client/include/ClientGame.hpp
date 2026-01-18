@@ -106,11 +106,16 @@ private:
 
     // Game state
     std::atomic<bool> running_;
+    std::atomic<bool> is_shutting_down_{false};
     uint32_t client_tick_;
     Entity wave_tracker_;
     float current_time_;
     uint16_t current_map_id_ = 1;
     int last_known_score_ = 0;
+
+    // Level transition state (prevents scroll desync during transitions)
+    bool level_transition_in_progress_ = false;
+    float level_transition_timer_ = 0.0f;
 
     // Audio state for client-side sound triggers
     bool was_shooting_ = false;

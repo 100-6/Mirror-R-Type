@@ -17,7 +17,11 @@ TextureManager::TextureManager(engine::IGraphicsPlugin& graphics)
     , shot_frame_2_(engine::INVALID_HANDLE)
     , bullet_animation_(engine::INVALID_HANDLE)
     , explosion_(engine::INVALID_HANDLE)
-    , bonus_weapon_(engine::INVALID_HANDLE) {
+    , bonus_weapon_(engine::INVALID_HANDLE)
+    , boss_mars_(engine::INVALID_HANDLE)
+    , boss_uranus_(engine::INVALID_HANDLE)
+    , boss_jupiter_(engine::INVALID_HANDLE)
+    , kamikaze_(engine::INVALID_HANDLE) {
     player_frames_.fill(engine::INVALID_HANDLE);
 }
 
@@ -62,6 +66,12 @@ bool TextureManager::load_all() {
     if (bonus_weapon_ == engine::INVALID_HANDLE) {
         std::cerr << "[TextureManager] Warning: Bonus weapon sprite failed to load\n";
     }
+
+    // Load boss textures
+    boss_mars_ = graphics_.load_texture(BOSS_MARS);
+    boss_uranus_ = graphics_.load_texture(BOSS_URANUS);
+    boss_jupiter_ = graphics_.load_texture(BOSS_JUPITER);
+    kamikaze_ = graphics_.load_texture(ENEMY_KAMIKAZE);
 
     // Check critical textures
     if (background_ == engine::INVALID_HANDLE ||

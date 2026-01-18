@@ -101,11 +101,17 @@ public:
      */
     void update_player_skin(uint32_t server_id, uint8_t new_skin_id);
 
+    /**
+     * @brief Set current map ID to select correct boss sprites
+     */
+    void set_current_map_id(uint16_t map_id) { current_map_id_ = map_id; }
+
 private:
     Registry& registry_;
     TextureManager& textures_;
     int screen_width_;
     int screen_height_;
+    uint16_t current_map_id_ = 1;
 
     // Entity tracking
     std::unordered_map<uint32_t, Entity> server_to_local_;

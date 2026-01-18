@@ -14,7 +14,7 @@ namespace rtype::client {
 
 ColliderDebugSystem::ColliderDebugSystem(engine::IGraphicsPlugin& graphics_plugin)
     : graphics_plugin_(graphics_plugin)
-    , enabled_(true) {
+    , enabled_(false) {
 }
 
 void ColliderDebugSystem::init(Registry& registry) {

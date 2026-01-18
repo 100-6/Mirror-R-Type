@@ -133,15 +133,20 @@ void WaveSpawnerSystem::updateScrollTracking(Registry& registry, float dt)
 {
     // Track scrolling using ScrollingSystem's scroll speed (-100 px/s)
     // Since scrolling is constant, we can calculate distance from time
+    // TODO: Get actual scroll speed from LevelSystem/Camera
     const float SCROLL_SPEED = 100.0f; // Absolute value of scroll speed
 
     totalScrollDistance_ += SCROLL_SPEED * dt;
-
-    // Debug output every 100 pixels
-    static float lastDebugDistance = 0.0f;
-    if (totalScrollDistance_ - lastDebugDistance >= 100.0f) {
-        std::cout << "WaveSpawnerSystem: Total scroll distance = " << totalScrollDistance_ << std::endl;
-        lastDebugDistance = totalScrollDistance_;
+    
+    // Convert scroll distance to current chunk index (1 chunk = 480px = 30 tiles * 16px)
+    int currentChunk = static_cast<int>(totalScrollDistance_ / (30.0f * 16.0f));
+    
+    // Debug output every new chunk
+    static int lastDebugChunk = -1;
+    if (currentChunk > lastDebugChunk) {
+        std::cout << "WaveSpawnerSystem: Entered Chunk " << currentChunk 
+                  << " (Scroll: " << totalScrollDistance_ << "px)" << std::endl;
+        lastDebugChunk = currentChunk;
     }
 }
 
@@ -172,13 +177,32 @@ void WaveSpawnerSystem::checkWaveTriggers(Registry& registry, float dt)
         return;
     }
 
-    // Check if scroll distance trigger is met
-    if (!wave.trigger.triggered && totalScrollDistance_ >= wave.trigger.scrollDistance) {
+    // Check if chunk trigger is met
+    // We trigger if:
+    // 1. currentChunk > trigger.chunkId (passed the chunk)
+    // 2. OR currentChunk == trigger.chunkId AND offset condition met
+    
+    // Calculate current chunk and offset
+    float chunkSizePx = 30.0f * 16.0f; // 480px
+    int currentChunk = static_cast<int>(totalScrollDistance_ / chunkSizePx);
+    float currentOffset = (totalScrollDistance_ - (currentChunk * chunkSizePx)) / chunkSizePx;
+
+    bool shouldTrigger = false;
+
+    if (currentChunk > wave.trigger.chunkId) {
+        shouldTrigger = true;
+    } else if (currentChunk == wave.trigger.chunkId) {
+        if (currentOffset >= wave.trigger.offset) {
+            shouldTrigger = true;
+        }
+    }
+
+    if (!wave.trigger.triggered && shouldTrigger) {
         wave.trigger.triggered = true;
 
         std::cout << "========================================" << std::endl;
         std::cout << "WAVE " << wave.waveNumber << " TRIGGERED!" << std::endl;
-        std::cout << "Scroll distance: " << totalScrollDistance_ << "px" << std::endl;
+        std::cout << "Chunk: " << wave.trigger.chunkId << " (Current: " << currentChunk << ")" << std::endl;
         std::cout << "========================================" << std::endl;
 
         // Update WaveController component

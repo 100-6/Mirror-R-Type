@@ -13,6 +13,7 @@
 #include "ecs/events/InputEvents.hpp"
 #include "components/CombatHelpers.hpp"
 #include "systems/ShootingSystem.hpp"
+#include "GameConfig.hpp"
 
 #include <iostream>
 #include <cmath>
@@ -154,6 +155,7 @@ void ServerNetworkSystem::update(Registry& registry, float dt)
     broadcast_pending_powerups();
     broadcast_pending_respawns();
     broadcast_pending_level_ups();
+    broadcast_pending_level_transitions();
 }
 
 void ServerNetworkSystem::shutdown()
@@ -226,6 +228,14 @@ void ServerNetworkSystem::queue_player_level_up(uint32_t player_id, Entity entit
     std::cout << "[ServerNetworkSystem] Queued player level-up: player=" << player_id
               << " entity=" << entity << " level=" << static_cast<int>(new_level)
               << " skin_id=" << static_cast<int>(new_skin_id) << std::endl;
+}
+
+void ServerNetworkSystem::queue_level_transition(uint16_t next_level_id)
+{
+    protocol::ServerLevelTransitionPayload payload;
+    payload.next_level_id = ByteOrder::host_to_net16(next_level_id);
+    pending_level_transitions_.push(payload);
+    std::cout << "[ServerNetworkSystem] Queued level transition to level " << next_level_id << "\n";
 }
 
 void ServerNetworkSystem::process_pending_inputs(Registry& registry)
@@ -544,6 +554,26 @@ void ServerNetworkSystem::broadcast_pending_level_ups()
     }
 }
 
+void ServerNetworkSystem::broadcast_pending_level_transitions()
+{
+    if (!listener_)
+        return;
+    while (!pending_level_transitions_.empty()) {
+        const auto& payload = pending_level_transitions_.front();
+        std::vector<uint8_t> data;
+        const uint8_t* bytes = reinterpret_cast<const uint8_t*>(&payload);
+        data.insert(data.end(), bytes, bytes + sizeof(payload));
+
+        // Send multiple times to ensure delivery
+        for (int i = 0; i < 5; ++i) {
+            listener_->on_level_transition(session_id_, data);
+        }
+        
+        pending_level_transitions_.pop();
+        std::cout << "[ServerNetworkSystem] Broadcast level transition to clients\n";
+    }
+}
+
 void ServerNetworkSystem::spawn_projectile(Registry& registry, Entity owner, float x, float y)
 {
     Entity projectile = registry.spawn_entity();
@@ -570,10 +600,14 @@ void ServerNetworkSystem::spawn_enemy_projectile(Registry& registry, Entity owne
 {
     Entity projectile = registry.spawn_entity();
 
+    // Apply difficulty multiplier to enemy projectile damage
+    float damage_mult = rtype::shared::config::get_damage_multiplier(difficulty_);
+    int scaled_damage = static_cast<int>(static_cast<float>(config::ENEMY_PROJECTILE_DAMAGE) * damage_mult);
+
     registry.add_component(projectile, Position{x, y});
     registry.add_component(projectile, Velocity{-config::PROJECTILE_SPEED, 0.0f});
     registry.add_component(projectile, Collider{config::PROJECTILE_WIDTH, config::PROJECTILE_HEIGHT});
-    registry.add_component(projectile, Damage{config::ENEMY_PROJECTILE_DAMAGE});
+    registry.add_component(projectile, Damage{scaled_damage});
     registry.add_component(projectile, Projectile{0.0f, config::PROJECTILE_LIFETIME, 0.0f, ProjectileFaction::Enemy});
     registry.add_component(projectile, ProjectileOwner{owner});  // Track which enemy fired this
     registry.add_component(projectile, NoFriction{});

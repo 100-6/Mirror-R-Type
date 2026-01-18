@@ -499,6 +499,12 @@ void SFMLGraphicsPlugin::unload_font(FontHandle handle) {
     fonts_.erase(handle);
 }
 
+float SFMLGraphicsPlugin::measure_text(const std::string& text, int font_size,
+                                        FontHandle /*font_handle*/) const {
+    // Simple approximation for SFML (R-Type uses Raylib, not SFML)
+    return static_cast<float>(text.length()) * static_cast<float>(font_size) * 0.6f;
+}
+
 // Camera/View
 void SFMLGraphicsPlugin::set_view(Vector2f center, Vector2f size) {
     view_center_ = center;
