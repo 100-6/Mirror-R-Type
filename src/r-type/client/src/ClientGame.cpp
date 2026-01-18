@@ -482,6 +482,17 @@ void ClientGame::apply_map_theme(uint16_t map_id) {
 
 //     std::cout << "[ClientGame] Applied theme for map " << map_id << "\n";
     entity_manager_->set_current_map_id(map_id);
+
+    // If map is Level 2 (Infinite Nebula), enable procedural mobs in WaveController
+    if (map_id == 2) {
+        if (registry_->has_component_registered<WaveController>() && 
+            registry_->get_components<WaveController>().has_entity(wave_tracker_)) {
+            auto& waveCtrl = registry_->get_components<WaveController>()[wave_tracker_];
+            waveCtrl.proceduralMobs = true;
+            waveCtrl.currentWaveNumber = 1; // Ensure we start at 1
+            std::cout << "[ClientGame] Enabled procedural mobs for Infinite Level " << map_id << "\n";
+        }
+    }
 }
 
 void ClientGame::load_level_checkpoints(uint16_t map_id) {
