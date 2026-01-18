@@ -7,6 +7,7 @@
 #include "NetworkClient.hpp"
 #include "ScreenManager.hpp"
 #include "screens/BaseScreen.hpp"
+#include "screens/ConnectionScreen.hpp"
 #include "screens/MainMenuScreen.hpp"
 #include "screens/CreateRoomScreen.hpp"
 #include "screens/BrowseRoomsScreen.hpp"
@@ -75,6 +76,11 @@ public:
      */
     SettingsScreen* get_settings_screen() { return settings_screen_.get(); }
 
+    /**
+     * @brief Get connection screen (for setting connect callback)
+     */
+    ConnectionScreen* get_connection_screen() { return connection_screen_.get(); }
+
 private:
     NetworkClient& network_client_;
     int screen_width_;
@@ -82,6 +88,7 @@ private:
     GameScreen current_screen_;
 
     // Screen instances
+    std::unique_ptr<ConnectionScreen> connection_screen_;
     std::unique_ptr<MainMenuScreen> main_menu_screen_;
     std::unique_ptr<CreateRoomScreen> create_room_screen_;
     std::unique_ptr<BrowseRoomsScreen> browse_rooms_screen_;

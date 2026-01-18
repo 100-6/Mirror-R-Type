@@ -28,6 +28,7 @@ struct ResultLeaderboardEntry {
  * @brief Game screen states
  */
 enum class GameScreen {
+    CONNECTION,
     MAIN_MENU,
     CREATE_ROOM,
     BROWSE_ROOMS,

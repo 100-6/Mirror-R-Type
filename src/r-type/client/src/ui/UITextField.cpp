@@ -182,6 +182,20 @@ void UITextField::handle_text_input(engine::IInputPlugin* input) {
             return;
         }
 
+        // Handle period (for IP addresses)
+        if (input->is_key_pressed(engine::Key::Period)) {
+            if (last_key_ != engine::Key::Period || key_repeat_timer_ <= 0.0f) {
+                text_ += '.';
+                if (on_change_) {
+                    on_change_(text_);
+                }
+                last_key_ = engine::Key::Period;
+                key_repeat_timer_ = KEY_REPEAT_DELAY;
+            }
+            key_repeat_timer_ -= 0.016f;
+            return;
+        }
+
         if (input->is_key_pressed(engine::Key::Num8)) {
             if (last_key_ != engine::Key::Num8 || key_repeat_timer_ <= 0.0f) {
                 bool shift = input->is_key_pressed(engine::Key::LShift) ||

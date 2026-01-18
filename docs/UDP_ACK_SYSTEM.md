@@ -25,11 +25,11 @@
 
 The R-Type protocol uses **UDP (User Datagram Protocol)** for real-time gameplay communication. UDP, unlike TCP, is an **unreliable** protocol: it provides no guarantees about packet delivery, ordering, or duplicate detection.
 
-However, for certain critical data types in a multiplayer game, we need **acknowledgment (ACK)** to:
-- Confirm that player inputs have been received
-- Enable client-server reconciliation
+However, for certain critical data types in a multiplayer game, an **acknowledgment (ACK)** mechanism is required to:
+- Confirm reception of player inputs
+- Enable client-server state reconciliation
 - Detect packet loss
-- Optimize bandwidth usage
+- Optimize bandwidth utilization
 
 ### 1.2 UDP Challenges
 
@@ -68,7 +68,7 @@ TCP provides native ACKs, but:
 - **Overhead**: Larger headers (20 bytes vs 8 bytes for UDP)
 - **No control**: Can't choose which packets are critical
 
-**Our solution**: UDP + Selective ACK = Best of both worlds!
+**Solution**: UDP with selective acknowledgment provides the reliability benefits of TCP where needed while preserving UDP's low-latency characteristics.
 
 ---
 
@@ -105,7 +105,7 @@ CLIENT                                    SERVER
   │            │ └─ entities[]           │   │
   │            │    ├─ player_id: 123    │   │
   │            │    ├─ position: (x,y)   │   │
-  │            │    └─ last_ack_seq: 42  │◄──┘ Implicit ACK!
+  │            │    └─ last_ack_seq: 42  │<---+ Implicit ACK
   │            └─────────────────────────┘   │
   │◄────────────────────────────────────────┤
   │                                          │
@@ -173,7 +173,7 @@ struct EntityState {
 **Usage**:
 - For player-controlled entities, `last_ack_sequence` contains the **last processed input_sequence**
 - Client compares this value with its pending inputs
-- If `last_ack_sequence >= input.sequence`, the input is confirmed ✅
+- If `last_ack_sequence >= input.sequence`, the input is confirmed
 
 ---
 
@@ -341,7 +341,7 @@ void ServerNetworkSystem::send_snapshot() {
 ```
 Time  │ Client (sequence)           │ Server (last_ack)       │ Network
 ──────┼─────────────────────────────┼─────────────────────────┼──────────
-t=0   │ Send INPUT seq=100 ────────►│                         │ ✓ Delivered
+t=0   │ Send INPUT seq=100 ────────►│                         │ [OK] Delivered
 t=16  │                             │ Process seq=100         │
       │                             │ last_ack[player] = 100  │
 t=16  │                             │◄────── SNAPSHOT         │ last_ack=100
@@ -349,7 +349,7 @@ t=32  │ Receive ACK(100)            │                         │
       │ → Confirm input 100         │                         │
       │ → Remove from pending       │                         │
 ──────┼─────────────────────────────┼─────────────────────────┼──────────
-t=33  │ Send INPUT seq=101 ────────►│                         │ ✓ Delivered
+t=33  │ Send INPUT seq=101 ────────►│                         │ [OK] Delivered
 t=49  │                             │ Process seq=101         │
       │                             │ last_ack[player] = 101  │
 t=49  │                             │◄────── SNAPSHOT         │ last_ack=101
@@ -364,7 +364,7 @@ t=65  │ Receive ACK(101)            │                         │
 ```
 Time  │ Client (sequence)           │ Server (last_ack)       │ Network
 ──────┼─────────────────────────────┼─────────────────────────┼──────────
-t=0   │ Send INPUT seq=200 ────────►│                         │ ✗ LOST!
+t=0   │ Send INPUT seq=200 ────────►│                         │ [LOST]
       │ pending: [200]              │                         │
 ──────┼─────────────────────────────┼─────────────────────────┼──────────
 t=16  │                             │ No input received       │
@@ -374,10 +374,10 @@ t=32  │ Receive ACK(199)            │                         │
       │ → Input 200 still pending   │                         │
       │ pending: [200]              │                         │
 ──────┼─────────────────────────────┼─────────────────────────┼──────────
-t=33  │ Send INPUT seq=201 ────────►│                         │ ✓ Delivered
+t=33  │ Send INPUT seq=201 ────────►│                         │ [OK] Delivered
       │ pending: [200, 201]         │                         │
 t=49  │                             │ Process seq=201         │
-      │                             │ last_ack[player] = 201  │ ← Skip seq=200!
+      │                             │ last_ack[player] = 201  │ <- Skip seq=200
 t=49  │                             │◄────── SNAPSHOT         │ last_ack=201
 t=65  │ Receive ACK(201)            │                         │
       │ → Confirm inputs ≤ 201      │                         │
@@ -386,17 +386,17 @@ t=65  │ Receive ACK(201)            │                         │
 ```
 
 **Result**:
-- ✅ Server processes seq=201 even if seq=200 is lost
-- ✅ Client cleans all inputs ≤ 201
-- ⚠️ Input seq=200 is **permanently lost** (acceptable for high-frequency inputs)
+- Server processes seq=201 regardless of seq=200 loss
+- Client removes all inputs with sequence <= 201 from pending buffer
+- Input seq=200 is permanently lost (acceptable trade-off for high-frequency input streams)
 
 ### 5.3 Out-of-Order Delivery Scenario
 
 ```
 Time  │ Client (sequence)           │ Server (last_ack)       │ Network
 ──────┼─────────────────────────────┼─────────────────────────┼──────────
-t=0   │ Send INPUT seq=300 ────────►│                         │ ⏱ Delayed
-t=16  │ Send INPUT seq=301 ────────►│                         │ ✓ Fast path
+t=0   │ Send INPUT seq=300 ────────►│                         │ [DELAYED]
+t=16  │ Send INPUT seq=301 ────────►│                         │ [OK] Fast path
 ──────┼─────────────────────────────┼─────────────────────────┼──────────
 t=20  │                             │ Receive seq=301 FIRST!  │
       │                             │ Process seq=301         │
@@ -413,9 +413,9 @@ t=48  │ Receive ACK(301)            │                         │
 ```
 
 **Result**:
-- ✅ Server rejects old out-of-order inputs
-- ✅ Prevents duplicate processing
-- ✅ Client cleans correctly via last_ack
+- Server rejects stale out-of-order inputs
+- Duplicate processing is prevented
+- Client buffer cleanup proceeds correctly via last_ack
 
 ---
 
@@ -423,42 +423,42 @@ t=48  │ Receive ACK(301)            │                         │
 
 ### 6.1 Advantages
 
-#### ✅ Bandwidth Efficiency
-- **Piggybacking**: ACK is included in snapshot (no dedicated packet)
-- **No overhead**: 4 bytes per player entity (already present in EntityState)
-- **No retransmissions**: Unlike TCP, no automatic retransmissions
+#### Bandwidth Efficiency
+- **Piggybacking**: ACK is embedded within state snapshots, eliminating dedicated acknowledgment packets
+- **Minimal overhead**: 4 bytes per player entity (field already present in EntityState)
+- **No retransmissions**: Unlike TCP, the protocol does not perform automatic retransmissions
 
-#### ✅ Low Latency
-- **No head-of-line blocking**: Each input is independent
-- **No waiting**: Client can send seq=N+1 before receiving ACK(N)
-- **Native UDP**: Minimal latency (~1-2ms overhead vs raw UDP)
+#### Low Latency
+- **No head-of-line blocking**: Each input packet is processed independently
+- **Asynchronous transmission**: Client can send seq=N+1 before receiving ACK(N)
+- **Native UDP performance**: Minimal processing overhead (~1-2ms compared to raw UDP)
 
-#### ✅ Packet Loss Detection
-- **Sequence gaps**: If ACK jumps from 100 to 103, we know 101-102 are lost
-- **Metrics**: Can automatically calculate packet loss rate
-- **Adaptation**: Can adjust strategy based on loss rate
+#### Packet Loss Detection
+- **Sequence gap analysis**: If ACK jumps from 100 to 103, packets 101-102 are identified as lost
+- **Metrics collection**: Packet loss rate can be computed automatically
+- **Adaptive behavior**: Protocol strategy can be adjusted based on observed loss rate
 
-#### ✅ Client-Server Reconciliation
-- **Client prediction**: Client can apply inputs locally immediately
-- **Server confirmation**: ACK confirms server has same view
-- **Correction**: If divergence, client can correct based on snapshot
+#### Client-Server Reconciliation
+- **Client-side prediction**: Inputs are applied locally for immediate responsiveness
+- **Server confirmation**: ACK validates that server state matches client expectations
+- **Divergence correction**: State mismatches are corrected using authoritative server snapshots
 
 ### 6.2 Trade-offs
 
-#### ⚠️ No Delivery Guarantee
-- **Lost inputs**: A lost input will never be recovered
-- **Mitigation**: High input frequency (60 Hz) makes loss of one input acceptable
-- **Impact**: Player may experience micro-freeze if multiple consecutive inputs are lost
+#### No Delivery Guarantee
+- **Lost inputs**: A lost input packet is not recovered
+- **Mitigation**: High input frequency (60 Hz) renders single input loss negligible
+- **Impact**: Players may experience brief input lag if multiple consecutive packets are lost
 
-#### ⚠️ ACK Delay
-- **Latency**: ACK arrives with next snapshot (~16-33ms @ 60-30 Hz)
-- **No immediate ACK**: Unlike TCP, no instant ACK
-- **Trade-off**: We sacrifice immediate ACK to save packets
+#### ACK Delay
+- **Latency**: ACK is delivered with the next snapshot (~16-33ms at 60-30 Hz update rate)
+- **No immediate acknowledgment**: Unlike TCP, instant ACK is not provided
+- **Design rationale**: Immediate ACK is sacrificed to reduce packet count
 
-#### ⚠️ Out-of-Order Handling
-- **Rejection**: Old out-of-order inputs are rejected
-- **Consequence**: A delayed input can be lost even if it arrives
-- **Acceptable**: For a 60 Hz game, a 50ms delayed input has no value
+#### Out-of-Order Handling
+- **Rejection policy**: Stale out-of-order inputs are discarded
+- **Consequence**: Delayed inputs may be lost even upon arrival
+- **Justification**: At 60 Hz tick rate, an input delayed by 50ms provides no gameplay value
 
 ---
 
@@ -568,56 +568,56 @@ void on_input_received(uint32_t player_id, uint32_t input_seq) {
 #### Debug Visualization (optional)
 ```
 Client Sequence Timeline:
-[100][101][102][X][104][105][106]  ← X = packet lost
+[100][101][102][X][104][105][106]  <- X = packet lost
        ^                    ^
-       └─ ACK(101)         └─ ACK(106) → clears all ≤106
+       +-- ACK(101)         +-- ACK(106) -> clears all <=106
 
 Server Processed Sequence:
-[100][101][102][  ][104][105][106]  ← Gap detected between 102-104
+[100][101][102][  ][104][105][106]  <- Gap detected between 102-104
                     ^
-                    └─ Server continues with seq=104
+                    +-- Server continues with seq=104
 ```
 
 ---
 
 ## 8. Comparison with Other Approaches
 
-### 8.1 TCP (reliable stream)
+### 8.1 TCP (Reliable Stream)
 
-| Criteria | TCP | Our UDP ACK |
-|----------|-----|-------------|
-| Delivery guarantee | ✅ Yes | ❌ No (acceptable) |
-| Order guarantee | ✅ Yes | ❌ No (we reject old inputs) |
-| Latency | ⚠️ Variable (retransmissions) | ✅ Constant and low |
-| Head-of-line blocking | ❌ Yes | ✅ No |
-| Overhead | ~20 bytes header | 8 bytes header |
-| Congestion control | ✅ Automatic | ⚠️ Manual (if needed) |
+| Criteria | TCP | R-Type UDP ACK |
+|----------|-----|----------------|
+| Delivery guarantee | Yes | No (acceptable for use case) |
+| Order guarantee | Yes | No (stale inputs rejected) |
+| Latency | Variable (retransmissions) | Consistent and low |
+| Head-of-line blocking | Present | Absent |
+| Header overhead | ~20 bytes | 8 bytes |
+| Congestion control | Automatic | Manual (if required) |
 
-**Verdict**: Our approach is better for real-time gameplay.
+**Analysis**: The UDP ACK approach provides superior performance characteristics for real-time gameplay scenarios.
 
-### 8.2 QUIC (UDP + reliable streams)
+### 8.2 QUIC (UDP with Reliable Streams)
 
-| Criteria | QUIC | Our UDP ACK |
-|----------|------|-------------|
-| Complexity | ⚠️ High (crypto, streams) | ✅ Simple |
-| Latency | ✅ Low | ✅ Low |
-| Multiplexed streams | ✅ Yes | ❌ No (not needed) |
-| Overhead | ~30-50 bytes | 9-13 bytes |
-| Adoption | 🌐 Web standard | 🎮 Gaming-specific |
+| Criteria | QUIC | R-Type UDP ACK |
+|----------|------|----------------|
+| Implementation complexity | High (cryptography, streams) | Low |
+| Latency | Low | Low |
+| Multiplexed streams | Supported | Not required |
+| Header overhead | ~30-50 bytes | 9-13 bytes |
+| Target domain | Web transport standard | Gaming-specific |
 
-**Verdict**: QUIC is overkill for our simple use case.
+**Analysis**: QUIC introduces unnecessary complexity for this use case. The additional features (TLS 1.3, stream multiplexing) are not required for game input acknowledgment.
 
-### 8.3 ENet (gaming library)
+### 8.3 ENet (Gaming Library)
 
-| Criteria | ENet | Our UDP ACK |
-|----------|------|-------------|
-| Reliable channels | ✅ Yes | ⚠️ Partial (implicit ACK) |
-| Sequenced channels | ✅ Yes | ✅ Yes (sequence numbers) |
-| Unsequenced channels | ✅ Yes | ✅ Yes (events) |
-| Overhead | ~8-12 bytes | 9-13 bytes |
-| External dependency | ⚠️ Yes | ✅ No (custom) |
+| Criteria | ENet | R-Type UDP ACK |
+|----------|------|----------------|
+| Reliable channels | Full support | Partial (implicit ACK) |
+| Sequenced channels | Supported | Supported (sequence numbers) |
+| Unsequenced channels | Supported | Supported (events) |
+| Header overhead | ~8-12 bytes | 9-13 bytes |
+| External dependency | Required | None (custom implementation) |
 
-**Verdict**: Our approach is similar to ENet but custom-tailored for R-Type.
+**Analysis**: The R-Type implementation provides functionality comparable to ENet while being specifically optimized for the game's requirements without external dependencies.
 
 ---
 
@@ -625,13 +625,13 @@ Server Processed Sequence:
 
 ### 9.1 Summary
 
-The R-Type UDP ACK system is an **implicit acknowledgment system via piggybacking** that:
+The R-Type UDP ACK system implements an **implicit acknowledgment mechanism via piggybacking** with the following characteristics:
 
-- ✅ Uses `sequence_number` to order and track inputs
-- ✅ Includes `last_ack_sequence` in state snapshots (no dedicated packet)
-- ✅ Enables packet loss and out-of-order delivery detection
-- ✅ Supports client prediction and server reconciliation
-- ✅ Maintains low latency and optimal bandwidth
+- Uses `sequence_number` fields for input ordering and tracking
+- Embeds `last_ack_sequence` within state snapshots, eliminating dedicated ACK packets
+- Enables detection of packet loss and out-of-order delivery
+- Supports client-side prediction and server-authoritative reconciliation
+- Maintains low latency while optimizing bandwidth utilization
 
 ### 9.2 Key Advantages
 
@@ -646,17 +646,17 @@ The R-Type UDP ACK system is an **implicit acknowledgment system via piggybackin
 2. **ACK delay**: ~16-33ms depending on snapshot rate (acceptable)
 3. **Out-of-order rejection**: Old inputs rejected (OK for real-time)
 
-### 9.4 Use Cases
+### 9.4 Applicability
 
-This system is **ideal** for:
-- 🎮 Real-time action games (shooters, racing, fighting games)
-- 🏃 Applications requiring low latency and high frequency
-- 📊 Systems tolerant to occasional data loss
+**Recommended use cases**:
+- Real-time action games (shooters, racing, fighting games)
+- Applications requiring low latency with high update frequency
+- Systems tolerant to occasional data loss
 
-This system is **less suitable** for:
-- 💬 Chat or messaging (prefer reliable channels)
-- 💾 File transfers (prefer TCP)
-- 🔐 Critical transactions (prefer TCP with explicit ACK)
+**Not recommended for**:
+- Chat or messaging systems (reliable channels preferred)
+- File transfers (TCP recommended)
+- Critical transactions (TCP with explicit acknowledgment required)
 
 ---
 
