@@ -93,6 +93,9 @@ public:
     void begin_blend_mode(int) override {}
     void end_blend_mode() override {}
 
+    // Accessibility (not used in tests)
+    void set_colorblind_mode(engine::ColorBlindMode) override {}
+
     // Test helpers
     int get_draw_call_count() const { return draw_sprite_call_count_; }
     const std::vector<engine::Vector2f>& get_drawn_positions() const {
