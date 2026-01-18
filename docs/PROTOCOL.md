@@ -160,13 +160,14 @@ Packet types are organized by functional category:
 | 0x05-0x09   | Lobby & Matchmaking       | Join, leave, lobby state updates      |
 | 0x10-0x1F   | Player Input              | Real-time input commands              |
 | 0x20-0x2F   | Room Management           | Custom rooms, room list, host control |
-| 0x30-0x3F   | Reserved                  | Future client-to-server use           |
+| 0x30-0x3F   | Admin Commands            | Admin authentication and commands     |
+| 0x40-0x4F   | Chat System               | In-game and lobby chat messages       |
 | 0x81-0x8A   | Connection & Lobby (S→C)  | Accept, reject, lobby updates         |
 | 0x90-0x9F   | Room Management (S→C)     | Room created, room list, room errors  |
 | 0xA0-0xAF   | World State               | Game snapshots, delta updates         |
 | 0xB0-0xBF   | Entity Events             | Spawn, destroy, damage                |
 | 0xC0-0xCF   | Game Mechanics            | Powerups, scoring, waves, respawn     |
-| 0xF0-0xFF   | System & Chat             | Broadcast messages, system events     |
+| 0xF0-0xFF   | System & Chat (S→C)       | Admin results, chat broadcast, system |
 
 ### 4.2 Client-to-Server Packets
 
@@ -187,6 +188,7 @@ Packet types are organized by functional category:
 | 0x26    | CLIENT_SET_PLAYER_SKIN | Change player skin in lobby             |
 | 0x30    | CLIENT_ADMIN_AUTH     | Admin authentication request             |
 | 0x31    | CLIENT_ADMIN_COMMAND  | Admin command execution                  |
+| 0x40    | CLIENT_CHAT_MESSAGE   | Send chat message to room/session        |
 
 ### 4.3 Server-to-Client Packets
 
@@ -223,10 +225,11 @@ Packet types are organized by functional category:
 | 0xC5    | SERVER_PLAYER_RESPAWN        | Player respawned                      |
 | 0xC6    | SERVER_GAME_OVER             | Game session ended                    |
 | 0xC7    | SERVER_LEADERBOARD           | End-game leaderboard with all scores  |
-| 0xF0    | SERVER_ADMIN_AUTH_RESULT     | Admin authentication result           |
-| 0xF1    | SERVER_ADMIN_COMMAND_RESULT  | Admin command execution result        |
-| 0xF2    | SERVER_ADMIN_NOTIFICATION    | Server-wide admin notification        |
-| 0xF3    | SERVER_KICK_NOTIFICATION     | Player kicked by admin                |
+| 0xF0    | SERVER_CHAT_MESSAGE          | Chat message broadcast to players     |
+| 0xF1    | SERVER_ADMIN_AUTH_RESULT     | Admin authentication result           |
+| 0xF2    | SERVER_ADMIN_COMMAND_RESULT  | Admin command execution result        |
+| 0xF3    | SERVER_ADMIN_NOTIFICATION    | Server-wide admin notification        |
+| 0xF4    | SERVER_KICK_NOTIFICATION     | Player kicked by admin                |
 
 ---
 
@@ -1546,6 +1549,69 @@ Notification sent to a player who is being kicked.
 | Reason  | 128 bytes  | Kick reason message (null-terminated)     |
 
 **Total Size**: 128 bytes
+
+### 5.8 Chat System Payloads
+
+#### 5.8.1 CLIENT_CHAT_MESSAGE (0x40)
+
+Sent by client to send a chat message to all players in the same room or game session.
+
+```
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                         Player ID                             |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                                                               |
+   +                       Message (128 bytes)                     +
+   |                             ...                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```
+
+| Field      | Size       | Description                               |
+|------------|------------|-------------------------------------------|
+| Player ID  | 4 bytes    | Sender's player ID (network byte order)   |
+| Message    | 128 bytes  | Chat message (null-terminated, max 127)   |
+
+**Total Size**: 132 bytes
+
+#### 5.8.2 SERVER_CHAT_MESSAGE (0xF0)
+
+Broadcast by server to all players in the same room or game session.
+
+```
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                         Sender ID                             |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                                                               |
+   +                    Sender Name (32 bytes)                     +
+   |                             ...                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                                                               |
+   +                       Message (128 bytes)                     +
+   |                             ...                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                         Timestamp                             |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```
+
+| Field       | Size       | Description                               |
+|-------------|------------|-------------------------------------------|
+| Sender ID   | 4 bytes    | Sender's player ID (network byte order)   |
+| Sender Name | 32 bytes   | Sender's display name (null-terminated)   |
+| Message     | 128 bytes  | Chat message (null-terminated, max 127)   |
+| Timestamp   | 4 bytes    | Unix timestamp (network byte order)       |
+
+**Total Size**: 168 bytes
+
+**Usage Notes**:
+- Chat messages are routed based on player state:
+  - If player is in a **room lobby** (`in_lobby=true`): broadcast to all players in that room
+  - If player is in a **game session** (`in_game=true`): broadcast to all players in that session
+- The server includes the sender's name to avoid client-side lookups
+- Timestamp can be used for message ordering or display purposes
 
 ---
 

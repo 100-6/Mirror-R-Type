@@ -23,10 +23,10 @@ Le client R-Type est une application graphique multijoueur qui se connecte au se
 │  │ Manager  │ │ Handler │ │ Manager  │ │   Manager     │ │
 │  └──────────┘ └─────────┘ └──────────┘ └───────────────┘ │
 │                                                             │
-│  ┌──────────────┐      ┌─────────────────────────────────┐│
-│  │    Status    │      │       NetworkClient             ││
-│  │   Overlay    │      │   (Gestion réseau)              ││
-│  └──────────────┘      └─────────────────────────────────┘│
+│  ┌──────────────┐ ┌────────────┐ ┌──────────────────────┐│
+│  │    Status    │ │    Chat    │ │    NetworkClient     ││
+│  │   Overlay    │ │   Overlay  │ │   (Gestion réseau)   ││
+│  └──────────────┘ └────────────┘ └──────────────────────┘│
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
           │                        │                    │
@@ -71,6 +71,10 @@ private:
     std::unique_ptr<EntityManager> entity_manager_;
     std::unique_ptr<StatusOverlay> status_overlay_;
     std::unique_ptr<InputHandler> input_handler_;
+
+    // Overlays
+    std::unique_ptr<ChatOverlay> chat_overlay_;
+    std::unique_ptr<ConsoleOverlay> console_overlay_;
 
     // Réseau
     std::unique_ptr<NetworkClient> network_client_;
@@ -144,6 +148,9 @@ Space           → INPUT_SHOOT
 Shift           → INPUT_CHARGE
 Ctrl            → INPUT_SPECIAL
 E               → INPUT_SWITCH_WEAPON
+T               → Ouvrir le chat
+F1              → Fermer le chat
+Tab             → Ouvrir la console admin
 Escape          → Quitter le jeu
 ```
 
@@ -213,7 +220,45 @@ void set_ping(int ping_ms);
 void refresh();  // Met à jour l'affichage
 ```
 
-### 6. EntityManager
+### 6. ChatOverlay
+
+**Fichier**: `src/r-type/client/include/ui/ChatOverlay.hpp`
+
+**Responsabilités**:
+- Affichage du chat en overlay (non-bloquant)
+- Gestion de l'historique des messages (scrollable)
+- Saisie et envoi de messages
+- Notification des messages non lus
+
+**Contrôles**:
+```
+T           → Ouvrir le chat
+F1          → Fermer le chat
+Enter       → Envoyer le message
+PageUp/Down → Scroll dans l'historique
+```
+
+**Caractéristiques**:
+- Fonctionne dans le **lobby** (RoomLobbyScreen) et **en jeu** (ClientGame)
+- Le jeu continue pendant que le chat est ouvert
+- Couleurs uniques par joueur (basées sur player_id)
+- Badge de notification quand le chat est fermé
+
+**Méthodes**:
+```cpp
+void toggle();                    // Ouvrir/fermer le chat
+void set_visible(bool visible);   // Contrôle de visibilité
+bool is_visible() const;
+void add_message(sender_id, sender_name, message);  // Ajouter un message reçu
+void set_send_callback(callback); // Callback pour envoyer un message
+int get_unread_count() const;     // Nombre de messages non lus
+void clear_unread();              // Réinitialiser le compteur
+void update(graphics, input);     // Mise à jour (input handling)
+void draw(graphics);              // Rendu
+void draw_notification_badge(graphics);  // Badge de notification
+```
+
+### 7. EntityManager
 
 **Fichier**: `src/r-type/client/include/EntityManager.hpp`
 
@@ -259,7 +304,7 @@ switch (type) {
 }
 ```
 
-### 7. NetworkClient
+### 8. NetworkClient
 
 **Fichier**: `src/r-type/client/include/NetworkClient.hpp`
 
@@ -280,6 +325,7 @@ void send_connect(player_name);
 void send_join_lobby(mode, difficulty);
 void send_input(flags, tick);
 void send_ping();
+void send_chat_message(message);  // Chat
 
 // Callbacks
 void set_on_accepted(callback);
@@ -287,6 +333,7 @@ void set_on_lobby_state(callback);
 void set_on_game_start(callback);
 void set_on_entity_spawn(callback);
 void set_on_snapshot(callback);
+void set_on_chat_message(callback);  // Chat
 // ... etc
 ```
 
