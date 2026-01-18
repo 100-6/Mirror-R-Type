@@ -272,11 +272,10 @@ void NetworkClient::handle_packet(const engine::NetworkPacket& packet) {
 
     auto packet_type = static_cast<protocol::PacketType>(header.type);
 
-    // Log all non-snapshot packets to debug spawn issues (disabled for cleaner output)
-    // if (packet_type != protocol::PacketType::SERVER_SNAPSHOT &&
-    //     packet_type != protocol::PacketType::SERVER_DELTA_SNAPSHOT) {
-    //     std::cout << "[NetworkClient] Processing packet type: " << (int)packet_type << "\n";
-    // }
+    // Log shield broken packet specifically
+    if (packet_type == protocol::PacketType::SERVER_SHIELD_BROKEN) {
+        std::cout << "[NetworkClient] Received SERVER_SHIELD_BROKEN packet!\n";
+    }
 
     switch (packet_type) {
         case protocol::PacketType::SERVER_ACCEPT:
@@ -377,6 +376,9 @@ void NetworkClient::handle_packet(const engine::NetworkPacket& packet) {
             break;
         case protocol::PacketType::SERVER_CHAT_MESSAGE:
             handle_chat_message(payload);
+            break;
+        case protocol::PacketType::SERVER_SHIELD_BROKEN:
+            handle_shield_broken(payload);
             break;
         case protocol::PacketType::SERVER_SNAPSHOT:
         case protocol::PacketType::SERVER_DELTA_SNAPSHOT:
@@ -1266,6 +1268,25 @@ void NetworkClient::handle_chat_message(const std::vector<uint8_t>& payload) {
 
     if (on_chat_message_)
         on_chat_message_(sender_id, sender_name, message);
+}
+
+void NetworkClient::set_on_shield_broken(std::function<void(uint32_t)> callback) {
+    on_shield_broken_ = callback;
+}
+
+void NetworkClient::handle_shield_broken(const std::vector<uint8_t>& payload) {
+    if (payload.size() < sizeof(protocol::ServerShieldBrokenPayload)) {
+        std::cerr << "[NetworkClient] Invalid SERVER_SHIELD_BROKEN payload size\n";
+        return;
+    }
+    protocol::ServerShieldBrokenPayload data;
+    std::memcpy(&data, payload.data(), sizeof(data));
+
+    uint32_t player_id = ntohl(data.player_id);
+    std::cout << "[NetworkClient] Shield broken for player " << player_id << "\n";
+
+    if (on_shield_broken_)
+        on_shield_broken_(player_id);
 }
 
 }

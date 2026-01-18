@@ -130,6 +130,7 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
     registry_.register_component<game::BossPhase>();
     registry_.register_component<game::PlayerLives>();
     registry_.register_component<game::ScrollState>();
+    registry_.register_component<NetworkPlayerId>();  // For network sync of shield broken etc.
 
     registry_.register_system<MovementSystem>();
     registry_.register_system<PhysiqueSystem>();
@@ -366,6 +367,23 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
                       << companionEntity << " for player " << event.player << "\n";
         });
 
+    // Subscribe to shield broken events to notify clients
+    registry_.get_event_bus().subscribe<ecs::ShieldBrokenEvent>(
+        [this](const ecs::ShieldBrokenEvent& event) {
+            // Send shield broken packet to all clients via listener
+            protocol::ServerShieldBrokenPayload payload;
+            payload.player_id = htonl(event.playerId);
+
+            std::vector<uint8_t> data(sizeof(payload));
+            std::memcpy(data.data(), &payload, sizeof(payload));
+
+            if (listener_) {
+                listener_->on_shield_broken(session_id_, data);
+            }
+            std::cout << "[GameSession " << session_id_ << "] Shield broken for player "
+                      << event.playerId << ", notifying clients\n";
+        });
+
     // === INITIALIZE LEVEL SYSTEM ===
     // Map the map_id (0-based index from UI) directly to level_id
     // map_id 0 = test level, 1 = level 1, 2 = level 2, 3 = level 3, 4 = instant boss
@@ -443,6 +461,9 @@ void GameSession::add_player(uint32_t player_id, const std::string& player_name,
     spawn_player_entity(player);
     players_[player_id] = player;
     player_entities_[player_id] = player.entity;
+
+    // Add NetworkPlayerId component to player entity for CollisionSystem to retrieve player_id
+    registry_.add_component(player.entity, NetworkPlayerId{player_id});
 
     // Initialize PlayerLives for level system - use difficulty-based lives
     Entity player_lives_entity = registry_.spawn_entity();
@@ -1067,6 +1088,14 @@ void GameSession::on_spawn_enemy(const std::string& enemy_type, float x, float y
         add_variant("zigzag", fast, 11);
         add_variant("kamikaze", fast, 12);
         add_variant("bouncer", basic, 13);
+
+        // New variants for visual diversity (Enemies 9-13)
+        // Subtypes map to specific sprites in EntityManager
+        add_variant("basic_v1", basic, 0);  // Enemy 9
+        add_variant("basic_v2", basic, 10); // Enemy 10
+        add_variant("basic_v3", basic, 13); // Enemy 11
+        add_variant("basic_v4", basic, 14); // Enemy 12
+        add_variant("basic_v5", basic, 16); // Enemy 13
 
         return m;
     }();

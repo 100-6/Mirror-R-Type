@@ -78,10 +78,19 @@
           "spawns": [
             {
               "type": "enemy",
+              "enemyType": "fast",
+              "positionX": 2100,
+              "positionY": 250,
+              "count": 3,
+              "pattern": "line",
+              "spacing": 120
+            },
+            {
+              "type": "enemy",
               "enemyType": "kamikaze",
               "positionX": 2100,
-              "positionY": 300,
-              "count": 4,
+              "positionY": 600,
+              "count": 2,
               "pattern": "line",
               "spacing": 150
             }
@@ -161,11 +170,29 @@
           "spawns": [
             {
               "type": "enemy",
-              "enemyType": "bouncer",
+              "enemyType": "tank",
               "positionX": 2100,
-              "positionY": 300,
-              "count": 6,
-              "pattern": "formation",
+              "positionY": 450,
+              "count": 1,
+              "pattern": "single",
+              "spacing": 0
+            },
+            {
+              "type": "enemy",
+              "enemyType": "bouncer",
+              "positionX": 2300,
+              "positionY": 200,
+              "count": 3,
+              "pattern": "line",
+              "spacing": 100
+            },
+            {
+              "type": "enemy",
+              "enemyType": "bouncer",
+              "positionX": 2300,
+              "positionY": 700,
+              "count": 3,
+              "pattern": "line",
               "spacing": 100
             }
           ]

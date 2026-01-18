@@ -247,6 +247,13 @@ public:
      * @brief End blend mode and return to default
      */
     virtual void end_blend_mode() = 0;
+
+    // Accessibility
+    /**
+     * @brief Set colorblind mode
+     * @param mode Colorblind mode to apply
+     */
+    virtual void set_colorblind_mode(ColorBlindMode mode) = 0;
 };
 
 }

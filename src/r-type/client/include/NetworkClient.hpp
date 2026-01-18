@@ -357,6 +357,12 @@ public:
     using ChatMessageCallback = std::function<void(uint32_t sender_id, const std::string& sender_name, const std::string& message)>;
     void set_on_chat_message(ChatMessageCallback callback);
 
+    /**
+     * @brief Set callback for shield broken events
+     * @param callback Function receiving player_id whose shield was broken
+     */
+    void set_on_shield_broken(std::function<void(uint32_t player_id)> callback);
+
     uint32_t get_player_id() const { return player_id_; }
     uint32_t get_session_id() const { return session_id_; }
     uint32_t get_lobby_id() const { return lobby_id_; }
@@ -402,6 +408,7 @@ private:
     void handle_admin_notification(const std::vector<uint8_t>& payload);
     void handle_kick_notification(const std::vector<uint8_t>& payload);
     void handle_chat_message(const std::vector<uint8_t>& payload);
+    void handle_shield_broken(const std::vector<uint8_t>& payload);
 
     // UDP connection after game start
     void connect_udp(uint16_t udp_port);
@@ -475,6 +482,9 @@ private:
 
     // Chat callback
     ChatMessageCallback on_chat_message_;
+
+    // Shield broken callback
+    std::function<void(uint32_t)> on_shield_broken_;
 };
 
 }

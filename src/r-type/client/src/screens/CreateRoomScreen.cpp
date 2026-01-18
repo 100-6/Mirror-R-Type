@@ -100,6 +100,10 @@ void CreateRoomScreen::create_room() {
 // INITIALIZATION
 // ============================================================================
 
+void CreateRoomScreen::on_enter() {
+    current_step_ = Step::ROOM_INFO;
+}
+
 void CreateRoomScreen::initialize() {
     // Clear all UI elements
     labels_.clear();

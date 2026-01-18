@@ -3,6 +3,26 @@
         "script": "basic.lua",
         "description": "Standard enemy - moves left steadily"
     },
+    "basic_v1": {
+        "script": "basic.lua",
+        "description": "Variant 1 (Enemy 9)"
+    },
+    "basic_v2": {
+        "script": "basic.lua",
+        "description": "Variant 2 (Enemy 10)"
+    },
+    "basic_v3": {
+        "script": "basic.lua",
+        "description": "Variant 3 (Enemy 11)"
+    },
+    "basic_v4": {
+        "script": "basic.lua",
+        "description": "Variant 4 (Enemy 12)"
+    },
+    "basic_v5": {
+        "script": "basic.lua",
+        "description": "Variant 5 (Enemy 13)"
+    },
     "fast": {
         "script": "zigzag.lua",
         "description": "Fast enemy - zigzag movement pattern"

@@ -99,6 +99,7 @@ enum class PacketType : uint8_t {
     SERVER_GLOBAL_LEADERBOARD = 0xC8,  // Global all-time top 10 leaderboard
     SERVER_LEVEL_TRANSITION = 0xC9,
     SERVER_LEVEL_READY = 0xCA,  // Level fully loaded, client can stop fading
+    SERVER_SHIELD_BROKEN = 0xCB,  // Player's shield was destroyed
 
     // Admin Responses (0xD0-0xDF)
     SERVER_ADMIN_AUTH_RESULT = 0xD0,    // Admin authentication result

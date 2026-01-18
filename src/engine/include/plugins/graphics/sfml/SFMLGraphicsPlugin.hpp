@@ -84,6 +84,9 @@ public:
     void begin_blend_mode(int mode) override;
     void end_blend_mode() override;
 
+    // Accessibility
+    void set_colorblind_mode(ColorBlindMode mode) override;
+
 private:
     struct TextureData {
         std::unique_ptr<sf::Texture> texture;

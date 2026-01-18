@@ -1,15 +1,15 @@
-# Architecture du Serveur R-Type
+# R-Type Server Architecture
 
-## Vue d'ensemble
+## Overview
 
-Le serveur R-Type est une application réseau hybride TCP/UDP qui gère les connexions des clients, les lobbies de jeu et les sessions de jeu multijoueurs.
+The R-Type server is a hybrid TCP/UDP network application that manages client connections, game lobbies, and multiplayer game sessions.
 
-## Architecture globale
+## Global Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                       Server                            │
-│  (Orchestration et gestion des joueurs)                │
+│  (Orchestration and player management)                  │
 ├─────────────────────────────────────────────────────────┤
 │                                                         │
 │  ┌─────────────┐  ┌──────────────┐  ┌────────────────┐│
@@ -26,28 +26,28 @@ Le serveur R-Type est une application réseau hybride TCP/UDP qui gère les conn
   └───────────────┘ └──────────────┘ └─────────────────┘
 ```
 
-## Composants principaux
+## Main Components
 
-### 1. Server (Classe principale)
+### 1. Server (Main Class)
 
-**Fichier**: `src/r-type/server/include/Server.hpp`
+**File**: `src/r-type/server/include/Server.hpp`
 
-**Responsabilités**:
-- Orchestration de tous les composants
-- Gestion du cycle de vie du serveur (start/stop/run)
-- Gestion de la liste des joueurs connectés
-- Coordination entre lobbies et sessions de jeu
+**Responsibilities**:
+- Orchestration of all components
+- Server lifecycle management (start/stop/run)
+- Connected player list management
+- Coordination between lobbies and game sessions
 
-**Membres clés**:
+**Key Members**:
 ```cpp
 class Server {
 private:
-    // Composants
+    // Components
     std::unique_ptr<NetworkHandler> network_handler_;
     std::unique_ptr<PacketSender> packet_sender_;
     std::unique_ptr<GameSessionManager> session_manager_;
 
-    // État
+    // State
     std::unordered_map<uint32_t, PlayerInfo> connected_clients_;
     LobbyManager lobby_manager_;
 
@@ -56,19 +56,19 @@ private:
 };
 ```
 
-**Méthodes principales**:
-- `bool start()` - Initialise et démarre le serveur
-- `void run()` - Boucle principale du serveur (60 TPS)
-- `void stop()` - Arrêt gracieux du serveur
+**Main Methods**:
+- `bool start()` - Initialize and start the server
+- `void run()` - Main server loop (60 TPS)
+- `void stop()` - Graceful server shutdown
 
 ### 2. NetworkHandler
 
-**Fichier**: `src/r-type/server/include/NetworkHandler.hpp`
+**File**: `src/r-type/server/include/NetworkHandler.hpp`
 
-**Responsabilités**:
-- Réception et décodage des paquets réseau
-- Validation de la version du protocole
-- Routage des paquets vers les handlers appropriés
+**Responsibilities**:
+- Network packet reception and decoding
+- Protocol version validation
+- Packet routing to appropriate handlers
 
 **Architecture**:
 ```cpp
@@ -81,37 +81,37 @@ route_packet()
     └─→ handle_udp_packet() → callback (CLIENT_INPUT, etc.)
 ```
 
-**Callbacks disponibles**:
-- `on_client_connect` - Connexion d'un nouveau client
-- `on_client_disconnect` - Déconnexion d'un client
-- `on_client_ping` - Requête de ping
-- `on_client_join_lobby` - Demande de rejoindre un lobby
-- `on_client_leave_lobby` - Demande de quitter un lobby
-- `on_udp_handshake` - Handshake UDP
-- `on_client_input` - Input du joueur
-- `on_client_chat_message` - Message de chat d'un joueur
+**Available Callbacks**:
+- `on_client_connect` - New client connection
+- `on_client_disconnect` - Client disconnection
+- `on_client_ping` - Ping request
+- `on_client_join_lobby` - Join lobby request
+- `on_client_leave_lobby` - Leave lobby request
+- `on_udp_handshake` - UDP handshake
+- `on_client_input` - Player input
+- `on_client_chat_message` - Player chat message
 
 ### 3. PacketSender
 
-**Fichier**: `src/r-type/server/include/PacketSender.hpp`
+**File**: `src/r-type/server/include/PacketSender.hpp`
 
-**Responsabilités**:
-- Envoi de paquets TCP (fiable, ordonné)
-- Envoi de paquets UDP (rapide, non fiable)
-- Broadcasting vers lobbies et sessions
+**Responsibilities**:
+- TCP packet sending (reliable, ordered)
+- UDP packet sending (fast, unreliable)
+- Broadcasting to lobbies and sessions
 
-**Méthodes principales**:
+**Main Methods**:
 
 **TCP**:
-- `send_tcp_packet(client_id, type, payload)` - Envoi unicast
-- `broadcast_tcp_packet(type, payload)` - Envoi à tous les clients
-- `broadcast_tcp_to_lobby(lobby_id, type, payload)` - Envoi au lobby
+- `send_tcp_packet(client_id, type, payload)` - Unicast send
+- `broadcast_tcp_packet(type, payload)` - Send to all clients
+- `broadcast_tcp_to_lobby(lobby_id, type, payload)` - Send to lobby
 
 **UDP**:
-- `send_udp_packet(client_id, type, payload)` - Envoi unicast
-- `broadcast_udp_to_session(session_id, type, payload)` - Envoi à la session
+- `send_udp_packet(client_id, type, payload)` - Unicast send
+- `broadcast_udp_to_session(session_id, type, payload)` - Send to session
 
-**Format de paquet**:
+**Packet Format**:
 ```
 ┌────────────┬────────┬─────────────┬──────────────┬─────────┐
 │  Version   │  Type  │  Payload    │   Sequence   │ Payload │
@@ -122,76 +122,76 @@ route_packet()
 
 ### 4. GameSessionManager
 
-**Fichier**: `src/r-type/server/include/GameSessionManager.hpp`
+**File**: `src/r-type/server/include/GameSessionManager.hpp`
 
-**Responsabilités**:
-- Création et destruction des sessions de jeu
-- Mise à jour de toutes les sessions actives
-- Nettoyage automatique des sessions inactives
-- Configuration des callbacks de session
+**Responsibilities**:
+- Game session creation and destruction
+- Update of all active sessions
+- Automatic cleanup of inactive sessions
+- Session callback configuration
 
-**Cycle de vie d'une session**:
+**Session Lifecycle**:
 ```
 create_session()
     ↓
 setup_callbacks()
     ↓
-update_all(delta_time)  [Appelé chaque tick]
+update_all(delta_time)  [Called each tick]
     ↓
 cleanup_inactive_sessions()
     ↓
 remove_session() / on_game_over()
 ```
 
-**Callbacks de session**:
-- `on_state_snapshot` - Snapshot d'état des entités
-- `on_entity_spawn` - Apparition d'une nouvelle entité
-- `on_entity_destroy` - Destruction d'une entité
-- `on_projectile_spawn` - Apparition d'un projectile
-- `on_wave_start` - Début d'une vague
-- `on_wave_complete` - Fin d'une vague
-- `on_game_over` - Fin de partie
+**Session Callbacks**:
+- `on_state_snapshot` - Entity state snapshot
+- `on_entity_spawn` - New entity spawn
+- `on_entity_destroy` - Entity destruction
+- `on_projectile_spawn` - Projectile spawn
+- `on_wave_start` - Wave start
+- `on_wave_complete` - Wave completion
+- `on_game_over` - Game over
 
 ### 5. LobbyManager
 
-**Fichier**: `src/r-type/server/include/LobbyManager.hpp`
+**File**: `src/r-type/server/include/LobbyManager.hpp`
 
-**Responsabilités**:
-- Gestion des lobbies de jeu (création/suppression)
-- Matchmaking des joueurs
-- Countdown avant le début de la partie
-- Notification de l'état des lobbies
+**Responsibilities**:
+- Game lobby management (creation/deletion)
+- Player matchmaking
+- Pre-game countdown
+- Lobby state notification
 
-**États d'un lobby**:
+**Lobby States**:
 ```
 WAITING (< min_players)
     ↓
 READY (>= min_players)
     ↓
-COUNTDOWN (10 secondes)
+COUNTDOWN (10 seconds)
     ↓
 STARTING
     ↓
-[Game Session créée]
+[Game Session created]
 ```
 
-## Flux réseau
+## Network Flow
 
-### Connexion d'un client
+### Client Connection
 
 ```
 Client                  Server
   │                       │
   ├──► CLIENT_CONNECT ───►│
-  │                       ├─► Valider le paquet
-  │                       ├─► Créer PlayerInfo
-  │                       ├─► Assigner player_id
+  │                       ├─► Validate packet
+  │                       ├─► Create PlayerInfo
+  │                       ├─► Assign player_id
   │                       │
   │◄─── SERVER_ACCEPT ────┤
   │                       │
 ```
 
-### Création et démarrage d'une partie
+### Game Creation and Start
 
 ```
 Client 1, 2, 3          Server                    GameSession
@@ -200,7 +200,7 @@ Client 1, 2, 3          Server                    GameSession
   │                       ├─► lobby_manager.join()    │
   │◄─── LOBBY_STATE ──────┤                           │
   │                       │                           │
-  │     [Min players atteint]                         │
+  │     [Min players reached]                         │
   │                       │                           │
   │◄─── COUNTDOWN (10) ───┤                           │
   │◄─── COUNTDOWN (9) ────┤                           │
@@ -216,9 +216,9 @@ Client 1, 2, 3          Server                    GameSession
   │                       │                           │
 ```
 
-**Légende**: `───►` TCP, `═══►` UDP
+**Legend**: `───►` TCP, `═══►` UDP
 
-### Flux de chat
+### Chat Flow
 
 ```
 Client 1                Server                    Client 2, 3, 4
@@ -239,11 +239,11 @@ Client 1                Server                    Client 2, 3, 4
   │      message)         │                           │
 ```
 
-Le serveur route les messages de chat selon l'état du joueur:
-- **En lobby**: Broadcast aux membres du même lobby (`in_lobby` && `lobby_id`)
-- **En jeu**: Broadcast aux membres de la même session (`in_game` && `session_id`)
+The server routes chat messages based on player state:
+- **In lobby**: Broadcast to same lobby members (`in_lobby` && `lobby_id`)
+- **In game**: Broadcast to same session members (`in_game` && `session_id`)
 
-### Boucle de jeu
+### Game Loop
 
 ```
 Client                  Server                    GameSession
@@ -262,59 +262,59 @@ Client                  Server                    GameSession
   │                       │                           │
 ```
 
-## Protocole réseau
+## Network Protocol
 
-### Séparation TCP/UDP
+### TCP/UDP Separation
 
-**TCP** (Port 4242 par défaut):
-- Connexion/Déconnexion
-- Gestion des lobbies
-- Messages de contrôle
-- Notifications importantes
+**TCP** (Default port 4242):
+- Connection/Disconnection
+- Lobby management
+- Control messages
+- Important notifications
 
-**UDP** (Port 4243 par défaut):
-- Inputs des joueurs
+**UDP** (Default port 4243):
+- Player inputs
 - State snapshots
-- Spawn/Destroy des entités
+- Entity spawn/destroy
 - Projectiles
 
-### Types de paquets
+### Packet Types
 
 **TCP - Client → Server**:
-- `CLIENT_CONNECT` - Demande de connexion
-- `CLIENT_DISCONNECT` - Déconnexion volontaire
-- `CLIENT_PING` - Mesure de latence
-- `CLIENT_JOIN_LOBBY` - Rejoindre un lobby
-- `CLIENT_LEAVE_LOBBY` - Quitter un lobby
-- `CLIENT_CHAT_MESSAGE` - Message de chat
+- `CLIENT_CONNECT` - Connection request
+- `CLIENT_DISCONNECT` - Voluntary disconnection
+- `CLIENT_PING` - Latency measurement
+- `CLIENT_JOIN_LOBBY` - Join lobby
+- `CLIENT_LEAVE_LOBBY` - Leave lobby
+- `CLIENT_CHAT_MESSAGE` - Chat message
 
 **TCP - Server → Client**:
-- `SERVER_ACCEPT` - Acceptation de connexion
-- `SERVER_REJECT` - Rejet de connexion
-- `SERVER_PONG` - Réponse au ping
-- `SERVER_LOBBY_STATE` - État du lobby
+- `SERVER_ACCEPT` - Connection acceptance
+- `SERVER_REJECT` - Connection rejection
+- `SERVER_PONG` - Ping response
+- `SERVER_LOBBY_STATE` - Lobby state
 - `SERVER_GAME_START_COUNTDOWN` - Countdown
-- `SERVER_GAME_START` - Début de partie
-- `SERVER_CHAT_MESSAGE` - Broadcast d'un message de chat
+- `SERVER_GAME_START` - Game start
+- `SERVER_CHAT_MESSAGE` - Chat message broadcast
 
 **UDP - Client → Server**:
-- `CLIENT_UDP_HANDSHAKE` - Association UDP/TCP
-- `CLIENT_INPUT` - Input du joueur
+- `CLIENT_UDP_HANDSHAKE` - UDP/TCP association
+- `CLIENT_INPUT` - Player input
 
 **UDP - Server → Client**:
-- `SERVER_DELTA_SNAPSHOT` - État des entités
-- `SERVER_ENTITY_SPAWN` - Apparition d'entité
-- `SERVER_ENTITY_DESTROY` - Destruction d'entité
-- `SERVER_PROJECTILE_SPAWN` - Apparition de projectile
-- `SERVER_WAVE_START` - Début de vague
-- `SERVER_WAVE_COMPLETE` - Fin de vague
-- `SERVER_GAME_OVER` - Fin de partie
+- `SERVER_DELTA_SNAPSHOT` - Entity state
+- `SERVER_ENTITY_SPAWN` - Entity spawn
+- `SERVER_ENTITY_DESTROY` - Entity destruction
+- `SERVER_PROJECTILE_SPAWN` - Projectile spawn
+- `SERVER_WAVE_START` - Wave start
+- `SERVER_WAVE_COMPLETE` - Wave completion
+- `SERVER_GAME_OVER` - Game over
 
 ## Configuration
 
-**Fichier**: `src/r-type/server/include/ServerConfig.hpp`
+**File**: `src/r-type/server/include/ServerConfig.hpp`
 
-**Constantes importantes**:
+**Important Constants**:
 ```cpp
 namespace rtype::server::config {
     constexpr uint16_t DEFAULT_TCP_PORT = 4242;
@@ -325,16 +325,16 @@ namespace rtype::server::config {
 }
 ```
 
-## Gestion des joueurs
+## Player Management
 
-### Structure PlayerInfo
+### PlayerInfo Structure
 
 ```cpp
 struct PlayerInfo {
-    uint32_t client_id;      // ID de connexion TCP
-    uint32_t player_id;      // ID unique du joueur
+    uint32_t client_id;      // TCP connection ID
+    uint32_t player_id;      // Unique player ID
     std::string player_name;
-    uint32_t udp_client_id;  // ID de connexion UDP
+    uint32_t udp_client_id;  // UDP connection ID
     bool in_lobby;
     uint32_t lobby_id;
     bool in_game;
@@ -342,73 +342,73 @@ struct PlayerInfo {
 };
 ```
 
-### Cycle de vie d'un joueur
+### Player Lifecycle
 
 ```
-1. Connexion TCP
+1. TCP connection
    ↓
-2. Attribution player_id
+2. player_id assignment
    ↓
-3. Acceptation (SERVER_ACCEPT)
+3. Acceptance (SERVER_ACCEPT)
    ↓
-4. Rejoindre un lobby
+4. Join lobby
    ↓
-5. Handshake UDP
+5. UDP handshake
    ↓
-6. Début de partie
+6. Game start
    ↓
-7. En jeu (réception d'inputs, envoi de snapshots)
+7. In game (receiving inputs, sending snapshots)
    ↓
-8. Fin de partie
+8. Game over
    ↓
-9. Retour au lobby ou déconnexion
+9. Return to lobby or disconnection
 ```
 
-## Gestion d'erreurs
+## Error Handling
 
-### Déconnexion inattendue
+### Unexpected Disconnection
 
-Le serveur détecte les déconnexions via:
-- Timeout TCP (pas de keepalive)
-- Callback `on_client_disconnected` du plugin réseau
+The server detects disconnections via:
+- TCP timeout (no keepalive)
+- Network plugin `on_client_disconnected` callback
 
 Action:
-- Retrait du lobby si applicable
-- Notification aux autres joueurs du lobby
-- Nettoyage des ressources
+- Remove from lobby if applicable
+- Notify other lobby players
+- Resource cleanup
 
-### Paquets invalides
+### Invalid Packets
 
-- Validation de la version du protocole
-- Validation de la taille du payload
-- Logs d'erreur sans crash
+- Protocol version validation
+- Payload size validation
+- Error logging without crash
 
-### Session orpheline
+### Orphaned Session
 
-Le `GameSessionManager` nettoie automatiquement les sessions inactives à chaque tick.
+The `GameSessionManager` automatically cleans up inactive sessions each tick.
 
 ## Performance
 
 ### Tick Rate
 
-- **Serveur**: 60 TPS (Ticks Per Second)
+- **Server**: 60 TPS (Ticks Per Second)
 - **Client Input**: ~30 Hz
 - **State Snapshot**: 60 Hz
 
-### Optimisations
+### Optimizations
 
-1. **Delta Snapshots**: Seules les entités qui ont changé sont envoyées
-2. **Entity Prioritization**: Les snapshots priorisent les entités critiques:
-   - **PLAYER** (priorité maximale) - toujours inclus
-   - **PROJECTILE** (haute priorité) - inclus pour un gameplay précis
-   - **ENEMY** (priorité moyenne) - inclus pour la synchronisation
-   - **WALL** exclus des snapshots (défilement prédictible côté client)
-3. **Snapshot Size Limit**: Maximum 55 entités par snapshot (payload 1387 bytes / 25 bytes par EntityState)
-4. **UDP pour gameplay**: Réduction de la latence
-5. **Pooling d'entités**: Réutilisation des entités détruites
-6. **Spatial partitioning**: Pour les collisions (dans GameSession)
+1. **Delta Snapshots**: Only changed entities are sent
+2. **Entity Prioritization**: Snapshots prioritize critical entities:
+   - **PLAYER** (maximum priority) - always included
+   - **PROJECTILE** (high priority) - included for precise gameplay
+   - **ENEMY** (medium priority) - included for synchronization
+   - **WALL** excluded from snapshots (predictable scrolling client-side)
+3. **Snapshot Size Limit**: Maximum 55 entities per snapshot (payload 1387 bytes / 25 bytes per EntityState)
+4. **UDP for gameplay**: Latency reduction
+5. **Entity Pooling**: Reuse of destroyed entities
+6. **Spatial Partitioning**: For collisions (in GameSession)
 
-## Déploiement
+## Deployment
 
 ### Compilation
 
@@ -417,33 +417,33 @@ cmake -B build
 cmake --build build --target r-type_server
 ```
 
-### Exécution
+### Execution
 
 ```bash
-# Port par défaut (4242 TCP, 4243 UDP)
+# Default ports (4242 TCP, 4243 UDP)
 ./r-type_server
 
-# Ports personnalisés
+# Custom ports
 ./r-type_server <tcp_port> <udp_port>
 ```
 
 ### Logs
 
-Le serveur affiche:
-- État de démarrage
-- Connexions/Déconnexions
-- Création/Destruction de lobbies
-- Début/Fin de parties
-- Erreurs réseau
+The server displays:
+- Startup state
+- Connections/Disconnections
+- Lobby creation/destruction
+- Game start/end
+- Network errors
 
-## Dépendances
+## Dependencies
 
-- **game_engine**: ECS, systèmes, plugins
-- **rtype_logic**: Logique de jeu (collision, AI, etc.)
-- **Boost.Asio**: Plugin réseau
-- **Protocol**: Headers partagés client/serveur
+- **game_engine**: ECS, systems, plugins
+- **rtype_logic**: Game logic (collision, AI, etc.)
+- **Boost.Asio**: Network plugin
+- **Protocol**: Shared client/server headers
 
-## Diagramme de séquence complet
+## Complete Sequence Diagram
 
 ```
 ┌──────┐  ┌────────┐  ┌──────────────┐  ┌───────────────┐  ┌─────────────┐
@@ -490,9 +490,9 @@ Le serveur affiche:
 
 ## Conclusion
 
-L'architecture modulaire du serveur permet:
-- **Maintenabilité**: Code facile à comprendre et modifier
-- **Extensibilité**: Ajout de nouvelles fonctionnalités simplifié
-- **Testabilité**: Chaque composant peut être testé indépendamment
-- **Performance**: Tick rate élevé avec optimisations réseau
-- **Robustesse**: Gestion d'erreurs et cleanup automatique
+The server's modular architecture enables:
+- **Maintainability**: Easy-to-understand and modify code
+- **Extensibility**: Simplified addition of new features
+- **Testability**: Each component can be tested independently
+- **Performance**: High tick rate with network optimizations
+- **Robustness**: Error handling and automatic cleanup

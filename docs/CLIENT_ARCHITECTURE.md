@@ -1,21 +1,21 @@
-# Architecture du Client R-Type
+# R-Type Client Architecture
 
-## Vue d'ensemble
+## Overview
 
-Le client R-Type est une application graphique multijoueur qui se connecte au serveur de jeu, affiche le rendu du jeu et envoie les inputs du joueur.
+The R-Type client is a multiplayer graphical application that connects to the game server, displays the game rendering, and sends player inputs.
 
-## Architecture globale
+## Global Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                       main.cpp                              │
-│                    (Point d'entrée)                         │
+│                    (Entry point)                            │
 └────────────────────────┬────────────────────────────────────┘
                          │
                          ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                     ClientGame                              │
-│              (Orchestration du jeu)                         │
+│              (Game orchestration)                           │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
 │  ┌──────────┐ ┌─────────┐ ┌──────────┐ ┌───────────────┐ │
@@ -25,7 +25,7 @@ Le client R-Type est une application graphique multijoueur qui se connecte au se
 │                                                             │
 │  ┌──────────────┐ ┌────────────┐ ┌──────────────────────┐│
 │  │    Status    │ │    Chat    │ │    NetworkClient     ││
-│  │   Overlay    │ │   Overlay  │ │   (Gestion réseau)   ││
+│  │   Overlay    │ │   Overlay  │ │   (Network mgmt)     ││
 │  └──────────────┘ └────────────┘ └──────────────────────┘│
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
@@ -38,21 +38,21 @@ Le client R-Type est une application graphique multijoueur qui se connecte au se
   └───────────────┘       └──────────────┘    └───────────────┘
 ```
 
-## Composants principaux
+## Main Components
 
-### 1. ClientGame (Classe principale)
+### 1. ClientGame (Main Class)
 
-**Fichier**: `src/r-type/client/include/ClientGame.hpp`
+**File**: `src/r-type/client/include/ClientGame.hpp`
 
-**Responsabilités**:
-- Orchestration de tous les composants du jeu
-- Initialisation des plugins (graphics, input, audio, network)
-- Configuration du registre ECS
-- Setup des systèmes de jeu
-- Boucle de jeu principale
-- Gestion des callbacks réseau
+**Responsibilities**:
+- Orchestration of all game components
+- Plugin initialization (graphics, input, audio, network)
+- ECS registry configuration
+- Game systems setup
+- Main game loop
+- Network callback management
 
-**Membres clés**:
+**Key Members**:
 ```cpp
 class ClientGame {
 private:
@@ -65,7 +65,7 @@ private:
     // ECS
     std::unique_ptr<Registry> registry_;
 
-    // Composants de jeu
+    // Game components
     std::unique_ptr<TextureManager> texture_manager_;
     std::unique_ptr<ScreenManager> screen_manager_;
     std::unique_ptr<EntityManager> entity_manager_;
@@ -76,12 +76,12 @@ private:
     std::unique_ptr<ChatOverlay> chat_overlay_;
     std::unique_ptr<ConsoleOverlay> console_overlay_;
 
-    // Réseau
+    // Network
     std::unique_ptr<NetworkClient> network_client_;
 };
 ```
 
-**Cycle de vie**:
+**Lifecycle**:
 ```
 initialize()
     ├─► load_plugins()
@@ -92,7 +92,7 @@ initialize()
     ├─► setup_network_callbacks()
     └─► connect()
         ↓
-run()  [Boucle principale]
+run()  [Main loop]
     ├─► update(dt)
     ├─► handle_input()
     ├─► update_projectiles()
@@ -106,24 +106,24 @@ shutdown()
 
 ### 2. TextureManager
 
-**Fichier**: `src/r-type/client/include/TextureManager.hpp`
+**File**: `src/r-type/client/include/TextureManager.hpp`
 
-**Responsabilités**:
-- Chargement de toutes les textures au démarrage
-- Gestion centralisée des handles de texture
-- Fallbacks pour les textures manquantes
+**Responsibilities**:
+- Loading all textures at startup
+- Centralized management of texture handles
+- Fallbacks for missing textures
 
-**Textures gérées**:
-- `background` - Fond d'écran scrollant
-- `menu_background` - Fond des menus
-- `player_frames[4]` - Frames d'animation du joueur
-- `enemy` - Sprite des ennemis
-- `projectile` - Sprite des projectiles
-- `wall` - Sprite des obstacles
+**Managed Textures**:
+- `background` - Scrolling background
+- `menu_background` - Menu background
+- `player_frames[4]` - Player animation frames
+- `enemy` - Enemy sprites
+- `projectile` - Projectile sprites
+- `wall` - Obstacle sprites
 
-**Méthodes principales**:
+**Main Methods**:
 ```cpp
-bool load_all();  // Charge toutes les textures
+bool load_all();  // Load all textures
 engine::TextureHandle get_background() const;
 engine::TextureHandle get_player_frame(size_t index) const;
 // ... etc
@@ -131,14 +131,14 @@ engine::TextureHandle get_player_frame(size_t index) const;
 
 ### 3. InputHandler
 
-**Fichier**: `src/r-type/client/include/InputHandler.hpp`
+**File**: `src/r-type/client/include/InputHandler.hpp`
 
-**Responsabilités**:
-- Lecture des inputs du joueur
-- Conversion en flags réseau (protocole)
-- Détection de touches spéciales
+**Responsibilities**:
+- Reading player inputs
+- Conversion to network flags (protocol)
+- Special key detection
 
-**Mapping des touches**:
+**Key Mapping**:
 ```
 W / Up Arrow    → INPUT_UP
 S / Down Arrow  → INPUT_DOWN
@@ -148,13 +148,13 @@ Space           → INPUT_SHOOT
 Shift           → INPUT_CHARGE
 Ctrl            → INPUT_SPECIAL
 E               → INPUT_SWITCH_WEAPON
-T               → Ouvrir le chat
-F1              → Fermer le chat
-Tab             → Ouvrir la console admin
-Escape          → Quitter le jeu
+T               → Open chat
+F1              → Close chat
+Tab             → Open admin console
+Escape          → Quit game
 ```
 
-**Utilisation**:
+**Usage**:
 ```cpp
 uint16_t flags = input_handler_->gather_input();
 network_client_->send_input(flags, client_tick_);
@@ -162,21 +162,21 @@ network_client_->send_input(flags, client_tick_);
 
 ### 4. ScreenManager
 
-**Fichier**: `src/r-type/client/include/ScreenManager.hpp`
+**File**: `src/r-type/client/include/ScreenManager.hpp`
 
-**Responsabilités**:
-- Gestion des états d'écran (State Pattern)
-- Transitions entre écrans
-- Affichage/masquage des overlays
-- Gestion des écrans de résultat
+**Responsibilities**:
+- Screen state management (State Pattern)
+- Screen transitions
+- Overlay show/hide
+- Result screen management
 
-**États disponibles**:
+**Available States**:
 ```cpp
 enum class GameScreen {
-    WAITING,   // En attente de joueurs
-    PLAYING,   // En jeu
-    VICTORY,   // Victoire
-    DEFEAT     // Défaite
+    WAITING,   // Waiting for players
+    PLAYING,   // In game
+    VICTORY,   // Victory
+    DEFEAT     // Defeat
 };
 ```
 
@@ -188,139 +188,139 @@ PLAYING (Game start)
     ↓
 VICTORY / DEFEAT (Game over)
     ↓
-(Retour possible au lobby)
+(Possible return to lobby)
 ```
 
-**Écrans gérés**:
-- Écran d'attente (fond + texte "En attente de joueurs...")
-- Écran de résultat (fond + texte "VICTOIRE !" ou "DEFAITE...")
-- Overlay de statut (connexion, lobby, ping)
+**Managed Screens**:
+- Waiting screen (background + "Waiting for players..." text)
+- Result screen (background + "VICTORY!" or "DEFEAT..." text)
+- Status overlay (connection, lobby, ping)
 
 ### 5. StatusOverlay
 
-**Fichier**: `src/r-type/client/include/StatusOverlay.hpp`
+**File**: `src/r-type/client/include/StatusOverlay.hpp`
 
-**Responsabilités**:
-- Affichage du statut de connexion
-- Affichage de l'état du lobby
-- Affichage de la session en cours
-- Affichage du ping
+**Responsibilities**:
+- Connection status display
+- Lobby state display
+- Current session display
+- Ping display
 
-**Format d'affichage**:
+**Display Format**:
 ```
 Connected (Player 1234) | Lobby 1: 3/4 | In game (session 5678) | Ping: 25ms
 ```
 
-**Méthodes**:
+**Methods**:
 ```cpp
 void set_connection(const std::string& status);
 void set_lobby(const std::string& status);
 void set_session(const std::string& status);
 void set_ping(int ping_ms);
-void refresh();  // Met à jour l'affichage
+void refresh();  // Update display
 ```
 
 ### 6. ChatOverlay
 
-**Fichier**: `src/r-type/client/include/ui/ChatOverlay.hpp`
+**File**: `src/r-type/client/include/ui/ChatOverlay.hpp`
 
-**Responsabilités**:
-- Affichage du chat en overlay (non-bloquant)
-- Gestion de l'historique des messages (scrollable)
-- Saisie et envoi de messages
-- Notification des messages non lus
+**Responsibilities**:
+- Chat display as overlay (non-blocking)
+- Message history management (scrollable)
+- Message input and sending
+- Unread message notifications
 
-**Contrôles**:
+**Controls**:
 ```
-T           → Ouvrir le chat
-F1          → Fermer le chat
-Enter       → Envoyer le message
-PageUp/Down → Scroll dans l'historique
+T           → Open chat
+F1          → Close chat
+Enter       → Send message
+PageUp/Down → Scroll through history
 ```
 
-**Caractéristiques**:
-- Fonctionne dans le **lobby** (RoomLobbyScreen) et **en jeu** (ClientGame)
-- Le jeu continue pendant que le chat est ouvert
-- Couleurs uniques par joueur (basées sur player_id)
-- Badge de notification quand le chat est fermé
+**Features**:
+- Works in **lobby** (RoomLobbyScreen) and **in-game** (ClientGame)
+- Game continues while chat is open
+- Unique colors per player (based on player_id)
+- Notification badge when chat is closed
 
-**Méthodes**:
+**Methods**:
 ```cpp
-void toggle();                    // Ouvrir/fermer le chat
-void set_visible(bool visible);   // Contrôle de visibilité
+void toggle();                    // Open/close chat
+void set_visible(bool visible);   // Visibility control
 bool is_visible() const;
-void add_message(sender_id, sender_name, message);  // Ajouter un message reçu
-void set_send_callback(callback); // Callback pour envoyer un message
-int get_unread_count() const;     // Nombre de messages non lus
-void clear_unread();              // Réinitialiser le compteur
-void update(graphics, input);     // Mise à jour (input handling)
-void draw(graphics);              // Rendu
-void draw_notification_badge(graphics);  // Badge de notification
+void add_message(sender_id, sender_name, message);  // Add received message
+void set_send_callback(callback); // Callback to send message
+int get_unread_count() const;     // Number of unread messages
+void clear_unread();              // Reset counter
+void update(graphics, input);     // Update (input handling)
+void draw(graphics);              // Rendering
+void draw_notification_badge(graphics);  // Notification badge
 ```
 
 ### 7. EntityManager
 
-**Fichier**: `src/r-type/client/include/EntityManager.hpp`
+**File**: `src/r-type/client/include/EntityManager.hpp`
 
-**Responsabilités**:
-- Gestion complète des entités réseau
-- Synchronisation avec le serveur
-- Spawn/Update/Destroy d'entités
-- Prédiction côté client (projectiles)
-- Gestion des entités périmées (stale entities)
-- Name tags des joueurs
+**Responsibilities**:
+- Complete network entity management
+- Server synchronization
+- Entity spawn/update/destroy
+- Client-side prediction (projectiles)
+- Stale entity management
+- Player name tags
 
-**Tracking des entités**:
+**Entity Tracking**:
 ```cpp
 std::unordered_map<uint32_t, Entity> server_to_local_;      // server_id → entity
-std::unordered_map<uint32_t, EntityType> server_types_;     // Type de l'entité
-std::unordered_map<uint32_t, uint8_t> stale_counters_;      // Compteur de vieillissement
-std::unordered_set<uint32_t> locally_integrated_;           // Projectiles (prédiction)
+std::unordered_map<uint32_t, EntityType> server_types_;     // Entity type
+std::unordered_map<uint32_t, uint8_t> stale_counters_;      // Aging counter
+std::unordered_set<uint32_t> locally_integrated_;           // Projectiles (prediction)
 ```
 
-**Méthodes principales**:
+**Main Methods**:
 ```cpp
 Entity spawn_or_update_entity(server_id, type, x, y, health, subtype);
 void remove_entity(server_id);
-void clear_all();  // Nettoyage complet
-void process_snapshot_update(updated_ids);  // Détection des entités périmées
-void update_projectiles(delta_time);  // Prédiction locale
-void update_name_tags();  // Mise à jour des positions
+void clear_all();  // Complete cleanup
+void process_snapshot_update(updated_ids);  // Stale entity detection
+void update_projectiles(delta_time);  // Local prediction
+void update_name_tags();  // Position update
 ```
 
-**Construction de sprites**:
+**Sprite Construction**:
 
-Chaque type d'entité a un sprite spécifique:
+Each entity type has a specific sprite:
 ```cpp
 switch (type) {
-    case PLAYER:        → Sprite animé cyan/blanc
-    case ENEMY_BASIC:   → Sprite ennemi standard
-    case ENEMY_FAST:    → Sprite orange
-    case ENEMY_TANK:    → Sprite rouge
-    case ENEMY_BOSS:    → Sprite violet
-    case PROJECTILE:    → Sprite cyan/rouge
-    case POWERUP:       → Sprite vert
+    case PLAYER:        → Animated cyan/white sprite
+    case ENEMY_BASIC:   → Standard enemy sprite
+    case ENEMY_FAST:    → Orange sprite
+    case ENEMY_TANK:    → Red sprite
+    case ENEMY_BOSS:    → Purple sprite
+    case PROJECTILE:    → Cyan/red sprite
+    case POWERUP:       → Green sprite
     // ...
 }
 ```
 
 ### 8. NetworkClient
 
-**Fichier**: `src/r-type/client/include/NetworkClient.hpp`
+**File**: `src/r-type/client/include/NetworkClient.hpp`
 
-**Responsabilités**:
-- Gestion de la connexion TCP/UDP avec le serveur
-- Envoi de paquets
-- Réception et décodage de paquets
-- Callbacks pour les événements réseau
+**Responsibilities**:
+- TCP/UDP connection management with server
+- Packet sending
+- Packet reception and decoding
+- Network event callbacks
 
-**Méthodes principales**:
+**Main Methods**:
 ```cpp
 bool connect(host, tcp_port);
 void disconnect();
 void update();  // Process packets
 
-// Envoi
+// Sending
 void send_connect(player_name);
 void send_join_lobby(mode, difficulty);
 void send_input(flags, tick);
@@ -337,13 +337,13 @@ void set_on_chat_message(callback);  // Chat
 // ... etc
 ```
 
-## Architecture ECS (Entity Component System)
+## ECS Architecture (Entity Component System)
 
 ### Registry
 
-Le registre ECS gère tous les composants et entités du jeu.
+The ECS registry manages all game components and entities.
 
-**Composants enregistrés**:
+**Registered Components**:
 ```cpp
 registry->register_component<Position>();
 registry->register_component<Velocity>();
@@ -358,17 +358,17 @@ registry->register_component<UIText>();
 // ... etc
 ```
 
-### Systèmes
+### Systems
 
-**Ordre d'exécution** (chaque frame):
-1. `ScrollingSystem` - Défilement du background
-2. `SpriteAnimationSystem` - Animation des sprites
-3. `RenderSystem` - Rendu graphique
-4. `HUDSystem` - Affichage de l'interface
+**Execution Order** (each frame):
+1. `ScrollingSystem` - Background scrolling
+2. `SpriteAnimationSystem` - Sprite animation
+3. `RenderSystem` - Graphics rendering
+4. `HUDSystem` - Interface display
 
-## Flux réseau
+## Network Flow
 
-### Connexion au serveur
+### Server Connection
 
 ```
 Client                                  Server
@@ -389,7 +389,7 @@ Client                                  Server
   │                                       │
 ```
 
-### Début de partie
+### Game Start
 
 ```
 Client                                  Server
@@ -413,9 +413,9 @@ Client                                  Server
   │                                       │
 ```
 
-**Légende**: `───►` TCP, `═══►` UDP
+**Legend**: `───►` TCP, `═══►` UDP
 
-### Boucle de jeu
+### Game Loop
 
 ```
 Client                                  Server
@@ -440,23 +440,23 @@ Client                                  Server
   │                                       │
 ```
 
-### Prédiction côté client (Projectiles)
+### Client-Side Prediction (Projectiles)
 
-Pour réduire la latence perçue, les projectiles sont mis à jour localement:
+To reduce perceived latency, projectiles are updated locally:
 
 ```cpp
-// Marquage lors du spawn
+// Marking during spawn
 locally_integrated_.insert(projectile_id);
 
-// Mise à jour locale chaque frame
+// Local update each frame
 void EntityManager::update_projectiles(float dt) {
     for (auto projectile_id : locally_integrated_) {
         if (!in_latest_snapshot) {
-            // Mise à jour prédictive
+            // Predictive update
             pos.x += vel.x * dt;
             pos.y += vel.y * dt;
 
-            // Despawn si hors écran
+            // Despawn if off-screen
             if (out_of_bounds) {
                 remove_entity(projectile_id);
             }
@@ -465,7 +465,7 @@ void EntityManager::update_projectiles(float dt) {
 }
 ```
 
-### Fin de partie
+### Game End
 
 ```
 Client                                  Server
@@ -479,103 +479,103 @@ Client                                  Server
   │                                       │
 ```
 
-## Gestion des entités périmées (Stale Entities)
+## Stale Entity Management
 
-Pour détecter les entités qui n'existent plus côté serveur mais n'ont pas reçu de paquet DESTROY:
+To detect entities that no longer exist server-side but haven't received a DESTROY packet:
 
 ```cpp
 void EntityManager::process_snapshot_update(updated_ids) {
     for (auto& [server_id, entity] : server_to_local_) {
         if (!updated_ids.contains(server_id)) {
-            // Entité non mise à jour dans ce snapshot
+            // Entity not updated in this snapshot
             stale_counters_[server_id]++;
 
             if (stale_counters_[server_id] > THRESHOLD) {
-                // Suppression après ~6 frames sans update
+                // Removal after ~6 frames without update
                 remove_entity(server_id);
             }
         } else {
-            // Reset du compteur
+            // Reset counter
             stale_counters_[server_id] = 0;
         }
     }
 }
 ```
 
-## Synchronisation Audio-Visuelle
+## Audio-Visual Synchronization
 
-### Callbacks réseau → Effets visuels/sonores
+### Network Callbacks → Visual/Audio Effects
 
 ```cpp
 network_client_->set_on_projectile_spawn([this](...) {
-    // Spawn visuel
+    // Visual spawn
     entity_manager_->spawn_or_update_entity(...);
 
-    // Son de tir (si audio_plugin disponible)
+    // Shot sound (if audio_plugin available)
     if (audio_plugin_) {
         audio_plugin_->play_sound("laser.wav");
     }
 });
 
 network_client_->set_on_entity_destroy([this](...) {
-    // Effet d'explosion
+    // Explosion effect
     create_particle_effect(...);
 
-    // Son d'explosion
+    // Explosion sound
     if (audio_plugin_) {
         audio_plugin_->play_sound("explosion.wav");
     }
 });
 ```
 
-## Résolution d'écran et mise à l'échelle
+## Screen Resolution and Scaling
 
-**Résolution par défaut**: 1920x1080
+**Default Resolution**: 1920x1080
 
-Le jeu utilise des dimensions relatives pour s'adapter:
+The game uses relative dimensions to adapt:
 ```cpp
 constexpr int SCREEN_WIDTH = 1920;
 constexpr int SCREEN_HEIGHT = 1080;
 
-// Positions centrées
+// Centered positions
 float center_x = SCREEN_WIDTH / 2.0f;
 float center_y = SCREEN_HEIGHT / 2.0f;
 ```
 
-## Performance et optimisation
+## Performance and Optimization
 
-### Fréquences d'update
+### Update Frequencies
 
-- **Réseau (envoi inputs)**: 30 Hz (~33ms)
-- **Réseau (réception snapshots)**: 60 Hz (~16ms)
-- **Rendu**: VSync (60 FPS généralement)
-- **Mise à jour overlay**: 2 Hz (500ms)
-- **Ping**: Toutes les 5 secondes
+- **Network (input sending)**: 30 Hz (~33ms)
+- **Network (snapshot reception)**: 60 Hz (~16ms)
+- **Rendering**: VSync (typically 60 FPS)
+- **Overlay update**: 2 Hz (500ms)
+- **Ping**: Every 5 seconds
 
-### Optimisations
+### Optimizations
 
-1. **Prédiction locale**: Projectiles mis à jour côté client
-2. **Delta snapshots**: Seules les entités qui changent
-3. **Stale entity removal**: Nettoyage automatique
-4. **Sprite batching**: Par le RenderSystem
-5. **Dirty flags**: Mise à jour conditionnelle des name tags
+1. **Local Prediction**: Client-side projectile updates
+2. **Delta Snapshots**: Only changed entities
+3. **Stale Entity Removal**: Automatic cleanup
+4. **Sprite Batching**: By RenderSystem
+5. **Dirty Flags**: Conditional name tag updates
 
 ## Configuration
 
-**Ligne de commande**:
+**Command Line**:
 ```bash
 ./r-type_client [host] [tcp_port] [player_name]
 
-# Exemples:
+# Examples:
 ./r-type_client                           # Defaults: 127.0.0.1:4242, "Pilot"
 ./r-type_client 192.168.1.100             # Custom host
 ./r-type_client 192.168.1.100 5000        # Custom host + port
 ./r-type_client 192.168.1.100 5000 "Bob"  # + custom name
 ```
 
-## Gestion d'erreurs
+## Error Handling
 
-### Échec de connexion
+### Connection Failure
 
 ```cpp
 if (!network_client_->connect(host, tcp_port)) {
@@ -584,17 +584,17 @@ if (!network_client_->connect(host, tcp_port)) {
 }
 ```
 
-### Déconnexion inattendue
+### Unexpected Disconnection
 
 ```cpp
 network_client_->set_on_disconnected([this]() {
     status_overlay_->set_connection("Disconnected");
     status_overlay_->refresh();
-    running_ = false;  // Arrêt de la boucle de jeu
+    running_ = false;  // Stop game loop
 });
 ```
 
-### Rejet par le serveur
+### Server Rejection
 
 ```cpp
 network_client_->set_on_rejected([this](reason, message) {
@@ -603,7 +603,7 @@ network_client_->set_on_rejected([this](reason, message) {
 });
 ```
 
-## Diagramme de flux complet
+## Complete Flow Diagram
 
 ```
 ┌─────────┐
@@ -650,7 +650,7 @@ network_client_->set_on_rejected([this](reason, message) {
 └─────────────────────────────────────────┘
 ```
 
-## Déploiement
+## Deployment
 
 ### Compilation
 
@@ -659,9 +659,9 @@ cmake -B build
 cmake --build build --target r-type_client
 ```
 
-### Ressources requises
+### Required Resources
 
-Le client nécessite le dossier `assets/` avec:
+The client requires the `assets/` folder with:
 - `sprite/symmetry.png` - Background
 - `sprite/background_rtype_menu.png` - Menu background
 - `sprite/ship1.png`, `ship2.png`, `ship3.png`, `ship4.png` - Player frames
@@ -669,19 +669,19 @@ Le client nécessite le dossier `assets/` avec:
 - `sprite/bullet.png` - Projectile sprite
 - `sprite/lock.png` - Wall sprite
 
-## Dépendances
+## Dependencies
 
-- **game_engine**: ECS, plugins, systèmes
-- **rtype_logic**: Logique partagée (dimensions, etc.)
-- **Raylib**: Graphisme et input via plugins
+- **game_engine**: ECS, plugins, systems
+- **rtype_logic**: Shared logic (dimensions, etc.)
+- **Raylib**: Graphics and input via plugins
 - **Miniaudio**: Audio via plugin
-- **Boost.Asio**: Réseau via plugin
+- **Boost.Asio**: Network via plugin
 
 ## Conclusion
 
-L'architecture modulaire du client offre:
-- **Séparation des responsabilités**: Chaque composant a un rôle clair
-- **Maintenabilité**: Code organisé et facile à modifier
-- **Extensibilité**: Ajout de features simplifié
-- **Performance**: Optimisations réseau et rendu
-- **UX**: Feedback visuel clair et réactivité
+The client's modular architecture provides:
+- **Separation of Concerns**: Each component has a clear role
+- **Maintainability**: Organized and easy-to-modify code
+- **Extensibility**: Simplified feature additions
+- **Performance**: Network and rendering optimizations
+- **UX**: Clear visual feedback and responsiveness

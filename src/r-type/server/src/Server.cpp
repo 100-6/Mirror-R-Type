@@ -614,6 +614,19 @@ void Server::on_leaderboard(uint32_t session_id, const std::vector<uint8_t>& lea
     packet_sender_->broadcast_udp_to_session(session_id, protocol::PacketType::SERVER_LEADERBOARD,
                                             leaderboard_data, session->get_player_ids(), connected_clients_);
 }
+
+void Server::on_shield_broken(uint32_t session_id, const std::vector<uint8_t>& shield_data)
+{
+    auto* session = session_manager_->get_session(session_id);
+
+    if (!session)
+        return;
+    std::cout << "[Server] Broadcasting shield broken to session " << session_id << std::endl;
+    // Use UDP for fast delivery - visual effect doesn't need reliability
+    packet_sender_->broadcast_udp_to_session(session_id, protocol::PacketType::SERVER_SHIELD_BROKEN,
+                                            shield_data, session->get_player_ids(), connected_clients_);
+}
+
 void Server::on_game_over(uint32_t session_id, const std::vector<uint32_t>& player_ids, bool is_victory)
 {
     std::cout << "[Server] Game over for session " << session_id

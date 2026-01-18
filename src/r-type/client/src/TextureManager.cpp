@@ -21,7 +21,12 @@ TextureManager::TextureManager(engine::IGraphicsPlugin& graphics)
     , boss_mars_(engine::INVALID_HANDLE)
     , boss_uranus_(engine::INVALID_HANDLE)
     , boss_jupiter_(engine::INVALID_HANDLE)
-    , kamikaze_(engine::INVALID_HANDLE) {
+    , kamikaze_(engine::INVALID_HANDLE)
+    , enemy_9_(engine::INVALID_HANDLE)
+    , enemy_10_(engine::INVALID_HANDLE)
+    , enemy_11_(engine::INVALID_HANDLE)
+    , enemy_12_(engine::INVALID_HANDLE)
+    , enemy_13_(engine::INVALID_HANDLE) {
     player_frames_.fill(engine::INVALID_HANDLE);
 }
 
@@ -72,6 +77,11 @@ bool TextureManager::load_all() {
     boss_uranus_ = graphics_.load_texture(BOSS_URANUS);
     boss_jupiter_ = graphics_.load_texture(BOSS_JUPITER);
     kamikaze_ = graphics_.load_texture(ENEMY_KAMIKAZE);
+    enemy_9_ = graphics_.load_texture(ENEMY_9);
+    enemy_10_ = graphics_.load_texture(ENEMY_10);
+    enemy_11_ = graphics_.load_texture(ENEMY_11);
+    enemy_12_ = graphics_.load_texture(ENEMY_12);
+    enemy_13_ = graphics_.load_texture(ENEMY_13);
 
     // Check critical textures
     if (background_ == engine::INVALID_HANDLE ||
