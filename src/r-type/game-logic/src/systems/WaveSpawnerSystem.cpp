@@ -188,18 +188,11 @@ void WaveSpawnerSystem::checkWaveTriggers(Registry& registry, float dt)
     float currentOffset = (totalScrollDistance_ - (currentChunk * chunkSizePx)) / chunkSizePx;
 
     bool shouldTrigger = false;
-    
+
     if (currentChunk > wave.trigger.chunkId) {
         shouldTrigger = true;
     } else if (currentChunk == wave.trigger.chunkId) {
         if (currentOffset >= wave.trigger.offset) {
-            shouldTrigger = true;
-        }
-    }
-    
-    // Support legacy scrollDistance trigger if chunkId is 0 and scrollDistance > 0
-    if (wave.trigger.chunkId == 0 && wave.trigger.scrollDistance > 0.0f) {
-        if (totalScrollDistance_ >= wave.trigger.scrollDistance) {
             shouldTrigger = true;
         }
     }

@@ -158,9 +158,11 @@ bool WaveManager::spawn_wave(uint32_t wave_number)
 
 float WaveManager::get_wave_start_scroll(uint32_t wave_number) const
 {
+    const float CHUNK_SIZE = 480.0f;
     for (const auto& wave : config_.waves) {
         if (wave.wave_number == wave_number) {
-            return wave.trigger.scroll_distance;
+            return (wave.trigger.chunk_id * CHUNK_SIZE) +
+                   (wave.trigger.offset * CHUNK_SIZE);
         }
     }
     return 0.0f;
@@ -218,14 +220,7 @@ void WaveManager::check_wave_triggers(float current_scroll)
                 should_trigger = true;
             }
         }
-        
-        // Legacy scroll trigger backup (only if chunkId == 0)
-        if (wave.trigger.chunk_id == 0 && wave.trigger.scroll_distance > 0.1f) {
-            if (current_scroll >= wave.trigger.scroll_distance) {
-                should_trigger = true;
-            }
-        }
-        
+
         bool time_triggered = (accumulated_time_ >= wave.trigger.time_delay);
 
         if (should_trigger && time_triggered) {

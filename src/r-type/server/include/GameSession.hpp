@@ -140,11 +140,19 @@ private:
     void on_powerup_collected(uint32_t session_id, const std::vector<uint8_t>& powerup_data) override;
     void on_player_respawn(uint32_t session_id, const std::vector<uint8_t>& respawn_data) override;
     void on_player_level_up(uint32_t session_id, const std::vector<uint8_t>& level_up_data) override;
+    void on_level_transition(uint32_t session_id, const std::vector<uint8_t>& transition_data) override;
 
+    // === Entity Spawning Helpers ===
+    /**
+     * @brief Create player entity with all components
+     */
     void spawn_player_entity(GamePlayer& player);
     void check_game_over();
     void check_offscreen_enemies();
-    
+
+    // Wave initialization
+    void initialize_wave_state();
+
     // Map-based wall spawning from tiles
     void load_map_segments(uint16_t map_id);
     void spawn_walls_in_view();
@@ -186,6 +194,10 @@ private:
     std::unordered_map<int, rtype::SegmentData> generated_segments_;  // For procedural maps
     size_t next_segment_to_spawn_ = 0;
     int tile_size_ = 16;
+
+    // Track level data loading
+    uint8_t loaded_level_id_ = 0;
+    game::LevelState last_level_state_ = game::LevelState::LEVEL_START;
 
     // Procedural generation
     bool procedural_enabled_ = false;

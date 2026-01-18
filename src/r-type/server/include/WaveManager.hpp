@@ -36,7 +36,6 @@ struct SpawnConfig {
 };
 
 struct WaveTrigger {
-    float scroll_distance;
     int chunk_id = 0;
     float offset = 0.0f;
     float time_delay;

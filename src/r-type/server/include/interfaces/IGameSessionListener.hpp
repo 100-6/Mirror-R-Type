@@ -110,6 +110,13 @@ public:
      * @param level_up_data Serialized level-up data
      */
     virtual void on_player_level_up(uint32_t session_id, const std::vector<uint8_t>& level_up_data) = 0;
+
+    /**
+     * @brief Called when a level transition occurs
+     * @param session_id Session identifier
+     * @param transition_data Serialized transition data
+     */
+    virtual void on_level_transition(uint32_t session_id, const std::vector<uint8_t>& transition_data) = 0;
 };
 
-}
+} // namespace rtype::server

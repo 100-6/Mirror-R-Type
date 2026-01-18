@@ -4,73 +4,36 @@
   "level_description": "Navigate the turbulent orbital installations around Jupiter",
   "map_id": 4,
   "base_scroll_speed": 60.0,
-  "total_scroll_distance": 9000.0,
-
+  "total_chunks": 6,
   "phases": [
     {
       "phase_number": 1,
       "phase_name": "Orbital Approach",
       "scroll_start": 0.0,
-      "scroll_end": 2800.0,
+      "scroll_end": 1440.0,
       "difficulty": "medium",
       "waves": [
         {
-          "waveNumber": 1,
+          "wave_number": 1,
           "trigger": {
-            "scrollDistance": 250,
+            "chunkId": 0,
+            "offset": 0.52,
             "timeDelay": 0
           },
-          "formation": "bouncer_storm",
           "spawns": [
             {"type": "enemy", "enemyType": "bouncer", "positionX": 2100, "positionY": 200, "count": 3, "pattern": "line", "spacing": 150},
             {"type": "enemy", "enemyType": "bouncer", "positionX": 2100, "positionY": 600, "count": 3, "pattern": "line", "spacing": 150}
           ]
         },
         {
-          "waveNumber": 2,
+          "wave_number": 2,
           "trigger": {
-            "scrollDistance": 700,
+            "chunkId": 2,
+            "offset": 0.0,
             "timeDelay": 0
           },
-          "formation": "orbiter_gas_cloud",
           "spawns": [
             {"type": "enemy", "enemyType": "bouncer", "positionX": 2400, "positionY": 250, "count": 4, "pattern": "line", "spacing": 120},
-            {"type": "enemy", "enemyType": "bouncer", "positionX": 2500, "positionY": 650, "count": 4, "pattern": "line", "spacing": 120}
-          ]
-        },
-        {
-          "waveNumber": 3,
-          "trigger": {
-            "scrollDistance": 1200,
-            "timeDelay": 0
-          },
-          "formation": "spiral_storm",
-          "spawns": [
-            {"type": "enemy", "enemyType": "tank", "positionX": 2800, "positionY": 350, "count": 2, "pattern": "line", "spacing": 300},
-            {"type": "enemy", "enemyType": "basic", "positionX": 2800, "positionY": 650, "count": 3, "pattern": "line", "spacing": 120}
-          ]
-        },
-        {
-          "waveNumber": 4,
-          "trigger": {
-            "scrollDistance": 1700,
-            "timeDelay": 0
-          },
-          "formation": "atmospheric_assault",
-          "spawns": [
-            {"type": "enemy", "enemyType": "fast", "positionX": 3100, "positionY": 200, "count": 5, "pattern": "line", "spacing": 90},
-            {"type": "enemy", "enemyType": "basic", "positionX": 3200, "positionY": 550, "count": 3, "pattern": "line", "spacing": 110}
-          ]
-        },
-        {
-          "waveNumber": 5,
-          "trigger": {
-            "scrollDistance": 2200,
-            "timeDelay": 0
-          },
-          "formation": "supply_run",
-          "spawns": [
-            {"type": "enemy", "enemyType": "tank", "positionX": 3500, "positionY": 400, "count": 1, "pattern": "single"},
             {"type": "powerup", "bonusType": "health", "positionX": 3700, "positionY": 450, "count": 1, "pattern": "single"}
           ]
         }
@@ -79,158 +42,16 @@
     {
       "phase_number": 2,
       "phase_name": "Storm Clouds",
-      "scroll_start": 2800.0,
-      "scroll_end": 5500.0,
+      "scroll_start": 1440.0,
+      "scroll_end": 2880.0,
       "difficulty": "hard",
-      "waves": [
-        {
-          "waveNumber": 6,
-          "trigger": {
-            "scrollDistance": 3000,
-            "timeDelay": 0
-          },
-          "formation": "turbulence_squadron",
-          "spawns": [
-            {"type": "enemy", "enemyType": "fast", "positionX": 4100, "positionY": 250, "count": 6, "pattern": "line", "spacing": 85}
-          ]
-        },
-        {
-          "waveNumber": 7,
-          "trigger": {
-            "scrollDistance": 3500,
-            "timeDelay": 0
-          },
-          "formation": "heavy_clouds",
-          "spawns": [
-            {"type": "enemy", "enemyType": "tank", "positionX": 4400, "positionY": 300, "count": 3, "pattern": "line", "spacing": 160},
-            {"type": "enemy", "enemyType": "basic", "positionX": 4500, "positionY": 550, "count": 4, "pattern": "line", "spacing": 100}
-          ]
-        },
-        {
-          "waveNumber": 8,
-          "trigger": {
-            "scrollDistance": 4000,
-            "timeDelay": 0
-          },
-          "formation": "lightning_strike",
-          "spawns": [
-            {"type": "enemy", "enemyType": "fast", "positionX": 4800, "positionY": 200, "count": 7, "pattern": "line", "spacing": 75}
-          ]
-        },
-        {
-          "waveNumber": 9,
-          "trigger": {
-            "scrollDistance": 4500,
-            "timeDelay": 0
-          },
-          "formation": "storm_reinforcements",
-          "spawns": [
-            {"type": "enemy", "enemyType": "tank", "positionX": 5100, "positionY": 350, "count": 2, "pattern": "line", "spacing": 190},
-            {"type": "enemy", "enemyType": "basic", "positionX": 5200, "positionY": 500, "count": 5, "pattern": "line", "spacing": 95}
-          ]
-        },
-        {
-          "waveNumber": 10,
-          "trigger": {
-            "scrollDistance": 5000,
-            "timeDelay": 0
-          },
-          "formation": "eye_of_storm",
-          "spawns": [
-            {"type": "enemy", "enemyType": "tank", "positionX": 5500, "positionY": 400, "count": 1, "pattern": "single", "bonusDrop": {"enabled": true, "bonusType": "shield", "dropChance": 1.0}},
-            {"type": "enemy", "enemyType": "fast", "positionX": 5600, "positionY": 250, "count": 4, "pattern": "line", "spacing": 100}
-          ]
-        }
-      ]
-    },
-    {
-      "phase_number": 3,
-      "phase_name": "Great Red Spot",
-      "scroll_start": 5500.0,
-      "scroll_end": 8500.0,
-      "difficulty": "extreme",
-      "waves": [
-        {
-          "waveNumber": 11,
-          "trigger": {
-            "scrollDistance": 5700,
-            "timeDelay": 0
-          },
-          "formation": "vortex_entry",
-          "spawns": [
-            {"type": "enemy", "enemyType": "fast", "positionX": 6000, "positionY": 200, "count": 5, "pattern": "line", "spacing": 95},
-            {"type": "enemy", "enemyType": "tank", "positionX": 6100, "positionY": 500, "count": 2, "pattern": "line", "spacing": 180}
-          ]
-        },
-        {
-          "waveNumber": 12,
-          "trigger": {
-            "scrollDistance": 6200,
-            "timeDelay": 0
-          },
-          "formation": "chaos_wave",
-          "spawns": [
-            {"type": "enemy", "enemyType": "basic", "positionX": 6400, "positionY": 300, "count": 7, "pattern": "line", "spacing": 80},
-            {"type": "enemy", "enemyType": "fast", "positionX": 6500, "positionY": 600, "count": 6, "pattern": "line", "spacing": 85}
-          ]
-        },
-        {
-          "waveNumber": 13,
-          "trigger": {
-            "scrollDistance": 6700,
-            "timeDelay": 0
-          },
-          "formation": "armored_cyclone",
-          "spawns": [
-            {"type": "enemy", "enemyType": "tank", "positionX": 6800, "positionY": 250, "count": 4, "pattern": "line", "spacing": 140}
-          ]
-        },
-        {
-          "waveNumber": 14,
-          "trigger": {
-            "scrollDistance": 7200,
-            "timeDelay": 0
-          },
-          "formation": "mega_assault",
-          "spawns": [
-            {"type": "enemy", "enemyType": "tank", "positionX": 7100, "positionY": 300, "count": 3, "pattern": "line", "spacing": 170},
-            {"type": "enemy", "enemyType": "fast", "positionX": 7200, "positionY": 200, "count": 5, "pattern": "line", "spacing": 90},
-            {"type": "enemy", "enemyType": "basic", "positionX": 7300, "positionY": 550, "count": 5, "pattern": "line", "spacing": 95}
-          ]
-        },
-        {
-          "waveNumber": 15,
-          "trigger": {
-            "scrollDistance": 7700,
-            "timeDelay": 0
-          },
-          "formation": "pre_boss_wave",
-          "spawns": [
-            {"type": "enemy", "enemyType": "tank", "positionX": 7600, "positionY": 350, "count": 2, "pattern": "line", "spacing": 200},
-            {"type": "enemy", "enemyType": "fast", "positionX": 7700, "positionY": 250, "count": 4, "pattern": "line", "spacing": 100},
-            {"type": "enemy", "enemyType": "basic", "positionX": 7800, "positionY": 600, "count": 4, "pattern": "line", "spacing": 105}
-          ]
-        },
-        {
-          "waveNumber": 16,
-          "trigger": {
-            "scrollDistance": 8200,
-            "timeDelay": 0
-          },
-          "formation": "final_defense",
-          "spawns": [
-            {"type": "enemy", "enemyType": "tank", "positionX": 8100, "positionY": 300, "count": 4, "pattern": "line", "spacing": 150},
-            {"type": "enemy", "enemyType": "fast", "positionX": 8200, "positionY": 650, "count": 5, "pattern": "line", "spacing": 95},
-            {"type": "powerup", "bonusType": "health", "positionX": 8400, "positionY": 400, "count": 1, "pattern": "single"}
-          ]
-        }
-      ]
+      "waves": []
     }
   ],
 
   "boss": {
     "boss_name": "Jupiter Titan",
-    "spawn_scroll_distance": 8500.0,
+    "spawn_scroll_distance": 2000.0,
     "spawn_position_x": 1600.0,
     "spawn_position_y": 540.0,
     "enemy_type": "boss",

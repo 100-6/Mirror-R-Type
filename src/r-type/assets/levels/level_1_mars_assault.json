@@ -4,20 +4,20 @@
   "level_description": "Storm the Martian defense installations",
   "map_id": 1,
   "base_scroll_speed": 60.0,
-  "total_chunks": 20,
+  "total_chunks": 6,
   "phases": [
     {
       "phase_number": 1,
       "phase_name": "Red Planet Entry",
       "scroll_start": 0.0,
-      "scroll_end": 2000.0,
+      "scroll_end": 1440.0,
       "difficulty": "easy",
       "waves": [
         {
-          "waveNumber": 1,
+          "wave_number": 1,
           "trigger": {
             "chunkId": 0,
-            "offset": 0.3,
+            "offset": 0.0,
             "timeDelay": 0
           },
           "spawns": [
@@ -28,116 +28,32 @@
               "positionY": 300,
               "count": 3,
               "pattern": "line",
-              "spacing": 120
+              "spacing": 150
             }
           ]
         },
         {
-          "waveNumber": 2,
+          "wave_number": 2,
           "trigger": {
-            "chunkId": 1,
-            "offset": 0.05,
+            "chunkId": 2,
+            "offset": 0.0,
             "timeDelay": 0
           },
           "spawns": [
             {
               "type": "enemy",
               "enemyType": "basic",
-              "positionX": 2200,
+              "positionX": 2100,
               "positionY": 200,
               "count": 3,
               "pattern": "line",
               "spacing": 120
             },
             {
-              "type": "enemy",
-              "enemyType": "basic",
-              "positionX": 2200,
-              "positionY": 700,
-              "count": 3,
-              "pattern": "line",
-              "spacing": 120
-            }
-          ]
-        },
-        {
-          "waveNumber": 3,
-          "trigger": {
-            "chunkId": 1,
-            "offset": 0.8,
-            "timeDelay": 0
-          },
-          "spawns": [
-            {
-              "type": "enemy",
-              "enemyType": "zigzag",
-              "positionX": 2500,
-              "positionY": 150,
-              "count": 2,
-              "pattern": "line",
-              "spacing": 100
-            },
-            {
-              "type": "enemy",
-              "enemyType": "zigzag",
-              "positionX": 2500,
-              "positionY": 800,
-              "count": 2,
-              "pattern": "line",
-              "spacing": 100
-            }
-          ]
-        },
-        {
-          "waveNumber": 4,
-          "trigger": {
-            "chunkId": 2,
-            "offset": 0.7,
-            "timeDelay": 0
-          },
-          "spawns": [
-            {
-              "type": "enemy",
-              "enemyType": "bouncer",
-              "positionX": 2600,
-              "positionY": 300,
-              "count": 2,
-              "pattern": "line",
-              "spacing": 200
-            },
-            {
-              "type": "enemy",
-              "enemyType": "bouncer",
-              "positionX": 2600,
-              "positionY": 600,
-              "count": 2,
-              "pattern": "line",
-              "spacing": 200
-            }
-          ]
-        },
-        {
-          "waveNumber": 5,
-          "trigger": {
-            "chunkId": 3,
-            "offset": 0.5,
-            "timeDelay": 0
-          },
-          "spawns": [
-            {
-              "type": "enemy",
-              "enemyType": "bouncer",
-              "positionX": 2700,
-              "positionY": 350,
-              "count": 3,
-              "pattern": "line",
-              "spacing": 150
-            },
-            {
-              "type": "enemy",
-              "enemyType": "tank",
-              "positionX": 2800,
-              "positionY": 550,
+              "type": "powerup",
+              "bonusType": "health",
+              "positionX": 2300,
+              "positionY": 540,
               "count": 1,
               "pattern": "single"
             }
@@ -148,282 +64,15 @@
     {
       "phase_number": 2,
       "phase_name": "Industrial Zone",
-      "scroll_start": 2000.0,
-      "scroll_end": 4500.0,
+      "scroll_start": 1440.0,
+      "scroll_end": 2880.0,
       "difficulty": "medium",
-      "waves": [
-        {
-          "waveNumber": 6,
-          "trigger": {
-            "chunkId": 4,
-            "offset": 0.3,
-            "timeDelay": 0
-          },
-          "spawns": [
-            {
-              "type": "enemy",
-              "enemyType": "kamikaze",
-              "positionX": 2100,
-              "positionY": 250,
-              "count": 2,
-              "pattern": "line",
-              "spacing": 300
-            },
-            {
-              "type": "enemy",
-              "enemyType": "kamikaze",
-              "positionX": 2100,
-              "positionY": 650,
-              "count": 2,
-              "pattern": "line",
-              "spacing": 300
-            }
-          ]
-        },
-        {
-          "waveNumber": 7,
-          "trigger": {
-            "chunkId": 5,
-            "offset": 0.4,
-            "timeDelay": 0
-          },
-          "spawns": [
-            {
-              "type": "enemy",
-              "enemyType": "basic",
-              "positionX": 2100,
-              "positionY": 200,
-              "count": 2,
-              "pattern": "line",
-              "spacing": 150
-            },
-            {
-              "type": "enemy",
-              "enemyType": "basic",
-              "positionX": 2100,
-              "positionY": 700,
-              "count": 2,
-              "pattern": "line",
-              "spacing": 150
-            }
-          ]
-        },
-        {
-          "waveNumber": 8,
-          "trigger": {
-            "chunkId": 6,
-            "offset": 0.25,
-            "timeDelay": 0
-          },
-          "spawns": [
-            {
-              "type": "enemy",
-              "enemyType": "zigzag",
-              "positionX": 2100,
-              "positionY": 300,
-              "count": 3,
-              "pattern": "line",
-              "spacing": 120
-            },
-            {
-              "type": "enemy",
-              "enemyType": "zigzag",
-              "positionX": 2100,
-              "positionY": 600,
-              "count": 3,
-              "pattern": "line",
-              "spacing": 120
-            }
-          ]
-        },
-        {
-          "waveNumber": 9,
-          "trigger": {
-            "chunkId": 7,
-            "offset": 0.3,
-            "timeDelay": 0
-          },
-          "spawns": [
-            {
-              "type": "enemy",
-              "enemyType": "basic",
-              "positionX": 2100,
-              "positionY": 200,
-              "count": 2,
-              "pattern": "line",
-              "spacing": 200
-            },
-            {
-              "type": "enemy",
-              "enemyType": "basic",
-              "positionX": 2100,
-              "positionY": 700,
-              "count": 2,
-              "pattern": "line",
-              "spacing": 200
-            }
-          ]
-        },
-        {
-          "waveNumber": 10,
-          "trigger": {
-            "chunkId": 8,
-            "offset": 0.3,
-            "timeDelay": 0
-          },
-          "spawns": [
-            {
-              "type": "enemy",
-              "enemyType": "tank",
-              "positionX": 2100,
-              "positionY": 400,
-              "count": 2,
-              "pattern": "line",
-              "spacing": 200
-            },
-            {
-              "type": "powerup",
-              "bonusType": "health",
-              "positionX": 2300,
-              "positionY": 500,
-              "count": 1,
-              "pattern": "single"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "phase_number": 3,
-      "phase_name": "Final Approach",
-      "scroll_start": 4500.0,
-      "scroll_end": 6500.0,
-      "difficulty": "hard",
-      "waves": [
-        {
-          "waveNumber": 11,
-          "trigger": {
-            "chunkId": 9,
-            "offset": 0.8,
-            "timeDelay": 0
-          },
-          "spawns": [
-            {
-              "type": "enemy",
-              "enemyType": "kamikaze",
-              "positionX": 2100,
-              "positionY": 200,
-              "count": 4,
-              "pattern": "line",
-              "spacing": 100
-            },
-            {
-              "type": "enemy",
-              "enemyType": "kamikaze",
-              "positionX": 2100,
-              "positionY": 700,
-              "count": 4,
-              "pattern": "line",
-              "spacing": 100
-            }
-          ]
-        },
-        {
-          "waveNumber": 12,
-          "trigger": {
-            "chunkId": 10,
-            "offset": 0.8,
-            "timeDelay": 0
-          },
-          "spawns": [
-            {
-              "type": "enemy",
-              "enemyType": "basic",
-              "positionX": 2100,
-              "positionY": 150,
-              "count": 2,
-              "pattern": "line",
-              "spacing": 100
-            },
-            {
-              "type": "enemy",
-              "enemyType": "zigzag",
-              "positionX": 2200,
-              "positionY": 350,
-              "count": 2,
-              "pattern": "line",
-              "spacing": 100
-            },
-            {
-              "type": "enemy",
-              "enemyType": "bouncer",
-              "positionX": 2300,
-              "positionY": 550,
-              "count": 2,
-              "pattern": "line",
-              "spacing": 100
-            },
-            {
-              "type": "enemy",
-              "enemyType": "bouncer",
-              "positionX": 2400,
-              "positionY": 750,
-              "count": 2,
-              "pattern": "line",
-              "spacing": 100
-            }
-          ]
-        },
-        {
-          "waveNumber": 13,
-          "trigger": {
-            "chunkId": 11,
-            "offset": 0.8,
-            "timeDelay": 0
-          },
-          "spawns": [
-            {
-              "type": "enemy",
-              "enemyType": "kamikaze",
-              "positionX": 2100,
-              "positionY": 250,
-              "count": 2,
-              "pattern": "line",
-              "spacing": 200
-            },
-            {
-              "type": "enemy",
-              "enemyType": "tank",
-              "positionX": 2100,
-              "positionY": 450,
-              "count": 1,
-              "pattern": "single"
-            },
-            {
-              "type": "enemy",
-              "enemyType": "kamikaze",
-              "positionX": 2100,
-              "positionY": 650,
-              "count": 2,
-              "pattern": "line",
-              "spacing": 200
-            },
-            {
-              "type": "powerup",
-              "bonusType": "health",
-              "positionX": 2300,
-              "positionY": 400,
-              "count": 1,
-              "pattern": "single"
-            }
-          ]
-        }
-      ]
+      "waves": []
     }
   ],
   "boss": {
     "boss_name": "Mars Guardian",
-    "spawn_scroll_distance": 6500.0,
+    "spawn_scroll_distance": 2000.0,
     "spawn_position_x": 1600.0,
     "spawn_position_y": 540.0,
     "enemy_type": "boss",

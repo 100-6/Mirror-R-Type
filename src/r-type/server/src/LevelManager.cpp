@@ -8,6 +8,7 @@
 #include "LevelManager.hpp"
 #include <fstream>
 #include <iostream>
+#include <filesystem>
 
 namespace rtype::server {
 
@@ -50,8 +51,28 @@ bool LevelManager::load_level(uint8_t level_id)
     config_ = LevelConfig();
     
     // Allow debug levels (0, 99) in addition to regular levels (1-3)
-    std::string filepath = get_level_file(level_id);
-    return load_from_file(filepath);
+    std::string base_filepath = get_level_file(level_id);
+
+    // List of prefixes to try
+    std::vector<std::string> prefixes = {
+        "",
+        "../",
+        "../../",
+        "src/r-type/",
+        "../src/r-type/"
+    };
+
+    for (const auto& prefix : prefixes) {
+        std::string full_path = prefix + base_filepath;
+        if (std::filesystem::exists(full_path)) {
+            // Found existing file, try to load it
+            // std::cout << "[LevelManager] Found level configuration at: " << full_path << "\n";
+            return load_from_file(full_path);
+        }
+    }
+
+    std::cerr << "[LevelManager] ERROR: Could not find level configuration file: " << base_filepath << "\n";
+    return load_from_file(base_filepath);
 }
 
 bool LevelManager::load_level_index(const std::string& filepath)
@@ -124,7 +145,14 @@ bool LevelManager::parse_level_metadata(const nlohmann::json& j)
     config_.map_id = j.value("map_id", 1);
     config_.base_scroll_speed = j.value("base_scroll_speed", 60.0f);
     config_.total_scroll_distance = j.value("total_scroll_distance", 8000.0f);
-    config_.total_chunks = j.value("total_chunks", 20);
+    
+    // Parse total_chunks (new chunk-based system)
+    // If not present, calculate from total_scroll_distance / 480
+    if (j.contains("total_chunks")) {
+        config_.total_chunks = j.value("total_chunks", 20);
+    } else {
+        config_.total_chunks = static_cast<uint32_t>(config_.total_scroll_distance / 480.0f);
+    }
 
     return true;
 }
@@ -203,7 +231,6 @@ Wave LevelManager::parse_wave(const nlohmann::json& j)
 
     if (j.contains("trigger")) {
         const auto& trigger = j["trigger"];
-        wave.trigger.scroll_distance = trigger.value("scrollDistance", 0.0f);
         wave.trigger.chunk_id = trigger.value("chunkId", 0);
         wave.trigger.offset = trigger.value("offset", 0.0f);
         wave.trigger.time_delay = trigger.value("timeDelay", 0.0f);
