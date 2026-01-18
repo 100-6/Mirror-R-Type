@@ -52,6 +52,11 @@ inline constexpr const char* BOSS_MARS = "assets/sprite/enemies/boss_mars.png";
 inline constexpr const char* BOSS_URANUS = "assets/sprite/enemies/boss_uranus.png";
 inline constexpr const char* BOSS_JUPITER = "assets/sprite/enemies/boss_jupiter.png";
 inline constexpr const char* ENEMY_KAMIKAZE = "assets/sprite/enemies/kamikaz.png";
+inline constexpr const char* ENEMY_9 = "assets/sprite/enemies/enemie9.png";
+inline constexpr const char* ENEMY_10 = "assets/sprite/enemies/enemie10.png";
+inline constexpr const char* ENEMY_11 = "assets/sprite/enemies/enemie11.png";
+inline constexpr const char* ENEMY_12 = "assets/sprite/enemies/enemie12.png";
+inline constexpr const char* ENEMY_13 = "assets/sprite/enemies/enemie13.png";
 
 // ========== ENVIRONMENT ==========
 inline constexpr const char* WALL = "assets/sprite/environment/lock.png";

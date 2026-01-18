@@ -2,41 +2,41 @@
 
 ## Overview
 
-Le système de vagues (Wave System) permet de spawn automatiquement des entités (ennemis, murs, obstacles, bonus/powerups) basé sur la progression du scrolling et configuré via des fichiers JSON.
+The Wave System allows automatic spawning of entities (enemies, walls, obstacles, powerups) based on scrolling progression and configured via JSON files.
 
 ## Architecture
 
 ### Components
 
-Les composants suivants ont été ajoutés dans [`GameComponents.hpp`](src/r-type/game-logic/include/components/GameComponents.hpp):
+The following components have been added in [`GameComponents.hpp`](src/r-type/game-logic/include/components/GameComponents.hpp):
 
-- `WaveSpawnData`: Données pour spawner une entité
-- `WaveTrigger`: Conditions de déclenchement d'une vague
-- `WaveController`: Contrôleur global du système de vagues
-- `SpawnPattern`: Enum pour les patterns de spawn
-- `EntitySpawnType`: Enum pour les types d'entités
+- `WaveSpawnData`: Data for spawning an entity
+- `WaveTrigger`: Wave trigger conditions
+- `WaveController`: Global wave system controller
+- `SpawnPattern`: Enum for spawn patterns
+- `EntitySpawnType`: Enum for entity types
 
 ### Configuration
 
-Les constantes de configuration sont définies dans [`WaveConfig.hpp`](src/r-type/game-logic/include/components/WaveConfig.hpp):
+Configuration constants are defined in [`WaveConfig.hpp`](src/r-type/game-logic/include/components/WaveConfig.hpp):
 
 ```cpp
-#define WAVE_DEFAULT_SPAWN_INTERVAL     2.0f    // Intervalle par défaut entre spawns
-#define WAVE_DEFAULT_BETWEEN_WAVES      5.0f    // Temps entre vagues
-#define WAVE_SPAWN_OFFSET_X             50.0f   // Offset de spawn à droite
-#define WAVE_SPAWN_MIN_Y                50.0f   // Position Y minimale
-#define WAVE_SPAWN_MAX_Y                1030.0f // Position Y maximale
-// ... et plus
+#define WAVE_DEFAULT_SPAWN_INTERVAL     2.0f    // Default interval between spawns
+#define WAVE_DEFAULT_BETWEEN_WAVES      5.0f    // Time between waves
+#define WAVE_SPAWN_OFFSET_X             50.0f   // Spawn offset to the right
+#define WAVE_SPAWN_MIN_Y                50.0f   // Minimum Y position
+#define WAVE_SPAWN_MAX_Y                1030.0f // Maximum Y position
+// ... and more
 ```
 
 ### Systems
 
-- **WaveSpawnerSystem**: Système principal qui gère le spawn des vagues
-- **WaveConfigLoader**: Utilitaire pour charger et valider les configurations JSON
+- **WaveSpawnerSystem**: Main system that manages wave spawning
+- **WaveConfigLoader**: Utility for loading and validating JSON configurations
 
 ## JSON Configuration Format
 
-### Structure de base
+### Basic Structure
 
 ```json
 {
@@ -46,38 +46,38 @@ Les constantes de configuration sont définies dans [`WaveConfig.hpp`](src/r-typ
 }
 ```
 
-### Format d'une vague
+### Wave Format
 
 ```json
 {
   "trigger": {
-    "chunkId": 1,        // Index du chunk map (0-based, 1 chunk = 480px)
-    "offset": 0.5,       // Position dans le chunk (0.0 - 1.0)
-    "timeDelay": 2.0     // Délai après trigger (en secondes)
+    "chunkId": 1,        // Map chunk index (0-based, 1 chunk = 480px)
+    "offset": 0.5,       // Position within chunk (0.0 - 1.0)
+    "timeDelay": 2.0     // Delay after trigger (in seconds)
   },
   "spawns": [...]
 }
 ```
 
-### Format d'un spawn
+### Spawn Format
 
 ```json
 {
   "type": "enemy",           // Type: "enemy", "wall", "obstacle", "powerup"
-  "enemyType": "basic",      // Pour enemies: "basic", "fast", "tank", "boss"
-  "bonusType": "health",     // Pour powerups: "health", "shield", "speed"
-  "positionX": 1920,         // Position X absolue
-  "positionY": 300,          // Position Y absolue
-  "count": 3,                // Nombre d'entités à spawner
+  "enemyType": "basic",      // For enemies: "basic", "fast", "tank", "boss"
+  "bonusType": "health",     // For powerups: "health", "shield", "speed"
+  "positionX": 1920,         // Absolute X position
+  "positionY": 300,          // Absolute Y position
+  "count": 3,                // Number of entities to spawn
   "pattern": "line",         // Pattern: "single", "line", "grid", "random", "formation"
-  "spacing": 150             // Espacement entre entités (pour patterns)
+  "spacing": 150             // Spacing between entities (for patterns)
 }
 ```
 
 ## Spawn Patterns
 
 ### SINGLE
-Spawn une seule entité à la position spécifiée.
+Spawns a single entity at the specified position.
 
 ```json
 {
@@ -87,29 +87,29 @@ Spawn une seule entité à la position spécifiée.
 ```
 
 ### LINE
-Spawn des entités en ligne verticale.
+Spawns entities in a vertical line.
 
 ```json
 {
   "pattern": "line",
   "count": 5,
-  "spacing": 100  // Espacement vertical
+  "spacing": 100  // Vertical spacing
 }
 ```
 
 ### GRID
-Spawn des entités en grille.
+Spawns entities in a grid.
 
 ```json
 {
   "pattern": "grid",
   "count": 9,
-  "spacing": 80  // Espacement vertical
+  "spacing": 80  // Vertical spacing
 }
 ```
 
 ### RANDOM
-Spawn des entités à des positions Y aléatoires.
+Spawns entities at random Y positions.
 
 ```json
 {
@@ -119,7 +119,7 @@ Spawn des entités à des positions Y aléatoires.
 ```
 
 ### FORMATION
-Spawn des entités en formation V.
+Spawns entities in a V formation.
 
 ```json
 {
@@ -131,25 +131,25 @@ Spawn des entités en formation V.
 
 ## Usage Example
 
-### 1. Intégration dans le code
+### 1. Code Integration
 
 ```cpp
 #include "systems/WaveSpawnerSystem.hpp"
 
-// Dans votre fonction d'initialisation
+// In your initialization function
 auto waveSystem = std::make_unique<WaveSpawnerSystem>(graphics);
 registry.register_system(std::move(waveSystem));
 
-// Charger la configuration
+// Load configuration
 auto* waveSpawner = registry.get_system<WaveSpawnerSystem>();
 if (waveSpawner) {
     waveSpawner->loadWaveConfiguration("assets/waves_example.json");
 }
 ```
 
-### 2. Exemple de configuration simple
+### 2. Simple Configuration Example
 
-Voir [`waves_simple.json`](src/r-type/assets/waves_simple.json):
+See [`waves_simple.json`](src/r-type/assets/waves_simple.json):
 
 ```json
 {
@@ -178,41 +178,41 @@ Voir [`waves_simple.json`](src/r-type/assets/waves_simple.json):
 }
 ```
 
-### 3. Exemple de configuration avancée
+### 3. Advanced Configuration Example
 
-Voir [`waves_example.json`](src/r-type/assets/waves_example.json) pour un exemple complet avec:
-- 7 vagues différentes
-- Multiples patterns de spawn
-- Combinaisons d'ennemis et de murs
-- Boss final
+See [`waves_example.json`](src/r-type/assets/waves_example.json) for a complete example with:
+- 7 different waves
+- Multiple spawn patterns
+- Combinations of enemies and walls
+- Final boss
 
-## Configuration des Entités
+## Entity Configuration
 
 ### Enemies
 
-Les statistiques des ennemis sont définies dans [`CombatConfig.hpp`](src/r-type/game-logic/include/components/CombatConfig.hpp):
+Enemy statistics are defined in [`CombatConfig.hpp`](src/r-type/game-logic/include/components/CombatConfig.hpp):
 
-- **BASIC**: Santé 30, Vitesse 100, Cooldown 2.0s
-- **FAST**: Santé 20, Vitesse 200, Cooldown 1.5s
-- **TANK**: Santé 100, Vitesse 50, Cooldown 3.0s
-- **BOSS**: Santé 500, Vitesse 80, Cooldown 0.8s
+- **BASIC**: Health 30, Speed 100, Cooldown 2.0s
+- **FAST**: Health 20, Speed 200, Cooldown 1.5s
+- **TANK**: Health 100, Speed 50, Cooldown 3.0s
+- **BOSS**: Health 500, Speed 80, Cooldown 0.8s
 
 ### Walls & Obstacles
 
-Configurés dans [`WaveConfig.hpp`](src/r-type/game-logic/include/components/WaveConfig.hpp):
+Configured in [`WaveConfig.hpp`](src/r-type/game-logic/include/components/WaveConfig.hpp):
 
-- **Murs**: Santé 100, Taille 50x100
-- **Obstacles**: Santé 50, Taille 50x100
+- **Walls**: Health 100, Size 50x100
+- **Obstacles**: Health 50, Size 50x100
 
-### Powerups (Bonus)
+### Powerups (Bonuses)
 
-Trois types de bonus sont disponibles:
+Three types of powerups are available:
 
-- **health** (Vert): +20 HP au joueur
-- **shield** (Violet): Protection d'1 hit (cercle violet autour du joueur)
-- **speed** (Bleu): +50% de vitesse pendant 20 secondes
+- **health** (Green): +20 HP to player
+- **shield** (Purple): Protection from 1 hit (purple circle around player)
+- **speed** (Blue): +50% speed for 20 seconds
 
-Exemple de spawn de bonus:
+Powerup spawn example:
 
 ```json
 {
@@ -227,23 +227,23 @@ Exemple de spawn de bonus:
 
 ## Tips & Best Practices
 
-### 1. Planification des vagues
+### 1. Wave Planning
 
-- Commencer avec des vagues simples (SINGLE, LINE)
-- Augmenter progressivement la difficulté
-- Utiliser `chunkId` pour positionner les vagues par rapport au décor (1 chunk = 30 tiles)
-- Utiliser `timeDelay` pour créer du suspense avant les boss
+- Start with simple waves (SINGLE, LINE)
+- Progressively increase difficulty
+- Use `chunkId` to position waves relative to scenery (1 chunk = 30 tiles)
+- Use `timeDelay` to create suspense before bosses
 
-### 2. Patterns de spawn
+### 2. Spawn Patterns
 
-- **LINE**: Parfait pour des formations défensives
-- **GRID**: Bon pour créer des murs d'ennemis
-- **RANDOM**: Ajoute de l'imprévisibilité
-- **FORMATION**: Idéal pour des escadrons organisés
+- **LINE**: Perfect for defensive formations
+- **GRID**: Good for creating enemy walls
+- **RANDOM**: Adds unpredictability
+- **FORMATION**: Ideal for organized squadrons
 
-### 3. Combinaisons d'entités
+### 3. Entity Combinations
 
-Combiner différents types dans une même vague:
+Combine different types in the same wave:
 
 ```json
 {
@@ -270,41 +270,41 @@ Combiner différents types dans une même vague:
 
 ### 4. Testing
 
-Utiliser [`waves_simple.json`](src/r-type/assets/waves_simple.json) pour tester:
-- Vérifier que les spawns fonctionnent
-- Ajuster les positions
-- Tester les patterns
+Use [`waves_simple.json`](src/r-type/assets/waves_simple.json) to test:
+- Verify spawns work
+- Adjust positions
+- Test patterns
 
-## Limites du système
+## System Limits
 
-Définies dans [`WaveConfig.hpp`](src/r-type/game-logic/include/components/WaveConfig.hpp):
+Defined in [`WaveConfig.hpp`](src/r-type/game-logic/include/components/WaveConfig.hpp):
 
-- `WAVE_MAX_ACTIVE_WAVES`: 10 vagues maximum
-- `WAVE_MAX_ENTITIES_PER_WAVE`: 50 entités par vague maximum
-- `WAVE_MIN_SPAWN_INTERVAL`: 0.5s minimum entre spawns
-- `WAVE_MAX_SPAWN_INTERVAL`: 10.0s maximum entre spawns
-- `WAVE_SPAWN_MIN_Y`: 50px position Y minimale
-- `WAVE_SPAWN_MAX_Y`: 1030px position Y maximale
+- `WAVE_MAX_ACTIVE_WAVES`: Maximum 10 waves
+- `WAVE_MAX_ENTITIES_PER_WAVE`: Maximum 50 entities per wave
+- `WAVE_MIN_SPAWN_INTERVAL`: Minimum 0.5s between spawns
+- `WAVE_MAX_SPAWN_INTERVAL`: Maximum 10.0s between spawns
+- `WAVE_SPAWN_MIN_Y`: Minimum Y position 50px
+- `WAVE_SPAWN_MAX_Y`: Maximum Y position 1030px
 
 ## Troubleshooting
 
-### Les vagues ne se déclenchent pas
+### Waves Don't Trigger
 
-- Vérifier que le système de scrolling est actif
-- Vérifier que `chunkId` et `offset` sont corrects (0-based)
-- Regarder les logs console pour les messages de debug
+- Check that scrolling system is active
+- Verify `chunkId` and `offset` are correct (0-based)
+- Look at console logs for debug messages
 
-### Les entités spawn au mauvais endroit
+### Entities Spawn at Wrong Location
 
-- Vérifier `positionX` et `positionY`
-- Vérifier que les positions Y sont entre `WAVE_SPAWN_MIN_Y` et `WAVE_SPAWN_MAX_Y`
-- Ajuster `spacing` pour les patterns
+- Check `positionX` and `positionY`
+- Verify Y positions are between `WAVE_SPAWN_MIN_Y` and `WAVE_SPAWN_MAX_Y`
+- Adjust `spacing` for patterns
 
-### Le JSON ne se charge pas
+### JSON Won't Load
 
-- Vérifier la syntaxe JSON (virgules, guillemets, accolades)
-- Vérifier le chemin du fichier
-- Regarder les messages d'erreur dans la console
+- Check JSON syntax (commas, quotes, braces)
+- Verify file path
+- Look at error messages in console
 
 ## Files Structure
 
@@ -331,9 +331,9 @@ src/r-type/assets/
 
 ## Future Improvements
 
-- [x] Support pour les powerups (health, shield, speed)
-- [ ] Patterns de spawn plus complexes (cercle, spirale)
-- [ ] Événements scriptables (changement de musique, effets visuels)
-- [ ] Conditions de trigger multiples (temps ET distance)
-- [ ] Support pour les animations de spawn
-- [ ] Éditeur visuel de vagues
+- [x] Support for powerups (health, shield, speed)
+- [ ] More complex spawn patterns (circle, spiral)
+- [ ] Scriptable events (music change, visual effects)
+- [ ] Multiple trigger conditions (time AND distance)
+- [ ] Support for spawn animations
+- [ ] Visual wave editor

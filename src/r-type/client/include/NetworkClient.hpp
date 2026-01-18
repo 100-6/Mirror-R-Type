@@ -180,9 +180,9 @@ public:
 
     /**
      * @brief Set callback for game start
-     * @param callback Function receiving session_id, udp_port, map_id and scroll speed
+     * @param callback Function receiving session_id, udp_port, map_id, scroll speed, seed and difficulty
      */
-    void set_on_game_start(std::function<void(uint32_t session_id, uint16_t udp_port, uint16_t map_id, float scroll_speed, uint32_t seed)> callback);
+    void set_on_game_start(std::function<void(uint32_t session_id, uint16_t udp_port, uint16_t map_id, float scroll_speed, uint32_t seed, protocol::Difficulty difficulty)> callback);
 
     /**
      * @brief Set callback for entity spawn
@@ -449,7 +449,7 @@ private:
     std::function<void(uint8_t, const std::string&)> on_rejected_;
     std::function<void(const protocol::ServerLobbyStatePayload&, const std::vector<protocol::PlayerLobbyEntry>&)> on_lobby_state_;
     std::function<void(uint8_t)> on_countdown_;
-    std::function<void(uint32_t, uint16_t, uint16_t, float, uint32_t)> on_game_start_;
+    std::function<void(uint32_t, uint16_t, uint16_t, float, uint32_t, protocol::Difficulty)> on_game_start_;
     std::function<void(const protocol::ServerEntitySpawnPayload&)> on_entity_spawn_;
     std::function<void(const protocol::ServerEntityDestroyPayload&)> on_entity_destroy_;
     std::function<void(const protocol::ServerProjectileSpawnPayload&)> on_projectile_spawn_;

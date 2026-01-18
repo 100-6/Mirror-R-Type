@@ -19,8 +19,8 @@ namespace rtype::game {
  * Level 1: 0 points     - SCOUT + BASIC
  * Level 2: 2000 points  - FIGHTER + SPREAD
  * Level 3: 5000 points  - CRUISER + BURST
- * Level 4: 10000 points - BOMBER + LASER
- * Level 5: 20000 points - CARRIER + CHARGE
+ * Level 4: 10000 points - BOMBER + MACHINE_GUN (mitraillette)
+ * Level 5: 20000 points - CARRIER + LASER (vrai rayon laser)
  */
 constexpr uint32_t LEVEL_THRESHOLDS[] = {
     0,        // Level 1 - SCOUT (starting level)
@@ -55,8 +55,8 @@ inline uint8_t get_ship_type_for_level(uint8_t level) {
  * Level 1 = BASIC
  * Level 2 = SPREAD
  * Level 3 = BURST
- * Level 4 = LASER
- * Level 5 = CHARGE
+ * Level 4 = MACHINE_GUN (mitraillette - tir rapide continu)
+ * Level 5 = LASER (vrai rayon laser continu)
  *
  * @param level The player level (1-5)
  * @return WeaponType The corresponding weapon type
@@ -66,8 +66,8 @@ inline WeaponType get_weapon_type_for_level(uint8_t level) {
         case 1: return WeaponType::BASIC;
         case 2: return WeaponType::SPREAD;
         case 3: return WeaponType::BURST;
-        case 4: return WeaponType::LASER;
-        case 5: return WeaponType::CHARGE;
+        case 4: return WeaponType::MACHINE_GUN;
+        case 5: return WeaponType::LASER;
         default: return WeaponType::BASIC;
     }
 }

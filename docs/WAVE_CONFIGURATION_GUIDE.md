@@ -1,61 +1,61 @@
-# Wave Configuration Guide - Pattern 2-Chunks
+# Wave Configuration Guide - 2-Chunks Pattern
 
-Ce guide explique comment configurer les waves (vagues d'ennemis) pour les nouvelles maps du jeu R-Type.
+This guide explains how to configure waves (enemy waves) for new R-Type game maps.
 
-## Table des Matières
+## Table of Contents
 
-1. [Vue d'Ensemble](#vue-densemble)
-2. [Système de Chunks](#système-de-chunks)
-3. [Pattern Standard: 2-Chunks](#pattern-standard-2-chunks)
-4. [Structure JSON des Waves](#structure-json-des-waves)
-5. [Composition des Ennemis par Difficulté](#composition-des-ennemis-par-difficulté)
-6. [Configuration du Boss](#configuration-du-boss)
-7. [Exemples Complets](#exemples-complets)
+1. [Overview](#overview)
+2. [Chunk System](#chunk-system)
+3. [Standard Pattern: 2-Chunks](#standard-pattern-2-chunks)
+4. [JSON Wave Structure](#json-wave-structure)
+5. [Enemy Composition by Difficulty](#enemy-composition-by-difficulty)
+6. [Boss Configuration](#boss-configuration)
+7. [Complete Examples](#complete-examples)
 8. [Validation](#validation)
 
 ---
 
-## Vue d'Ensemble
+## Overview
 
-Le système de waves de R-Type est basé sur un déclenchement par **chunks** (morceaux de carte) et non plus par distance de scroll absolue.
+The R-Type wave system is based on **chunk**-based triggering (map pieces) rather than absolute scroll distance.
 
-### Concepts Clés
+### Key Concepts
 
-- **Chunk**: Unité de base de la carte (1 chunk = 480 pixels = 30 tuiles × 16px)
-- **ChunkId**: Position du chunk sur la carte (0-indexed)
-- **Offset**: Position relative dans le chunk (0.0 = début, 1.0 = fin)
-- **Wave**: Vague d'ennemis déclenchée à une position de chunk précise
-- **Phase**: Groupe de waves avec une difficulté cohérente (easy/medium/hard)
+- **Chunk**: Basic map unit (1 chunk = 480 pixels = 30 tiles × 16px)
+- **ChunkId**: Chunk position on the map (0-indexed)
+- **Offset**: Relative position within chunk (0.0 = start, 1.0 = end)
+- **Wave**: Enemy wave triggered at a specific chunk position
+- **Phase**: Group of waves with consistent difficulty (easy/medium/hard)
 
 ---
 
-## Système de Chunks
+## Chunk System
 
 ### Dimensions
 
 ```
 1 chunk = 480 pixels
-1 tuile = 16 pixels
-1 chunk = 30 tuiles
+1 tile = 16 pixels
+1 chunk = 30 tiles
 ```
 
-### Calcul de Position
+### Position Calculation
 
-Pour calculer la distance de scroll d'un chunk:
+To calculate scroll distance for a chunk:
 
 ```
 scroll_distance = chunkId × 480
 ```
 
-**Exemples:**
+**Examples:**
 - Chunk 0: 0 pixels
 - Chunk 2: 960 pixels
 - Chunk 10: 4800 pixels
-- Chunk 20: 9600 pixels (fin de niveau standard)
+- Chunk 20: 9600 pixels (standard level end)
 
 ### ChunkId + Offset
 
-Le trigger d'une wave utilise `chunkId` (entier) + `offset` (décimal):
+A wave trigger uses `chunkId` (integer) + `offset` (decimal):
 
 ```json
 {
@@ -64,25 +64,25 @@ Le trigger d'une wave utilise `chunkId` (entier) + `offset` (décimal):
 }
 ```
 
-- `offset: 0.0` → Début du chunk (position exacte = 4 × 480 = 1920px)
-- `offset: 0.5` → Milieu du chunk (position exacte = 1920 + 240 = 2160px)
-- `offset: 1.0` → Fin du chunk (position exacte = 1920 + 480 = 2400px)
+- `offset: 0.0` → Chunk start (exact position = 4 × 480 = 1920px)
+- `offset: 0.5` → Chunk middle (exact position = 1920 + 240 = 2160px)
+- `offset: 1.0` → Chunk end (exact position = 1920 + 480 = 2400px)
 
 ---
 
-## Pattern Standard: 2-Chunks
+## Standard Pattern: 2-Chunks
 
-### Règle Officielle
+### Official Rule
 
-**Chaque level doit avoir des waves espacées de 2 chunks.**
+**Each level must have waves spaced 2 chunks apart.**
 
-### Configuration Standard (20 chunks total)
+### Standard Configuration (20 total chunks)
 
-Pour un niveau avec 20 chunks:
+For a level with 20 chunks:
 
 | Wave | ChunkId | Scroll Distance | Position |
 |------|---------|-----------------|----------|
-| 1    | 0       | 0 px            | Début    |
+| 1    | 0       | 0 px            | Start    |
 | 2    | 2       | 960 px          |          |
 | 3    | 4       | 1920 px         |          |
 | 4    | 6       | 2880 px         |          |
@@ -91,21 +91,21 @@ Pour un niveau avec 20 chunks:
 | 7    | 12      | 5760 px         |          |
 | 8    | 14      | 6720 px         |          |
 | 9    | 16      | 7680 px         |          |
-| 10   | 18      | 8640 px         | Dernière |
-| Boss | N/A     | 9600 px         | Après chunk 20 |
+| 10   | 18      | 8640 px         | Last     |
+| Boss | N/A     | 9600 px         | After chunk 20 |
 
-### Avantages du Pattern 2-Chunks
+### 2-Chunks Pattern Advantages
 
-✓ Rythme régulier et prévisible
-✓ 10 waves par niveau = bon équilibre gameplay
-✓ Temps de préparation constant entre waves
-✓ Facile à tester et débugger
+✓ Regular and predictable rhythm
+✓ 10 waves per level = good gameplay balance
+✓ Constant preparation time between waves
+✓ Easy to test and debug
 
 ---
 
-## Structure JSON des Waves
+## JSON Wave Structure
 
-### Template de Wave
+### Wave Template
 
 ```json
 {
@@ -137,24 +137,24 @@ Pour un niveau avec 20 chunks:
 }
 ```
 
-### Champs Obligatoires
+### Required Fields
 
 #### wave_number (integer)
-- Numéro séquentiel de la wave (1, 2, 3...)
-- **IMPORTANT**: Doit être unique et séquentiel
-- Utilisé pour le tracking côté serveur/client
+- Sequential wave number (1, 2, 3...)
+- **IMPORTANT**: Must be unique and sequential
+- Used for server/client tracking
 
 #### trigger (object)
-- **chunkId** (integer): Position du chunk (0-19 pour 20 chunks)
-- **offset** (float): Position dans le chunk (0.0-1.0)
-- **timeDelay** (integer): Délai supplémentaire en secondes (généralement 0)
+- **chunkId** (integer): Chunk position (0-19 for 20 chunks)
+- **offset** (float): Position within chunk (0.0-1.0)
+- **timeDelay** (integer): Additional delay in seconds (usually 0)
 
 #### spawns (array)
-- Liste des entités à faire apparaître dans cette wave
-- Peut contenir des ennemis et des powerups
-- Au moins 1 spawn requis
+- List of entities to spawn in this wave
+- Can contain enemies and powerups
+- At least 1 spawn required
 
-### Types de Spawns
+### Spawn Types
 
 #### Enemy Spawn
 ```json
@@ -169,19 +169,19 @@ Pour un niveau avec 20 chunks:
 }
 ```
 
-**Enemy Types Disponibles:**
-- `basic`: Ennemi standard, déplacement linéaire
-- `zigzag`: Déplacement en zigzag vertical
-- `bouncer`: Rebondit sur les bords de l'écran
-- `tank`: Ennemi lent mais résistant
-- `kamikaze`: Fonce sur le joueur
+**Available Enemy Types:**
+- `basic`: Standard enemy, linear movement
+- `zigzag`: Vertical zigzag movement
+- `bouncer`: Bounces off screen edges
+- `tank`: Slow but resistant enemy
+- `kamikaze`: Rushes toward player
 
-**Patterns de Spawn:**
-- `single`: 1 seul ennemi (ignore count/spacing)
-- `line`: Ligne verticale d'ennemis
-- `grid`: Grille 2D (nécessite spacing horizontal/vertical)
-- `formation`: Formation prédéfinie
-- `random`: Positions aléatoires dans une zone
+**Spawn Patterns:**
+- `single`: Single enemy (ignores count/spacing)
+- `line`: Vertical line of enemies
+- `grid`: 2D grid (requires horizontal/vertical spacing)
+- `formation`: Predefined formation
+- `random`: Random positions in an area
 
 #### Powerup Spawn
 ```json
@@ -196,25 +196,25 @@ Pour un niveau avec 20 chunks:
 ```
 
 **Bonus Types:**
-- `health`: Restaure la santé
-- `shield`: Bouclier temporaire
-- `speed`: Augmente la vitesse
-- `firepower`: Améliore les tirs
+- `health`: Restores health
+- `shield`: Temporary shield
+- `speed`: Increases speed
+- `firepower`: Improves shots
 
 ---
 
-## Composition des Ennemis par Difficulté
+## Enemy Composition by Difficulty
 
 ### Phase 1: Easy (Waves 1-3, Chunks 0-4)
 
-**Objectif**: Introduction progressive, peu de menace
+**Objective**: Progressive introduction, low threat
 
-**Recommandations:**
-- Majoritairement `basic` (60-80%)
-- Quelques `zigzag` pour variété (20-30%)
-- 1 powerup `health` dans wave 3
+**Recommendations:**
+- Mostly `basic` (60-80%)
+- Some `zigzag` for variety (20-30%)
+- 1 `health` powerup in wave 3
 
-**Exemple Wave 1:**
+**Example Wave 1:**
 ```json
 {
   "wave_number": 1,
@@ -235,15 +235,15 @@ Pour un niveau avec 20 chunks:
 
 ### Phase 2: Medium (Waves 4-7, Chunks 6-12)
 
-**Objectif**: Montée en difficulté, introduction ennemis avancés
+**Objective**: Difficulty increase, introduction of advanced enemies
 
-**Recommandations:**
+**Recommendations:**
 - Mix `zigzag`, `bouncer`, `tank`
-- Premières apparitions de `kamikaze`
-- Powerups stratégiques (`shield`, `speed`)
-- Spawns multiples dans une wave (2-3 groupes)
+- First appearances of `kamikaze`
+- Strategic powerups (`shield`, `speed`)
+- Multiple spawns in one wave (2-3 groups)
 
-**Exemple Wave 5:**
+**Example Wave 5:**
 ```json
 {
   "wave_number": 5,
@@ -281,15 +281,15 @@ Pour un niveau avec 20 chunks:
 
 ### Phase 3: Hard (Waves 8-10, Chunks 14-18)
 
-**Objectif**: Difficulté maximale, préparation au boss
+**Objective**: Maximum difficulty, boss preparation
 
-**Recommandations:**
-- Beaucoup de `tank`, `kamikaze`, `bouncer`
-- Spawns multiples et simultanés (3-4 groupes)
-- Powerups rares mais puissants
-- Dernier powerup `health` dans wave 10 (avant boss)
+**Recommendations:**
+- Many `tank`, `kamikaze`, `bouncer`
+- Multiple and simultaneous spawns (3-4 groups)
+- Rare but powerful powerups
+- Last `health` powerup in wave 10 (before boss)
 
-**Exemple Wave 10:**
+**Example Wave 10:**
 ```json
 {
   "wave_number": 10,
@@ -336,15 +336,15 @@ Pour un niveau avec 20 chunks:
 
 ---
 
-## Configuration du Boss
+## Boss Configuration
 
-### Spawn Distance Standard
+### Standard Spawn Distance
 
-**Le boss doit toujours spawn après le chunk 20:**
+**The boss must always spawn after chunk 20:**
 
 ```json
 "boss": {
-  "boss_name": "Nom du Boss",
+  "boss_name": "Boss Name",
   "spawn_scroll_distance": 9600.0,
   "spawn_position_x": 1600.0,
   "spawn_position_y": 540.0,
@@ -355,7 +355,7 @@ Pour un niveau avec 20 chunks:
 }
 ```
 
-### Calcul de spawn_scroll_distance
+### spawn_scroll_distance Calculation
 
 ```
 spawn_scroll_distance = (total_chunks) × 480
@@ -363,14 +363,14 @@ spawn_scroll_distance = (total_chunks) × 480
                       = 9600.0 pixels
 ```
 
-### Position de Spawn Recommandée
+### Recommended Spawn Position
 
-- **spawn_position_x**: 1600.0 (centre-droit de l'écran)
-- **spawn_position_y**: 540.0 (centre vertical, écran 1920×1080)
+- **spawn_position_x**: 1600.0 (center-right of screen)
+- **spawn_position_y**: 540.0 (vertical center, 1920×1080 screen)
 
-### Phases du Boss
+### Boss Phases
 
-Chaque boss a généralement **3 phases** basées sur le seuil de santé:
+Each boss generally has **3 phases** based on health threshold:
 
 ```json
 "phases": [
@@ -400,22 +400,22 @@ Chaque boss a généralement **3 phases** basées sur le seuil de santé:
 
 ---
 
-## Exemples Complets
+## Complete Examples
 
-### Exemple: Level Structure Minimale
+### Example: Minimal Level Structure
 
 ```json
 {
   "level_id": 3,
-  "level_name": "Nom du Niveau",
-  "level_description": "Description courte",
+  "level_name": "Level Name",
+  "level_description": "Short description",
   "map_id": 3,
   "base_scroll_speed": 70.0,
   "total_chunks": 20,
   "phases": [
     {
       "phase_number": 1,
-      "phase_name": "Phase Easy",
+      "phase_name": "Easy Phase",
       "scroll_start": 0.0,
       "scroll_end": 2400.0,
       "difficulty": "easy",
@@ -439,7 +439,7 @@ Chaque boss a généralement **3 phases** basées sur le seuil de santé:
     },
     {
       "phase_number": 2,
-      "phase_name": "Phase Medium",
+      "phase_name": "Medium Phase",
       "scroll_start": 2400.0,
       "scroll_end": 6240.0,
       "difficulty": "medium",
@@ -468,7 +468,7 @@ Chaque boss a généralement **3 phases** basées sur le seuil de santé:
     },
     {
       "phase_number": 3,
-      "phase_name": "Phase Hard",
+      "phase_name": "Hard Phase",
       "scroll_start": 6240.0,
       "scroll_end": 9600.0,
       "difficulty": "hard",
@@ -504,106 +504,106 @@ Chaque boss a généralement **3 phases** basées sur le seuil de santé:
 }
 ```
 
-### Checklist pour Nouveau Niveau
+### Checklist for New Level
 
-- [ ] `level_id` unique
+- [ ] Unique `level_id`
 - [ ] `total_chunks: 20`
-- [ ] `base_scroll_speed` adapté (50-80)
+- [ ] Appropriate `base_scroll_speed` (50-80)
 - [ ] 3 phases (easy/medium/hard)
-- [ ] 10 waves exactement (chunkIds: 0,2,4,6,8,10,12,14,16,18)
-- [ ] `wave_number` séquentiel (1-10)
-- [ ] Powerups répartis stratégiquement (1 par phase minimum)
-- [ ] Boss à `spawn_scroll_distance: 9600.0`
-- [ ] Boss script Lua existant dans `assets/scripts/boss/`
+- [ ] Exactly 10 waves (chunkIds: 0,2,4,6,8,10,12,14,16,18)
+- [ ] Sequential `wave_number` (1-10)
+- [ ] Strategically placed powerups (minimum 1 per phase)
+- [ ] Boss at `spawn_scroll_distance: 9600.0`
+- [ ] Lua boss script exists in `assets/scripts/boss/`
 
 ---
 
 ## Validation
 
-### Validation Syntaxe JSON
+### JSON Syntax Validation
 
-Avant de tester dans le jeu, valider la syntaxe JSON:
+Before testing in game, validate JSON syntax:
 
 ```bash
 python3 -m json.tool src/r-type/assets/levels/level_X.json > /dev/null
 ```
 
-Si aucune erreur, le fichier est valide.
+If no errors, the file is valid.
 
-### Validation Logique
+### Logic Validation
 
-**Vérifier:**
-1. ChunkIds en ordre croissant (0,2,4,6...)
-2. Tous les offset à 0.0 (pattern strict)
-3. Wave numbers séquentiels (1,2,3...)
-4. EnemyTypes existent (basic, zigzag, bouncer, tank, kamikaze)
-5. Powerup dans au moins 1 wave par phase
-6. Boss spawn après dernière wave
+**Check:**
+1. ChunkIds in ascending order (0,2,4,6...)
+2. All offsets at 0.0 (strict pattern)
+3. Sequential wave numbers (1,2,3...)
+4. EnemyTypes exist (basic, zigzag, bouncer, tank, kamikaze)
+5. Powerup in at least 1 wave per phase
+6. Boss spawns after last wave
 
-### Testing In-Game
+### In-Game Testing
 
 ```bash
-# Compiler le jeu
+# Build the game
 cmake --build build
 
-# Lancer serveur
+# Launch server
 ./build/bin/r-type_server
 
-# Lancer client
+# Launch client
 ./build/bin/r-type_client
 
-# Sélectionner le niveau à tester
+# Select level to test
 ```
 
-**Points de test:**
-- ✓ HUD affiche "WAVE 1 / 10" immédiatement
-- ✓ Wave 1 se déclenche à chunk 0 (~0px)
-- ✓ Wave 2 se déclenche à chunk 2 (~960px)
-- ✓ Waves continuent tous les 2 chunks
-- ✓ Boss spawn après wave 10 complétée
-- ✓ Aucune erreur dans les logs serveur/client
+**Test points:**
+- ✓ HUD displays "WAVE 1 / 10" immediately
+- ✓ Wave 1 triggers at chunk 0 (~0px)
+- ✓ Wave 2 triggers at chunk 2 (~960px)
+- ✓ Waves continue every 2 chunks
+- ✓ Boss spawns after wave 10 completed
+- ✓ No errors in server/client logs
 
 ---
 
-## Résumé des Règles
+## Rules Summary
 
-### Pattern 2-Chunks (Règle Absolue)
+### 2-Chunks Pattern (Absolute Rule)
 ```
-Waves aux chunks: 0, 2, 4, 6, 8, 10, 12, 14, 16, 18
+Waves at chunks: 0, 2, 4, 6, 8, 10, 12, 14, 16, 18
 Total waves: 10
 Boss spawn: 9600.0 (chunk 20)
 ```
 
-### Distribution par Phase
+### Distribution by Phase
 ```
 Phase 1 (Easy):   Waves 1-3  (chunks 0-4)
 Phase 2 (Medium): Waves 4-7  (chunks 6-12)
 Phase 3 (Hard):   Waves 8-10 (chunks 14-18)
 ```
 
-### Ennemis par Difficulté
+### Enemies by Difficulty
 ```
 Easy:   basic (70%) + zigzag (30%)
 Medium: zigzag, bouncer, tank, kamikaze (mix)
-Hard:   tank, kamikaze, bouncer (priorité)
+Hard:   tank, kamikaze, bouncer (priority)
 ```
 
 ### Powerups
 ```
 Phase 1: health (wave 3)
-Phase 2: shield ou speed (wave 5 ou 7)
-Phase 3: health (wave 10, avant boss)
+Phase 2: shield or speed (wave 5 or 7)
+Phase 3: health (wave 10, before boss)
 ```
 
 ---
 
-## Références
+## References
 
-- [LEVEL_SYSTEM.md](../../../docs/LEVEL_SYSTEM.md): Documentation complète du système de niveaux
-- [WAVE_SYSTEM.md](../../../docs/WAVE_SYSTEM.md): Documentation du système de waves
-- [LUA_SCRIPTING.md](../../../docs/LUA_SCRIPTING.md): Guide des scripts Lua pour ennemis/boss
+- [LEVEL_SYSTEM.md](../../../docs/LEVEL_SYSTEM.md): Complete level system documentation
+- [WAVE_SYSTEM.md](../../../docs/WAVE_SYSTEM.md): Wave system documentation
+- [LUA_SCRIPTING.md](../../../docs/LUA_SCRIPTING.md): Lua scripting guide for enemies/bosses
 
 ---
 
-**Dernière mise à jour**: 2025-01-17
-**Version du pattern**: 2-Chunks (v2.0)
+**Last updated**: 2025-01-17
+**Pattern version**: 2-Chunks (v2.0)

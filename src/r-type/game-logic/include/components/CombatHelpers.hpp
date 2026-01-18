@@ -42,15 +42,16 @@ inline Weapon create_weapon(WeaponType type, engine::TextureHandle texture)
             weapon.projectile_sprite.height = WEAPON_BURST_HEIGHT;
             weapon.projectile_sprite.tint = engine::Color{WEAPON_BURST_COLOR_R, WEAPON_BURST_COLOR_G, WEAPON_BURST_COLOR_B, WEAPON_BURST_COLOR_A};
             break;
-        case WeaponType::LASER:
-            weapon.projectile_sprite.width = WEAPON_LASER_WIDTH;
-            weapon.projectile_sprite.height = WEAPON_LASER_HEIGHT;
-            weapon.projectile_sprite.tint = engine::Color{WEAPON_LASER_COLOR_R, WEAPON_LASER_COLOR_G, WEAPON_LASER_COLOR_B, WEAPON_LASER_COLOR_A};
+        case WeaponType::MACHINE_GUN:
+            weapon.projectile_sprite.width = WEAPON_MACHINE_GUN_WIDTH;
+            weapon.projectile_sprite.height = WEAPON_MACHINE_GUN_HEIGHT;
+            weapon.projectile_sprite.tint = engine::Color{WEAPON_MACHINE_GUN_COLOR_R, WEAPON_MACHINE_GUN_COLOR_G, WEAPON_MACHINE_GUN_COLOR_B, WEAPON_MACHINE_GUN_COLOR_A};
             break;
-        case WeaponType::CHARGE:
-            weapon.projectile_sprite.width = WEAPON_CHARGE_WIDTH_MIN;
-            weapon.projectile_sprite.height = WEAPON_CHARGE_HEIGHT_MIN;
-            weapon.projectile_sprite.tint = engine::Color{WEAPON_CHARGE_COLOR_R, WEAPON_CHARGE_COLOR_G, WEAPON_CHARGE_COLOR_B, WEAPON_CHARGE_COLOR_A};
+        case WeaponType::LASER:
+            // Le laser beam n'utilise pas de projectiles sprite, mais on met des valeurs par défaut
+            weapon.projectile_sprite.width = WEAPON_LASER_WIDTH;
+            weapon.projectile_sprite.height = WEAPON_LASER_WIDTH;
+            weapon.projectile_sprite.tint = engine::Color{WEAPON_LASER_COLOR_R, WEAPON_LASER_COLOR_G, WEAPON_LASER_COLOR_B, WEAPON_LASER_COLOR_A};
             break;
     }
     
@@ -85,21 +86,22 @@ inline void get_weapon_stats(WeaponType type, int& projectiles, float& spread, i
             firerate = WEAPON_BURST_FIRERATE;
             burst_delay = WEAPON_BURST_BURST_DELAY;
             break;
-        case WeaponType::LASER:
-            projectiles = WEAPON_LASER_PROJECTILES;
-            spread = WEAPON_LASER_SPREAD;
-            damage = WEAPON_LASER_DAMAGE;
-            speed = WEAPON_LASER_SPEED;
-            firerate = WEAPON_LASER_FIRERATE;
-            burst_delay = WEAPON_LASER_BURST_DELAY;
+        case WeaponType::MACHINE_GUN:
+            projectiles = WEAPON_MACHINE_GUN_PROJECTILES;
+            spread = WEAPON_MACHINE_GUN_SPREAD;
+            damage = WEAPON_MACHINE_GUN_DAMAGE;
+            speed = WEAPON_MACHINE_GUN_SPEED;
+            firerate = WEAPON_MACHINE_GUN_FIRERATE;
+            burst_delay = WEAPON_MACHINE_GUN_BURST_DELAY;
             break;
-        case WeaponType::CHARGE:
-            projectiles = WEAPON_CHARGE_PROJECTILES;
-            spread = WEAPON_CHARGE_SPREAD;
-            damage = WEAPON_CHARGE_DAMAGE_MIN; // Damage depends on charge, returning MIN here
-            speed = WEAPON_CHARGE_SPEED;
-            firerate = WEAPON_CHARGE_FIRERATE;
-            burst_delay = WEAPON_CHARGE_BURST_DELAY;
+        case WeaponType::LASER:
+            // Le laser beam ne tire pas de projectiles, ces valeurs sont pour compatibilité
+            projectiles = 0;
+            spread = 0.0f;
+            damage = WEAPON_LASER_DAMAGE_PER_TICK;
+            speed = 0.0f;
+            firerate = WEAPON_LASER_TICK_RATE;
+            burst_delay = 0.0f;
             break;
     }
 }

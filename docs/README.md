@@ -1,27 +1,27 @@
-# Documentation R-Type
+# R-Type Documentation
 
-Bienvenue dans la documentation du projet R-Type!
+Welcome to the R-Type project documentation!
 
-## 📚 Documents disponibles
+## 📚 Available Documents
 
 ### Architecture
 
-- **[SERVER_ARCHITECTURE.md](SERVER_ARCHITECTURE.md)** - Documentation complète de l'architecture du serveur
-  - Vue d'ensemble des composants
-  - Flux réseau détaillés
-  - Protocole TCP/UDP
-  - Gestion des lobbies et sessions
-  - Diagrammes de séquence
-  - Configuration et déploiement
+- **[SERVER_ARCHITECTURE.md](SERVER_ARCHITECTURE.md)** - Complete server architecture documentation
+  - Component overview
+  - Detailed network flows
+  - TCP/UDP protocol
+  - Lobby and session management
+  - Sequence diagrams
+  - Configuration and deployment
 
-- **[CLIENT_ARCHITECTURE.md](CLIENT_ARCHITECTURE.md)** - Documentation complète de l'architecture du client
-  - Architecture des composants
-  - Gestion des entités réseau
-  - Synchronisation avec le serveur
-  - Prédiction côté client
+- **[CLIENT_ARCHITECTURE.md](CLIENT_ARCHITECTURE.md)** - Complete client architecture documentation
+  - Component architecture
+  - Network entity management
+  - Server synchronization
+  - Client-side prediction
   - ECS (Entity Component System)
-  - Interface utilisateur
-  - Configuration et déploiement
+  - User interface
+  - Configuration and deployment
 
 ### Network Protocol
 
@@ -41,53 +41,53 @@ Bienvenue dans la documentation du projet R-Type!
 
 ### Game Systems
 
-- **[WAVE_SYSTEM.md](WAVE_SYSTEM.md)** - Système de vagues d'ennemis
-  - Configuration JSON des vagues
-  - Spawning d'ennemis
-  - Patterns de déploiement
-  - Gestion de la difficulté
+- **[WAVE_SYSTEM.md](WAVE_SYSTEM.md)** - Enemy wave system
+  - Wave JSON configuration
+  - Enemy spawning
+  - Deployment patterns
+  - Difficulty management
 
-- **[PROCEDURAL_GENERATION.md](PROCEDURAL_GENERATION.md)** - Génération procédurale de maps
-  - Architecture du système
-  - Algorithmes de génération
-  - Synchronisation client-serveur
-  - Configuration et paramètres
-  - Performance et optimisation
+- **[PROCEDURAL_GENERATION.md](PROCEDURAL_GENERATION.md)** - Procedural map generation
+  - System architecture
+  - Generation algorithms
+  - Client-server synchronization
+  - Configuration and parameters
+  - Performance and optimization
 
-### Refactorisation
+### Refactoring
 
-- **[../REFACTORING.md](../REFACTORING.md)** - Documentation de la refactorisation complète
-  - Méthodologie de refactorisation
-  - Avant/Après pour le serveur et le client
-  - Métriques de code
-  - Patterns utilisés
-  - Bénéfices et impact
+- **[../REFACTORING.md](../REFACTORING.md)** - Complete refactoring documentation
+  - Refactoring methodology
+  - Before/After for server and client
+  - Code metrics
+  - Patterns used
+  - Benefits and impact
 
-## 🎯 Par où commencer?
+## 🎯 Where to Start?
 
-### Pour comprendre le projet
+### To understand the project
 
-1. Lisez d'abord [REFACTORING.md](../REFACTORING.md) pour comprendre la vision globale
-2. Puis [SERVER_ARCHITECTURE.md](SERVER_ARCHITECTURE.md) pour le serveur
-3. Enfin [CLIENT_ARCHITECTURE.md](CLIENT_ARCHITECTURE.md) pour le client
+1. Read [REFACTORING.md](../REFACTORING.md) first to understand the global vision
+2. Then [SERVER_ARCHITECTURE.md](SERVER_ARCHITECTURE.md) for the server
+3. Finally [CLIENT_ARCHITECTURE.md](CLIENT_ARCHITECTURE.md) for the client
 
-### Pour développer
+### For development
 
-#### Côté Serveur
-- Consultez [SERVER_ARCHITECTURE.md](SERVER_ARCHITECTURE.md) section "Composants principaux"
-- Regardez les diagrammes de flux réseau
-- Explorez le protocole TCP/UDP
+#### Server Side
+- Consult [SERVER_ARCHITECTURE.md](SERVER_ARCHITECTURE.md) section "Main Components"
+- Review network flow diagrams
+- Explore the TCP/UDP protocol
 
-#### Côté Client
-- Consultez [CLIENT_ARCHITECTURE.md](CLIENT_ARCHITECTURE.md) section "Composants principaux"
-- Comprenez l'architecture ECS
-- Étudiez la synchronisation réseau
+#### Client Side
+- Consult [CLIENT_ARCHITECTURE.md](CLIENT_ARCHITECTURE.md) section "Main Components"
+- Understand the ECS architecture
+- Study network synchronization
 
 #### Game Systems
-- Pour les vagues d'ennemis: [WAVE_SYSTEM.md](WAVE_SYSTEM.md)
-- Pour la génération de maps: [PROCEDURAL_GENERATION.md](PROCEDURAL_GENERATION.md)
+- For enemy waves: [WAVE_SYSTEM.md](WAVE_SYSTEM.md)
+- For map generation: [PROCEDURAL_GENERATION.md](PROCEDURAL_GENERATION.md)
 
-## 🏗️ Architecture générale
+## 🏗️ General Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -100,7 +100,7 @@ Bienvenue dans la documentation du projet R-Type!
 │  │              │   UDP: 4243 (game)       │         │ │
 │  └──────────────┘                          └─────────┘ │
 │                                                         │
-│  • Graphique (Raylib)                • NetworkHandler  │
+│  • Graphics (Raylib)                 • NetworkHandler  │
 │  • Input (Raylib)                    • PacketSender    │
 │  • Audio (Miniaudio)                 • GameSession     │
 │  • Network (Boost.Asio)              • LobbyManager    │
@@ -109,23 +109,23 @@ Bienvenue dans la documentation du projet R-Type!
 └─────────────────────────────────────────────────────────┘
 ```
 
-## 📁 Structure du code
+## 📁 Code Structure
 
 ```
 Mirror-R-Type/
 ├── src/
-│   ├── engine/           # Moteur de jeu (ECS, plugins)
+│   ├── engine/           # Game engine (ECS, plugins)
 │   ├── r-type/
-│   │   ├── client/       # Code client
+│   │   ├── client/       # Client code
 │   │   │   ├── include/
 │   │   │   └── src/
-│   │   ├── server/       # Code serveur
+│   │   ├── server/       # Server code
 │   │   │   ├── include/
 │   │   │   └── src/
-│   │   ├── shared/       # Code partagé (protocole)
-│   │   └── game-logic/   # Logique de jeu partagée
+│   │   ├── shared/       # Shared code (protocol)
+│   │   └── game-logic/   # Shared game logic
 │   └── ...
-├── docs/                 # 📚 Vous êtes ici!
+├── docs/                 # 📚 You are here!
 │   ├── README.md
 │   ├── SERVER_ARCHITECTURE.md
 │   └── CLIENT_ARCHITECTURE.md
@@ -139,68 +139,68 @@ Mirror-R-Type/
 # Configuration
 cmake -B build
 
-# Compilation complète
+# Full compilation
 cmake --build build
 
-# Compilation serveur uniquement
+# Server only
 cmake --build build --target r-type_server
 
-# Compilation client uniquement
+# Client only
 cmake --build build --target r-type_client
 ```
 
-## 🚀 Exécution
+## 🚀 Execution
 
-### Serveur
+### Server
 ```bash
 ./build/r-type_server [tcp_port] [udp_port]
 
-# Exemples:
-./build/r-type_server                # Ports par défaut (4242, 4243)
-./build/r-type_server 5000 5001      # Ports personnalisés
+# Examples:
+./build/r-type_server                # Default ports (4242, 4243)
+./build/r-type_server 5000 5001      # Custom ports
 ```
 
 ### Client
 ```bash
 ./build/r-type_client [host] [tcp_port] [player_name]
 
-# Exemples:
-./build/r-type_client                           # Défaut: localhost:4242, "Pilot"
-./build/r-type_client 192.168.1.100             # Serveur distant
-./build/r-type_client 192.168.1.100 5000 "Bob"  # Tout personnalisé
+# Examples:
+./build/r-type_client                           # Default: localhost:4242, "Pilot"
+./build/r-type_client 192.168.1.100             # Remote server
+./build/r-type_client 192.168.1.100 5000 "Bob"  # Everything custom
 ```
 
-## 🎮 Contrôles
+## 🎮 Controls
 
-| Touche | Action |
+| Key | Action |
 |--------|--------|
-| **W** / ↑ | Haut |
-| **S** / ↓ | Bas |
-| **A** / ← | Gauche |
-| **D** / → | Droite |
-| **Space** | Tirer |
+| **W** / ↑ | Up |
+| **S** / ↓ | Down |
+| **A** / ← | Left |
+| **D** / → | Right |
+| **Space** | Shoot |
 | **Shift** | Charge |
-| **Ctrl** | Spécial |
-| **E** | Changer d'arme |
-| **Escape** | Quitter |
+| **Ctrl** | Special |
+| **E** | Switch weapon |
+| **Escape** | Quit |
 
-## 🌐 Protocole réseau
+## 🌐 Network Protocol
 
-### TCP (Port 4242 par défaut)
-- Connexion/Déconnexion
-- Gestion des lobbies
-- Messages de contrôle
-- Notifications importantes
+### TCP (Default port 4242)
+- Connection/Disconnection
+- Lobby management
+- Control messages
+- Important notifications
 
-### UDP (Port 4243 par défaut)
-- Inputs du joueur (30 Hz)
+### UDP (Default port 4243)
+- Player inputs (30 Hz)
 - State snapshots (60 Hz)
-- Spawn/Destroy d'entités
+- Entity spawn/destroy
 - Projectiles
 
 ## 📊 Performance
 
-| Métrique | Valeur |
+| Metric | Value |
 |----------|--------|
 | **Server Tick Rate** | 60 TPS |
 | **Client FPS** | 60 (VSync) |
@@ -211,46 +211,46 @@ cmake --build build --target r-type_client
 ## 🧪 Tests
 
 ```bash
-# Lancer les tests
+# Run tests
 cmake --build build --target test
 ctest --test-dir build
 ```
 
 ## 🐛 Debugging
 
-### Serveur
-Les logs du serveur affichent:
-- État de démarrage
-- Connexions/Déconnexions
-- Lobbies (création/suppression)
-- Sessions (début/fin)
-- Erreurs réseau
+### Server
+Server logs display:
+- Startup state
+- Connections/Disconnections
+- Lobbies (creation/deletion)
+- Sessions (start/end)
+- Network errors
 
 ### Client
-Les logs du client affichent:
-- Connexion au serveur
-- État du lobby
-- Début de partie
-- Spawns d'entités
-- Erreurs
+Client logs display:
+- Server connection
+- Lobby state
+- Game start
+- Entity spawns
+- Errors
 
-## 🤝 Contribution
+## 🤝 Contributing
 
-Pour contribuer au projet:
+To contribute to the project:
 
-1. **Lire la documentation** - Comprendre l'architecture
-2. **Suivre les patterns** - Respecter la séparation des responsabilités
-3. **Tester** - Vérifier que tout compile et fonctionne
-4. **Documenter** - Mettre à jour la doc si nécessaire
+1. **Read the documentation** - Understand the architecture
+2. **Follow the patterns** - Respect separation of concerns
+3. **Test** - Verify everything compiles and works
+4. **Document** - Update documentation if necessary
 
-## 📝 Conventions de code
+## 📝 Code Conventions
 
-- **Naming**: `snake_case` pour variables/fonctions, `PascalCase` pour classes
+- **Naming**: `snake_case` for variables/functions, `PascalCase` for classes
 - **Headers**: Guards `#pragma once`
-- **Commentaires**: Doxygen style pour les APIs publiques
-- **Format**: Indentation 4 espaces, pas de tabs
+- **Comments**: Doxygen style for public APIs
+- **Format**: 4-space indentation, no tabs
 
-## 🔗 Liens utiles
+## 🔗 Useful Links
 
 - [CMake Documentation](https://cmake.org/documentation/)
 - [Raylib](https://www.raylib.com/)
@@ -259,15 +259,15 @@ Pour contribuer au projet:
 
 ## 📧 Support
 
-Pour toute question:
-- Consulter la documentation complète
-- Vérifier les diagrammes de flux
-- Examiner les exemples de code
+For any questions:
+- Consult the complete documentation
+- Check flow diagrams
+- Examine code examples
 
 ---
 
-**Dernière mise à jour**: 2025-12-16
+**Last update**: 2025-12-16
 
-**Version**: 1.0 (Post-refactorisation)
+**Version**: 1.0 (Post-refactoring)
 
 **Status**: Production-ready ✅

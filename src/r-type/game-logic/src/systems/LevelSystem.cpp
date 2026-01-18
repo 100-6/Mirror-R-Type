@@ -276,8 +276,10 @@ void LevelSystem::load_next_level_or_final_victory(Registry& registry, LevelCont
 {
     if (lc.current_level >= lc.total_levels) {
         // Final victory! All levels completed
+        // Stay in LEVEL_COMPLETE state - GameSession::update() handles the victory detection
+        // and sends the proper VICTORY game over message to clients.
+        // DO NOT transition to GAME_OVER here, as that state is reserved for defeat.
         std::cout << "[LevelSystem] FINAL VICTORY! All " << static_cast<int>(lc.total_levels) << " levels completed!\n";
-        transition_to_game_over(lc);
         return;
     }
 

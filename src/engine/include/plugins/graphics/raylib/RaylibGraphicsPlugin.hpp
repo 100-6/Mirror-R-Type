@@ -76,6 +76,9 @@ public:
     void begin_blend_mode(int mode) override;
     void end_blend_mode() override;
 
+    // Accessibility
+    void set_colorblind_mode(ColorBlindMode mode) override;
+
 private:
     struct TextureData {
         std::vector<uint8_t> data; // Opaque storage for Raylib texture
@@ -107,8 +110,15 @@ private:
     Vector2f view_size_;
     bool using_custom_view_;
 
+    // Post-processing
+    std::vector<uint8_t> render_texture_storage_; // Opaque storage for RenderTexture2D
+    std::vector<uint8_t> shader_storage_;         // Opaque storage for Shader
+    ColorBlindMode current_colorblind_mode_;
+    bool shaders_ready_;
+
     // Helper to create default checkerboard texture
     void create_default_texture();
+    void init_shaders();
 };
 
 }

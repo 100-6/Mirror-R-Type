@@ -12,7 +12,8 @@ namespace rtype::client {
  */
 enum class SettingsTab {
     AUDIO,
-    CONTROLS
+    CONTROLS,
+    DISPLAY
 };
 
 /**
@@ -59,6 +60,7 @@ private:
     void notify_audio_change();
     void switch_tab(SettingsTab tab);
     void rebuild_ui();
+    void update_colorblind_label();
 
     std::vector<std::unique_ptr<UILabel>> labels_;
     std::vector<std::unique_ptr<UIButton>> buttons_;
@@ -79,6 +81,11 @@ private:
     UILabel* music_value_label_ = nullptr;
     UILabel* sfx_value_label_ = nullptr;
     UILabel* ambiance_value_label_ = nullptr;
+
+    // Display settings
+    engine::ColorBlindMode colorblind_mode_ = engine::ColorBlindMode::None;
+    bool colorblind_needs_update_ = false;
+    UILabel* colorblind_value_label_ = nullptr;
 
     // Control settings
     KeyBindings key_bindings_;

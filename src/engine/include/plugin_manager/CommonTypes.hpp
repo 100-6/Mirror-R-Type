@@ -90,6 +90,16 @@ using MusicHandle = uint32_t;
 using ClientId = uint32_t;
 
 /**
+ * @brief Colorblind modes
+ */
+enum class ColorBlindMode {
+    None,
+    Protanopia,     // Red-blind
+    Deuteranopia,   // Green-blind
+    Tritanopia      // Blue-blind
+};
+
+/**
  * @brief Invalid handle constant
  */
 constexpr uint32_t INVALID_HANDLE = 0;

@@ -14,6 +14,7 @@
 #include "systems/MuzzleFlashSystem.hpp"
 #include "systems/HitEffectSystem.hpp"
 #include "systems/ClientHitFlashSystem.hpp"
+#include "systems/LaserRenderSystem.hpp"
 #include "systems/MapConfigLoader.hpp"
 #include "protocol/NetworkConfig.hpp"
 #include "protocol/Payloads.hpp"
@@ -25,6 +26,7 @@
 #include "components/LevelComponents.hpp"
 #include "ecs/CoreComponents.hpp"
 #include "AssetsPaths.hpp"
+#include "GameConfig.hpp"
 #include <iostream>
 #include <fstream>
 #include <chrono>
@@ -357,6 +359,8 @@ void ClientGame::setup_registry() {
     registry_->register_component<ToDestroy>();
     registry_->register_component<HitFlash>();
     registry_->register_component<FlashOverlay>();
+    registry_->register_component<LaserBeam>();
+    registry_->register_component<Weapon>();
     // Level system components
     // registry_->register_component<game::CheckpointManager>();
     // Client-side extrapolation component
@@ -393,6 +397,7 @@ void ClientGame::setup_systems() {
     }
 
     registry_->register_system<RenderSystem>(*graphics_plugin_);
+    registry_->register_system<LaserRenderSystem>(graphics_plugin_);
     registry_->register_system<ColliderDebugSystem>(*graphics_plugin_);
     registry_->register_system<HUDSystem>(*graphics_plugin_, input_plugin_, screen_width_, screen_height_);
 
@@ -759,7 +764,7 @@ void ClientGame::setup_network_callbacks() {
         status_overlay_->refresh();
     });
 
-    network_client_->set_on_game_start([this](uint32_t session_id, uint16_t udp_port, uint16_t map_id, float scroll_speed, uint32_t seed) {
+    network_client_->set_on_game_start([this](uint32_t session_id, uint16_t udp_port, uint16_t map_id, float scroll_speed, uint32_t seed, protocol::Difficulty difficulty) {
         // Guard against callbacks during shutdown
         if (is_shutting_down_ || !registry_ || !entity_manager_ || !screen_manager_)
             return;
@@ -841,6 +846,12 @@ void ClientGame::setup_network_callbacks() {
             ctrl.currentWaveIndex = 0;
             ctrl.allWavesCompleted = false;
             ctrl.totalScrollDistance = 0.0f;
+        }
+
+        // Initialize HUD lives display based on difficulty
+        if (registry_->has_system<HUDSystem>()) {
+            uint8_t initial_lives = rtype::shared::config::get_lives_for_difficulty(difficulty);
+            registry_->get_system<HUDSystem>().update_lives(*registry_, initial_lives);
         }
     });
 
@@ -970,7 +981,26 @@ void ClientGame::setup_network_callbacks() {
         if (level_up.entity_id == local_server_id) {
             std::cout << "[ClientGame] Local player leveled up to level "
                       << static_cast<int>(level_up.new_level) << "!\n";
-            // TODO: Trigger level-up visual effect in HUD
+            
+            // Update/add the Weapon component for laser detection
+            if (entity_manager_->has_entity(level_up.entity_id)) {
+                Entity player = entity_manager_->get_entity(level_up.entity_id);
+                auto& weapons = registry_->get_components<Weapon>();
+                
+                WeaponType newWeaponType = static_cast<WeaponType>(level_up.new_weapon_type);
+                
+                if (weapons.has_entity(player)) {
+                    // Update existing weapon
+                    weapons[player].type = newWeaponType;
+                    std::cout << "[ClientGame] Updated weapon type to " << static_cast<int>(newWeaponType) << "\n";
+                } else {
+                    // Add new weapon component
+                    Weapon weapon;
+                    weapon.type = newWeaponType;
+                    registry_->add_component(player, weapon);
+                    std::cout << "[ClientGame] Added Weapon component with type " << static_cast<int>(newWeaponType) << "\n";
+                }
+            }
         }
     });
 
@@ -1271,6 +1301,31 @@ void ClientGame::setup_network_callbacks() {
                 comp.max = static_cast<int>(hp);
                 registry_->add_component(entity, comp);
             }
+
+            // Synchroniser le laser pour les autres joueurs (pas le local)
+            if (!is_local && state.entity_type == protocol::EntityType::PLAYER) {
+                bool laser_active = (state.flags & protocol::ENTITY_LASER_ACTIVE) != 0;
+                auto& lasers = registry_->get_components<LaserBeam>();
+                
+                if (laser_active) {
+                    // Activer/créer le LaserBeam pour ce joueur
+                    if (!lasers.has_entity(entity)) {
+                        registry_->add_component(entity, LaserBeam{
+                            true, 1000.0f, 0.0f, 3.0f, 0.05f, 0.0f, 8.0f,
+                            engine::Color{255, 50, 50, 255},
+                            engine::Color{255, 255, 200, 255},
+                            0.0f, 0.0f
+                        });
+                    } else {
+                        lasers[entity].active = true;
+                    }
+                } else {
+                    // Désactiver le laser
+                    if (lasers.has_entity(entity)) {
+                        lasers[entity].active = false;
+                    }
+                }
+            }
         }
 
         entity_manager_->process_snapshot_update(updated_ids);
@@ -1521,8 +1576,48 @@ void ClientGame::run() {
                     shoot_sound_cooldown_ = 0.15f; // 150ms cooldown between sounds
                 }
 
-                // NOUVEAU: Appliquer la vélocité localement AVANT d'envoyer au serveur
+                // Appliquer la vélocité localement AVANT d'envoyer au serveur
                 apply_input_to_local_player(input_flags);
+
+                // --- GESTION DU LASER (Client-side visual feedback) ---
+                // Active le laser localement si la touche tir est maintenue ET que l'arme est de type LASER
+                // Cela permet d'avoir un feedback immédiat sans attendre la réponse du serveur
+                uint32_t local_id = entity_manager_->get_local_player_entity_id();
+                if (entity_manager_->has_entity(local_id)) {
+                    Entity player = entity_manager_->get_entity(local_id);
+                    auto& weapons = registry_->get_components<Weapon>();
+                    
+                    if (weapons.has_entity(player)) {
+                        bool trigger_held = (input_flags & protocol::INPUT_SHOOT) != 0;
+                        Weapon& weapon = weapons[player];
+                        
+                        // Si c'est un LASER (Level 5)
+                        if (weapon.type == WeaponType::LASER) {
+                            auto& lasers = registry_->get_components<LaserBeam>();
+                            
+                            // Si le composant n'existe pas encore, l'ajouter (lazy initialization)
+                            if (!lasers.has_entity(player)) {
+                                registry_->add_component(player, LaserBeam{
+                                    false, // active par défaut false
+                                    1000.0f, // range
+                                    0.0f,    // current_length
+                                    3.0f,    // damage (visual only here)
+                                    0.05f,   // tick rate
+                                    0.0f,    // timer
+                                    8.0f,    // width
+                                    engine::Color{255, 50, 50, 255},   // Rouge
+                                    engine::Color{255, 255, 200, 255}, // Blanc
+                                    0.0f, 0.0f // hit point
+                                });
+                            }
+                            
+                            // Mettre à jour l'état actif
+                            if (lasers.has_entity(player)) {
+                                lasers[player].active = trigger_held;
+                            }
+                        }
+                    }
+                }
             }
 
             // Send input to server (send 0 if overlay is open to stop movement)
@@ -1685,6 +1780,13 @@ void ClientGame::run() {
         } else if (in_result) {
             // Result screen (victory/defeat) - update button and render
             screen_manager_->update_result_screen(graphics_plugin_, input_plugin_);
+
+            // Clear screen and reset skip_clear for RenderSystem
+            graphics_plugin_->clear(engine::Color{20, 20, 30, 255});
+            if (registry_->has_system<RenderSystem>()) {
+                registry_->get_system<RenderSystem>().set_skip_clear(true);
+            }
+
             registry_->run_systems(dt);
         } else {
             // Game screen - run game systems

@@ -109,6 +109,7 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
     registry_.register_component<Bonus>();
     registry_.register_component<Shield>();
     registry_.register_component<Weapon>();
+    registry_.register_component<LaserBeam>();
     registry_.register_component<SpeedBoost>();
     registry_.register_component<Scrollable>();
     registry_.register_component<Attached>();
@@ -697,7 +698,6 @@ void GameSession::update(float delta_time)
             
             if (lc.current_level >= max_level) {
                 // Final victory
-                // std::cout << "[GameSession " << session_id_ << "] FINAL VICTORY - All levels complete!\n";
                 is_active_.store(false, std::memory_order_release);
                 send_leaderboard();  // Send leaderboard before game over
                 if (listener_)
@@ -878,7 +878,6 @@ void GameSession::update(float delta_time)
 
         // Defeat: All players out of lives
         if (lc.state == game::LevelState::GAME_OVER) {
-            // std::cout << "[GameSession " << session_id_ << "] GAME OVER - All players dead!\n";
             is_active_.store(false, std::memory_order_release);
             send_leaderboard();  // Send leaderboard before game over
             if (listener_)
@@ -1087,6 +1086,14 @@ void GameSession::on_spawn_enemy(const std::string& enemy_type, float x, float y
         add_variant("zigzag", fast, 11);
         add_variant("kamikaze", fast, 12);
         add_variant("bouncer", basic, 13);
+
+        // New variants for visual diversity (Enemies 9-13)
+        // Subtypes map to specific sprites in EntityManager
+        add_variant("basic_v1", basic, 0);  // Enemy 9
+        add_variant("basic_v2", basic, 10); // Enemy 10
+        add_variant("basic_v3", basic, 13); // Enemy 11
+        add_variant("basic_v4", basic, 14); // Enemy 12
+        add_variant("basic_v5", basic, 16); // Enemy 13
 
         return m;
     }();

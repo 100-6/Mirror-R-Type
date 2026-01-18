@@ -37,6 +37,11 @@ public:
     engine::TextureHandle get_boss_uranus() const { return boss_uranus_; }
     engine::TextureHandle get_boss_jupiter() const { return boss_jupiter_; }
     engine::TextureHandle get_kamikaze() const { return kamikaze_; }
+    engine::TextureHandle get_enemy_9() const { return enemy_9_; }
+    engine::TextureHandle get_enemy_10() const { return enemy_10_; }
+    engine::TextureHandle get_enemy_11() const { return enemy_11_; }
+    engine::TextureHandle get_enemy_12() const { return enemy_12_; }
+    engine::TextureHandle get_enemy_13() const { return enemy_13_; }
 
     const std::array<engine::TextureHandle, 4>& get_player_frames() const { return player_frames_; }
 
@@ -76,6 +81,11 @@ private:
     engine::TextureHandle boss_uranus_;
     engine::TextureHandle boss_jupiter_;
     engine::TextureHandle kamikaze_;
+    engine::TextureHandle enemy_9_;
+    engine::TextureHandle enemy_10_;
+    engine::TextureHandle enemy_11_;
+    engine::TextureHandle enemy_12_;
+    engine::TextureHandle enemy_13_;
 };
 
 }

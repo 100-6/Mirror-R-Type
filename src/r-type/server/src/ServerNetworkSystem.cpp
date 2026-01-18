@@ -410,6 +410,14 @@ std::vector<uint8_t> ServerNetworkSystem::serialize_snapshot(Registry& registry)
         state.flags = 0;
         state.last_ack_sequence = 0;
 
+        // Check if player has active laser
+        if (controllables.has_entity(entity)) {
+            auto& lasers = registry.get_components<LaserBeam>();
+            if (lasers.has_entity(entity) && lasers[entity].active) {
+                state.flags |= protocol::ENTITY_LASER_ACTIVE;
+            }
+        }
+
         // Include last acknowledged input for players
         if (player_entities_ && controllables.has_entity(entity)) {
             for (const auto& [player_id, player_entity] : *player_entities_) {

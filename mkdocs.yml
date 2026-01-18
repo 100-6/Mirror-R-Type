@@ -40,6 +40,8 @@ nav:
       - Wave System: 'WAVE_SYSTEM.md'
       - Wave Configuration Guide: 'WAVE_CONFIGURATION_GUIDE.md'
       - Procedural Generation: 'PROCEDURAL_GENERATION.md'
+      - Enemy Guide: 'ENEMIES.md'
+      - Accessibility (Colorblind Support): 'ACCESSIBILITY.md'
   - Development:
       - Developer Guide: 'DEVELOPER.md'
       - Server Development Guide: 'SERVER_DEVELOPMENT_GUIDE.md'
