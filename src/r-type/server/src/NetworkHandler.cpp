@@ -210,6 +210,20 @@ void NetworkHandler::handle_tcp_packet(uint32_t client_id, protocol::PacketType 
             listener_->on_admin_command(client_id, data);
             break;
         }
+        case protocol::PacketType::CLIENT_REQUEST_GLOBAL_LEADERBOARD: {
+            // No payload for global leaderboard request
+            listener_->on_client_request_global_leaderboard(client_id);
+            break;
+        }
+        case protocol::PacketType::CLIENT_CHAT_MESSAGE: {
+            if (payload.size() != sizeof(protocol::ClientChatMessagePayload)) {
+                return;
+            }
+            protocol::ClientChatMessagePayload data;
+            Memory::copy_to_struct(data, payload.data());
+            listener_->on_client_chat_message(client_id, data);
+            break;
+        }
         default:
 //             std::cerr << "[NetworkHandler] Unexpected TCP packet type: 0x" << std::hex
 //                       << static_cast<int>(type) << std::dec << "\n";

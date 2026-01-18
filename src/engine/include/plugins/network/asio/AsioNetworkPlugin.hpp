@@ -143,6 +143,7 @@ private:
     std::atomic<bool> running_{false};
     std::atomic<bool> tcp_connected_{false};
     std::atomic<bool> udp_connected_{false};
+    std::atomic<bool> disconnecting_{false};  // Prevent concurrent disconnect() calls
 
     // IO context and thread
     std::unique_ptr<boost::asio::io_context> io_context_;

@@ -33,6 +33,10 @@ public:
     engine::TextureHandle get_bullet_animation() const { return bullet_animation_; }
     engine::TextureHandle get_explosion() const { return explosion_; }
     engine::TextureHandle get_bonus_weapon() const { return bonus_weapon_; }
+    engine::TextureHandle get_boss_mars() const { return boss_mars_; }
+    engine::TextureHandle get_boss_uranus() const { return boss_uranus_; }
+    engine::TextureHandle get_boss_jupiter() const { return boss_jupiter_; }
+    engine::TextureHandle get_kamikaze() const { return kamikaze_; }
 
     const std::array<engine::TextureHandle, 4>& get_player_frames() const { return player_frames_; }
 
@@ -68,6 +72,10 @@ private:
     engine::TextureHandle bullet_animation_;
     engine::TextureHandle explosion_;
     engine::TextureHandle bonus_weapon_;
+    engine::TextureHandle boss_mars_;
+    engine::TextureHandle boss_uranus_;
+    engine::TextureHandle boss_jupiter_;
+    engine::TextureHandle kamikaze_;
 };
 
 }

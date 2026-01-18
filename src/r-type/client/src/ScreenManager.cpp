@@ -1,5 +1,6 @@
 #include "ScreenManager.hpp"
 #include <string>
+#include <iostream>
 
 namespace rtype::client {
 
@@ -93,6 +94,11 @@ void ScreenManager::set_screen(GameScreen screen) {
     current_screen_ = screen;
 
     switch (screen) {
+        case GameScreen::CONNECTION:
+            // Connection screen - hide game screens
+            hide_waiting_screen();
+            hide_result_screen();
+            break;
         case GameScreen::WAITING:
             show_waiting_screen();
             break;
@@ -108,6 +114,8 @@ void ScreenManager::set_screen(GameScreen screen) {
         case GameScreen::CREATE_ROOM:
         case GameScreen::BROWSE_ROOMS:
         case GameScreen::ROOM_LOBBY:
+        case GameScreen::SETTINGS:
+        case GameScreen::GLOBAL_LEADERBOARD:
             // Hide game screens when returning to menu
             hide_waiting_screen();
             hide_result_screen();
@@ -213,9 +221,9 @@ void ScreenManager::draw_result_screen(engine::IGraphicsPlugin* graphics) {
         // Draw final score in large text centered
         std::string score_text = "SCORE: " + std::to_string(final_score_);
 
-        // Position: centered horizontally, lower on screen
-        float text_x = screen_width_ / 2.0f - 340.0f;  // Better centered for large text
-        float text_y = 460.0f;
+        // Position: centered horizontally, higher on screen to make room for leaderboard
+        float text_x = screen_width_ / 2.0f - 340.0f;
+        float text_y = leaderboard_entries_.empty() ? 460.0f : 320.0f;
 
         // Draw shadow for depth
         engine::Vector2f shadow_pos{text_x + 6, text_y + 6};
@@ -225,9 +233,62 @@ void ScreenManager::draw_result_screen(engine::IGraphicsPlugin* graphics) {
         engine::Vector2f text_pos{text_x, text_y};
         graphics->draw_text(score_text, text_pos, {150, 100, 255, 255}, engine::INVALID_HANDLE, 120);
 
+        // Draw leaderboard if available
+        if (!leaderboard_entries_.empty()) {
+            float leaderboardY = text_y + 150.0f;
+            float leaderboardX = screen_width_ / 2.0f - 200.0f;
+
+            // Draw "LEADERBOARD" header
+            engine::Vector2f headerShadow{leaderboardX + 57.0f, leaderboardY + 3.0f};
+            graphics->draw_text("LEADERBOARD", headerShadow, {0, 0, 0, 200}, engine::INVALID_HANDLE, 28);
+            engine::Vector2f headerPos{leaderboardX + 55.0f, leaderboardY};
+            graphics->draw_text("LEADERBOARD", headerPos, {200, 200, 255, 255}, engine::INVALID_HANDLE, 28);
+
+            leaderboardY += 45.0f;
+
+            // Draw entries
+            for (size_t i = 0; i < leaderboard_entries_.size() && i < 4; ++i) {
+                const auto& entry = leaderboard_entries_[i];
+
+                // Rank color (gold, silver, bronze, white)
+                engine::Color rankColor;
+                switch (i) {
+                    case 0: rankColor = {255, 215, 0, 255}; break;    // Gold
+                    case 1: rankColor = {192, 192, 192, 255}; break;  // Silver
+                    case 2: rankColor = {205, 127, 50, 255}; break;   // Bronze
+                    default: rankColor = {200, 200, 200, 255}; break;
+                }
+
+                // Rank
+                std::string rankStr = "#" + std::to_string(entry.rank);
+                engine::Vector2f rankPos{leaderboardX, leaderboardY};
+                graphics->draw_text(rankStr, rankPos, rankColor, engine::INVALID_HANDLE, 24);
+
+                // Name (truncate if too long)
+                std::string displayName = entry.player_name;
+                if (displayName.length() > 15) {
+                    displayName = displayName.substr(0, 12) + "...";
+                }
+                engine::Vector2f namePos{leaderboardX + 60.0f, leaderboardY};
+                graphics->draw_text(displayName, namePos, {255, 255, 255, 255}, engine::INVALID_HANDLE, 24);
+
+                // Score
+                std::string scoreStr = std::to_string(entry.score);
+                engine::Vector2f scorePos{leaderboardX + 300.0f, leaderboardY};
+                graphics->draw_text(scoreStr, scorePos, rankColor, engine::INVALID_HANDLE, 24);
+
+                leaderboardY += 35.0f;
+            }
+        }
+
         // Draw button
         back_to_menu_button_->draw(graphics);
     }
+}
+
+void ScreenManager::set_leaderboard(const std::vector<ResultLeaderboardEntry>& entries) {
+    leaderboard_entries_ = entries;
+    std::cout << "[ScreenManager] Leaderboard set with " << entries.size() << " entries" << std::endl;
 }
 
 }

@@ -81,6 +81,8 @@ bool Server::start()
     network_handler_ = std::make_unique<NetworkHandler>(network_plugin_);
     packet_sender_ = std::make_unique<PacketSender>(network_plugin_);
     session_manager_ = std::make_unique<GameSessionManager>();
+    global_leaderboard_manager_ = std::make_unique<GlobalLeaderboardManager>("data/global_leaderboard.json");
+    global_leaderboard_manager_->load();
     network_handler_->set_listener(this);
     lobby_manager_.set_listener(this);
     room_manager_.set_listener(this);
@@ -571,19 +573,60 @@ void Server::on_player_respawn(uint32_t session_id, const std::vector<uint8_t>& 
 
 void Server::on_player_level_up(uint32_t session_id, const std::vector<uint8_t>& level_up_data)
 {
-    auto* session = session_manager_->get_session(session_id);
-
+    auto session = session_manager_->get_session(session_id);
     if (!session)
         return;
+
     std::cout << "[Server] Broadcasting player level-up to session " << session_id << std::endl;
     packet_sender_->broadcast_udp_to_session(session_id, protocol::PacketType::SERVER_PLAYER_LEVEL_UP,
                                             level_up_data, session->get_player_ids(), connected_clients_);
 }
 
+void Server::on_level_transition(uint32_t session_id, const std::vector<uint8_t>& transition_data)
+{
+    auto session = session_manager_->get_session(session_id);
+    if (!session)
+        return;
+
+    std::cout << "[Server] Broadcasting level transition to session " << session_id << std::endl;
+    packet_sender_->broadcast_udp_to_session(session_id, protocol::PacketType::SERVER_LEVEL_TRANSITION,
+                                            transition_data, session->get_player_ids(), connected_clients_);
+}
+
+void Server::on_level_ready(uint32_t session_id, const std::vector<uint8_t>& level_ready_data)
+{
+    auto session = session_manager_->get_session(session_id);
+    if (!session)
+        return;
+
+    std::cout << "[Server] Broadcasting level ready to session " << session_id << std::endl;
+    packet_sender_->broadcast_udp_to_session(session_id, protocol::PacketType::SERVER_LEVEL_READY,
+                                            level_ready_data, session->get_player_ids(), connected_clients_);
+}
+
+void Server::on_leaderboard(uint32_t session_id, const std::vector<uint8_t>& leaderboard_data)
+{
+    auto* session = session_manager_->get_session(session_id);
+
+    if (!session)
+        return;
+    std::cout << "[Server] Broadcasting leaderboard to session " << session_id << std::endl;
+    packet_sender_->broadcast_udp_to_session(session_id, protocol::PacketType::SERVER_LEADERBOARD,
+                                            leaderboard_data, session->get_player_ids(), connected_clients_);
+}
 void Server::on_game_over(uint32_t session_id, const std::vector<uint32_t>& player_ids, bool is_victory)
 {
     std::cout << "[Server] Game over for session " << session_id
               << (is_victory ? " - VICTORY!" : " - DEFEAT!") << "\n";
+
+    // Add player scores to global leaderboard
+    auto* session = session_manager_->get_session(session_id);
+    if (session && global_leaderboard_manager_) {
+        auto player_scores = session->get_player_scores();
+        for (const auto& [name, score] : player_scores) {
+            global_leaderboard_manager_->try_add_score(name, score);
+        }
+    }
 
     protocol::ServerGameOverPayload game_over;
     game_over.result = is_victory ? protocol::GameResult::VICTORY : protocol::GameResult::DEFEAT;
@@ -692,6 +735,10 @@ void Server::on_client_create_room(uint32_t client_id, const protocol::ClientCre
     }
     const auto* room = room_manager_.get_room(room_id);
     if (room) {
+        // Update player info to track they are in a room (for chat)
+        it->second.in_lobby = true;
+        it->second.lobby_id = room_id;
+
         protocol::ServerRoomCreatedPayload response;
         response.room_id = ByteOrder::host_to_net32(room_id);
         response.set_room_name(room->room_name);
@@ -756,6 +803,10 @@ void Server::on_client_join_room(uint32_t client_id, const protocol::ClientJoinR
                                         serialize(error));
         return;
     }
+    // Update player info to track they are in a room (for chat)
+    it->second.in_lobby = true;
+    it->second.lobby_id = room_id;
+
     protocol::ServerRoomJoinedPayload response;
     response.room_id = ByteOrder::host_to_net32(room_id);
     packet_sender_->send_tcp_packet(client_id, protocol::PacketType::SERVER_ROOM_JOINED,
@@ -781,6 +832,9 @@ void Server::on_client_leave_room(uint32_t client_id, const protocol::ClientLeav
     if (!left) {
         std::cout << "[Server] Player " << player_id << " was not in any room\n";
     } else {
+        // Clear player's room info
+        it->second.in_lobby = false;
+        it->second.lobby_id = 0;
         std::cout << "[Server] Player " << player_id << " left room successfully\n";
     }
 }
@@ -1121,6 +1175,112 @@ bool Server::clear_enemies_in_session(uint32_t session_id)
     session->clear_enemies();
     std::cout << "[Server] Cleared enemies from session " << session_id << "\n";
     return true;
+}
+
+void Server::on_client_request_global_leaderboard(uint32_t client_id)
+{
+    auto it = connected_clients_.find(client_id);
+
+    if (it == connected_clients_.end()) {
+        std::cerr << "[Server] REQUEST_GLOBAL_LEADERBOARD from unknown client " << client_id << "\n";
+        return;
+    }
+
+    std::cout << "[Server] Player " << it->second.player_id << " requesting global leaderboard\n";
+
+    if (!global_leaderboard_manager_) {
+        std::cerr << "[Server] Global leaderboard manager not initialized\n";
+        return;
+    }
+
+    auto entries = global_leaderboard_manager_->get_entries();
+
+    // Build response payload
+    std::vector<uint8_t> payload_data;
+
+    protocol::ServerGlobalLeaderboardPayload header;
+    header.entry_count = static_cast<uint8_t>(std::min(entries.size(), static_cast<size_t>(255)));
+
+    // Add header
+    payload_data.insert(payload_data.end(),
+                        reinterpret_cast<const uint8_t*>(&header),
+                        reinterpret_cast<const uint8_t*>(&header) + sizeof(header));
+
+    // Add entries (already in network byte order from GlobalLeaderboardEntry)
+    for (size_t i = 0; i < header.entry_count; ++i) {
+        protocol::GlobalLeaderboardEntry entry = entries[i];
+        // Convert to network byte order
+        entry.score = ByteOrder::host_to_net32(entry.score);
+        entry.timestamp = ByteOrder::host_to_net32(entry.timestamp);
+
+        payload_data.insert(payload_data.end(),
+                            reinterpret_cast<const uint8_t*>(&entry),
+                            reinterpret_cast<const uint8_t*>(&entry) + sizeof(entry));
+    }
+
+    packet_sender_->send_tcp_packet(client_id, protocol::PacketType::SERVER_GLOBAL_LEADERBOARD,
+                                    payload_data);
+
+    std::cout << "[Server] Sent global leaderboard with " << static_cast<int>(header.entry_count)
+              << " entries to player " << it->second.player_id << "\n";
+}
+
+void Server::on_client_chat_message(uint32_t client_id,
+                                     const protocol::ClientChatMessagePayload& payload)
+{
+    auto it = connected_clients_.find(client_id);
+    if (it == connected_clients_.end()) {
+        return;
+    }
+
+    uint32_t player_id = it->second.player_id;
+    std::string message = payload.get_message();
+
+    std::cout << "[Server] on_client_chat_message received from client " << client_id
+              << " (player " << player_id << "): " << message << "\n";
+
+    // Build server chat message payload
+    protocol::ServerChatMessagePayload server_payload;
+    server_payload.sender_id = ByteOrder::host_to_net32(player_id);
+    server_payload.set_sender_name(it->second.player_name);
+    server_payload.set_message(message);
+    server_payload.timestamp = ByteOrder::host_to_net32(static_cast<uint32_t>(
+        std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()
+        ).count()
+    ));
+
+    std::vector<uint32_t> target_player_ids;
+
+    // Check if player is in a game session
+    if (it->second.in_game && it->second.session_id != 0) {
+        auto* session = session_manager_->get_session(it->second.session_id);
+        if (session) {
+            target_player_ids = session->get_player_ids();
+            std::cout << "[Server] Chat from " << it->second.player_name << " in session "
+                      << it->second.session_id << ": " << message << "\n";
+        }
+    }
+    // Check if player is in a room (lobby)
+    else if (it->second.in_lobby && it->second.lobby_id != 0) {
+        target_player_ids = room_manager_.get_room_players(it->second.lobby_id);
+        std::cout << "[Server] Chat from " << it->second.player_name << " in room "
+                  << it->second.lobby_id << ": " << message << "\n";
+    }
+
+    if (target_player_ids.empty()) {
+        return;
+    }
+
+    // Broadcast to all target players
+    for (uint32_t pid : target_player_ids) {
+        auto target_client_it = player_to_client_.find(pid);
+        if (target_client_it != player_to_client_.end()) {
+            packet_sender_->send_tcp_packet(target_client_it->second,
+                                           protocol::PacketType::SERVER_CHAT_MESSAGE,
+                                           serialize(server_payload));
+        }
+    }
 }
 
 void Server::on_admin_auth(uint32_t client_id,

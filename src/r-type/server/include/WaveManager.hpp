@@ -36,7 +36,8 @@ struct SpawnConfig {
 };
 
 struct WaveTrigger {
-    float scroll_distance;
+    int chunk_id = 0;
+    float offset = 0.0f;
     float time_delay;
 };
 
@@ -137,17 +138,27 @@ public:
      */
     static std::string get_map_file(uint16_t map_id);
 
+    /**
+     * @brief Enable or disable procedural wave generation
+     */
+    void set_procedural_enabled(bool enabled) { procedural_enabled_ = enabled; }
+
 private:
     WaveConfig config_;
     uint32_t current_wave_index_;
     float accumulated_time_;
     uint32_t wave_generation_;  // Increments on each reset
     IWaveListener* listener_ = nullptr;
+    
+    // Procedural generation state
+    bool procedural_enabled_ = false;
 
     void check_wave_triggers(float current_scroll);
     void check_wave_completion(float delta_time);
     void trigger_wave(Wave& wave);
     void spawn_from_config(const SpawnConfig& spawn);
+    
+    void generate_procedural_wave(float current_scroll);
 };
 
 }

@@ -69,6 +69,20 @@ public:
      * @brief Called when a player levels up
      */
     virtual void on_player_level_up(uint32_t session_id, const std::vector<uint8_t>& level_up_data) = 0;
+
+    /**
+     * @brief Called when a level transition occurs
+     * @param session_id Session identifier
+     * @param transition_data Serialized transition data
+     */
+    virtual void on_level_transition(uint32_t session_id, const std::vector<uint8_t>& transition_data) = 0;
+
+    /**
+     * @brief Called when a level is fully loaded and ready
+     * @param session_id Session identifier
+     * @param level_ready_data Serialized level ready data
+     */
+    virtual void on_level_ready(uint32_t session_id, const std::vector<uint8_t>& level_ready_data) = 0;
 };
 
-}
+} // namespace rtype::server

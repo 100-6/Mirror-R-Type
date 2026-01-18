@@ -48,7 +48,30 @@ void LevelSystem::update(Registry& registry, float dt)
             break;
 
         case LevelState::WAVES:
+            // Check if we passed the map end
+            // 1 Chunk = 480px (30 tiles * 16px)
+            {
+               auto& scroll_states = registry.get_components<ScrollState>();
+               float current_scroll = 0.0f;
+               if (scroll_states.size() > 0) {
+                   current_scroll = scroll_states.get_data_at(0).current_scroll;
+               }
+               
+               // If total_chunks is -1, level is infinite
+               if (lc.total_chunks != -1) {
+                   float level_end_scroll = static_cast<float>(lc.total_chunks * 30 * 16);
+                   
+                   if (current_scroll >= level_end_scroll) {
+                       std::cout << "[LevelSystem] Reached end of map (" << level_end_scroll << "px) - Forcing boss transition\n";
+                       transition_to_boss_transition(lc);
+                       on_boss_transition_started(registry, lc);
+                       break;
+                   }
+               }
+            }
+            
             // Check if all phases complete and no enemies remain
+            // Only end early if explicit trigger
             if (all_phases_complete(registry, lc)) {
                 if (no_enemies_remaining(registry)) {
                     std::cout << "[LevelSystem] All waves complete and no enemies remaining - starting boss transition\n";
@@ -251,31 +274,33 @@ void LevelSystem::transition_to_game_over(LevelController& lc)
 
 void LevelSystem::load_next_level_or_final_victory(Registry& registry, LevelController& lc)
 {
-    if (lc.current_level >= 3) {
-        // Final victory! All 3 levels completed
-        std::cout << "[LevelSystem] FINAL VICTORY! All levels completed!\n";
+    if (lc.current_level >= lc.total_levels) {
+        // Final victory! All levels completed
+        std::cout << "[LevelSystem] FINAL VICTORY! All " << static_cast<int>(lc.total_levels) << " levels completed!\n";
         transition_to_game_over(lc);
-        // TODO: Trigger final victory event (notify server to send GAME_OVER with VICTORY)
         return;
     }
 
-    // Load next level
+    // Load next level index
     uint8_t next_level = lc.current_level + 1;
-    std::cout << "[LevelSystem] Loading level " << static_cast<int>(next_level) << "...\n";
 
-    // Clear all enemies and projectiles
-    clear_all_enemies_and_projectiles(registry);
+    // SKIP LEVEL 2 (Nebula Station) - This is a special procedural map
+    // not meant for the main campaign progression
+    if (next_level == 2) {
+        std::cout << "[LevelSystem] Skipping Level 2 (Special Procedural Map)...\n";
+        next_level++;
+    }
+
+    std::cout << "[LevelSystem] Moving to level " << static_cast<int>(next_level) << "\n";
 
     // Update level controller
     lc.current_level = next_level;
-    lc.boss_spawned = false;
-    lc.boss_entity = engine::INVALID_HANDLE;
-
+    
     // Transition to level start
     transition_to_level_start(lc);
 
-    // Note: Level loading and wave reset are handled by GameSession::update()
-    // See GameSession.cpp lines 464-496 for next level loading logic
+    // Note: Actual data loading (waves, maps) is handled by GameSession::update()
+    // by detecting the current_level change.
 }
 
 void LevelSystem::clear_all_enemies_and_projectiles(Registry& registry)

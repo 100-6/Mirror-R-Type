@@ -135,6 +135,19 @@ public:
      * @param payload Admin command data (command string)
      */
     virtual void on_admin_command(uint32_t client_id, const protocol::ClientAdminCommandPayload& payload) = 0;
+
+    /**
+     * @brief Called when a client requests the global leaderboard
+     * @param client_id TCP client ID
+     */
+    virtual void on_client_request_global_leaderboard(uint32_t client_id) = 0;
+
+    /**
+     * @brief Called when a client sends a chat message
+     * @param client_id TCP client ID
+     * @param payload Chat message data
+     */
+    virtual void on_client_chat_message(uint32_t client_id, const protocol::ClientChatMessagePayload& payload) = 0;
 };
 
 }

@@ -7,12 +7,14 @@
 #include "NetworkClient.hpp"
 #include "ScreenManager.hpp"
 #include "screens/BaseScreen.hpp"
+#include "screens/ConnectionScreen.hpp"
 #include "screens/MainMenuScreen.hpp"
 #include "screens/CreateRoomScreen.hpp"
 #include "screens/BrowseRoomsScreen.hpp"
 #include "screens/RoomLobbyScreen.hpp"
 #include "screens/PasswordDialog.hpp"
 #include "screens/SettingsScreen.hpp"
+#include "screens/GlobalLeaderboardScreen.hpp"
 #include "protocol/Payloads.hpp"
 
 namespace rtype::client {
@@ -74,6 +76,11 @@ public:
      */
     SettingsScreen* get_settings_screen() { return settings_screen_.get(); }
 
+    /**
+     * @brief Get connection screen (for setting connect callback)
+     */
+    ConnectionScreen* get_connection_screen() { return connection_screen_.get(); }
+
 private:
     NetworkClient& network_client_;
     int screen_width_;
@@ -81,12 +88,14 @@ private:
     GameScreen current_screen_;
 
     // Screen instances
+    std::unique_ptr<ConnectionScreen> connection_screen_;
     std::unique_ptr<MainMenuScreen> main_menu_screen_;
     std::unique_ptr<CreateRoomScreen> create_room_screen_;
     std::unique_ptr<BrowseRoomsScreen> browse_rooms_screen_;
     std::unique_ptr<RoomLobbyScreen> room_lobby_screen_;
     std::unique_ptr<PasswordDialog> password_dialog_;
     std::unique_ptr<SettingsScreen> settings_screen_;
+    std::unique_ptr<GlobalLeaderboardScreen> global_leaderboard_screen_;
 
     // Room state tracking (for periodic refresh)
     float room_list_refresh_timer_ = 0.0f;

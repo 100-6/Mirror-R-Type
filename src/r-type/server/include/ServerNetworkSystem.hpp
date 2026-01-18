@@ -55,6 +55,13 @@ public:
         player_entities_ = player_entities;
     }
 
+    /**
+     * @brief Set the difficulty level for damage scaling
+     */
+    void set_difficulty(protocol::Difficulty difficulty) {
+        difficulty_ = difficulty;
+    }
+
     void init(Registry& registry) override;
     void update(Registry& registry, float dt) override;
     void shutdown() override;
@@ -86,12 +93,25 @@ public:
     void queue_player_respawn(uint32_t player_id, float x, float y,
                               float invuln_duration, uint8_t lives_remaining);
 
-    /**
-     * @brief Queue a player level-up notification to broadcast
-     */
     void queue_player_level_up(uint32_t player_id, Entity entity, uint8_t new_level,
-                               uint8_t new_ship_type, uint8_t new_weapon_type,
-                               uint8_t new_skin_id, uint32_t current_score);
+                               uint8_t ship_type, uint8_t weapon_type, uint8_t skin_id,
+                               uint32_t current_score);
+
+    /**
+     * @brief Queue a level transition notification to broadcast
+     * @param next_level_id ID of the next level
+     */
+    void queue_level_transition(uint16_t next_level_id);
+
+    /**
+     * @brief Queue a level ready notification (level fully loaded)
+     * @param level_id ID of the level that is now ready
+     */
+    void queue_level_ready(uint16_t level_id);
+
+    /**
+     * @brief Queue a player respawn notification to broadcast
+
 
     uint32_t get_tick_count() const { return tick_count_; }
 
@@ -152,8 +172,10 @@ private:
     void broadcast_pending_explosions();
     void broadcast_pending_scores();
     void broadcast_pending_powerups();
-    void broadcast_pending_respawns();
     void broadcast_pending_level_ups();
+    void broadcast_pending_level_transitions();
+    void broadcast_pending_level_ready();
+    void broadcast_pending_respawns();
     void spawn_projectile(Registry& registry, Entity owner, float x, float y);
     void spawn_enemy_projectile(Registry& registry, Entity owner, float x, float y);
     void update_enemy_shooting(Registry& registry, float dt);
@@ -174,6 +196,8 @@ private:
     std::queue<protocol::ServerScoreUpdatePayload> pending_scores_;
     std::queue<protocol::ServerPowerupCollectedPayload> pending_powerups_;
     std::vector<PendingRespawn> pending_respawns_;
+    std::queue<protocol::ServerLevelTransitionPayload> pending_level_transitions_;
+    std::queue<protocol::ServerLevelReadyPayload> pending_level_ready_;
     std::queue<protocol::ServerPlayerLevelUpPayload> pending_level_ups_;
 
     std::mutex spawns_mutex_;
@@ -205,6 +229,9 @@ private:
 
     // Current scroll position for synchronization with clients (double for precision)
     double current_scroll_x_ = 0.0;
+
+    // Difficulty level for damage scaling
+    protocol::Difficulty difficulty_ = protocol::Difficulty::NORMAL;
 };
 
 }

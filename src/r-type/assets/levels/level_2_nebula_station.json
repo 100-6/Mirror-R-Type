@@ -4,297 +4,125 @@
   "level_description": "Infiltrate the heavily defended nebula station",
   "map_id": 2,
   "base_scroll_speed": 65.0,
-  "total_scroll_distance": 9000.0,
-
+  "total_chunks": -1,
   "phases": [
     {
       "phase_number": 1,
-      "phase_name": "Station Perimeter",
+      "phase_name": "Nebula Approach",
       "scroll_start": 0.0,
-      "scroll_end": 3000.0,
+      "scroll_end": 1440.0,
       "difficulty": "easy",
       "waves": [
         {
           "wave_number": 1,
-          "trigger": {"scrollDistance": 100, "timeDelay": 0},
-          "formation": "dual_flanks",
-          "spawns": [
-            {"type": "enemy", "enemyType": "basic", "positionX": 2100, "positionY": 150, "count": 2, "pattern": "line", "spacing": 100},
-            {"type": "enemy", "enemyType": "basic", "positionX": 2100, "positionY": 850, "count": 2, "pattern": "line", "spacing": 100}
-          ]
-        },
-        {
-          "wave_number": 2,
-          "trigger": {"scrollDistance": 600, "timeDelay": 0},
-          "formation": "fast_scouts",
-          "spawns": [
-            {"type": "enemy", "enemyType": "fast", "positionX": 2200, "positionY": 300, "count": 3, "pattern": "line", "spacing": 100}
-          ]
-        },
-        {
-          "wave_number": 3,
-          "trigger": {"scrollDistance": 1200, "timeDelay": 0},
-          "formation": "mixed_formation",
+          "trigger": {
+            "chunkId": 0,
+            "offset": 0.0,
+            "timeDelay": 0
+          },
           "spawns": [
             {
               "type": "enemy",
-              "enemyType": "tank",
-              "positionX": 2300,
-              "positionY": 500,
-              "count": 1,
-              "pattern": "single",
-              "bonusDrop": {
-                "enabled": true,
-                "bonusType": "shield",
-                "dropChance": 0.7
-              }
-            },
-            {
-              "type": "enemy",
-              "enemyType": "fast",
-              "positionX": 2400,
+              "enemyType": "basic",
+              "positionX": 2100,
               "positionY": 350,
-              "count": 2,
+              "count": 4,
               "pattern": "line",
-              "spacing": 80,
-              "bonusDrop": {
-                "enabled": true,
-                "bonusType": "speed",
-                "dropChance": 0.3
-              }
-            },
-            {
-              "type": "enemy",
-              "enemyType": "fast",
-              "positionX": 2400,
-              "positionY": 650,
-              "count": 2,
-              "pattern": "line",
-              "spacing": 80,
-              "bonusDrop": {
-                "enabled": true,
-                "bonusType": "speed",
-                "dropChance": 0.3
-              }
+              "spacing": 140
             }
           ]
         },
         {
-          "wave_number": 4,
-          "trigger": {"scrollDistance": 1800, "timeDelay": 0},
-          "formation": "grid_assault",
+          "wave_number": 2,
+          "trigger": {
+            "chunkId": 2,
+            "offset": 0.0,
+            "timeDelay": 0
+          },
           "spawns": [
-            {"type": "enemy", "enemyType": "basic", "positionX": 2500, "positionY": 250, "count": 8, "pattern": "formation", "spacing": 90}
-          ]
-        },
-        {
-          "wave_number": 5,
-          "trigger": {"scrollDistance": 2400, "timeDelay": 0},
-          "formation": "tank_convoy",
-          "spawns": [
-            {"type": "enemy", "enemyType": "tank", "positionX": 2700, "positionY": 300, "count": 2, "pattern": "line", "spacing": 200},
-            {"type": "enemy", "enemyType": "basic", "positionX": 2800, "positionY": 450, "count": 3, "pattern": "line", "spacing": 100}
-          ]
-        },
-        {
-          "wave_number": 6,
-          "trigger": {"scrollDistance": 2800, "timeDelay": 0},
-          "formation": "reward_wave",
-          "spawns": [
-            {"type": "enemy", "enemyType": "fast", "positionX": 2900, "positionY": 400, "count": 2, "pattern": "line", "spacing": 150},
-            {"type": "powerup", "bonusType": "health", "positionX": 3000, "positionY": 500, "count": 1, "pattern": "single"}
+            {
+              "type": "enemy",
+              "enemyType": "zigzag",
+              "positionX": 2100,
+              "positionY": 200,
+              "count": 3,
+              "pattern": "line",
+              "spacing": 130
+            },
+            {
+              "type": "powerup",
+              "bonusType": "health",
+              "positionX": 2300,
+              "positionY": 540,
+              "count": 1,
+              "pattern": "single"
+            }
           ]
         }
       ]
     },
     {
       "phase_number": 2,
-      "phase_name": "Inner Defenses",
-      "scroll_start": 3000.0,
-      "scroll_end": 6000.0,
+      "phase_name": "Station Defense Grid",
+      "scroll_start": 1440.0,
+      "scroll_end": 2880.0,
       "difficulty": "medium",
-      "waves": [
-        {
-          "wave_number": 7,
-          "trigger": {"scrollDistance": 3100, "timeDelay": 0},
-          "formation": "triple_threat",
-          "spawns": [
-            {"type": "enemy", "enemyType": "tank", "positionX": 5100, "positionY": 250, "count": 1, "pattern": "single"},
-            {"type": "enemy", "enemyType": "tank", "positionX": 5100, "positionY": 540, "count": 1, "pattern": "single"},
-            {"type": "enemy", "enemyType": "tank", "positionX": 5100, "positionY": 830, "count": 1, "pattern": "single"}
-          ]
-        },
-        {
-          "wave_number": 8,
-          "trigger": {"scrollDistance": 3700, "timeDelay": 0},
-          "formation": "fast_swarm",
-          "spawns": [
-            {"type": "enemy", "enemyType": "fast", "positionX": 5300, "positionY": 300, "count": 6, "pattern": "line", "spacing": 90}
-          ]
-        },
-        {
-          "wave_number": 9,
-          "trigger": {"scrollDistance": 4300, "timeDelay": 0},
-          "formation": "diamond_formation",
-          "spawns": [
-            {"type": "enemy", "enemyType": "basic", "positionX": 5500, "positionY": 540, "count": 1, "pattern": "single"},
-            {"type": "enemy", "enemyType": "basic", "positionX": 5550, "positionY": 400, "count": 1, "pattern": "single"},
-            {"type": "enemy", "enemyType": "basic", "positionX": 5550, "positionY": 680, "count": 1, "pattern": "single"},
-            {"type": "enemy", "enemyType": "basic", "positionX": 5600, "positionY": 540, "count": 1, "pattern": "single"}
-          ]
-        },
-        {
-          "wave_number": 10,
-          "trigger": {"scrollDistance": 4900, "timeDelay": 0},
-          "formation": "heavy_escort",
-          "spawns": [
-            {"type": "enemy", "enemyType": "tank", "positionX": 5700, "positionY": 450, "count": 2, "pattern": "line", "spacing": 180},
-            {"type": "enemy", "enemyType": "fast", "positionX": 5800, "positionY": 300, "count": 3, "pattern": "line", "spacing": 90},
-            {"type": "enemy", "enemyType": "fast", "positionX": 5800, "positionY": 700, "count": 3, "pattern": "line", "spacing": 90}
-          ]
-        },
-        {
-          "wave_number": 11,
-          "trigger": {"scrollDistance": 5500, "timeDelay": 0},
-          "formation": "shield_powerup",
-          "spawns": [
-            {"type": "enemy", "enemyType": "basic", "positionX": 5900, "positionY": 400, "count": 4, "pattern": "formation", "spacing": 100},
-            {"type": "powerup", "bonusType": "shield", "positionX": 6000, "positionY": 540, "count": 1, "pattern": "single"}
-          ]
-        }
-      ]
-    },
-    {
-      "phase_number": 3,
-      "phase_name": "Station Core",
-      "scroll_start": 6000.0,
-      "scroll_end": 8500.0,
-      "difficulty": "hard",
-      "waves": [
-        {
-          "wave_number": 12,
-          "trigger": {"scrollDistance": 6100, "timeDelay": 0},
-          "formation": "tank_wall",
-          "spawns": [
-            {"type": "enemy", "enemyType": "tank", "positionX": 6100, "positionY": 250, "count": 3, "pattern": "line", "spacing": 150}
-          ]
-        },
-        {
-          "wave_number": 13,
-          "trigger": {"scrollDistance": 6700, "timeDelay": 0},
-          "formation": "chaos_assault",
-          "spawns": [
-            {"type": "enemy", "enemyType": "fast", "positionX": 6300, "positionY": 200, "count": 4, "pattern": "line", "spacing": 80},
-            {"type": "enemy", "enemyType": "basic", "positionX": 6400, "positionY": 600, "count": 4, "pattern": "line", "spacing": 90}
-          ]
-        },
-        {
-          "wave_number": 14,
-          "trigger": {"scrollDistance": 7300, "timeDelay": 0},
-          "formation": "ultimate_formation",
-          "spawns": [
-            {"type": "enemy", "enemyType": "tank", "positionX": 6600, "positionY": 400, "count": 2, "pattern": "line", "spacing": 200},
-            {"type": "enemy", "enemyType": "fast", "positionX": 6700, "positionY": 250, "count": 3, "pattern": "line", "spacing": 80},
-            {"type": "enemy", "enemyType": "fast", "positionX": 6700, "positionY": 700, "count": 3, "pattern": "line", "spacing": 80}
-          ]
-        },
-        {
-          "wave_number": 15,
-          "trigger": {"scrollDistance": 7900, "timeDelay": 0},
-          "formation": "final_defense",
-          "spawns": [
-            {"type": "enemy", "enemyType": "tank", "positionX": 6900, "positionY": 350, "count": 2, "pattern": "line", "spacing": 180},
-            {"type": "enemy", "enemyType": "basic", "positionX": 7000, "positionY": 500, "count": 5, "pattern": "formation", "spacing": 100},
-            {"type": "powerup", "bonusType": "health", "positionX": 7200, "positionY": 540, "count": 1, "pattern": "single"}
-          ]
-        },
-        {
-          "wave_number": 16,
-          "trigger": {"scrollDistance": 8200, "timeDelay": 0},
-          "formation": "boss_prep",
-          "spawns": [
-            {"type": "enemy", "enemyType": "fast", "positionX": 7400, "positionY": 400, "count": 4, "pattern": "line", "spacing": 90},
-            {"type": "powerup", "bonusType": "shield", "positionX": 7600, "positionY": 540, "count": 1, "pattern": "single"}
-          ]
-        }
-      ]
+      "waves": []
     }
   ],
-
   "boss": {
-    "boss_name": "Nebula Defense Core",
-    "spawn_scroll_distance": 8500.0,
+    "boss_name": "Nebula Core",
+    "spawn_scroll_distance": 2000.0,
     "spawn_position_x": 1600.0,
     "spawn_position_y": 540.0,
     "enemy_type": "boss",
     "total_phases": 3,
+    "script_path": "boss/boss2_nebula_core.lua",
     "phases": [
       {
         "phase_number": 1,
         "health_threshold": 1.0,
-        "movement_pattern": "vertical_sine",
-        "movement_speed_multiplier": 1.2,
+        "movement_pattern": "stationary",
+        "movement_speed_multiplier": 0.0,
         "attack_patterns": [
           {
             "pattern": "spray_360",
             "cooldown": 3.0,
-            "projectile_count": 16,
-            "projectile_speed": 220.0,
+            "projectile_count": 12,
+            "projectile_speed": 200.0,
             "projectile_damage": 20
-          },
-          {
-            "pattern": "aimed_burst",
-            "cooldown": 2.0,
-            "projectile_count": 4,
-            "projectile_speed": 320.0,
-            "projectile_damage": 25,
-            "spread_angle": 20.0
           }
         ]
       },
       {
         "phase_number": 2,
         "health_threshold": 0.66,
-        "movement_pattern": "figure_eight",
-        "movement_speed_multiplier": 1.6,
+        "movement_pattern": "chase_player",
+        "movement_speed_multiplier": 0.8,
         "attack_patterns": [
           {
-            "pattern": "laser_sweep",
-            "cooldown": 2.5,
-            "projectile_count": 60,
-            "projectile_speed": 380.0,
-            "projectile_damage": 28
-          },
-          {
-            "pattern": "spiral",
-            "cooldown": 1.5,
-            "projectile_count": 10,
-            "projectile_speed": 270.0,
-            "projectile_damage": 22,
-            "rotation_speed": 60.0
+            "pattern": "aimed_burst",
+            "cooldown": 2.0,
+            "projectile_count": 8,
+            "projectile_speed": 250.0,
+            "projectile_damage": 25,
+            "spread_angle": 30.0
           }
         ]
       },
       {
         "phase_number": 3,
         "health_threshold": 0.33,
-        "movement_pattern": "aggressive_chase",
-        "movement_speed_multiplier": 2.0,
+        "movement_pattern": "chase_player",
+        "movement_speed_multiplier": 1.2,
         "attack_patterns": [
           {
-            "pattern": "random_barrage",
-            "cooldown": 0.8,
-            "projectile_count": 20,
-            "projectile_speed": 320.0,
-            "projectile_damage": 30
-          },
-          {
-            "pattern": "aimed_triple",
+            "pattern": "spiral",
             "cooldown": 1.5,
-            "projectile_count": 3,
-            "projectile_speed": 400.0,
-            "projectile_damage": 35,
-            "spread_angle": 25.0
+            "projectile_count": 16,
+            "projectile_speed": 220.0,
+            "projectile_damage": 30,
+            "rotation_speed": 80.0
           }
         ]
       }

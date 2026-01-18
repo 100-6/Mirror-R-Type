@@ -43,7 +43,6 @@ namespace rtype {
 #include "LevelManager.hpp"
 #include "components/LevelComponents.hpp"
 #include "systems/LevelSystem.hpp"
-#include "systems/BossSystem.hpp"
 #include "systems/CheckpointSystem.hpp"
 
 namespace rtype::server {
@@ -126,6 +125,17 @@ public:
     void resume();
     void clear_enemies();
 
+    /**
+     * @brief Send the leaderboard to all players (called before game over)
+     */
+    void send_leaderboard();
+
+    /**
+     * @brief Get player scores for global leaderboard
+     * @return Vector of pairs (player_name, score)
+     */
+    std::vector<std::pair<std::string, uint32_t>> get_player_scores() const;
+
 private:
     void on_wave_started(const Wave& wave) override;
     void on_wave_completed(const Wave& wave) override;
@@ -142,11 +152,20 @@ private:
     void on_powerup_collected(uint32_t session_id, const std::vector<uint8_t>& powerup_data) override;
     void on_player_respawn(uint32_t session_id, const std::vector<uint8_t>& respawn_data) override;
     void on_player_level_up(uint32_t session_id, const std::vector<uint8_t>& level_up_data) override;
+    void on_level_transition(uint32_t session_id, const std::vector<uint8_t>& transition_data) override;
+    void on_level_ready(uint32_t session_id, const std::vector<uint8_t>& level_ready_data) override;
 
+    // === Entity Spawning Helpers ===
+    /**
+     * @brief Create player entity with all components
+     */
     void spawn_player_entity(GamePlayer& player);
     void check_game_over();
     void check_offscreen_enemies();
-    
+
+    // Wave initialization
+    void initialize_wave_state();
+
     // Map-based wall spawning from tiles
     void load_map_segments(uint16_t map_id);
     void spawn_walls_in_view();
@@ -189,6 +208,16 @@ private:
     size_t next_segment_to_spawn_ = 0;
     int tile_size_ = 16;
 
+    // Track level data loading
+    uint8_t loaded_level_id_ = 0;
+    game::LevelState last_level_state_ = game::LevelState::LEVEL_START;
+
+    // Level transition delay (wait 1 second after boss death before fade)
+    bool level_transition_pending_ = false;
+    float level_transition_delay_timer_ = 0.0f;
+    uint8_t pending_next_level_id_ = 0;
+    static constexpr float LEVEL_TRANSITION_DELAY = 1.0f;  // 1 second delay
+
     // Procedural generation
     bool procedural_enabled_ = false;
     std::unique_ptr<class rtype::ProceduralMapGenerator> generator_;
@@ -197,6 +226,8 @@ private:
 
     // Helper for procedural generation
     rtype::SegmentData* get_or_generate_segment(int segment_id);
+
+    std::unordered_map<std::string, std::string> enemy_scripts_; // Map enemy type to script path
 };
 
 }

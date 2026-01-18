@@ -85,6 +85,20 @@ void RaylibInputPlugin::init_key_mapping() {
     key_mapping[engine::Key::RControl] = KEY_RIGHT_CONTROL;
     key_mapping[engine::Key::LAlt] = KEY_LEFT_ALT;
     key_mapping[engine::Key::RAlt] = KEY_RIGHT_ALT;
+
+    // Function keys
+    key_mapping[engine::Key::F1] = KEY_F1;
+    key_mapping[engine::Key::F2] = KEY_F2;
+    key_mapping[engine::Key::F3] = KEY_F3;
+    key_mapping[engine::Key::F4] = KEY_F4;
+    key_mapping[engine::Key::F5] = KEY_F5;
+    key_mapping[engine::Key::F6] = KEY_F6;
+    key_mapping[engine::Key::F7] = KEY_F7;
+    key_mapping[engine::Key::F8] = KEY_F8;
+    key_mapping[engine::Key::F9] = KEY_F9;
+    key_mapping[engine::Key::F10] = KEY_F10;
+    key_mapping[engine::Key::F11] = KEY_F11;
+    key_mapping[engine::Key::F12] = KEY_F12;
 }
 
 int RaylibInputPlugin::to_raylib_key(engine::Key key) const {

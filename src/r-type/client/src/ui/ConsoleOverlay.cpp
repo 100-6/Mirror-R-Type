@@ -59,12 +59,12 @@ void ConsoleOverlay::set_visible(bool visible)
     }
 }
 
-void ConsoleOverlay::add_message(const std::string& message, engine::Color color)
+void ConsoleOverlay::add_message_internal(const std::string& message, engine::Color color, MessageType type)
 {
     Message msg;
     msg.text = message;
     msg.color = color;
-    msg.type = MessageType::NORMAL;
+    msg.type = type;
     msg.timestamp = std::chrono::system_clock::now();
     msg.fade_in_progress = 0.0f;
 
@@ -78,64 +78,119 @@ void ConsoleOverlay::add_message(const std::string& message, engine::Color color
     }
 }
 
+std::vector<std::string> ConsoleOverlay::wrap_text(const std::string& text, float max_width, engine::IGraphicsPlugin* graphics)
+{
+    std::vector<std::string> lines;
+    if (text.empty()) {
+        lines.push_back("");
+        return lines;
+    }
+
+    // Approximate character width (we use fixed-width rendering)
+    const float char_width = 8.0f;  // Approximate width for font size 14
+    const size_t max_chars = static_cast<size_t>(max_width / char_width);
+
+    std::string current_line;
+    std::istringstream stream(text);
+    std::string word;
+
+    while (stream >> word) {
+        // If adding this word would exceed the limit
+        if (current_line.length() + word.length() + 1 > max_chars) {
+            if (!current_line.empty()) {
+                lines.push_back(current_line);
+                current_line.clear();
+            }
+
+            // If a single word is too long, break it up
+            if (word.length() > max_chars) {
+                while (word.length() > max_chars) {
+                    lines.push_back(word.substr(0, max_chars));
+                    word = word.substr(max_chars);
+                }
+                if (!word.empty()) {
+                    current_line = word;
+                }
+            } else {
+                current_line = word;
+            }
+        } else {
+            if (!current_line.empty()) {
+                current_line += " ";
+            }
+            current_line += word;
+        }
+    }
+
+    if (!current_line.empty()) {
+        lines.push_back(current_line);
+    }
+
+    if (lines.empty()) {
+        lines.push_back("");
+    }
+
+    return lines;
+}
+
+void ConsoleOverlay::add_message(const std::string& message, engine::Color color)
+{
+    // Calculate max text width (console width - margins - timestamp - icon)
+    float max_text_width = width_ - 170.0f;  // Leave space for timestamp (85px) + icon (40px) + margins (45px)
+
+    // Wrap text if needed
+    std::vector<std::string> lines = wrap_text(message, max_text_width, nullptr);
+
+    // Add each line as a separate message
+    for (const auto& line : lines) {
+        add_message_internal(line, color, MessageType::NORMAL);
+    }
+}
+
 void ConsoleOverlay::add_error(const std::string& error)
 {
-    Message msg;
-    msg.text = error;
-    msg.color = {255, 80, 80, 255};  // Bright red
-    msg.type = MessageType::ERROR;
-    msg.timestamp = std::chrono::system_clock::now();
-    msg.fade_in_progress = 0.0f;
-    message_history_.push_back(msg);
-    if (message_history_.size() > MAX_MESSAGES)
-        message_history_.pop_front();
+    float max_text_width = width_ - 170.0f;
+    std::vector<std::string> lines = wrap_text(error, max_text_width, nullptr);
 
-    if (scroll_offset_ < 3) scroll_offset_ = 0;
+    for (const auto& line : lines) {
+        add_message_internal(line, {255, 80, 80, 255}, MessageType::ERROR);
+    }
 }
 
 void ConsoleOverlay::add_success(const std::string& message)
 {
-    Message msg;
-    msg.text = message;
-    msg.color = {80, 255, 120, 255};  // Bright green
-    msg.type = MessageType::SUCCESS;
-    msg.timestamp = std::chrono::system_clock::now();
-    msg.fade_in_progress = 0.0f;
-    message_history_.push_back(msg);
-    if (message_history_.size() > MAX_MESSAGES)
-        message_history_.pop_front();
+    float max_text_width = width_ - 170.0f;
+    std::vector<std::string> lines = wrap_text(message, max_text_width, nullptr);
 
-    if (scroll_offset_ < 3) scroll_offset_ = 0;
+    for (const auto& line : lines) {
+        add_message_internal(line, {80, 255, 120, 255}, MessageType::SUCCESS);
+    }
 }
 
 void ConsoleOverlay::add_info(const std::string& info)
 {
-    Message msg;
-    msg.text = info;
-    msg.color = {120, 200, 255, 255};  // Cyan
-    msg.type = MessageType::INFO;
-    msg.timestamp = std::chrono::system_clock::now();
-    msg.fade_in_progress = 0.0f;
-    message_history_.push_back(msg);
-    if (message_history_.size() > MAX_MESSAGES)
-        message_history_.pop_front();
+    float max_text_width = width_ - 170.0f;
+    std::vector<std::string> lines = wrap_text(info, max_text_width, nullptr);
 
-    if (scroll_offset_ < 3) scroll_offset_ = 0;
+    for (const auto& line : lines) {
+        add_message_internal(line, {120, 200, 255, 255}, MessageType::INFO);
+    }
 }
 
 void ConsoleOverlay::add_warning(const std::string& warning)
 {
-    Message msg;
-    msg.text = warning;
-    msg.color = {255, 200, 80, 255};  // Orange/Yellow
-    msg.type = MessageType::WARNING;
-    msg.timestamp = std::chrono::system_clock::now();
-    msg.fade_in_progress = 0.0f;
-    message_history_.push_back(msg);
-    if (message_history_.size() > MAX_MESSAGES)
-        message_history_.pop_front();
+    float max_text_width = width_ - 170.0f;
+    std::vector<std::string> lines = wrap_text(warning, max_text_width, nullptr);
 
-    if (scroll_offset_ < 3) scroll_offset_ = 0;
+    for (const auto& line : lines) {
+        add_message_internal(line, {255, 200, 80, 255}, MessageType::WARNING);
+    }
+}
+
+void ConsoleOverlay::clear()
+{
+    message_history_.clear();
+    scroll_offset_ = 0;
 }
 
 float ConsoleOverlay::get_delta_time()

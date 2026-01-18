@@ -10,6 +10,7 @@
 #include "core/event/Event.hpp"
 #include "ecs/CoreComponents.hpp" // For Entity
 #include <string>
+#include <vector>
 
 namespace ecs {
 
@@ -223,6 +224,26 @@ struct AmbianceChangeRequestEvent : public core::Event {
     AmbianceChangeRequestEvent(const std::string& id = "", float crossfade = 2.0f)
         : ambianceId(id)
         , crossfadeDuration(crossfade) {}
+};
+
+/**
+ * @brief A single leaderboard entry for display
+ */
+struct LeaderboardEntryData {
+    uint32_t player_id;
+    std::string player_name;
+    uint32_t score;
+    uint8_t rank;
+};
+
+/**
+ * @brief Event fired when leaderboard data is received from the server
+ */
+struct LeaderboardReceivedEvent : public core::Event {
+    std::vector<LeaderboardEntryData> entries;
+
+    explicit LeaderboardReceivedEvent(const std::vector<LeaderboardEntryData>& e)
+        : entries(e) {}
 };
 
 }

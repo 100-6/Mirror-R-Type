@@ -22,6 +22,7 @@
 #include "systems/InterpolationSystem.hpp"
 #include "DebugNetworkOverlay.hpp"
 #include "ui/ConsoleOverlay.hpp"
+#include "ui/ChatOverlay.hpp"
 
 namespace rtype::client {
 
@@ -100,13 +101,33 @@ private:
     bool admin_authenticated_ = false;
     std::string admin_password_;
 
+    // Chat overlay
+    std::unique_ptr<ChatOverlay> chat_overlay_;
+
     // Game state
     std::atomic<bool> running_;
+    std::atomic<bool> is_shutting_down_{false};
     uint32_t client_tick_;
     Entity wave_tracker_;
     float current_time_;
     uint16_t current_map_id_ = 1;
     int last_known_score_ = 0;
+
+    // Level transition state (prevents scroll desync during transitions)
+    bool level_transition_in_progress_ = false;
+    float level_transition_timer_ = 0.0f;
+    bool level_ready_received_ = true;  // True by default (no transition pending)
+
+    // Pending transition data (applied when screen is fully black)
+    uint16_t pending_level_id_ = 0;  // 0 = no pending transition
+    bool pending_level_transition_apply_ = false;
+
+    // Pending respawn data (applied when screen is fully black)
+    bool pending_respawn_apply_ = false;
+
+    // Fade state (moved from static to member for access across methods)
+    float fade_alpha_ = 0.0f;
+    int fade_state_ = 0;  // 0=none, 1=fading in, 2=waiting, 3=fading out
 
     // Audio state for client-side sound triggers
     bool was_shooting_ = false;
@@ -136,6 +157,12 @@ private:
     // Map-specific theming
     void apply_map_theme(uint16_t map_id);
     void load_level_checkpoints(uint16_t map_id);
+
+    // Level transition (called when screen is fully black)
+    void apply_pending_level_transition();
+
+    // Respawn cleanup (called when screen is fully black)
+    void apply_pending_respawn();
 
     // Update methods
     void update(float delta_time);

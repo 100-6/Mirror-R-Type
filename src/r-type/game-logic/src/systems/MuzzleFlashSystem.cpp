@@ -39,15 +39,12 @@ void MuzzleFlashSystem::init(Registry& registry)
     // Also subscribe to CompanionDestroyEvent to clean up companion muzzle flashes
     eventBus.subscribe<ecs::CompanionDestroyEvent>(
         [this, &registry](const ecs::CompanionDestroyEvent& event) {
-            std::cout << "[MuzzleFlashSystem] Received CompanionDestroyEvent for player " << event.player << std::endl;
-
             // First try to find the companion entity from BonusWeapon (if not yet removed)
             auto& bonusWeapons = registry.get_components<BonusWeapon>();
             if (bonusWeapons.has_entity(event.player)) {
                 const BonusWeapon& bw = bonusWeapons[event.player];
                 if (bw.weaponEntity != static_cast<size_t>(-1)) {
                     Entity companionEntity = static_cast<Entity>(bw.weaponEntity);
-                    std::cout << "[MuzzleFlashSystem] Found companion " << companionEntity << " via BonusWeapon" << std::endl;
                     destroyMuzzleFlash(registry, companionEntity);
                     return;
                 }
@@ -63,14 +60,11 @@ void MuzzleFlashSystem::init(Registry& registry)
                 // Since companion might already be destroyed, check if the flash's parent (shooter) is attached to player
                 if (attacheds.has_entity(shooter)) {
                     if (attacheds[shooter].parentEntity == event.player) {
-                        std::cout << "[MuzzleFlashSystem] Found muzzle flash via shooter attachment to player" << std::endl;
                         toDestroy.push_back(shooter);
                     }
                 }
                 // Also check if the muzzle flash itself is orphaned (its parent shooter no longer exists)
                 else if (attacheds.has_entity(flash)) {
-                    // Flash's parent is the shooter - if shooter doesn't have Attached, it might be destroyed
-                    std::cout << "[MuzzleFlashSystem] Found orphaned muzzle flash, marking for destruction" << std::endl;
                     toDestroy.push_back(shooter);
                 }
             }
@@ -105,7 +99,6 @@ void MuzzleFlashSystem::update(Registry& registry, float dt)
     }
     // Destroy orphaned muzzle flashes
     for (Entity shooter : toDestroy) {
-        std::cout << "[MuzzleFlashSystem] Cleaning up orphaned muzzle flash (shooter " << shooter << " no longer exists)" << std::endl;
         destroyMuzzleFlash(registry, shooter);
     }
 
@@ -220,12 +213,6 @@ void MuzzleFlashSystem::spawnMuzzleFlash(Registry& registry, Entity shooter, boo
 
     // Track this muzzle flash
     shooterToFlash_[shooter] = muzzleFlash;
-
-    std::string shooterType = isEnemy ? "enemy" : (isCompanion ? "companion" : "player");
-    std::cout << "[MuzzleFlashSystem] Created muzzle flash entity " << muzzleFlash
-              << " for " << shooterType << " " << shooter
-              << " (width=" << shooterWidth << ", offset=" << flashOffsetX << ")"
-              << std::endl;
 }
 
 void MuzzleFlashSystem::destroyMuzzleFlash(Registry& registry, Entity shooter)
@@ -259,9 +246,6 @@ void MuzzleFlashSystem::destroyMuzzleFlash(Registry& registry, Entity shooter)
     }
 
     shooterToFlash_.erase(it);
-
-    std::cout << "[MuzzleFlashSystem] Destroyed muzzle flash entity " << flashEntity
-              << " for shooter " << shooter << std::endl;
 }
 
 bool MuzzleFlashSystem::hasActiveMuzzleFlash(Entity shooter) const

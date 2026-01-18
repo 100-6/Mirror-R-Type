@@ -112,14 +112,57 @@ Sprite EntityManager::build_sprite(protocol::EntityType type, bool is_local_play
             break;
         }
         case protocol::EntityType::ENEMY_FAST:
-            sprite.tint = engine::Color{255, 180, 0, 255};
+            // Apply color based on subtype
+            switch (subtype) {
+                case 1:  sprite.tint = engine::Color{255, 180, 0, 255}; break;   // Orange (default fast)
+                case 11: sprite.tint = engine::Color{180, 255, 0, 255}; break;   // Lime green (zigzag)
+                case 12: 
+                    // Kamikaze - Special texture
+                    sprite.texture = textures_.get_kamikaze();
+                    sprite.tint = engine::Color::White; // No tint
+                    // Override scale for this specific sprite because it's large
+                    {
+                        engine::Vector2f tex_size = textures_.get_texture_size(sprite.texture);
+                        if (tex_size.x > 0 && tex_size.y > 0) {
+                            // Calculate scale to fit collider (approx 40x40) or based on visual need
+                            // Default fast enemy is around 40x40
+                            // Let's ensure it's not too huge. 
+                            // Let's ensure it's not too huge. 
+                            float target_width = 200.0f; // Adjusted to be larger per user feedback
+                            float scale = target_width / tex_size.x;
+                            sprite.width = tex_size.x * scale;
+                            sprite.height = tex_size.y * scale;
+                            use_fixed_dimensions = true; // Use these custom dimensions
+                        }
+                    }
+                    break;
+                case 17: sprite.tint = engine::Color{100, 200, 255, 255}; break; // Light blue (coward)
+                case 20: sprite.tint = engine::Color{255, 215, 0, 255}; break;   // Gold (chaser)
+                default: sprite.tint = engine::Color{255, 180, 0, 255}; break;   // Default orange
+            }
             break;
         case protocol::EntityType::ENEMY_TANK:
-            sprite.tint = engine::Color{200, 80, 80, 255};
+            // Apply color based on subtype
+            switch (subtype) {
+                case 2:  sprite.tint = engine::Color{200, 80, 80, 255}; break;   // Red (default tank)
+                case 15: sprite.tint = engine::Color{80, 200, 80, 255}; break;   // Green (patrol)
+                case 19: sprite.tint = engine::Color{255, 100, 200, 255}; break; // Pink (spiral)
+                default: sprite.tint = engine::Color{200, 80, 80, 255}; break;   // Default red
+            }
             break;
         case protocol::EntityType::ENEMY_BOSS:
+            // Select boss sprite based on current map
+            if (current_map_id_ == 3) {
+                sprite.texture = textures_.get_boss_uranus();
+            } else if (current_map_id_ == 4) {
+                sprite.texture = textures_.get_boss_jupiter();
+            } else {
+                // Default to Mars boss (Map 1) or generic
+                sprite.texture = textures_.get_boss_mars();
+            }
+            
             sprite.layer = 6;
-            sprite.tint = engine::Color{180, 0, 255, 255};
+            sprite.tint = engine::Color::White; // No tint, use original sprite colors
             break;
         case protocol::EntityType::WALL:
             sprite.texture = textures_.get_wall();
@@ -178,8 +221,17 @@ Sprite EntityManager::build_sprite(protocol::EntityType type, bool is_local_play
             break;
     }
 
-    if (type == protocol::EntityType::ENEMY_BASIC && subtype != 0) {
-        sprite.tint = engine::Color{200, 200, 255, 255};
+    // Apply colors for ENEMY_BASIC based on subtype (new enemy types)
+    if (type == protocol::EntityType::ENEMY_BASIC) {
+        switch (subtype) {
+            case 0:  sprite.tint = engine::Color::White; break;                  // White (default basic)
+            case 10: sprite.tint = engine::Color{0, 255, 255, 255}; break;       // Cyan (wavy)
+            case 13: sprite.tint = engine::Color{255, 0, 255, 255}; break;       // Magenta (bouncer)
+            case 14: sprite.tint = engine::Color{50, 150, 255, 255}; break;      // Blue (orbiter)
+            case 16: sprite.tint = engine::Color{255, 140, 0, 255}; break;       // Dark orange (ambusher)
+            case 18: sprite.tint = engine::Color{255, 255, 0, 255}; break;       // Yellow (sniper)
+            default: sprite.tint = engine::Color{200, 200, 255, 255}; break;     // Light blue (other)
+        }
     }
 
     // Adjust sprite dimensions to preserve aspect ratio while fitting in collider box
@@ -942,6 +994,14 @@ void EntityManager::set_player_name(uint32_t server_id, const std::string& name)
             texts[tag_it->second].text = name;
         }
     }
+}
+
+std::string EntityManager::get_player_name(uint32_t player_id) const {
+    auto it = player_names_.find(player_id);
+    if (it != player_names_.end()) {
+        return it->second;
+    }
+    return "Player " + std::to_string(player_id);
 }
 
 Entity EntityManager::get_entity(uint32_t server_id) const {

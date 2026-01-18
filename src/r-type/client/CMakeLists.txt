@@ -16,7 +16,9 @@ set(RTYPE_CLIENT_SOURCES
     src/ui/UITextField.cpp
     src/ui/UILabel.cpp
     src/ui/ConsoleOverlay.cpp
+    src/ui/ChatOverlay.cpp
     # Screen classes
+    src/screens/ConnectionScreen.cpp
     src/screens/MainMenuScreen.cpp
     src/screens/CreateRoomScreen.cpp
     src/screens/BrowseRoomsScreen.cpp
@@ -24,6 +26,7 @@ set(RTYPE_CLIENT_SOURCES
     src/screens/PasswordDialog.cpp
     src/screens/SkinSelectorDialog.cpp
     src/screens/SettingsScreen.cpp
+    src/screens/GlobalLeaderboardScreen.cpp
     # CreateRoom module
     src/screens/createroom/CreateRoomInput.cpp
     src/screens/createroom/CreateRoomRenderer.cpp

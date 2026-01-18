@@ -39,6 +39,7 @@ public:
     void add_success(const std::string& message);
     void add_info(const std::string& info);
     void add_warning(const std::string& warning);
+    void clear();  // Clear all messages from history
 
     // Command callback
     using CommandCallback = std::function<void(const std::string&)>;
@@ -110,6 +111,10 @@ private:
     void draw_input_area(engine::IGraphicsPlugin* graphics);
     std::string get_timestamp_string(const std::chrono::system_clock::time_point& time);
     std::string get_message_icon(MessageType type);
+
+    // Text wrapping helper
+    std::vector<std::string> wrap_text(const std::string& text, float max_width, engine::IGraphicsPlugin* graphics);
+    void add_message_internal(const std::string& message, engine::Color color, MessageType type);
 
     // Scrolling helpers
     int get_total_message_count() const { return static_cast<int>(message_history_.size()); }

@@ -60,12 +60,23 @@ void MainMenuScreen::initialize() {
     });
     buttons_.push_back(std::move(browse_btn));
 
+    // LEADERBOARD button (above Settings)
+    float bottom_btn_width = 200.0f;
+    float bottom_btn_height = 50.0f;
+    auto leaderboard_btn = std::make_unique<UIButton>(
+        1000, screen_height_ - 140.0f, bottom_btn_width, bottom_btn_height, "Leaderboard");
+    leaderboard_btn->set_on_click([this]() {
+        std::cout << "[MainMenuScreen] Leaderboard selected\n";
+        network_client_.send_request_global_leaderboard();
+        if (on_screen_change_) {
+            on_screen_change_(GameScreen::GLOBAL_LEADERBOARD);
+        }
+    });
+    buttons_.push_back(std::move(leaderboard_btn));
+
     // SETTINGS button (bottom center)
-    float settings_btn_width = 200.0f;
-    float settings_btn_height = 50.0f;
-    float settings_btn_x = (screen_width_ - settings_btn_width) / 2.0f;
     auto settings_btn = std::make_unique<UIButton>(
-        1000, screen_height_ - 70.0f, settings_btn_width, settings_btn_height, "Settings");
+        1000, screen_height_ - 70.0f, bottom_btn_width, bottom_btn_height, "Settings");
     settings_btn->set_on_click([this]() {
         std::cout << "[MainMenuScreen] Settings selected\n";
         if (on_screen_change_) {

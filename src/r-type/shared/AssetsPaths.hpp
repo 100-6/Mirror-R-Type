@@ -48,6 +48,10 @@ inline constexpr const char* BONUS_WEAPON_SPRITE = "assets/sprite/vaisseau_bonus
 
 // ========== ENEMIES ==========
 inline constexpr const char* ENEMY_BASIC = "assets/sprite/enemies/enemy.png";
+inline constexpr const char* BOSS_MARS = "assets/sprite/enemies/boss_mars.png";
+inline constexpr const char* BOSS_URANUS = "assets/sprite/enemies/boss_uranus.png";
+inline constexpr const char* BOSS_JUPITER = "assets/sprite/enemies/boss_jupiter.png";
+inline constexpr const char* ENEMY_KAMIKAZE = "assets/sprite/enemies/kamikaz.png";
 
 // ========== ENVIRONMENT ==========
 inline constexpr const char* WALL = "assets/sprite/environment/lock.png";
@@ -67,6 +71,8 @@ inline constexpr const char* THRUSTER_04 = "assets/sprite/effect/thruster-04.png
 inline constexpr const char* MAPS_INDEX = "assets/maps/index.json";
 inline constexpr const char* MAPS_BASE_PATH = "assets/maps";
 inline constexpr const char* WAVES_CONFIG = "assets/waves_nebula_outpost.json";
+inline constexpr const char* ENEMIES_CONFIG = "assets/config/enemies.json";
+inline constexpr const char* AI_SCRIPTS_BASE_PATH = "assets/scripts/ai/";
 
 // ========== AUDIO ==========
 // Audio configuration (all audio paths are defined in this JSON file)

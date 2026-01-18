@@ -1,6 +1,7 @@
 build/
 .vscode
 doc/
+virtenv/
 site/
 
 vcpkg/

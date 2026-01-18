@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include "protocol/NetworkConfig.hpp"
+#include "protocol/PacketTypes.hpp"
 
 namespace rtype::shared::config {
 
@@ -30,6 +31,27 @@ constexpr float GAME_SCROLL_SPEED = 50.0f;                              // pixel
 constexpr float PLAYER_MOVEMENT_SPEED = 200.0f;                         // pixels per second
 constexpr uint16_t PLAYER_MAX_HEALTH = 1000;
 constexpr uint8_t PLAYER_LIVES = 3;
+
+// === Difficulty Multipliers ===
+// Enemy Health Multipliers (how much more HP enemies have)
+constexpr float DIFFICULTY_EASY_HEALTH_MULT = 0.7f;
+constexpr float DIFFICULTY_NORMAL_HEALTH_MULT = 1.0f;
+constexpr float DIFFICULTY_HARD_HEALTH_MULT = 1.5f;
+
+// Enemy Speed Multipliers (how fast enemies move)
+constexpr float DIFFICULTY_EASY_SPEED_MULT = 0.8f;
+constexpr float DIFFICULTY_NORMAL_SPEED_MULT = 1.0f;
+constexpr float DIFFICULTY_HARD_SPEED_MULT = 1.3f;
+
+// Enemy Damage Multipliers (how much damage enemy projectiles deal)
+constexpr float DIFFICULTY_EASY_DAMAGE_MULT = 0.7f;
+constexpr float DIFFICULTY_NORMAL_DAMAGE_MULT = 1.0f;
+constexpr float DIFFICULTY_HARD_DAMAGE_MULT = 1.5f;
+
+// Player Lives by Difficulty
+constexpr uint8_t DIFFICULTY_EASY_LIVES = 5;
+constexpr uint8_t DIFFICULTY_NORMAL_LIVES = 3;
+constexpr uint8_t DIFFICULTY_HARD_LIVES = 1;
 
 // === Screen / World ===
 constexpr float SCREEN_WIDTH = 1920.0f;
@@ -108,5 +130,55 @@ constexpr float BONUS_SIZE = 12.0f;
 constexpr float EXPLOSION_FRAME_SIZE = 32.0f;
 constexpr float EXPLOSION_FRAME_TIME = 0.04f;
 constexpr float EXPLOSION_DRAW_SCALE = 3.0f;
+
+// === Difficulty Helper Functions ===
+
+/**
+ * @brief Get the health multiplier for a given difficulty
+ */
+inline float get_health_multiplier(protocol::Difficulty difficulty) {
+    switch (difficulty) {
+        case protocol::Difficulty::EASY:   return DIFFICULTY_EASY_HEALTH_MULT;
+        case protocol::Difficulty::NORMAL: return DIFFICULTY_NORMAL_HEALTH_MULT;
+        case protocol::Difficulty::HARD:   return DIFFICULTY_HARD_HEALTH_MULT;
+        default: return DIFFICULTY_NORMAL_HEALTH_MULT;
+    }
+}
+
+/**
+ * @brief Get the speed multiplier for a given difficulty
+ */
+inline float get_speed_multiplier(protocol::Difficulty difficulty) {
+    switch (difficulty) {
+        case protocol::Difficulty::EASY:   return DIFFICULTY_EASY_SPEED_MULT;
+        case protocol::Difficulty::NORMAL: return DIFFICULTY_NORMAL_SPEED_MULT;
+        case protocol::Difficulty::HARD:   return DIFFICULTY_HARD_SPEED_MULT;
+        default: return DIFFICULTY_NORMAL_SPEED_MULT;
+    }
+}
+
+/**
+ * @brief Get the damage multiplier for a given difficulty
+ */
+inline float get_damage_multiplier(protocol::Difficulty difficulty) {
+    switch (difficulty) {
+        case protocol::Difficulty::EASY:   return DIFFICULTY_EASY_DAMAGE_MULT;
+        case protocol::Difficulty::NORMAL: return DIFFICULTY_NORMAL_DAMAGE_MULT;
+        case protocol::Difficulty::HARD:   return DIFFICULTY_HARD_DAMAGE_MULT;
+        default: return DIFFICULTY_NORMAL_DAMAGE_MULT;
+    }
+}
+
+/**
+ * @brief Get the number of player lives for a given difficulty
+ */
+inline uint8_t get_lives_for_difficulty(protocol::Difficulty difficulty) {
+    switch (difficulty) {
+        case protocol::Difficulty::EASY:   return DIFFICULTY_EASY_LIVES;
+        case protocol::Difficulty::NORMAL: return DIFFICULTY_NORMAL_LIVES;
+        case protocol::Difficulty::HARD:   return DIFFICULTY_HARD_LIVES;
+        default: return DIFFICULTY_NORMAL_LIVES;
+    }
+}
 
 } // namespace rtype::shared::config

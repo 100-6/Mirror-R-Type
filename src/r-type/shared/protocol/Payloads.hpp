@@ -626,6 +626,35 @@ PACK_END
 static_assert(sizeof(ServerPlayerRespawnPayload) == 15, "ServerPlayerRespawnPayload must be 15 bytes");
 
 /**
+ * @brief SERVER_LEVEL_TRANSITION payload (0xC7)
+ * Total size: 2 bytes
+ */
+PACK_START
+struct PACKED ServerLevelTransitionPayload {
+    uint16_t next_level_id;
+
+    ServerLevelTransitionPayload() : next_level_id(0) {}
+};
+PACK_END
+
+static_assert(sizeof(ServerLevelTransitionPayload) == 2, "ServerLevelTransitionPayload must be 2 bytes");
+
+/**
+ * @brief SERVER_LEVEL_READY payload (0xCA)
+ * Sent when the server has fully loaded the level and spawned all entities
+ * Total size: 2 bytes
+ */
+PACK_START
+struct PACKED ServerLevelReadyPayload {
+    uint16_t level_id;
+
+    ServerLevelReadyPayload() : level_id(0) {}
+};
+PACK_END
+
+static_assert(sizeof(ServerLevelReadyPayload) == 2, "ServerLevelReadyPayload must be 2 bytes");
+
+/**
  * @brief Score entry in SERVER_GAME_OVER
  * Size: 12 bytes
  */
@@ -658,6 +687,89 @@ struct PACKED ServerGameOverPayload {
 PACK_END
 
 static_assert(sizeof(ServerGameOverPayload) == 9, "ServerGameOverPayload base must be 9 bytes");
+
+/**
+ * @brief Leaderboard entry for SERVER_LEADERBOARD
+ * Contains player info and stats for end-game display
+ * Size: 48 bytes
+ */
+PACK_START
+struct PACKED LeaderboardEntry {
+    uint32_t player_id;
+    char player_name[32];
+    uint32_t score;
+    uint16_t kills;
+    uint16_t deaths;
+    uint8_t rank;
+    uint8_t padding[3];  // Align to 48 bytes
+
+    LeaderboardEntry() : player_id(0), score(0), kills(0), deaths(0), rank(0) {
+        std::memset(player_name, 0, sizeof(player_name));
+        std::memset(padding, 0, sizeof(padding));
+    }
+
+    void set_name(const std::string& name) {
+        std::memset(player_name, 0, sizeof(player_name));
+        std::strncpy(player_name, name.c_str(), sizeof(player_name) - 1);
+    }
+};
+PACK_END
+
+static_assert(sizeof(LeaderboardEntry) == 48, "LeaderboardEntry must be 48 bytes");
+
+/**
+ * @brief SERVER_LEADERBOARD payload header (0xC7)
+ * Sent at end-game with all player scores
+ * Base size: 2 bytes + (48 × entry_count) bytes
+ */
+PACK_START
+struct PACKED ServerLeaderboardPayload {
+    uint8_t entry_count;
+    uint8_t is_final;     // 1 if game is over, 0 if in-game update
+
+    ServerLeaderboardPayload() : entry_count(0), is_final(1) {}
+};
+PACK_END
+
+static_assert(sizeof(ServerLeaderboardPayload) == 2, "ServerLeaderboardPayload must be 2 bytes");
+
+/**
+ * @brief Global leaderboard entry for all-time top scores
+ * Size: 40 bytes
+ */
+PACK_START
+struct PACKED GlobalLeaderboardEntry {
+    char player_name[32];
+    uint32_t score;
+    uint32_t timestamp;
+
+    GlobalLeaderboardEntry() : score(0), timestamp(0) {
+        std::memset(player_name, 0, sizeof(player_name));
+    }
+
+    void set_name(const std::string& name) {
+        std::memset(player_name, 0, sizeof(player_name));
+        std::strncpy(player_name, name.c_str(), sizeof(player_name) - 1);
+    }
+};
+PACK_END
+
+static_assert(sizeof(GlobalLeaderboardEntry) == 40, "GlobalLeaderboardEntry must be 40 bytes");
+
+/**
+ * @brief SERVER_GLOBAL_LEADERBOARD payload header (0xC8)
+ * Sent in response to CLIENT_REQUEST_GLOBAL_LEADERBOARD
+ * Base size: 1 byte + (40 × entry_count) bytes
+ */
+PACK_START
+struct PACKED ServerGlobalLeaderboardPayload {
+    uint8_t entry_count;
+
+    ServerGlobalLeaderboardPayload() : entry_count(0) {}
+};
+PACK_END
+
+static_assert(sizeof(ServerGlobalLeaderboardPayload) == 1, "ServerGlobalLeaderboardPayload must be 1 byte");
 
 /**
  * @brief CLIENT_CREATE_ROOM payload (0x20)
@@ -1107,5 +1219,63 @@ struct PACKED ServerKickNotificationPayload {
 PACK_END
 
 static_assert(sizeof(ServerKickNotificationPayload) == 128, "ServerKickNotificationPayload must be 128 bytes");
+
+/**
+ * @brief CLIENT_CHAT_MESSAGE payload (0x40)
+ * Client sends a chat message to the server
+ * Total size: 132 bytes
+ */
+PACK_START
+struct PACKED ClientChatMessagePayload {
+    uint32_t player_id;              // 4 bytes - Sender player ID
+    char message[128];               // 128 bytes - Chat message
+
+    ClientChatMessagePayload() : player_id(0) {
+        std::memset(message, 0, sizeof(message));
+    }
+
+    void set_message(const std::string& msg) {
+        std::memset(message, 0, sizeof(message));
+        std::strncpy(message, msg.c_str(), sizeof(message) - 1);
+    }
+
+    std::string get_message() const {
+        return std::string(message, strnlen(message, sizeof(message)));
+    }
+};
+PACK_END
+
+static_assert(sizeof(ClientChatMessagePayload) == 132, "ClientChatMessagePayload must be 132 bytes");
+
+/**
+ * @brief SERVER_CHAT_MESSAGE payload (0xF0)
+ * Server broadcasts a chat message to all clients
+ * Total size: 168 bytes
+ */
+PACK_START
+struct PACKED ServerChatMessagePayload {
+    uint32_t sender_id;              // 4 bytes - Sender player ID
+    char sender_name[32];            // 32 bytes - Sender display name
+    char message[128];               // 128 bytes - Chat message
+    uint32_t timestamp;              // 4 bytes - Server timestamp
+
+    ServerChatMessagePayload() : sender_id(0), timestamp(0) {
+        std::memset(sender_name, 0, sizeof(sender_name));
+        std::memset(message, 0, sizeof(message));
+    }
+
+    void set_sender_name(const std::string& name) {
+        std::memset(sender_name, 0, sizeof(sender_name));
+        std::strncpy(sender_name, name.c_str(), sizeof(sender_name) - 1);
+    }
+
+    void set_message(const std::string& msg) {
+        std::memset(message, 0, sizeof(message));
+        std::strncpy(message, msg.c_str(), sizeof(message) - 1);
+    }
+};
+PACK_END
+
+static_assert(sizeof(ServerChatMessagePayload) == 168, "ServerChatMessagePayload must be 168 bytes");
 
 }

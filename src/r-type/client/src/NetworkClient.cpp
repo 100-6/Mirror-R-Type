@@ -205,6 +205,12 @@ void NetworkClient::send_set_player_skin(uint8_t skin_id) {
     send_tcp_packet(protocol::PacketType::CLIENT_SET_PLAYER_SKIN, serialize_payload(&payload, sizeof(payload)));
 }
 
+void NetworkClient::send_request_global_leaderboard() {
+    // std::cout << "[NetworkClient] Requesting global leaderboard\n";
+    // No payload needed for global leaderboard request
+    send_tcp_packet(protocol::PacketType::CLIENT_REQUEST_GLOBAL_LEADERBOARD, std::vector<uint8_t>());
+}
+
 void NetworkClient::send_input(uint16_t input_flags, uint32_t client_tick) {
     protocol::ClientInputPayload payload;
     payload.player_id = htonl(player_id_);
@@ -321,8 +327,20 @@ void NetworkClient::handle_packet(const engine::NetworkPacket& packet) {
         case protocol::PacketType::SERVER_PLAYER_RESPAWN:
             handle_player_respawn(payload);
             break;
+        case protocol::PacketType::SERVER_LEVEL_TRANSITION:
+            handle_level_transition(payload);
+            break;
+        case protocol::PacketType::SERVER_LEVEL_READY:
+            handle_level_ready(payload);
+            break;
         case protocol::PacketType::SERVER_GAME_OVER:
             handle_game_over(payload);
+            break;
+        case protocol::PacketType::SERVER_LEADERBOARD:
+            handle_leaderboard(payload);
+            break;
+        case protocol::PacketType::SERVER_GLOBAL_LEADERBOARD:
+            handle_global_leaderboard(payload);
             break;
         case protocol::PacketType::SERVER_ROOM_CREATED:
             handle_room_created(payload);
@@ -356,6 +374,9 @@ void NetworkClient::handle_packet(const engine::NetworkPacket& packet) {
             break;
         case protocol::PacketType::SERVER_KICK_NOTIFICATION:
             handle_kick_notification(payload);
+            break;
+        case protocol::PacketType::SERVER_CHAT_MESSAGE:
+            handle_chat_message(payload);
             break;
         case protocol::PacketType::SERVER_SNAPSHOT:
         case protocol::PacketType::SERVER_DELTA_SNAPSHOT:
@@ -594,6 +615,69 @@ void NetworkClient::handle_game_over(const std::vector<uint8_t>& payload) {
         on_game_over_(game_over);
 }
 
+void NetworkClient::handle_leaderboard(const std::vector<uint8_t>& payload) {
+    if (payload.size() < sizeof(protocol::ServerLeaderboardPayload)) {
+        return;
+    }
+
+    protocol::ServerLeaderboardPayload header;
+    std::memcpy(&header, payload.data(), sizeof(header));
+
+    // Extract entries
+    std::vector<protocol::LeaderboardEntry> entries;
+    size_t expected_size = sizeof(header) + header.entry_count * sizeof(protocol::LeaderboardEntry);
+    if (payload.size() >= expected_size) {
+        entries.reserve(header.entry_count);
+        const uint8_t* entry_data = payload.data() + sizeof(header);
+        for (uint8_t i = 0; i < header.entry_count; ++i) {
+            protocol::LeaderboardEntry entry;
+            std::memcpy(&entry, entry_data + (i * sizeof(protocol::LeaderboardEntry)), sizeof(entry));
+            // Convert from network byte order
+            entry.player_id = ntohl(entry.player_id);
+            entry.score = ntohl(entry.score);
+            entry.kills = ntohs(entry.kills);
+            entry.deaths = ntohs(entry.deaths);
+            entries.push_back(entry);
+        }
+    }
+
+    std::cout << "[NetworkClient] Received leaderboard with " << static_cast<int>(header.entry_count) << " entries\n";
+
+    if (on_leaderboard_)
+        on_leaderboard_(header, entries);
+}
+
+void NetworkClient::handle_global_leaderboard(const std::vector<uint8_t>& payload) {
+    if (payload.size() < sizeof(protocol::ServerGlobalLeaderboardPayload)) {
+        std::cerr << "[NetworkClient] Invalid SERVER_GLOBAL_LEADERBOARD payload size\n";
+        return;
+    }
+
+    protocol::ServerGlobalLeaderboardPayload header;
+    std::memcpy(&header, payload.data(), sizeof(header));
+
+    // Extract entries
+    std::vector<protocol::GlobalLeaderboardEntry> entries;
+    size_t expected_size = sizeof(header) + header.entry_count * sizeof(protocol::GlobalLeaderboardEntry);
+    if (payload.size() >= expected_size) {
+        entries.reserve(header.entry_count);
+        const uint8_t* entry_data = payload.data() + sizeof(header);
+        for (uint8_t i = 0; i < header.entry_count; ++i) {
+            protocol::GlobalLeaderboardEntry entry;
+            std::memcpy(&entry, entry_data + (i * sizeof(protocol::GlobalLeaderboardEntry)), sizeof(entry));
+            // Convert from network byte order
+            entry.score = ntohl(entry.score);
+            entry.timestamp = ntohl(entry.timestamp);
+            entries.push_back(entry);
+        }
+    }
+
+    std::cout << "[NetworkClient] Received global leaderboard with " << static_cast<int>(header.entry_count) << " entries\n";
+
+    if (on_global_leaderboard_)
+        on_global_leaderboard_(header, entries);
+}
+
 void NetworkClient::handle_wave_start(const std::vector<uint8_t>& payload) {
     if (payload.size() < sizeof(protocol::ServerWaveStartPayload)) {
         return;
@@ -691,6 +775,36 @@ void NetworkClient::handle_player_respawn(const std::vector<uint8_t>& payload) {
 
     if (on_player_respawn_)
         on_player_respawn_(respawn);
+}
+
+void NetworkClient::handle_level_transition(const std::vector<uint8_t>& payload) {
+    if (payload.size() < sizeof(protocol::ServerLevelTransitionPayload)) {
+        return;
+    }
+
+    protocol::ServerLevelTransitionPayload transition;
+    std::memcpy(&transition, payload.data(), sizeof(transition));
+    transition.next_level_id = ntohs(transition.next_level_id);
+
+    // std::cout << "[NetworkClient] Transitioning to level " << transition.next_level_id << "\n";
+
+    if (on_level_transition_)
+        on_level_transition_(transition);
+}
+
+void NetworkClient::handle_level_ready(const std::vector<uint8_t>& payload) {
+    if (payload.size() < sizeof(protocol::ServerLevelReadyPayload)) {
+        return;
+    }
+
+    protocol::ServerLevelReadyPayload level_ready;
+    std::memcpy(&level_ready, payload.data(), sizeof(level_ready));
+    level_ready.level_id = ntohs(level_ready.level_id);
+
+    std::cout << "[NetworkClient] Level " << level_ready.level_id << " ready\n";
+
+    if (on_level_ready_)
+        on_level_ready_(level_ready);
 }
 
 void NetworkClient::handle_room_created(const std::vector<uint8_t>& payload) {
@@ -986,6 +1100,22 @@ void NetworkClient::set_on_player_respawn(std::function<void(const protocol::Ser
     on_player_respawn_ = callback;
 }
 
+void NetworkClient::set_on_level_transition(std::function<void(const protocol::ServerLevelTransitionPayload&)> callback) {
+    on_level_transition_ = callback;
+}
+
+void NetworkClient::set_on_level_ready(std::function<void(const protocol::ServerLevelReadyPayload&)> callback) {
+    on_level_ready_ = callback;
+}
+
+void NetworkClient::set_on_leaderboard(std::function<void(const protocol::ServerLeaderboardPayload&, const std::vector<protocol::LeaderboardEntry>&)> callback) {
+    on_leaderboard_ = callback;
+}
+
+void NetworkClient::set_on_global_leaderboard(std::function<void(const protocol::ServerGlobalLeaderboardPayload&, const std::vector<protocol::GlobalLeaderboardEntry>&)> callback) {
+    on_global_leaderboard_ = callback;
+}
+
 void NetworkClient::set_on_room_created(std::function<void(const protocol::ServerRoomCreatedPayload&)> callback) {
     on_room_created_ = callback;
 }
@@ -1103,6 +1233,39 @@ void NetworkClient::handle_kick_notification(const std::vector<uint8_t>& payload
 
     if (on_admin_command_result_)
         on_admin_command_result_(false, "KICKED: " + reason);
+}
+
+// ============== Chat ==============
+
+void NetworkClient::send_chat_message(const std::string& message) {
+    protocol::ClientChatMessagePayload payload;
+    payload.player_id = htonl(player_id_);
+    payload.set_message(message);
+    send_tcp_packet(protocol::PacketType::CLIENT_CHAT_MESSAGE,
+                   serialize_payload(&payload, sizeof(payload)));
+}
+
+void NetworkClient::set_on_chat_message(ChatMessageCallback callback) {
+    on_chat_message_ = callback;
+}
+
+void NetworkClient::handle_chat_message(const std::vector<uint8_t>& payload) {
+    if (payload.size() != sizeof(protocol::ServerChatMessagePayload)) {
+        std::cerr << "[NetworkClient] Invalid SERVER_CHAT_MESSAGE payload size: "
+                  << payload.size() << " (expected " << sizeof(protocol::ServerChatMessagePayload) << ")\n";
+        return;
+    }
+    protocol::ServerChatMessagePayload data;
+    std::memcpy(&data, payload.data(), sizeof(data));
+
+    uint32_t sender_id = ntohl(data.sender_id);
+    std::string sender_name(data.sender_name, strnlen(data.sender_name, sizeof(data.sender_name)));
+    std::string message(data.message, strnlen(data.message, sizeof(data.message)));
+
+    std::cout << "[NetworkClient] Chat received from " << sender_name << ": " << message << "\n";
+
+    if (on_chat_message_)
+        on_chat_message_(sender_id, sender_name, message);
 }
 
 }

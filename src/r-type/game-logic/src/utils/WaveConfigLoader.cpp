@@ -69,8 +69,12 @@ WaveConfiguration loadWaveConfig(const std::string& filepath) {
         if (waveJson.contains("trigger")) {
             const auto& trigger = waveJson["trigger"];
 
-            if (trigger.contains("scrollDistance")) {
-                wave.trigger.scrollDistance = trigger["scrollDistance"].get<float>();
+            if (trigger.contains("chunkId")) {
+                wave.trigger.chunkId = trigger["chunkId"].get<int>();
+            }
+
+            if (trigger.contains("offset")) {
+                wave.trigger.offset = trigger["offset"].get<float>();
             }
 
             if (trigger.contains("timeDelay")) {
