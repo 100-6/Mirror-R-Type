@@ -655,6 +655,21 @@ PACK_END
 static_assert(sizeof(ServerLevelReadyPayload) == 2, "ServerLevelReadyPayload must be 2 bytes");
 
 /**
+ * @brief SERVER_SHIELD_BROKEN payload (0xCB)
+ * Sent when a player's shield is destroyed by an enemy hit
+ * Total size: 4 bytes
+ */
+PACK_START
+struct PACKED ServerShieldBrokenPayload {
+    uint32_t player_id;
+
+    ServerShieldBrokenPayload() : player_id(0) {}
+};
+PACK_END
+
+static_assert(sizeof(ServerShieldBrokenPayload) == 4, "ServerShieldBrokenPayload must be 4 bytes");
+
+/**
  * @brief Score entry in SERVER_GAME_OVER
  * Size: 12 bytes
  */

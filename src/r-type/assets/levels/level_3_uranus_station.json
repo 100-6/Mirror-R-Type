@@ -45,7 +45,8 @@
             "timeDelay": 0
           },
           "spawns": [
-            {"type": "enemy", "enemyType": "basic", "positionX": 2100, "positionY": 300, "count": 5, "pattern": "line", "spacing": 120}
+            {"type": "enemy", "enemyType": "fast", "positionX": 2100, "positionY": 300, "count": 3, "pattern": "line", "spacing": 120},
+            {"type": "enemy", "enemyType": "basic", "positionX": 2100, "positionY": 600, "count": 2, "pattern": "line", "spacing": 100}
           ]
         },
         {
@@ -89,7 +90,9 @@
             "timeDelay": 0
           },
           "spawns": [
-            {"type": "enemy", "enemyType": "basic", "positionX": 2100, "positionY": 280, "count": 6, "pattern": "formation", "spacing": 90}
+            {"type": "enemy", "enemyType": "tank", "positionX": 2100, "positionY": 450, "count": 1, "pattern": "single", "spacing": 0},
+            {"type": "enemy", "enemyType": "basic", "positionX": 2300, "positionY": 200, "count": 3, "pattern": "line", "spacing": 90},
+            {"type": "enemy", "enemyType": "basic", "positionX": 2300, "positionY": 700, "count": 3, "pattern": "line", "spacing": 90}
           ]
         },
         {

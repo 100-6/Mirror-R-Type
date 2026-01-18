@@ -109,6 +109,18 @@ struct CompanionDestroyEvent : public core::Event {
 };
 
 /**
+ * @brief Event fired when a player's shield is destroyed (absorbed a hit)
+ */
+struct ShieldBrokenEvent : public core::Event {
+    Entity player;
+    uint32_t playerId;  // Network player ID for network sync
+
+    ShieldBrokenEvent(Entity p, uint32_t id)
+        : player(p)
+        , playerId(id) {}
+};
+
+/**
  * @brief Event fired when a muzzle flash effect should be spawned
  */
 struct MuzzleFlashSpawnEvent : public core::Event {
