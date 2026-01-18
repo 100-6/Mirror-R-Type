@@ -386,6 +386,13 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
     }
     wave_manager_.load_from_phases(all_waves);
     wave_manager_.set_listener(this);
+    
+    // Enable procedural waves for Nebula map (ID 2) "Nebula Station Siege"
+    if (map_id_ == 2) {
+        wave_manager_.set_procedural_enabled(true);
+        std::cout << "[GameSession] Enabled procedural mobs for Nebula map\n";
+    }
+    
     initialize_wave_state();
 
     // Create LevelController entity

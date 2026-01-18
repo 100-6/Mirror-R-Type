@@ -248,6 +248,7 @@ struct WaveController {
     int currentWaveNumber = 0;                // Current wave number from JSON
     size_t totalWaveCount = 0;                // Total number of waves
     bool allWavesCompleted = false;           // All waves finished
+    bool proceduralMobs = false;              // Generate random waves after config is done
 };
 
 struct Bonus {

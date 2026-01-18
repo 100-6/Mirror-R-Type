@@ -57,13 +57,16 @@ void LevelSystem::update(Registry& registry, float dt)
                    current_scroll = scroll_states.get_data_at(0).current_scroll;
                }
                
-               float level_end_scroll = static_cast<float>(lc.total_chunks * 30 * 16);
-               
-               if (current_scroll >= level_end_scroll) {
-                   std::cout << "[LevelSystem] Reached end of map (" << level_end_scroll << "px) - Forcing boss transition\n";
-                   transition_to_boss_transition(lc);
-                   on_boss_transition_started(registry, lc);
-                   break;
+               // If total_chunks is -1, level is infinite
+               if (lc.total_chunks != -1) {
+                   float level_end_scroll = static_cast<float>(lc.total_chunks * 30 * 16);
+                   
+                   if (current_scroll >= level_end_scroll) {
+                       std::cout << "[LevelSystem] Reached end of map (" << level_end_scroll << "px) - Forcing boss transition\n";
+                       transition_to_boss_transition(lc);
+                       on_boss_transition_started(registry, lc);
+                       break;
+                   }
                }
             }
             

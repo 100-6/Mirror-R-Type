@@ -117,6 +117,11 @@ private:
      * @brief Load all required textures
      */
     void loadTextures();
+
+    /**
+     * @brief Generate a procedural wave when all scripted waves are done
+     */
+    void generateProceduralWave(Registry& registry);
 };
 
 #endif /* !WAVE_SPAWNER_SYSTEM_HPP_ */
