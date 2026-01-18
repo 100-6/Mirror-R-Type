@@ -280,6 +280,14 @@ void LevelSystem::load_next_level_or_final_victory(Registry& registry, LevelCont
 
     // Load next level index
     uint8_t next_level = lc.current_level + 1;
+
+    // SKIP LEVEL 2 (Nebula Station) - This is a special procedural map
+    // not meant for the main campaign progression
+    if (next_level == 2) {
+        std::cout << "[LevelSystem] Skipping Level 2 (Special Procedural Map)...\n";
+        next_level++;
+    }
+
     std::cout << "[LevelSystem] Moving to level " << static_cast<int>(next_level) << "\n";
 
     // Update level controller
