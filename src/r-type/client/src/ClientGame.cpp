@@ -1614,7 +1614,8 @@ void ClientGame::apply_input_to_local_player(uint16_t input_flags) {
 
 void ClientGame::handle_console_command(const std::string& command) {
     if (command == "clear") {
-        console_overlay_->add_info("Console cleared");
+        console_overlay_->clear();
+        console_overlay_->add_success("Console cleared");
         return;
     }
 

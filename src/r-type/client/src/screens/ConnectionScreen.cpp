@@ -20,11 +20,12 @@ void ConnectionScreen::initialize() {
     float start_y = screen_height_ / 2.0f - 120.0f;
     auto title = std::make_unique<UILabel>(
         center_x, start_y - 120.0f, "R-TYPE", 60);
-
+    title->set_alignment(UILabel::Alignment::CENTER);
     title->set_color({180, 120, 255, 255});
     labels_.push_back(std::move(title));
     auto subtitle = std::make_unique<UILabel>(
         center_x, start_y - 60.0f, "Connect to Server", 28);
+    subtitle->set_alignment(UILabel::Alignment::CENTER);
     subtitle->set_color({160, 140, 200, 255});
     labels_.push_back(std::move(subtitle));
     auto host_label = std::make_unique<UILabel>(
