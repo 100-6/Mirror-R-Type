@@ -84,17 +84,36 @@ void RaylibGraphicsPlugin::shutdown() {
     if (!initialized_) {
         return;
     }
-    
-    // Unload all resources
-    textures_.clear();
+
+    // Must unload resources BEFORE CloseWindow() destroys the OpenGL context
+    // Unloading after CloseWindow() would cause undefined behavior
+
+    // Unload all fonts first (fonts contain CPU-allocated memory: recs, glyphs)
+    for (auto& [handle, data] : fonts_) {
+        ::Font* font = get_from_vector<::Font>(data.data);
+        if (font && font->texture.id != 0) {
+            UnloadFont(*font);
+            font->texture.id = 0;  // Mark as unloaded to prevent double-free
+        }
+    }
     fonts_.clear();
-    
-    // Close window if open
+
+    // Unload all textures (GPU resources)
+    for (auto& [handle, data] : textures_) {
+        Texture2D* texture = get_from_vector<Texture2D>(data.data);
+        if (texture && texture->id != 0) {
+            UnloadTexture(*texture);
+            texture->id = 0;  // Mark as unloaded to prevent double-free
+        }
+    }
+    textures_.clear();
+
+    // Now close the window (destroys OpenGL context)
     if (window_open_) {
         CloseWindow();
         window_open_ = false;
     }
-    
+
     initialized_ = false;
 }
 
@@ -372,14 +391,14 @@ TextureHandle RaylibGraphicsPlugin::load_texture(const std::string& path) {
     if (!initialized_) {
         throw std::runtime_error("Plugin not initialized");
     }
-    
+
     // Load texture using Raylib
     Texture2D rl_texture = LoadTexture(path.c_str());
-    
+
     if (rl_texture.id == 0) {
         throw std::runtime_error("Failed to load texture: " + path);
     }
-    
+
     // Create texture data
     TextureData data;
     store_in_vector(data.data, rl_texture);
@@ -387,7 +406,7 @@ TextureHandle RaylibGraphicsPlugin::load_texture(const std::string& path) {
         static_cast<float>(rl_texture.width),
         static_cast<float>(rl_texture.height)
     );
-    
+
     // Generate handle
     TextureHandle handle = next_texture_handle_++;
 
@@ -445,8 +464,9 @@ void RaylibGraphicsPlugin::unload_texture(TextureHandle handle) {
     auto it = textures_.find(handle);
     if (it != textures_.end()) {
         Texture2D* texture = get_from_vector<Texture2D>(it->second.data);
-        if (texture) {
+        if (texture && texture->id != 0) {
             UnloadTexture(*texture);
+            texture->id = 0;  // Mark as unloaded
         }
         textures_.erase(it);
     }
@@ -489,8 +509,9 @@ void RaylibGraphicsPlugin::unload_font(FontHandle handle) {
     auto it = fonts_.find(handle);
     if (it != fonts_.end()) {
         ::Font* font = get_from_vector<::Font>(it->second.data);
-        if (font) {
+        if (font && font->texture.id != 0) {
             UnloadFont(*font);
+            font->texture.id = 0;  // Mark as unloaded
         }
         fonts_.erase(it);
     }

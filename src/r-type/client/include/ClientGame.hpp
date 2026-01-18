@@ -102,6 +102,7 @@ private:
 
     // Game state
     std::atomic<bool> running_;
+    std::atomic<bool> is_shutting_down_{false};
     uint32_t client_tick_;
     Entity wave_tracker_;
     float current_time_;
