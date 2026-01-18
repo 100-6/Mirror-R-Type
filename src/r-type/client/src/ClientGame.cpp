@@ -26,6 +26,7 @@
 #include "components/LevelComponents.hpp"
 #include "ecs/CoreComponents.hpp"
 #include "AssetsPaths.hpp"
+#include "GameConfig.hpp"
 #include <iostream>
 #include <fstream>
 #include <chrono>
@@ -763,7 +764,7 @@ void ClientGame::setup_network_callbacks() {
         status_overlay_->refresh();
     });
 
-    network_client_->set_on_game_start([this](uint32_t session_id, uint16_t udp_port, uint16_t map_id, float scroll_speed, uint32_t seed) {
+    network_client_->set_on_game_start([this](uint32_t session_id, uint16_t udp_port, uint16_t map_id, float scroll_speed, uint32_t seed, protocol::Difficulty difficulty) {
         // Guard against callbacks during shutdown
         if (is_shutting_down_ || !registry_ || !entity_manager_ || !screen_manager_)
             return;
@@ -845,6 +846,12 @@ void ClientGame::setup_network_callbacks() {
             ctrl.currentWaveIndex = 0;
             ctrl.allWavesCompleted = false;
             ctrl.totalScrollDistance = 0.0f;
+        }
+
+        // Initialize HUD lives display based on difficulty
+        if (registry_->has_system<HUDSystem>()) {
+            uint8_t initial_lives = rtype::shared::config::get_lives_for_difficulty(difficulty);
+            registry_->get_system<HUDSystem>().update_lives(*registry_, initial_lives);
         }
     });
 

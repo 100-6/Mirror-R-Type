@@ -523,7 +523,7 @@ void NetworkClient::handle_game_start(const std::vector<uint8_t>& payload) {
     connect_udp(udp_port_);
 
     if (on_game_start_)
-        on_game_start_(session_id_, udp_port_, map_id, scroll_speed, level_seed);
+        on_game_start_(session_id_, udp_port_, map_id, scroll_speed, level_seed, game_start.difficulty);
 }
 
 void NetworkClient::handle_entity_spawn(const std::vector<uint8_t>& payload) {
@@ -1046,7 +1046,7 @@ void NetworkClient::set_on_countdown(std::function<void(uint8_t)> callback) {
     on_countdown_ = callback;
 }
 
-void NetworkClient::set_on_game_start(std::function<void(uint32_t, uint16_t, uint16_t, float, uint32_t)> callback) {
+void NetworkClient::set_on_game_start(std::function<void(uint32_t, uint16_t, uint16_t, float, uint32_t, protocol::Difficulty)> callback) {
     on_game_start_ = callback;
 }
 
