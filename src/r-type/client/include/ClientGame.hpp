@@ -116,6 +116,18 @@ private:
     // Level transition state (prevents scroll desync during transitions)
     bool level_transition_in_progress_ = false;
     float level_transition_timer_ = 0.0f;
+    bool level_ready_received_ = true;  // True by default (no transition pending)
+
+    // Pending transition data (applied when screen is fully black)
+    uint16_t pending_level_id_ = 0;  // 0 = no pending transition
+    bool pending_level_transition_apply_ = false;
+
+    // Pending respawn data (applied when screen is fully black)
+    bool pending_respawn_apply_ = false;
+
+    // Fade state (moved from static to member for access across methods)
+    float fade_alpha_ = 0.0f;
+    int fade_state_ = 0;  // 0=none, 1=fading in, 2=waiting, 3=fading out
 
     // Audio state for client-side sound triggers
     bool was_shooting_ = false;
@@ -145,6 +157,12 @@ private:
     // Map-specific theming
     void apply_map_theme(uint16_t map_id);
     void load_level_checkpoints(uint16_t map_id);
+
+    // Level transition (called when screen is fully black)
+    void apply_pending_level_transition();
+
+    // Respawn cleanup (called when screen is fully black)
+    void apply_pending_respawn();
 
     // Update methods
     void update(float delta_time);

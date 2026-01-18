@@ -500,6 +500,139 @@ void ClientGame::load_level_checkpoints(uint16_t map_id) {
     // Checkpoints removed - dynamic respawn used
 }
 
+void ClientGame::apply_pending_level_transition() {
+    if (!pending_level_transition_apply_) return;
+
+    uint16_t next_level = pending_level_id_;
+    std::cout << "[ClientGame] Applying level transition to Level " << next_level << "\n";
+
+    // Map visual assets based on level
+    std::string mapIdTransitionStr;
+    switch (next_level) {
+        case 0:   // Debug: Quick Test
+        case 99:  // Debug: Instant Boss
+            mapIdTransitionStr = "nebula_outpost";
+            break;
+        case 1:   // Level 1: Mars Assault
+            mapIdTransitionStr = "mars_outpost";
+            break;
+        case 2:   // Level 2: Nebula Station
+            mapIdTransitionStr = "nebula_outpost";
+            break;
+        case 3:   // Level 3: Uranus Station
+            mapIdTransitionStr = "urasnus_outpost";
+            break;
+        case 4:   // Level 4: Jupiter Orbit
+            mapIdTransitionStr = "jupiter_outpost";
+            break;
+        default:
+            mapIdTransitionStr = "nebula_outpost";
+            break;
+    }
+
+    // Load the selected map
+    load_map(mapIdTransitionStr);
+    if (chunk_manager_) {
+        chunk_manager_->setScrollSpeed(server_scroll_speed_, registry_.get());
+    }
+
+    // Apply map-specific theme (background color)
+    apply_map_theme(next_level);
+
+    // Load checkpoints for the level
+    load_level_checkpoints(next_level);
+
+    // Clear local entities (enemies, projectiles, bonuses) to prepare for new level
+    if (registry_) {
+        auto& enemies = registry_->get_components<Enemy>();
+        std::vector<Entity> to_kill;
+        for (size_t i = 0; i < enemies.size(); ++i) {
+            to_kill.push_back(enemies.get_entity_at(i));
+        }
+        auto& projectiles = registry_->get_components<Projectile>();
+        for (size_t i = 0; i < projectiles.size(); ++i) {
+            to_kill.push_back(projectiles.get_entity_at(i));
+        }
+        auto& bonuses = registry_->get_components<Bonus>();
+        for (size_t i = 0; i < bonuses.size(); ++i) {
+            to_kill.push_back(bonuses.get_entity_at(i));
+        }
+        for (Entity e : to_kill) {
+            registry_->kill_entity(e);
+        }
+    }
+
+    // Also clear walls for level transition as map changes
+    if (registry_) {
+        auto& walls = registry_->get_components<Wall>();
+        std::vector<Entity> to_kill;
+        for (size_t i = 0; i < walls.size(); ++i) {
+            to_kill.push_back(walls.get_entity_at(i));
+        }
+        for (Entity e : to_kill) {
+            registry_->kill_entity(e);
+        }
+    }
+
+    // Reset prediction system
+    if (prediction_system_) {
+        prediction_system_->reset();
+    }
+
+    // Reset local map scroll tracking
+    map_scroll_x_ = 0.0;
+
+    // Reset ChunkManager to clear old map chunks
+    if (chunk_manager_) {
+        chunk_manager_->reset(*registry_);
+    }
+
+    // Reset background entities position
+    auto& positions = registry_->get_components<Position>();
+    if (positions.has_entity(background1_)) positions[background1_].x = 0.0f;
+    if (positions.has_entity(background2_)) positions[background2_].x = 0.0f;
+
+    // Mark transition as applied
+    pending_level_transition_apply_ = false;
+    pending_level_id_ = 0;
+}
+
+void ClientGame::apply_pending_respawn() {
+    if (!pending_respawn_apply_) return;
+
+    std::cout << "[ClientGame] Applying respawn cleanup\n";
+
+    // Reset prediction system to prevent "input buffer full" accumulation
+    if (prediction_system_) {
+        prediction_system_->reset();
+    }
+
+    // CRITICAL: Clear enemies, projectiles, and bonuses locally to sync with server reset
+    // Note: Walls are NOT cleared as they persist on the server.
+    if (registry_) {
+        auto& enemies = registry_->get_components<Enemy>();
+        std::vector<Entity> to_kill;
+        for (size_t i = 0; i < enemies.size(); ++i) {
+            to_kill.push_back(enemies.get_entity_at(i));
+        }
+        auto& projectiles = registry_->get_components<Projectile>();
+        for (size_t i = 0; i < projectiles.size(); ++i) {
+            to_kill.push_back(projectiles.get_entity_at(i));
+        }
+        auto& bonuses = registry_->get_components<Bonus>();
+        for (size_t i = 0; i < bonuses.size(); ++i) {
+            to_kill.push_back(bonuses.get_entity_at(i));
+        }
+
+        for (Entity e : to_kill) {
+            registry_->kill_entity(e);
+        }
+    }
+
+    // Mark respawn as applied
+    pending_respawn_apply_ = false;
+}
+
 void ClientGame::setup_map_system() {
     if (!graphics_plugin_) {
         std::cerr << "[ClientGame] Cannot setup map system: graphics plugin not available\n";
@@ -1180,155 +1313,37 @@ void ClientGame::setup_network_callbacks() {
 
         // If this is our local player, prepare for respawn
         if (player_id == network_client_->get_player_id()) {
-//             std::cout << "[ClientGame] Local player respawned! Resetting prediction system and expecting new entity...\n";
-            
-            // Reset prediction system to prevent "input buffer full" accumulation
-            // because server input processing state has likely reset or changed
-            if (prediction_system_) {
-                prediction_system_->reset();
-            }
+            std::cout << "[ClientGame] Local player respawned! Will apply changes when screen is black.\n";
 
-            // The server will send entity spawn/update packets for the new entity
-            // EntityManager will handle creating the entity with all components
-            // We just need to be ready to receive it
-            
             // Trigger visual reset (fade to black)
             fade_trigger_ = true;
 
-            // CRITICAL: Clear enemies, projectiles, and bonuses locally to sync with server reset
-            // The server has already destroyed them, but we need to remove them visually
-            // to prevent "ghost" entities from persisting until the destroy packet arrives
-            // or if the destroy packet was missed/delayed.
-            // Note: Walls are NOT cleared as they persist on the server.
-            if (registry_) {
-//                 std::cout << "[ClientGame] Clearing local entities for reset...\n";
-                // Clear Enemies
-                auto& enemies = registry_->get_components<Enemy>();
-                std::vector<Entity> to_kill;
-                for (size_t i = 0; i < enemies.size(); ++i) {
-                    to_kill.push_back(enemies.get_entity_at(i));
-                }
-                // Clear Projectiles
-                auto& projectiles = registry_->get_components<Projectile>();
-                for (size_t i = 0; i < projectiles.size(); ++i) {
-                    to_kill.push_back(projectiles.get_entity_at(i));
-                }
-                // Note: Walls are NOT cleared - they are persistent level geometry
-                // Clear Bonuses
-                auto& bonuses = registry_->get_components<Bonus>();
-                for (size_t i = 0; i < bonuses.size(); ++i) {
-                    to_kill.push_back(bonuses.get_entity_at(i));
-                }
-
-                for (Entity e : to_kill) {
-                    registry_->kill_entity(e);
-                }
-//                 std::cout << "[ClientGame] Cleared " << to_kill.size() << " entities.\n";
-            }
+            // Mark respawn as pending - will be applied when screen is fully black
+            pending_respawn_apply_ = true;
         }
     });
 
     // Level transition callback
     network_client_->set_on_level_transition([this](const protocol::ServerLevelTransitionPayload& payload) {
+        // Store pending transition data - will be applied when screen is fully black
+        pending_level_id_ = payload.next_level_id;
+        pending_level_transition_apply_ = true;
+
         // Trigger visual reset (fade to black)
         fade_trigger_ = true;
 
         // Enable transition lock to prevent scroll desync during map reload
         level_transition_in_progress_ = true;
         level_transition_timer_ = 0.0f;
+        level_ready_received_ = false;  // Wait for server to signal level is ready
 
-        uint16_t next_level = payload.next_level_id;
-        std::cout << "[ClientGame] Level transition to Level " << next_level << "\n";
+        std::cout << "[ClientGame] Level transition to Level " << pending_level_id_ << " (will apply when screen is black)\n";
+    });
 
-        // Map visual assets based on level
-        std::string mapIdTransitionStr;
-        switch (next_level) {
-            case 0:   // Debug: Quick Test
-            case 99:  // Debug: Instant Boss
-                mapIdTransitionStr = "nebula_outpost";
-                break;
-            case 1:   // Level 1: Mars Assault
-                mapIdTransitionStr = "mars_outpost";
-                break;
-            case 2:   // Level 2: Nebula Station
-                mapIdTransitionStr = "nebula_outpost";
-                break;
-            case 3:   // Level 3: Uranus Station
-                mapIdTransitionStr = "urasnus_outpost";
-                break;
-            case 4:   // Level 4: Jupiter Orbit
-                mapIdTransitionStr = "jupiter_outpost";
-                break;
-            default:
-                mapIdTransitionStr = "nebula_outpost";
-                break;
-        }
-
-        // Load the selected map
-        load_map(mapIdTransitionStr);
-        if (chunk_manager_) {
-            // Pass registry to update velocities of existing wall entities
-            chunk_manager_->setScrollSpeed(server_scroll_speed_, registry_.get());
-        }
-
-        // Apply map-specific theme (background color)
-        apply_map_theme(next_level);
-
-        // Load checkpoints for the level
-        load_level_checkpoints(next_level);
-
-        // Clear local entities (enemies, projectiles, bonuses) to prepare for new level
-        if (registry_) {
-            auto& enemies = registry_->get_components<Enemy>();
-            std::vector<Entity> to_kill;
-            for (size_t i = 0; i < enemies.size(); ++i) {
-                to_kill.push_back(enemies.get_entity_at(i));
-            }
-            auto& projectiles = registry_->get_components<Projectile>();
-            for (size_t i = 0; i < projectiles.size(); ++i) {
-                to_kill.push_back(projectiles.get_entity_at(i));
-            }
-            auto& bonuses = registry_->get_components<Bonus>();
-            for (size_t i = 0; i < bonuses.size(); ++i) {
-                to_kill.push_back(bonuses.get_entity_at(i));
-            }
-            for (Entity e : to_kill) {
-                registry_->kill_entity(e);
-            }
-        }
-        
-        // Also clear walls for level transition as map changes
-        if (registry_) {
-            auto& walls = registry_->get_components<Wall>();
-            std::vector<Entity> to_kill;
-            for (size_t i = 0; i < walls.size(); ++i) {
-                to_kill.push_back(walls.get_entity_at(i));
-            }
-            for (Entity e : to_kill) {
-                registry_->kill_entity(e);
-            }
-        }
-
-        // Reset prediction system
-        if (prediction_system_) {
-            prediction_system_->reset();
-        }
-        
-        // Reset local map scroll tracking
-        map_scroll_x_ = 0.0;
-
-        // Reset ChunkManager to clear old map chunks
-        if (chunk_manager_) {
-            chunk_manager_->reset(*registry_);
-        }
-
-        // Reset background entities position to prevent them from being off-screen
-        auto& positions = registry_->get_components<Position>();
-        if (positions.has_entity(background1_)) positions[background1_].x = 0.0f;
-        if (positions.has_entity(background2_)) positions[background2_].x = 0.0f;
-
-        // Map visual assets based on level
-        std::string mapIdStr;
+    // Level ready callback - server signals level is fully loaded
+    network_client_->set_on_level_ready([this](const protocol::ServerLevelReadyPayload& payload) {
+        std::cout << "[ClientGame] Level " << payload.level_id << " ready - ending fade\n";
+        level_ready_received_ = true;
     });
 }
 
@@ -1357,10 +1372,10 @@ void ClientGame::run() {
         // Mettre à jour le temps écoulé pour l'extrapolation
         current_time_ += dt;
 
-        // Release transition lock after 200ms safety window
+        // Release transition lock when server signals level is ready (or after 10s timeout as fallback)
         if (level_transition_in_progress_) {
             level_transition_timer_ += dt;
-            if (level_transition_timer_ >= 0.2f) {
+            if (level_ready_received_ || level_transition_timer_ >= 10.0f) {
                 level_transition_in_progress_ = false;
             }
         }
@@ -1682,28 +1697,78 @@ void ClientGame::run() {
             screen_manager_->draw_result_screen(graphics_plugin_);
 
         // Equalize the fade logic here
-        // --- Visual Reset Effect (Fade to Black) ---
-        static float fade_alpha = 0.0f;
-        static bool is_fading = false;
+        // --- Visual Reset Effect (Fade to Black then back) ---
+        // States: 0 = none, 1 = fading in (to black), 2 = waiting for level ready, 3 = fading out (to visible)
 
         if (fade_trigger_) {
-            is_fading = true;
-            fade_alpha = 1.0f; // Start fully black
+            fade_state_ = 1;  // Start fading IN (to black)
+            fade_alpha_ = 0.0f;
             fade_trigger_ = false;
         }
 
-        if (is_fading) {
+        if (fade_state_ > 0) {
             // Draw fullscreen black rectangle
             engine::Rectangle func_rect{0.0f, 0.0f, static_cast<float>(screen_width_), static_cast<float>(screen_height_)};
-            // Alpha 255 = fully opaque, 0 = transparent.
-            // We want to start at 1.0 (255) and fade to 0.
-            uint8_t alpha_byte = static_cast<uint8_t>(fade_alpha * 255.0f);
+            uint8_t alpha_byte = static_cast<uint8_t>(fade_alpha_ * 255.0f);
             graphics_plugin_->draw_rectangle(func_rect, engine::Color{0, 0, 0, alpha_byte});
 
-            fade_alpha -= dt * 0.5f; // Fade out over 2 seconds
-            if (fade_alpha <= 0.0f) {
-                fade_alpha = 0.0f;
-                is_fading = false;
+            // Draw players on top of the fade overlay (so they remain visible)
+            if (registry_ && fade_alpha_ > 0.5f) {  // Only when screen is mostly dark
+                auto& local_players = registry_->get_components<LocalPlayer>();
+                auto& positions = registry_->get_components<Position>();
+                auto& sprites = registry_->get_components<::Sprite>();
+
+                for (size_t i = 0; i < local_players.size(); ++i) {
+                    Entity player_entity = local_players.get_entity_at(i);
+                    if (positions.has_entity(player_entity) && sprites.has_entity(player_entity)) {
+                        const auto& pos = positions[player_entity];
+                        const auto& spr = sprites[player_entity];
+
+                        // Convert ECS Sprite to engine::Sprite
+                        engine::Sprite player_sprite;
+                        player_sprite.texture_handle = spr.texture;
+                        player_sprite.size = {spr.width, spr.height};
+                        player_sprite.origin = {spr.origin_x, spr.origin_y};
+                        player_sprite.rotation = spr.rotation;
+                        player_sprite.tint = {255, 255, 255, 255};
+                        player_sprite.source_rect = {spr.source_rect.x, spr.source_rect.y,
+                                                     spr.source_rect.width, spr.source_rect.height};
+
+                        graphics_plugin_->draw_sprite(player_sprite, {pos.x, pos.y});
+                    }
+                }
+            }
+
+            // State machine for fade transitions
+            if (fade_state_ == 1) {
+                // Fading IN (to black)
+                fade_alpha_ += dt * 1.0f;  // Fade to black over 1 second
+                if (fade_alpha_ >= 1.0f) {
+                    fade_alpha_ = 1.0f;
+                    fade_state_ = 2;  // Now waiting for level ready
+
+                    // Screen is now fully black - apply pending changes
+                    bool was_level_transition = pending_level_transition_apply_;
+                    apply_pending_level_transition();
+                    apply_pending_respawn();
+
+                    // For respawn only (no level transition), immediately start fading out
+                    if (!was_level_transition) {
+                        fade_state_ = 3;
+                    }
+                }
+            } else if (fade_state_ == 2) {
+                // Waiting for level to be ready (only for level transitions)
+                if (level_ready_received_) {
+                    fade_state_ = 3;  // Start fading out
+                }
+            } else if (fade_state_ == 3) {
+                // Fading OUT (to visible)
+                fade_alpha_ -= dt * 0.5f;  // Fade out over 2 seconds
+                if (fade_alpha_ <= 0.0f) {
+                    fade_alpha_ = 0.0f;
+                    fade_state_ = 0;  // Done
+                }
             }
         }
 

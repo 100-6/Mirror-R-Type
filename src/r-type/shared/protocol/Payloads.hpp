@@ -640,6 +640,21 @@ PACK_END
 static_assert(sizeof(ServerLevelTransitionPayload) == 2, "ServerLevelTransitionPayload must be 2 bytes");
 
 /**
+ * @brief SERVER_LEVEL_READY payload (0xCA)
+ * Sent when the server has fully loaded the level and spawned all entities
+ * Total size: 2 bytes
+ */
+PACK_START
+struct PACKED ServerLevelReadyPayload {
+    uint16_t level_id;
+
+    ServerLevelReadyPayload() : level_id(0) {}
+};
+PACK_END
+
+static_assert(sizeof(ServerLevelReadyPayload) == 2, "ServerLevelReadyPayload must be 2 bytes");
+
+/**
  * @brief Score entry in SERVER_GAME_OVER
  * Size: 12 bytes
  */

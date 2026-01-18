@@ -120,6 +120,13 @@ public:
     virtual void on_level_transition(uint32_t session_id, const std::vector<uint8_t>& transition_data) = 0;
 
     /**
+     * @brief Called when a level is fully loaded and ready
+     * @param session_id Session identifier
+     * @param level_ready_data Serialized level ready data
+     */
+    virtual void on_level_ready(uint32_t session_id, const std::vector<uint8_t>& level_ready_data) = 0;
+
+    /**
      * @brief Called when leaderboard should be sent (before game over)
      * @param session_id The game session
      * @param leaderboard_data Serialized leaderboard data

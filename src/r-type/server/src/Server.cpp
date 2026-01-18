@@ -593,6 +593,17 @@ void Server::on_level_transition(uint32_t session_id, const std::vector<uint8_t>
                                             transition_data, session->get_player_ids(), connected_clients_);
 }
 
+void Server::on_level_ready(uint32_t session_id, const std::vector<uint8_t>& level_ready_data)
+{
+    auto session = session_manager_->get_session(session_id);
+    if (!session)
+        return;
+
+    std::cout << "[Server] Broadcasting level ready to session " << session_id << std::endl;
+    packet_sender_->broadcast_udp_to_session(session_id, protocol::PacketType::SERVER_LEVEL_READY,
+                                            level_ready_data, session->get_player_ids(), connected_clients_);
+}
+
 void Server::on_leaderboard(uint32_t session_id, const std::vector<uint8_t>& leaderboard_data)
 {
     auto* session = session_manager_->get_session(session_id);

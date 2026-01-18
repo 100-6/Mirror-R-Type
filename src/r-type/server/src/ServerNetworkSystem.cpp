@@ -156,6 +156,7 @@ void ServerNetworkSystem::update(Registry& registry, float dt)
     broadcast_pending_respawns();
     broadcast_pending_level_ups();
     broadcast_pending_level_transitions();
+    broadcast_pending_level_ready();
 }
 
 void ServerNetworkSystem::shutdown()
@@ -236,6 +237,14 @@ void ServerNetworkSystem::queue_level_transition(uint16_t next_level_id)
     payload.next_level_id = ByteOrder::host_to_net16(next_level_id);
     pending_level_transitions_.push(payload);
     std::cout << "[ServerNetworkSystem] Queued level transition to level " << next_level_id << "\n";
+}
+
+void ServerNetworkSystem::queue_level_ready(uint16_t level_id)
+{
+    protocol::ServerLevelReadyPayload payload;
+    payload.level_id = ByteOrder::host_to_net16(level_id);
+    pending_level_ready_.push(payload);
+    std::cout << "[ServerNetworkSystem] Queued level ready for level " << level_id << "\n";
 }
 
 void ServerNetworkSystem::process_pending_inputs(Registry& registry)
@@ -571,6 +580,26 @@ void ServerNetworkSystem::broadcast_pending_level_transitions()
         
         pending_level_transitions_.pop();
         std::cout << "[ServerNetworkSystem] Broadcast level transition to clients\n";
+    }
+}
+
+void ServerNetworkSystem::broadcast_pending_level_ready()
+{
+    if (!listener_)
+        return;
+    while (!pending_level_ready_.empty()) {
+        const auto& payload = pending_level_ready_.front();
+        std::vector<uint8_t> data;
+        const uint8_t* bytes = reinterpret_cast<const uint8_t*>(&payload);
+        data.insert(data.end(), bytes, bytes + sizeof(payload));
+
+        // Send multiple times to ensure delivery
+        for (int i = 0; i < 5; ++i) {
+            listener_->on_level_ready(session_id_, data);
+        }
+
+        pending_level_ready_.pop();
+        std::cout << "[ServerNetworkSystem] Broadcast level ready to clients\n";
     }
 }
 

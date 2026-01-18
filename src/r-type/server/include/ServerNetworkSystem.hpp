@@ -104,6 +104,12 @@ public:
     void queue_level_transition(uint16_t next_level_id);
 
     /**
+     * @brief Queue a level ready notification (level fully loaded)
+     * @param level_id ID of the level that is now ready
+     */
+    void queue_level_ready(uint16_t level_id);
+
+    /**
      * @brief Queue a player respawn notification to broadcast
 
 
@@ -168,6 +174,7 @@ private:
     void broadcast_pending_powerups();
     void broadcast_pending_level_ups();
     void broadcast_pending_level_transitions();
+    void broadcast_pending_level_ready();
     void broadcast_pending_respawns();
     void spawn_projectile(Registry& registry, Entity owner, float x, float y);
     void spawn_enemy_projectile(Registry& registry, Entity owner, float x, float y);
@@ -190,6 +197,7 @@ private:
     std::queue<protocol::ServerPowerupCollectedPayload> pending_powerups_;
     std::vector<PendingRespawn> pending_respawns_;
     std::queue<protocol::ServerLevelTransitionPayload> pending_level_transitions_;
+    std::queue<protocol::ServerLevelReadyPayload> pending_level_ready_;
     std::queue<protocol::ServerPlayerLevelUpPayload> pending_level_ups_;
 
     std::mutex spawns_mutex_;

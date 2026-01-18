@@ -153,6 +153,7 @@ private:
     void on_player_respawn(uint32_t session_id, const std::vector<uint8_t>& respawn_data) override;
     void on_player_level_up(uint32_t session_id, const std::vector<uint8_t>& level_up_data) override;
     void on_level_transition(uint32_t session_id, const std::vector<uint8_t>& transition_data) override;
+    void on_level_ready(uint32_t session_id, const std::vector<uint8_t>& level_ready_data) override;
 
     // === Entity Spawning Helpers ===
     /**
@@ -210,6 +211,12 @@ private:
     // Track level data loading
     uint8_t loaded_level_id_ = 0;
     game::LevelState last_level_state_ = game::LevelState::LEVEL_START;
+
+    // Level transition delay (wait 1 second after boss death before fade)
+    bool level_transition_pending_ = false;
+    float level_transition_delay_timer_ = 0.0f;
+    uint8_t pending_next_level_id_ = 0;
+    static constexpr float LEVEL_TRANSITION_DELAY = 1.0f;  // 1 second delay
 
     // Procedural generation
     bool procedural_enabled_ = false;
