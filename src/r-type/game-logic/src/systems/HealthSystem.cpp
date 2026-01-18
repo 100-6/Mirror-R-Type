@@ -107,18 +107,26 @@ void HealthSystem::init(Registry& registry)
                         constexpr float BONUS_DROP_RATE = 0.20f;  // 20% chance to drop
 
                         if (drop_chance(rng) <= BONUS_DROP_RATE) {
-                            // Choose random bonus type: only HEALTH and BONUS_WEAPON
-                            std::uniform_int_distribution<int> bonus_type_dist(0, 1);
+                            // Choose random bonus type: HEALTH, SHIELD, BONUS_WEAPON (no SPEED for now)
+                            std::uniform_int_distribution<int> bonus_type_dist(0, 2);
                             int bonus_type_id = bonus_type_dist(rng);
                             BonusType bonus_type;
                             std::string bonus_name;
 
-                            if (bonus_type_id == 0) {
-                                bonus_type = BonusType::HEALTH;
-                                bonus_name = "HEALTH";
-                            } else {
-                                bonus_type = BonusType::BONUS_WEAPON;
-                                bonus_name = "BONUS_WEAPON";
+                            switch (bonus_type_id) {
+                                case 0:
+                                    bonus_type = BonusType::HEALTH;
+                                    bonus_name = "HEALTH";
+                                    break;
+                                case 1:
+                                    bonus_type = BonusType::SHIELD;
+                                    bonus_name = "SHIELD";
+                                    break;
+                                case 2:
+                                default:
+                                    bonus_type = BonusType::BONUS_WEAPON;
+                                    bonus_name = "BONUS_WEAPON";
+                                    break;
                             }
 
                             registry.get_event_bus().publish(ecs::BonusSpawnEvent{

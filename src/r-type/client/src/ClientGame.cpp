@@ -23,6 +23,7 @@
 #include "ClientComponents.hpp"
 #include "components/GameComponents.hpp"
 #include "components/LevelComponents.hpp"
+#include "ecs/CoreComponents.hpp"
 #include "AssetsPaths.hpp"
 #include <iostream>
 #include <fstream>
@@ -977,11 +978,6 @@ void ClientGame::setup_network_callbacks() {
         // Guard against callbacks during shutdown
         if (is_shutting_down_ || !entity_manager_ || !registry_)
             return;
-        // Only handle WEAPON_UPGRADE type (bonus weapon / companion turret)
-        if (powerup.powerup_type != protocol::PowerupType::WEAPON_UPGRADE)
-            return;
-
-//         std::cout << "[ClientGame] Received BONUS_WEAPON collected for player " << powerup.player_id << std::endl;
 
         // Find the player entity
         if (!entity_manager_->has_entity(powerup.player_id))
@@ -989,8 +985,81 @@ void ClientGame::setup_network_callbacks() {
 
         Entity playerEntity = entity_manager_->get_entity(powerup.player_id);
 
-        // Publish event to CompanionSystem (ECS architecture)
-        registry_->get_event_bus().publish(ecs::CompanionSpawnEvent{playerEntity, powerup.player_id});
+        // Handle SHIELD powerup - add visual circle effect
+        if (powerup.powerup_type == protocol::PowerupType::SHIELD) {
+            // Add Shield component if not present
+            auto& shields = registry_->get_components<Shield>();
+            if (!shields.has_entity(playerEntity)) {
+                registry_->add_component(playerEntity, Shield{true});
+
+                // Add visual effect (purple circle around player)
+                auto& colliders = registry_->get_components<Collider>();
+                float shieldRadius = 40.0f;  // Default radius
+                if (colliders.has_entity(playerEntity)) {
+                    const auto& col = colliders[playerEntity];
+                    shieldRadius = std::max(col.width, col.height) / 2.0f + 15.0f;
+                }
+
+                registry_->add_component(playerEntity, CircleEffect{
+                    shieldRadius,
+                    engine::Color::ShieldViolet,
+                    0.0f, 0.0f,
+                    true,
+                    CircleEffect::DEFAULT_LAYER
+                });
+                std::cout << "[ClientGame] Shield visual effect added for player " << powerup.player_id << std::endl;
+            }
+            return;
+        }
+
+        // Handle WEAPON_UPGRADE type (bonus weapon / companion turret)
+        if (powerup.powerup_type == protocol::PowerupType::WEAPON_UPGRADE) {
+            // Publish event to CompanionSystem (ECS architecture)
+            registry_->get_event_bus().publish(ecs::CompanionSpawnEvent{playerEntity, powerup.player_id});
+        }
+    });
+
+    network_client_->set_on_shield_broken([this](uint32_t player_id) {
+        std::cout << "[ClientGame] Shield broken callback received for player_id=" << player_id << std::endl;
+
+        // Guard against callbacks during shutdown
+        if (is_shutting_down_ || !entity_manager_ || !registry_) {
+            std::cout << "[ClientGame] Shield broken: early return (shutdown or null pointers)" << std::endl;
+            return;
+        }
+
+        // Find the player entity
+        if (!entity_manager_->has_entity(player_id)) {
+            std::cout << "[ClientGame] Shield broken: player_id " << player_id << " not found in entity_manager" << std::endl;
+            return;
+        }
+
+        Entity playerEntity = entity_manager_->get_entity(player_id);
+        std::cout << "[ClientGame] Shield broken: found entity " << playerEntity << " for player_id " << player_id << std::endl;
+
+        // Remove Shield component
+        auto& shields = registry_->get_components<Shield>();
+        if (shields.has_entity(playerEntity)) {
+            registry_->remove_component<Shield>(playerEntity);
+            std::cout << "[ClientGame] Shield component removed from entity " << playerEntity << std::endl;
+        } else {
+            std::cout << "[ClientGame] No Shield component on entity " << playerEntity << std::endl;
+        }
+
+        // Remove CircleEffect (visual purple circle)
+        if (registry_->has_component_registered<CircleEffect>()) {
+            auto& circles = registry_->get_components<CircleEffect>();
+            if (circles.has_entity(playerEntity)) {
+                registry_->remove_component<CircleEffect>(playerEntity);
+                std::cout << "[ClientGame] CircleEffect removed from entity " << playerEntity << std::endl;
+            } else {
+                std::cout << "[ClientGame] No CircleEffect on entity " << playerEntity << std::endl;
+            }
+        } else {
+            std::cout << "[ClientGame] CircleEffect component not registered!" << std::endl;
+        }
+
+        std::cout << "[ClientGame] Shield broken processing complete for player " << player_id << std::endl;
     });
 
     network_client_->set_on_projectile_spawn([this](const protocol::ServerProjectileSpawnPayload& proj) {

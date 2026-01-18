@@ -7,6 +7,8 @@
 
 #include "systems/CollisionSystem.hpp"
 #include "components/GameComponents.hpp"
+#include "components/LevelComponents.hpp"
+#include "ecs/CoreComponents.hpp"
 #include "ecs/events/InputEvents.hpp"
 #include "ecs/events/GameEvents.hpp"
 
@@ -102,6 +104,7 @@ void CollisionSystem::update(Registry& registry, float dt)
 
     // Collision Projectile (ennemi) vs Player : Applique les dégâts au joueur (ou casse le bouclier)
     auto& shields = registry.get_components<Shield>();
+
     scan_collisions<Projectile, Controllable>(registry, [&registry, &damages, &projectiles, &shields, &hide_projectile_sprite](Entity bullet, Entity player) {
         if (!projectiles.has_entity(bullet))
             return;
@@ -117,7 +120,16 @@ void CollisionSystem::update(Registry& registry, float dt)
         if (shields.has_entity(player) && shields[player].active) {
             // Le bouclier absorbe le coup et se casse
             registry.remove_component<Shield>(player);
-            std::cout << "CollisionSystem: Bouclier du joueur détruit!" << std::endl;
+            // Supprimer l'effet visuel du bouclier (cercle violet)
+            if (registry.has_component_registered<CircleEffect>()) {
+                auto& circles = registry.get_components<CircleEffect>();
+                if (circles.has_entity(player)) {
+                    registry.remove_component<CircleEffect>(player);
+                }
+            }
+            // Notify network for client sync (use entity ID, not network player_id)
+            registry.get_event_bus().publish(ecs::ShieldBrokenEvent{player, static_cast<uint32_t>(player)});
+            std::cout << "CollisionSystem: Bouclier du joueur " << static_cast<uint32_t>(player) << " détruit!" << std::endl;
             return;
         }
 
@@ -127,7 +139,7 @@ void CollisionSystem::update(Registry& registry, float dt)
 
     // Collision Player (Controllable) vs Enemy : Publie PlayerHitEvent et inflige des dégâts
     auto& kamikazes = registry.get_components<Kamikaze>();
-    scan_collisions<Controllable, Enemy>(registry, [&registry, &kamikazes](Entity player, Entity enemy) {
+    scan_collisions<Controllable, Enemy>(registry, [&registry, &shields, &kamikazes](Entity player, Entity enemy) {
         bool isKamikaze = kamikazes.has_entity(enemy);
 
         // Kamikaze ALWAYS dies on contact
@@ -135,8 +147,24 @@ void CollisionSystem::update(Registry& registry, float dt)
             // Deal lethal damage to the kamikaze to trigger death events (explosion, bonus drop, etc.)
             registry.get_event_bus().publish(ecs::DamageEvent{enemy, player, 9999});
 
-            // Kamikaze explosion ALWAYS damages player (ignores invulnerability)
-            // This is intentional - suicide attacks should always hurt!
+            // Vérifier si le joueur a un bouclier actif
+            if (shields.has_entity(player) && shields[player].active) {
+                // Le bouclier absorbe l'explosion du kamikaze et se casse
+                registry.remove_component<Shield>(player);
+                // Supprimer l'effet visuel du bouclier (cercle violet)
+                if (registry.has_component_registered<CircleEffect>()) {
+                    auto& circles = registry.get_components<CircleEffect>();
+                    if (circles.has_entity(player)) {
+                        registry.remove_component<CircleEffect>(player);
+                    }
+                }
+                // Notify network for client sync (use entity ID, not network player_id)
+                registry.get_event_bus().publish(ecs::ShieldBrokenEvent{player, static_cast<uint32_t>(player)});
+                std::cout << "CollisionSystem: Bouclier du joueur " << static_cast<uint32_t>(player) << " détruit par kamikaze!" << std::endl;
+                return;
+            }
+
+            // Kamikaze explosion damages player (ignores invulnerability)
             registry.get_event_bus().publish(ecs::PlayerHitEvent{player, enemy});
             registry.get_event_bus().publish(ecs::DamageEvent{player, enemy, 40});
             return;
@@ -149,6 +177,23 @@ void CollisionSystem::update(Registry& registry, float dt)
             if (invul.time_remaining > 0.0f)
                 return; // Player is invulnerable, don't take damage from regular enemies
             invul.time_remaining = 3.0f;
+        }
+
+        // Vérifier si le joueur a un bouclier actif pour collision normale
+        if (shields.has_entity(player) && shields[player].active) {
+            // Le bouclier absorbe le coup et se casse
+            registry.remove_component<Shield>(player);
+            // Supprimer l'effet visuel du bouclier (cercle violet)
+            if (registry.has_component_registered<CircleEffect>()) {
+                auto& circles = registry.get_components<CircleEffect>();
+                if (circles.has_entity(player)) {
+                    registry.remove_component<CircleEffect>(player);
+                }
+            }
+            // Notify network for client sync (use entity ID, not network player_id)
+            registry.get_event_bus().publish(ecs::ShieldBrokenEvent{player, static_cast<uint32_t>(player)});
+            std::cout << "CollisionSystem: Bouclier du joueur " << static_cast<uint32_t>(player) << " détruit par collision ennemi!" << std::endl;
+            return;
         }
 
         // Publish audio event and deal damage for regular enemy contact
