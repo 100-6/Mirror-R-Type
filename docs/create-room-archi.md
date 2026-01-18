@@ -1,83 +1,83 @@
 # CreateRoom Module - Architecture Documentation
 
-## 📁 Structure Modulaire
+## 📁 Modular Structure
 
 ```
 createroom/
-├── CreateRoomConfig.hpp              # Configuration & constantes
-├── CreateRoomInput.hpp/cpp           # Gestion des inputs (clics circulaires)
-├── CreateRoomRenderer.hpp/cpp        # Rendu bas niveau (textures, shapes)
-├── CreateRoomInitializer.hpp/cpp     # Initialisation des UI elements
-├── CreateRoomUpdater.hpp/cpp         # Logique de mise à jour
-└── CreateRoomDrawer.hpp/cpp          # Logique de dessin haut niveau
+├── CreateRoomConfig.hpp              # Configuration & constants
+├── CreateRoomInput.hpp/cpp           # Input handling (circular clicks)
+├── CreateRoomRenderer.hpp/cpp        # Low-level rendering (textures, shapes)
+├── CreateRoomInitializer.hpp/cpp     # UI element initialization
+├── CreateRoomUpdater.hpp/cpp         # Update logic
+└── CreateRoomDrawer.hpp/cpp          # High-level drawing logic
 ```
 
-## 🎯 Responsabilités de chaque module
+## 🎯 Module Responsibilities
 
 ### **CreateRoomConfig.hpp**
-- **Rôle**: Définit toutes les constantes de layout et styling
-- **Contenu**:
-  - Dimensions (tailles, espacements)
-  - Couleurs (background, bordures, glow)
-  - Chemins des assets (textures)
-- **Utilisation**: Importé par tous les autres modules
+- **Role**: Defines all layout and styling constants
+- **Content**:
+  - Dimensions (sizes, spacing)
+  - Colors (background, borders, glow)
+  - Asset paths (textures)
+- **Usage**: Imported by all other modules
 
 ### **CreateRoomInput.hpp/cpp**
-- **Rôle**: Gère toute la logique d'input utilisateur
-- **Fonctions principales**:
-  - `handle_difficulty_click()` - Détection de clic circulaire pour difficultés
-  - `handle_gamemode_click()` - Détection de clic circulaire pour modes de jeu
-  - `is_point_in_circle()` - Utilitaire de collision circulaire
-- **Dépendances**: IInputPlugin, protocol::Payloads
+- **Role**: Handles all user input logic
+- **Main Functions**:
+  - `handle_difficulty_click()` - Circular click detection for difficulties
+  - `handle_gamemode_click()` - Circular click detection for game modes
+  - `is_point_in_circle()` - Circular collision utility
+- **Dependencies**: IInputPlugin, protocol::Payloads
 
 ### **CreateRoomRenderer.hpp/cpp**
-- **Rôle**: Rendu bas niveau des éléments graphiques
-- **Classe TexturePack**:
-  - Charge et stocke toutes les textures
-  - `load()` - Chargement paresseux des textures
-- **Classe Renderer**:
-  - `draw_background()` - Arrière-plan avec gradients
-  - `draw_stepper()` - Indicateur de progression des steps
-  - `draw_map_selection()` - Rendu des previews de maps (rectangulaires)
-  - `draw_difficulty_selection()` - Rendu des icônes de difficulté (circulaires)
-  - `draw_gamemode_selection()` - Rendu des icônes de mode de jeu (circulaires)
-  - `draw_circular_image()` - Utilitaire pour dessiner image + effets circulaires
-- **Dépendances**: IGraphicsPlugin, protocol::Payloads
+- **Role**: Low-level rendering of graphical elements
+- **TexturePack Class**:
+  - Loads and stores all textures
+  - `load()` - Lazy texture loading
+- **Renderer Class**:
+  - `draw_background()` - Background with gradients
+  - `draw_stepper()` - Step progress indicator
+  - `draw_map_selection()` - Map preview rendering (rectangular)
+  - `draw_difficulty_selection()` - Difficulty icon rendering (circular)
+  - `draw_gamemode_selection()` - Game mode icon rendering (circular)
+  - `draw_circular_image()` - Utility for drawing image + circular effects
+- **Dependencies**: IGraphicsPlugin, protocol::Payloads
 
 ### **CreateRoomInitializer.hpp/cpp**
-- **Rôle**: Initialise tous les éléments UI des différents steps
-- **Fonctions principales**:
-  - `init_room_info_step()` - Crée labels et text fields (nom de room, password)
-  - `init_map_selection_step()` - Crée les boutons de sélection de map
-  - `init_difficulty_step()` - Pas de boutons (images circulaires cliquables)
-  - `init_game_mode_step()` - Pas de boutons (images circulaires cliquables)
-  - `init_navigation_buttons()` - Crée Previous/Next/Create buttons
-- **Dépendances**: UIButton, UILabel, UITextField
+- **Role**: Initializes all UI elements for different steps
+- **Main Functions**:
+  - `init_room_info_step()` - Creates labels and text fields (room name, password)
+  - `init_map_selection_step()` - Creates map selection buttons
+  - `init_difficulty_step()` - No buttons (clickable circular images)
+  - `init_game_mode_step()` - No buttons (clickable circular images)
+  - `init_navigation_buttons()` - Creates Previous/Next/Create buttons
+- **Dependencies**: UIButton, UILabel, UITextField
 
 ### **CreateRoomUpdater.hpp/cpp**
-- **Rôle**: Gère la logique de mise à jour de chaque step
-- **Fonctions principales**:
-  - `update_room_info_step()` - Met à jour les text fields
-  - `update_map_selection_step()` - Met à jour les boutons de map (sélection)
-  - `update_difficulty_step()` - Délègue à InputHandler pour clics circulaires
-  - `update_game_mode_step()` - Délègue à InputHandler pour clics circulaires
-  - `update_navigation_buttons()` - Met à jour les boutons de navigation
-  - `is_any_field_focused()` - Utilitaire pour vérifier le focus des text fields
-- **Dépendances**: IGraphicsPlugin, IInputPlugin, CreateRoomInput
+- **Role**: Handles update logic for each step
+- **Main Functions**:
+  - `update_room_info_step()` - Updates text fields
+  - `update_map_selection_step()` - Updates map buttons (selection)
+  - `update_difficulty_step()` - Delegates to InputHandler for circular clicks
+  - `update_game_mode_step()` - Delegates to InputHandler for circular clicks
+  - `update_navigation_buttons()` - Updates navigation buttons
+  - `is_any_field_focused()` - Utility to check text field focus
+- **Dependencies**: IGraphicsPlugin, IInputPlugin, CreateRoomInput
 
 ### **CreateRoomDrawer.hpp/cpp**
-- **Rôle**: Orchestre le rendu de chaque step (haut niveau)
-- **Fonctions principales**:
-  - `draw_room_info_step()` - Dessine labels + text fields
-  - `draw_map_selection_step()` - Dessine images de maps + boutons (via Renderer)
-  - `draw_difficulty_step()` - Dessine images circulaires de difficulté (via Renderer)
-  - `draw_game_mode_step()` - Dessine images circulaires de mode de jeu (via Renderer)
-  - `draw_navigation_buttons()` - Dessine boutons avec texte dynamique
-- **Dépendances**: Renderer, UIButton, UILabel, UITextField
+- **Role**: Orchestrates rendering for each step (high level)
+- **Main Functions**:
+  - `draw_room_info_step()` - Draws labels + text fields
+  - `draw_map_selection_step()` - Draws map images + buttons (via Renderer)
+  - `draw_difficulty_step()` - Draws circular difficulty images (via Renderer)
+  - `draw_game_mode_step()` - Draws circular game mode images (via Renderer)
+  - `draw_navigation_buttons()` - Draws buttons with dynamic text
+- **Dependencies**: Renderer, UIButton, UILabel, UITextField
 
-## 🔄 Flux de données
+## 🔄 Data Flow
 
-### Initialisation
+### Initialization
 ```
 CreateRoomScreen::initialize()
   └─> Initializer::init_room_info_step()
@@ -92,7 +92,7 @@ CreateRoomScreen::initialize()
 CreateRoomScreen::update()
   └─> Updater::is_any_field_focused()
   └─> Updater::update_*_step()
-      └─> InputHandler::handle_*_click() (pour difficulty & gamemode)
+      └─> InputHandler::handle_*_click() (for difficulty & gamemode)
   └─> Updater::update_navigation_buttons()
 ```
 
@@ -103,43 +103,43 @@ CreateRoomScreen::draw()
   └─> Renderer::draw_background()
   └─> Renderer::draw_stepper()
   └─> Drawer::draw_*_step()
-      └─> Renderer::draw_*_selection() (pour maps, difficulty, gamemode)
+      └─> Renderer::draw_*_selection() (for maps, difficulty, gamemode)
   └─> Drawer::draw_navigation_buttons()
 ```
 
-## ✨ Avantages de cette architecture
+## ✨ Architecture Benefits
 
-1. **Séparation des responsabilités**: Chaque module a un rôle unique et bien défini
-2. **Réutilisabilité**: Les renderers peuvent être réutilisés dans d'autres écrans
-3. **Testabilité**: Chaque module peut être testé indépendamment
-4. **Maintenabilité**: Modifications localisées dans des fichiers spécifiques
-5. **Lisibilité**: Code court et focalisé (< 150 lignes par fichier)
-6. **Extensibilité**: Facile d'ajouter de nouveaux steps ou fonctionnalités
+1. **Separation of Concerns**: Each module has a unique and well-defined role
+2. **Reusability**: Renderers can be reused in other screens
+3. **Testability**: Each module can be tested independently
+4. **Maintainability**: Changes are localized to specific files
+5. **Readability**: Short and focused code (< 150 lines per file)
+6. **Extensibility**: Easy to add new steps or features
 
-## 📊 Comparaison
+## 📊 Comparison
 
-### Avant (monolithique)
-- **1 fichier**: CreateRoomScreen.cpp (620+ lignes)
-- Tout mélangé: init, update, draw, rendering
-- Difficile à naviguer et maintenir
+### Before (monolithic)
+- **1 file**: CreateRoomScreen.cpp (620+ lines)
+- Everything mixed: init, update, draw, rendering
+- Difficult to navigate and maintain
 
-### Après (modulaire)
-- **7 fichiers** bien organisés
-- CreateRoomScreen.cpp: **275 lignes** (56% de réduction!)
-- Chaque module: **50-150 lignes**
-- Code clair, focalisé, facile à maintenir
+### After (modular)
+- **7 files** well organized
+- CreateRoomScreen.cpp: **275 lines** (56% reduction!)
+- Each module: **50-150 lines**
+- Clear, focused, easy-to-maintain code
 
-## 🚀 Comment étendre
+## 🚀 How to Extend
 
-### Ajouter un nouveau step
-1. Ajouter enum dans `CreateRoomScreen.hpp`
-2. Créer `init_new_step()` dans `Initializer`
-3. Créer `update_new_step()` dans `Updater`
-4. Créer `draw_new_step()` dans `Drawer`
-5. Mettre à jour les switch cases dans `CreateRoomScreen.cpp`
+### Adding a new step
+1. Add enum in `CreateRoomScreen.hpp`
+2. Create `init_new_step()` in `Initializer`
+3. Create `update_new_step()` in `Updater`
+4. Create `draw_new_step()` in `Drawer`
+5. Update switch cases in `CreateRoomScreen.cpp`
 
-### Ajouter un nouvel élément UI
-1. Ajouter constantes dans `Config.hpp`
-2. Modifier `Initializer` pour créer l'élément
-3. Modifier `Updater` pour la logique d'update
-4. Modifier `Drawer` pour le rendu
+### Adding a new UI element
+1. Add constants in `Config.hpp`
+2. Modify `Initializer` to create the element
+3. Modify `Updater` for update logic
+4. Modify `Drawer` for rendering
