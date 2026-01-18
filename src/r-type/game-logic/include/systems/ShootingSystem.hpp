@@ -21,6 +21,8 @@ class ShootingSystem : public ISystem {
         core::EventBus::SubscriptionId fireSubId_;
 
         void createProjectiles(Registry& registry, Entity shooter, Weapon& weapon, const Position& shooterPos, float shooterWidth, float shooterHeight);
+        void updateLaserBeam(Registry& registry, Entity shooter, const Position& shooterPos, float shooterWidth, float shooterHeight, float dt);
+        void performLaserRaycast(Registry& registry, float startX, float startY, float range, Entity shooter, LaserBeam& beam);
 
     public:
         ShootingSystem(engine::IGraphicsPlugin* graphics = nullptr) : graphics_(graphics) {}

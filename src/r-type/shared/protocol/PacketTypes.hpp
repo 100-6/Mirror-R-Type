@@ -272,12 +272,14 @@ enum InputFlags : uint16_t {
  * - Bit 0: INVULNERABLE
  * - Bit 1: CHARGING
  * - Bit 2: DAMAGED (visual feedback)
- * - Bits 3-15: Reserved
+ * - Bit 3: LASER_ACTIVE (player is firing laser)
+ * - Bits 4-15: Reserved
  */
 enum EntityStateFlags : uint16_t {
     ENTITY_INVULNERABLE = 1 << 0,
     ENTITY_CHARGING = 1 << 1,
     ENTITY_DAMAGED = 1 << 2,
+    ENTITY_LASER_ACTIVE = 1 << 3,
 };
 
 /**

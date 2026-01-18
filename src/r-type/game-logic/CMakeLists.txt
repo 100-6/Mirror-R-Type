@@ -19,6 +19,7 @@ add_library(rtype_logic
     src/systems/BonusWeaponSystem.cpp
     src/systems/CompanionSystem.cpp
     src/systems/MuzzleFlashSystem.cpp
+    src/systems/LaserRenderSystem.cpp
     src/systems/HUDSystem.cpp
     src/systems/GameStateSystem.cpp
     src/systems/AttachmentSystem.cpp

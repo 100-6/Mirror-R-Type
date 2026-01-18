@@ -14,6 +14,7 @@
 #include "systems/MuzzleFlashSystem.hpp"
 #include "systems/HitEffectSystem.hpp"
 #include "systems/ClientHitFlashSystem.hpp"
+#include "systems/LaserRenderSystem.hpp"
 #include "systems/MapConfigLoader.hpp"
 #include "protocol/NetworkConfig.hpp"
 #include "protocol/Payloads.hpp"
@@ -356,6 +357,8 @@ void ClientGame::setup_registry() {
     registry_->register_component<ToDestroy>();
     registry_->register_component<HitFlash>();
     registry_->register_component<FlashOverlay>();
+    registry_->register_component<LaserBeam>();
+    registry_->register_component<Weapon>();
     // Level system components
     // registry_->register_component<game::CheckpointManager>();
     // Client-side extrapolation component
@@ -392,6 +395,7 @@ void ClientGame::setup_systems() {
     }
 
     registry_->register_system<RenderSystem>(*graphics_plugin_);
+    registry_->register_system<LaserRenderSystem>(graphics_plugin_);
     registry_->register_system<ColliderDebugSystem>(*graphics_plugin_);
     registry_->register_system<HUDSystem>(*graphics_plugin_, input_plugin_, screen_width_, screen_height_);
 
@@ -969,7 +973,26 @@ void ClientGame::setup_network_callbacks() {
         if (level_up.entity_id == local_server_id) {
             std::cout << "[ClientGame] Local player leveled up to level "
                       << static_cast<int>(level_up.new_level) << "!\n";
-            // TODO: Trigger level-up visual effect in HUD
+            
+            // Update/add the Weapon component for laser detection
+            if (entity_manager_->has_entity(level_up.entity_id)) {
+                Entity player = entity_manager_->get_entity(level_up.entity_id);
+                auto& weapons = registry_->get_components<Weapon>();
+                
+                WeaponType newWeaponType = static_cast<WeaponType>(level_up.new_weapon_type);
+                
+                if (weapons.has_entity(player)) {
+                    // Update existing weapon
+                    weapons[player].type = newWeaponType;
+                    std::cout << "[ClientGame] Updated weapon type to " << static_cast<int>(newWeaponType) << "\n";
+                } else {
+                    // Add new weapon component
+                    Weapon weapon;
+                    weapon.type = newWeaponType;
+                    registry_->add_component(player, weapon);
+                    std::cout << "[ClientGame] Added Weapon component with type " << static_cast<int>(newWeaponType) << "\n";
+                }
+            }
         }
     });
 
@@ -1201,6 +1224,31 @@ void ClientGame::setup_network_callbacks() {
                 comp.current = static_cast<int>(hp);
                 comp.max = static_cast<int>(hp);
                 registry_->add_component(entity, comp);
+            }
+
+            // Synchroniser le laser pour les autres joueurs (pas le local)
+            if (!is_local && state.entity_type == protocol::EntityType::PLAYER) {
+                bool laser_active = (state.flags & protocol::ENTITY_LASER_ACTIVE) != 0;
+                auto& lasers = registry_->get_components<LaserBeam>();
+                
+                if (laser_active) {
+                    // Activer/créer le LaserBeam pour ce joueur
+                    if (!lasers.has_entity(entity)) {
+                        registry_->add_component(entity, LaserBeam{
+                            true, 1000.0f, 0.0f, 3.0f, 0.05f, 0.0f, 8.0f,
+                            engine::Color{255, 50, 50, 255},
+                            engine::Color{255, 255, 200, 255},
+                            0.0f, 0.0f
+                        });
+                    } else {
+                        lasers[entity].active = true;
+                    }
+                } else {
+                    // Désactiver le laser
+                    if (lasers.has_entity(entity)) {
+                        lasers[entity].active = false;
+                    }
+                }
             }
         }
 
@@ -1452,8 +1500,48 @@ void ClientGame::run() {
                     shoot_sound_cooldown_ = 0.15f; // 150ms cooldown between sounds
                 }
 
-                // NOUVEAU: Appliquer la vélocité localement AVANT d'envoyer au serveur
+                // Appliquer la vélocité localement AVANT d'envoyer au serveur
                 apply_input_to_local_player(input_flags);
+
+                // --- GESTION DU LASER (Client-side visual feedback) ---
+                // Active le laser localement si la touche tir est maintenue ET que l'arme est de type LASER
+                // Cela permet d'avoir un feedback immédiat sans attendre la réponse du serveur
+                uint32_t local_id = entity_manager_->get_local_player_entity_id();
+                if (entity_manager_->has_entity(local_id)) {
+                    Entity player = entity_manager_->get_entity(local_id);
+                    auto& weapons = registry_->get_components<Weapon>();
+                    
+                    if (weapons.has_entity(player)) {
+                        bool trigger_held = (input_flags & protocol::INPUT_SHOOT) != 0;
+                        Weapon& weapon = weapons[player];
+                        
+                        // Si c'est un LASER (Level 5)
+                        if (weapon.type == WeaponType::LASER) {
+                            auto& lasers = registry_->get_components<LaserBeam>();
+                            
+                            // Si le composant n'existe pas encore, l'ajouter (lazy initialization)
+                            if (!lasers.has_entity(player)) {
+                                registry_->add_component(player, LaserBeam{
+                                    false, // active par défaut false
+                                    1000.0f, // range
+                                    0.0f,    // current_length
+                                    3.0f,    // damage (visual only here)
+                                    0.05f,   // tick rate
+                                    0.0f,    // timer
+                                    8.0f,    // width
+                                    engine::Color{255, 50, 50, 255},   // Rouge
+                                    engine::Color{255, 255, 200, 255}, // Blanc
+                                    0.0f, 0.0f // hit point
+                                });
+                            }
+                            
+                            // Mettre à jour l'état actif
+                            if (lasers.has_entity(player)) {
+                                lasers[player].active = trigger_held;
+                            }
+                        }
+                    }
+                }
             }
 
             // Send input to server (send 0 if overlay is open to stop movement)

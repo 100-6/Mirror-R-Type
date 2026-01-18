@@ -35,23 +35,43 @@ void ShootingSystem::init(Registry& registry)
         auto& weapon = weapons[event.player];
         weapon.trigger_held = true;
 
-        // Pour les armes automatiques, on tire immédiatement si le cooldown est prêt
-        if (weapon.type != WeaponType::CHARGE) {
-            int projectiles; int damage; float spread, speed, firerate, burst_delay;
-            get_weapon_stats(weapon.type, projectiles, spread, damage, speed, firerate, burst_delay);
+        // Pour le laser beam, activer le composant LaserBeam
+        if (weapon.type == WeaponType::LASER) {
+            auto& lasers = registry.get_components<LaserBeam>();
+            if (!lasers.has_entity(event.player)) {
+                registry.add_component(event.player, LaserBeam{
+                    true, // active
+                    WEAPON_LASER_RANGE,
+                    0.0f, // current_length
+                    static_cast<float>(WEAPON_LASER_DAMAGE_PER_TICK),
+                    WEAPON_LASER_TICK_RATE,
+                    0.0f, // time_since_last_tick
+                    WEAPON_LASER_WIDTH,
+                    engine::Color{WEAPON_LASER_COLOR_R, WEAPON_LASER_COLOR_G, WEAPON_LASER_COLOR_B, WEAPON_LASER_COLOR_A},
+                    engine::Color{WEAPON_LASER_CORE_COLOR_R, WEAPON_LASER_CORE_COLOR_G, WEAPON_LASER_CORE_COLOR_B, WEAPON_LASER_CORE_COLOR_A},
+                    0.0f, 0.0f // hit_x, hit_y
+                });
+            } else {
+                lasers[event.player].active = true;
+            }
+            return;
+        }
 
-            if (weapon.time_since_last_fire >= firerate) {
-                auto& positions = registry.get_components<Position>();
-                auto& sprites = registry.get_components<Sprite>();
-                auto& colliders = registry.get_components<Collider>();
+        // Pour les armes qui tirent des projectiles, on tire immédiatement si le cooldown est prêt
+        int projectiles; int damage; float spread, speed, firerate, burst_delay;
+        get_weapon_stats(weapon.type, projectiles, spread, damage, speed, firerate, burst_delay);
 
-                if (positions.has_entity(event.player)) {
-                     float playerWidth = sprites.has_entity(event.player) ? sprites[event.player].width :
-                                         (colliders.has_entity(event.player) ? colliders[event.player].width : 0.0f);
-                     float playerHeight = sprites.has_entity(event.player) ? sprites[event.player].height :
-                                          (colliders.has_entity(event.player) ? colliders[event.player].height : 0.0f);
-                     createProjectiles(registry, event.player, weapon, positions[event.player], playerWidth, playerHeight);
-                }
+        if (weapon.time_since_last_fire >= firerate) {
+            auto& positions = registry.get_components<Position>();
+            auto& sprites = registry.get_components<Sprite>();
+            auto& colliders = registry.get_components<Collider>();
+
+            if (positions.has_entity(event.player)) {
+                 float playerWidth = sprites.has_entity(event.player) ? sprites[event.player].width :
+                                     (colliders.has_entity(event.player) ? colliders[event.player].width : 0.0f);
+                 float playerHeight = sprites.has_entity(event.player) ? sprites[event.player].height :
+                                      (colliders.has_entity(event.player) ? colliders[event.player].height : 0.0f);
+                 createProjectiles(registry, event.player, weapon, positions[event.player], playerWidth, playerHeight);
             }
         }
     });
@@ -67,24 +87,12 @@ void ShootingSystem::init(Registry& registry)
         auto& weapon = weapons[event.player];
         weapon.trigger_held = false;
 
-        // Pour le tir chargé, on tire au relâchement
-        if (weapon.type == WeaponType::CHARGE) {
-            auto& positions = registry.get_components<Position>();
-            auto& sprites = registry.get_components<Sprite>();
-            auto& colliders = registry.get_components<Collider>();
-
-            if (positions.has_entity(event.player)) {
-                float playerWidth = sprites.has_entity(event.player) ? sprites[event.player].width :
-                                    (colliders.has_entity(event.player) ? colliders[event.player].width : 0.0f);
-                float playerHeight = sprites.has_entity(event.player) ? sprites[event.player].height :
-                                     (colliders.has_entity(event.player) ? colliders[event.player].height : 0.0f);
-                createProjectiles(registry, event.player, weapon, positions[event.player], playerWidth, playerHeight);
+        // Pour le laser beam, désactiver le composant
+        if (weapon.type == WeaponType::LASER) {
+            auto& lasers = registry.get_components<LaserBeam>();
+            if (lasers.has_entity(event.player)) {
+                lasers[event.player].active = false;
             }
-
-            // Note: L'effet visuel sera caché automatiquement par l'update
-            weapon.is_charging = false;
-            weapon.current_charge_duration = 0.0f;
-            weapon.time_since_last_fire = 0.0f;
         }
     });
 }
@@ -101,7 +109,6 @@ void ShootingSystem::update(Registry& registry, float dt)
     auto& enemies = registry.get_components<Enemy>();
     auto& positions = registry.get_components<Position>();
     auto& sprites = registry.get_components<Sprite>();
-    auto& attacheds = registry.get_components<Attached>();
 
     for (size_t i = 0; i < weapons.size(); i++) {
         Entity entity = weapons.get_entity_at(i);
@@ -115,65 +122,18 @@ void ShootingSystem::update(Registry& registry, float dt)
         // Logique Joueur
         if (!enemies.has_entity(entity)) {
             if (weapon.trigger_held) {
-                if (weapon.type == WeaponType::CHARGE) {
-                    weapon.is_charging = true;
-                    weapon.current_charge_duration += dt;
-                    
-                    // Création paresseuse de l'effet visuel
-                    if (weapon.chargeEffectEntity == (size_t)-1 || !sprites.has_entity(weapon.chargeEffectEntity)) {
-                         Entity effect = registry.spawn_entity();
-                         weapon.chargeEffectEntity = effect;
-                         
-                         float pW = sprites.has_entity(entity) ? sprites[entity].width : 0.0f;
-                         float pH = sprites.has_entity(entity) ? sprites[entity].height : 0.0f;
-                         float startSize = WEAPON_CHARGE_WIDTH_MIN / 2.0f;
-                         
-                         registry.add_component(effect, Position{0, 0});
-                         registry.add_component(effect, Attached{entity, pW + 5.0f, (pH - startSize) / 2.0f});
-                         registry.add_component(effect, Sprite{
-                            weapon.projectile_sprite.texture,
-                            0.0f, 0.0f, 0.0f, engine::Color{0, 150, 255, 150}, 0.0f, 0.0f, 2
-                         });
-                         // Only set tint/texture if graphics are available or textures loaded
-                         if (!graphics_ && weapon.projectile_sprite.texture == engine::INVALID_HANDLE) {
-                             // Minimal server logic for effect? Server might not need this effect entity at all.
-                         }
+                if (weapon.type == WeaponType::LASER) {
+                    // Le laser beam est géré par updateLaserBeam
+                    if (positions.has_entity(entity)) {
+                        auto& colliders = registry.get_components<Collider>();
+                        float w = sprites.has_entity(entity) ? sprites[entity].width :
+                                  (colliders.has_entity(entity) ? colliders[entity].width : 0.0f);
+                        float h = sprites.has_entity(entity) ? sprites[entity].height :
+                                  (colliders.has_entity(entity) ? colliders[entity].height : 0.0f);
+                        updateLaserBeam(registry, entity, positions[entity], w, h, dt);
                     }
-
-                    // Animer l'effet de charge
-                    if (sprites.has_entity(weapon.chargeEffectEntity)) {
-                        auto& effectSprite = sprites[weapon.chargeEffectEntity];
-                        
-                        float t = std::clamp((weapon.current_charge_duration) / (WEAPON_CHARGE_TIME_MAX), 0.0f, 1.0f);
-                        
-                        // Pulsing size
-                        float baseSize = WEAPON_CHARGE_WIDTH_MIN / 1.5f;
-                        float maxSize = WEAPON_CHARGE_WIDTH_MAX;
-                        float currentSize = baseSize + (maxSize - baseSize) * t;
-                        
-                        // Ajouter une pulsation rapide
-                        float pulse = std::sin(weapon.current_charge_duration * 15.0f) * 5.0f;
-                        
-                        effectSprite.width = currentSize + pulse;
-                        effectSprite.height = currentSize + pulse;
-                        
-                        // Recalculer l'offset pour rester centré malgré le changement de taille
-                        if (attacheds.has_entity(weapon.chargeEffectEntity)) {
-                             float pW = sprites.has_entity(entity) ? sprites[entity].width : 0.0f;
-                             float pH = sprites.has_entity(entity) ? sprites[entity].height : 0.0f;
-                             attacheds[weapon.chargeEffectEntity].offsetY = (pH - effectSprite.height) / 2.0f;
-                             attacheds[weapon.chargeEffectEntity].offsetX = pW + 5.0f;
-                        }
-                        
-                        // Rotate
-                        effectSprite.tint.r = static_cast<unsigned char>(t * 255);
-                        effectSprite.tint.g = static_cast<unsigned char>(150 + (t * 105)); // 150 -> 255
-                        effectSprite.tint.b = 255;
-                        effectSprite.tint.a = static_cast<unsigned char>(150 + (t * 105)); // Fade in opacity
-                    }
-
                 } else {
-                    // Tir automatique (continue)
+                    // Tir automatique (projectiles)
                     int projectiles; int damage; float spread, speed, firerate, burst_delay;
                     get_weapon_stats(weapon.type, projectiles, spread, damage, speed, firerate, burst_delay);
 
@@ -188,20 +148,13 @@ void ShootingSystem::update(Registry& registry, float dt)
                         }
                     }
                 }
-            } else {
-                // Si on ne charge pas, cacher l'effet visuel
-                if (weapon.type == WeaponType::CHARGE && weapon.chargeEffectEntity != (size_t)-1) {
-                    if (sprites.has_entity(weapon.chargeEffectEntity)) {
-                        sprites[weapon.chargeEffectEntity].tint.a = 0;
-                    }
-                }
             }
-            
+
             // Gestion de la rafale (BURST) même si trigger relâché
             if (weapon.type == WeaponType::BURST && weapon.burst_count > 0) {
                  int projectiles; int damage; float spread, speed, firerate, burst_delay;
                  get_weapon_stats(weapon.type, projectiles, spread, damage, speed, firerate, burst_delay);
-                 
+
                  if (weapon.time_since_last_fire >= burst_delay) {
                      if (positions.has_entity(entity)) {
                         auto& colliders = registry.get_components<Collider>();
@@ -284,37 +237,16 @@ void ShootingSystem::createProjectiles(Registry& registry, Entity shooter, Weapo
     float startAngle = 0.0f;
     float angleStep = 0.0f;
 
-    // Calcul des stats dynamiques (pour le tir chargé)
+    // Dimensions des projectiles
     float actual_width = weapon.projectile_sprite.width;
     float actual_height = weapon.projectile_sprite.height;
     int actual_damage = damage;
     engine::Color actual_color = weapon.projectile_sprite.tint;
 
-    if (weapon.type == WeaponType::CHARGE) {
-        float t = std::clamp((weapon.current_charge_duration - WEAPON_CHARGE_TIME_MIN) / (WEAPON_CHARGE_TIME_MAX - WEAPON_CHARGE_TIME_MIN), 0.0f, 1.0f);
-        
-        if (weapon.current_charge_duration < WEAPON_CHARGE_TIME_MIN) {
-             // Non chargé (tir de base)
-             actual_damage = WEAPON_CHARGE_DAMAGE_MIN;
-             actual_width = WEAPON_CHARGE_WIDTH_MIN;
-             actual_height = WEAPON_CHARGE_HEIGHT_MIN;
-        } else {
-             // Chargé
-             actual_damage = static_cast<int>(WEAPON_CHARGE_DAMAGE_MIN + t * (WEAPON_CHARGE_DAMAGE_MAX - WEAPON_CHARGE_DAMAGE_MIN));
-             actual_width = WEAPON_CHARGE_WIDTH_MIN + t * (WEAPON_CHARGE_WIDTH_MAX - WEAPON_CHARGE_WIDTH_MIN);
-             actual_height = WEAPON_CHARGE_HEIGHT_MIN + t * (WEAPON_CHARGE_HEIGHT_MAX - WEAPON_CHARGE_HEIGHT_MIN);
-             
-             // Transition de couleur (Bleu -> Blanc/Cyan Brillant)
-             // Reste bleu (0, 150, 255) mais devient plus clair ou change
-             actual_color.g = static_cast<unsigned char>(150 + (t * 105)); // 150 -> 255
-             actual_color.r = static_cast<unsigned char>(t * 200);         // 0 -> 200
-        }
-    } else {
-        // Fallback dimensions if no sprite/graphics
-        if (!graphics_) {
-            actual_width = 20.0f; // Default projectile width
-            actual_height = 10.0f; // Default projectile height
-        }
+    // Fallback dimensions if no sprite/graphics
+    if (!graphics_) {
+        actual_width = 20.0f;
+        actual_height = 10.0f;
     }
 
     // Pour SPREAD: calculer les angles d'éventail
@@ -384,4 +316,141 @@ void ShootingSystem::createProjectiles(Registry& registry, Entity shooter, Weapo
     } else
         // Pour les autres types, reset simplement le cooldown
         weapon.time_since_last_fire = 0.0f;
+}
+
+void ShootingSystem::updateLaserBeam(Registry& registry, Entity shooter, const Position& shooterPos, float shooterWidth, float shooterHeight, float dt)
+{
+    auto& lasers = registry.get_components<LaserBeam>();
+    if (!lasers.has_entity(shooter))
+        return;
+
+    LaserBeam& beam = lasers[shooter];
+    if (!beam.active)
+        return;
+
+    // Calculer la position de départ du rayon (devant le vaisseau)
+    float startX = shooterPos.x + shooterWidth / 2.0f + 5.0f;
+    float startY = shooterPos.y;
+
+    // Effectuer le raycast pour trouver le point de collision
+    performLaserRaycast(registry, startX, startY, beam.range, shooter, beam);
+
+    // Appliquer les dégâts sur tick
+    beam.time_since_last_tick += dt;
+    if (beam.time_since_last_tick >= beam.tick_rate) {
+        beam.time_since_last_tick = 0.0f;
+
+        // Appliquer les dégâts à l'entité touchée (s'il y en a une)
+        auto& healths = registry.get_components<Health>();
+        auto& enemies = registry.get_components<Enemy>();
+
+        // Parcourir les ennemis pour trouver ceux touchés par le rayon
+        auto& positions = registry.get_components<Position>();
+        auto& colliders = registry.get_components<Collider>();
+
+        for (size_t i = 0; i < enemies.size(); i++) {
+            Entity enemy = enemies.get_entity_at(i);
+            if (!positions.has_entity(enemy) || !colliders.has_entity(enemy))
+                continue;
+
+            const Position& enemyPos = positions[enemy];
+            const Collider& enemyCol = colliders[enemy];
+
+            // Vérifier si le rayon traverse l'ennemi
+            float half_h = enemyCol.height * 0.5f;
+            float top = enemyPos.y - half_h;
+            float bottom = enemyPos.y + half_h;
+
+            // Le rayon horizontal est-il dans les limites verticales de l'ennemi ?
+            if (startY >= top && startY <= bottom) {
+                float half_w = enemyCol.width * 0.5f;
+                float left = enemyPos.x - half_w;
+
+                // L'ennemi est-il entre le début et la fin du rayon ?
+                if (left >= startX && left <= beam.hit_x) {
+                    // Appliquer les dégâts
+                    if (healths.has_entity(enemy)) {
+                        healths[enemy].current -= static_cast<int>(beam.damage_per_tick);
+                        if (healths[enemy].current <= 0) {
+                            registry.add_component(enemy, ToDestroy{});
+                            // Publier l'événement pour le score (100 points par défaut)
+                            registry.get_event_bus().publish(ecs::EnemyKilledEvent{enemy, 100, shooter});
+                        }
+                    }
+                    // Arrêter au premier ennemi touché
+                    break;
+                }
+            }
+        }
+    }
+}
+
+
+void ShootingSystem::performLaserRaycast(Registry& registry, float startX, float startY, float range, Entity shooter, LaserBeam& beam)
+{
+    auto& positions = registry.get_components<Position>();
+    auto& colliders = registry.get_components<Collider>();
+    auto& enemies = registry.get_components<Enemy>();
+    auto& walls = registry.get_components<Wall>();
+
+    // Point final par défaut (pas de collision)
+    beam.hit_x = startX + range;
+    beam.hit_y = startY;
+    beam.current_length = range;
+
+    float closest_hit = range;
+
+    // Vérifier la collision avec les ennemis
+    for (size_t i = 0; i < enemies.size(); i++) {
+        Entity enemy = enemies.get_entity_at(i);
+        if (!positions.has_entity(enemy) || !colliders.has_entity(enemy))
+            continue;
+
+        const Position& enemyPos = positions[enemy];
+        const Collider& enemyCol = colliders[enemy];
+
+        // Intersection AABB avec une ligne horizontale
+        float half_w = enemyCol.width * 0.5f;
+        float half_h = enemyCol.height * 0.5f;
+
+        float left = enemyPos.x - half_w;
+        float top = enemyPos.y - half_h;
+        float bottom = enemyPos.y + half_h;
+
+        // Le rayon Y est-il dans les limites de l'ennemi et l'ennemi est-il devant ?
+        if (startY >= top && startY <= bottom && left > startX && left < startX + range) {
+            float hit_dist = left - startX;
+            if (hit_dist < closest_hit) {
+                closest_hit = hit_dist;
+            }
+        }
+    }
+
+    // Vérifier la collision avec les murs
+    for (size_t i = 0; i < walls.size(); i++) {
+        Entity wall = walls.get_entity_at(i);
+        if (!positions.has_entity(wall) || !colliders.has_entity(wall))
+            continue;
+
+        const Position& wallPos = positions[wall];
+        const Collider& wallCol = colliders[wall];
+
+        float half_w = wallCol.width * 0.5f;
+        float half_h = wallCol.height * 0.5f;
+
+        float left = wallPos.x - half_w;
+        float top = wallPos.y - half_h;
+        float bottom = wallPos.y + half_h;
+
+        if (startY >= top && startY <= bottom && left > startX && left < startX + range) {
+            float hit_dist = left - startX;
+            if (hit_dist < closest_hit) {
+                closest_hit = hit_dist;
+            }
+        }
+    }
+
+    beam.current_length = closest_hit;
+    beam.hit_x = startX + closest_hit;
+    beam.hit_y = startY;
 }

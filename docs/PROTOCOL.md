@@ -308,8 +308,17 @@ Size: 10 bytes (Base) + (25 * Entity Count)
 - `Velocity X` (2 bytes, int16 scaled 100)
 - `Velocity Y` (2 bytes, int16 scaled 100)
 - `Health` (2 bytes)
-- `Flags` (2 bytes)
+- `Flags` (2 bytes) - See Entity State Flags below
 - `Last Ack Sequence` (4 bytes) - Last processed input sequence (for players)
+
+**Entity State Flags** (bitfield):
+| Bit | Name              | Description                                    |
+|-----|-------------------|------------------------------------------------|
+| 0   | INVULNERABLE      | Entity is invulnerable (e.g., after respawn)   |
+| 1   | CHARGING          | Entity is charging an attack                   |
+| 2   | DAMAGED           | Entity was recently damaged (visual feedback)  |
+| 3   | LASER_ACTIVE      | Player is firing a laser beam (for sync)       |
+| 4-15| Reserved          | Reserved for future use                        |
 
 #### 5.5.2 SERVER_EXPLOSION_EVENT (0xB4)
 Size: 16 bytes

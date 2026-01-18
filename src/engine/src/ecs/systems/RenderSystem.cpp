@@ -123,6 +123,8 @@ void RenderSystem::update(Registry& registry, float dt)
         }
     }
 
+
+
     // === RENDU DES CERCLES (CircleEffect) ===
     if (registry.has_component_registered<CircleEffect>()) {
         auto& circles = registry.get_components<CircleEffect>();
