@@ -478,8 +478,12 @@ void HUDSystem::update(Registry& registry, float dt) {
 
         std::string waveText;
         if (waveCtrl.currentWaveNumber > 0) {
-            waveText = "WAVE " + std::to_string(waveCtrl.currentWaveNumber) +
-                       " / " + std::to_string(waveCtrl.totalWaveCount);
+            if (waveCtrl.proceduralMobs) {
+                 waveText = "WAVE " + std::to_string(waveCtrl.currentWaveNumber) + " / X";
+            } else {
+                 waveText = "WAVE " + std::to_string(waveCtrl.currentWaveNumber) +
+                            " / " + std::to_string(waveCtrl.totalWaveCount);
+            }
         } else {
             waveText = "PREPARING...";
         }

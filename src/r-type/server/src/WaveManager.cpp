@@ -216,20 +216,33 @@ void WaveManager::check_wave_triggers(float current_scroll)
         if (currentChunk > wave.trigger.chunk_id) {
             should_trigger = true;
         } else if (currentChunk == wave.trigger.chunk_id) {
-            if (currentOffset >= wave.trigger.offset) {
-                should_trigger = true;
-            }
-        }
+             if (currentOffset >= wave.trigger.offset) {
+                 should_trigger = true;
+             }
+         }
+         
+         bool time_triggered = (accumulated_time_ >= wave.trigger.time_delay);
 
-        bool time_triggered = (accumulated_time_ >= wave.trigger.time_delay);
-
-        if (should_trigger && time_triggered) {
-            trigger_wave(wave);
-            wave.triggered = true;
-            current_wave_index_ = i;
-            break;  // Only trigger one wave per update to prevent cascading triggers
-        }
-    }
+         if (should_trigger && time_triggered) {
+             trigger_wave(wave);
+             wave.triggered = true;
+             current_wave_index_ = i;
+             break;  // Only trigger one wave per update
+         }
+     }
+     
+     // Procedural generation check
+     if (procedural_enabled_ && !config_.loop_waves) {
+         // If we are at the last wave or all waves are triggered
+         if (current_wave_index_ >= config_.waves.size() - 1 || config_.waves.empty()) {
+             // Only generate if the last wave has been triggered
+             bool last_triggered = config_.waves.empty() ? true : config_.waves.back().triggered;
+             
+             if (last_triggered) {
+                 generate_procedural_wave(current_scroll);
+             }
+         }
+     }
 }
 
 void WaveManager::trigger_wave(Wave& wave)
@@ -311,4 +324,74 @@ void WaveManager::spawn_from_config(const SpawnConfig& spawn)
     }
 }
 
+
+void WaveManager::generate_procedural_wave(float current_scroll)
+{
+    static bool seeded = false;
+    if (!seeded) {
+        std::srand(static_cast<unsigned int>(std::time(nullptr)));
+        seeded = true;
+    }
+
+    Wave newWave;
+    newWave.wave_number = config_.waves.size() + 1;
+    
+    // Set trigger at next chunk based on current scroll
+    float chunkSizePx = 480.0f;
+    int currentChunk = static_cast<int>(current_scroll / chunkSizePx);
+    
+    // If the list is not empty, ensure we spawn AFTER the last wave's chunk
+    if (!config_.waves.empty()) {
+        int lastChunk = config_.waves.back().trigger.chunk_id;
+        if (currentChunk <= lastChunk) {
+            currentChunk = lastChunk; // Start check from last known chunk
+        }
+    }
+    
+    newWave.trigger.chunk_id = currentChunk + 1;
+    newWave.trigger.offset = 0.1f;
+    newWave.trigger.time_delay = 0.0f;
+    newWave.triggered = false;
+    newWave.completed = false;
+    newWave.time_since_triggered = 0.0f;
+    newWave.triggered_generation = 0;
+
+    // Randomize Content
+    int enemyCount = 3 + (std::rand() % 4); // 3-6 enemies
+    
+    std::string types[] = {"basic", "fast", "tank"};
+    std::string selectedType = types[std::rand() % 3];
+    
+    std::string patterns[] = {"line", "formation", "single"}; // "grid" not in SpawnConfig string set yet? Check WaveManager.cpp implementation
+    std::string selectedPattern = patterns[std::rand() % 3];
+    
+    SpawnConfig spawn;
+    spawn.type = "enemy";
+    spawn.enemy_type = selectedType;
+    spawn.count = enemyCount;
+    spawn.pattern = selectedPattern;
+    // Spawn ahead of the camera (current scroll + screen width + buffer)
+    // Screen width is usually 1920, adding extra buffer
+    spawn.position_x = current_scroll + 1920.0f + 200.0f;
+    // Fixed spawn position as requested by user ("pour facilité")
+    spawn.position_y = 500.0f; // Center-ish
+    spawn.spacing = 80.0f + static_cast<float>(std::rand() % 100);
+    
+    // 5% bonus drop chance
+    if ((std::rand() % 100) < 5) {
+        spawn.bonus_drop.enabled = true;
+        spawn.bonus_drop.drop_chance = 1.0f;
+        std::string bonuses[] = {"health", "shield", "speed", "bonus_weapon"};
+        spawn.bonus_drop.bonus_type = bonuses[std::rand() % 4];
+    }
+    
+    newWave.spawns.push_back(spawn);
+    
+    config_.waves.push_back(newWave);
+    
+    std::cout << "[WaveManager] Generated procedural wave " << newWave.wave_number 
+              << " at chunk " << newWave.trigger.chunk_id << "\n";
 }
+
+}
+
