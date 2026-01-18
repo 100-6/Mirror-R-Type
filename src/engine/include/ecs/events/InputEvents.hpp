@@ -101,8 +101,20 @@ struct PlayerSpecialEvent : public core::Event {
 struct EnemyKilledEvent : public core::Event {
     Entity enemy;
     int scoreValue;
+    Entity killer;  // Entity that killed the enemy (owner of the projectile)
 
-    EnemyKilledEvent(Entity e, int score = 100) : enemy(e), scoreValue(score) {}
+    EnemyKilledEvent(Entity e, int score = 100, Entity k = 0)
+        : enemy(e), scoreValue(score), killer(k) {}
+};
+
+/**
+ * @brief Event fired when an enemy takes damage but survives
+ */
+struct EnemyHitEvent : public core::Event {
+    Entity enemy;
+    Entity source;
+
+    EnemyHitEvent(Entity e, Entity src = Entity{0}) : enemy(e), source(src) {}
 };
 
 /**

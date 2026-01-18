@@ -86,7 +86,7 @@ private:
     /**
      * @brief Spawn an enemy entity
      */
-    Entity spawnEnemy(Registry& registry, EnemyType type, float x, float y);
+    Entity spawnEnemy(Registry& registry, EnemyType type, float x, float y, const BonusDrop& bonusDrop = BonusDrop{});
 
     /**
      * @brief Spawn a wall entity
@@ -117,6 +117,11 @@ private:
      * @brief Load all required textures
      */
     void loadTextures();
+
+    /**
+     * @brief Generate a procedural wave when all scripted waves are done
+     */
+    void generateProceduralWave(Registry& registry);
 };
 
 #endif /* !WAVE_SPAWNER_SYSTEM_HPP_ */

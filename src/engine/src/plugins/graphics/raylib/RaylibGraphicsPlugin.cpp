@@ -84,17 +84,36 @@ void RaylibGraphicsPlugin::shutdown() {
     if (!initialized_) {
         return;
     }
-    
-    // Unload all resources
-    textures_.clear();
+
+    // Must unload resources BEFORE CloseWindow() destroys the OpenGL context
+    // Unloading after CloseWindow() would cause undefined behavior
+
+    // Unload all fonts first (fonts contain CPU-allocated memory: recs, glyphs)
+    for (auto& [handle, data] : fonts_) {
+        ::Font* font = get_from_vector<::Font>(data.data);
+        if (font && font->texture.id != 0) {
+            UnloadFont(*font);
+            font->texture.id = 0;  // Mark as unloaded to prevent double-free
+        }
+    }
     fonts_.clear();
-    
-    // Close window if open
+
+    // Unload all textures (GPU resources)
+    for (auto& [handle, data] : textures_) {
+        Texture2D* texture = get_from_vector<Texture2D>(data.data);
+        if (texture && texture->id != 0) {
+            UnloadTexture(*texture);
+            texture->id = 0;  // Mark as unloaded to prevent double-free
+        }
+    }
+    textures_.clear();
+
+    // Now close the window (destroys OpenGL context)
     if (window_open_) {
         CloseWindow();
         window_open_ = false;
     }
-    
+
     initialized_ = false;
 }
 
@@ -202,13 +221,25 @@ void RaylibGraphicsPlugin::draw_sprite(const Sprite& sprite, Vector2f position) 
         draw_pos.y = position.y - view_center_.y + view_size_.y / 2.0f;
     }
     
-    // Define source rectangle (full texture)
-    ::Rectangle source = {
-        0.0f,
-        0.0f,
-        static_cast<float>(texture->width),
-        static_cast<float>(texture->height)
-    };
+    // Define source rectangle
+    // Si source_rect est défini, l'utiliser (pour spritesheets)
+    // Sinon, utiliser la texture complète
+    ::Rectangle source;
+    if (sprite.source_rect.is_valid()) {
+        source = {
+            sprite.source_rect.x,
+            sprite.source_rect.y,
+            sprite.source_rect.width,
+            sprite.source_rect.height
+        };
+    } else {
+        source = {
+            0.0f,
+            0.0f,
+            static_cast<float>(texture->width),
+            static_cast<float>(texture->height)
+        };
+    }
     
     // Define destination rectangle
     ::Rectangle dest = {
@@ -360,14 +391,14 @@ TextureHandle RaylibGraphicsPlugin::load_texture(const std::string& path) {
     if (!initialized_) {
         throw std::runtime_error("Plugin not initialized");
     }
-    
+
     // Load texture using Raylib
     Texture2D rl_texture = LoadTexture(path.c_str());
-    
+
     if (rl_texture.id == 0) {
         throw std::runtime_error("Failed to load texture: " + path);
     }
-    
+
     // Create texture data
     TextureData data;
     store_in_vector(data.data, rl_texture);
@@ -375,13 +406,57 @@ TextureHandle RaylibGraphicsPlugin::load_texture(const std::string& path) {
         static_cast<float>(rl_texture.width),
         static_cast<float>(rl_texture.height)
     );
-    
+
     // Generate handle
     TextureHandle handle = next_texture_handle_++;
-    
+
     // Store in cache
     textures_[handle] = std::move(data);
-    
+
+    return handle;
+}
+
+TextureHandle RaylibGraphicsPlugin::load_texture_from_memory(const uint8_t* data, size_t size) {
+    if (!initialized_) {
+        throw std::runtime_error("Plugin not initialized");
+    }
+
+    if (data == nullptr || size == 0) {
+        throw std::runtime_error("Invalid texture data");
+    }
+
+    // Load image from memory - Raylib auto-detects format (PNG, JPG, etc.)
+    // We pass ".png" as extension hint but Raylib will detect the actual format
+    Image image = LoadImageFromMemory(".png", data, static_cast<int>(size));
+
+    if (image.data == nullptr) {
+        throw std::runtime_error("Failed to load image from memory");
+    }
+
+    // Convert image to texture
+    Texture2D rl_texture = LoadTextureFromImage(image);
+
+    // Free image data (texture is now in GPU memory)
+    UnloadImage(image);
+
+    if (rl_texture.id == 0) {
+        throw std::runtime_error("Failed to create texture from image");
+    }
+
+    // Create texture data
+    TextureData tex_data;
+    store_in_vector(tex_data.data, rl_texture);
+    tex_data.size = Vector2f(
+        static_cast<float>(rl_texture.width),
+        static_cast<float>(rl_texture.height)
+    );
+
+    // Generate handle
+    TextureHandle handle = next_texture_handle_++;
+
+    // Store in cache
+    textures_[handle] = std::move(tex_data);
+
     return handle;
 }
 
@@ -389,8 +464,9 @@ void RaylibGraphicsPlugin::unload_texture(TextureHandle handle) {
     auto it = textures_.find(handle);
     if (it != textures_.end()) {
         Texture2D* texture = get_from_vector<Texture2D>(it->second.data);
-        if (texture) {
+        if (texture && texture->id != 0) {
             UnloadTexture(*texture);
+            texture->id = 0;  // Mark as unloaded
         }
         textures_.erase(it);
     }
@@ -433,11 +509,29 @@ void RaylibGraphicsPlugin::unload_font(FontHandle handle) {
     auto it = fonts_.find(handle);
     if (it != fonts_.end()) {
         ::Font* font = get_from_vector<::Font>(it->second.data);
-        if (font) {
+        if (font && font->texture.id != 0) {
             UnloadFont(*font);
+            font->texture.id = 0;  // Mark as unloaded
         }
         fonts_.erase(it);
     }
+}
+
+float RaylibGraphicsPlugin::measure_text(const std::string& text, int font_size,
+                                          FontHandle font_handle) const {
+    if (font_handle == INVALID_HANDLE) {
+        return static_cast<float>(MeasureText(text.c_str(), font_size));
+    }
+    auto it = fonts_.find(font_handle);
+    if (it != fonts_.end()) {
+        const ::Font* font = get_from_vector<::Font>(it->second.data);
+        if (font) {
+            Vector2 size = MeasureTextEx(*font, text.c_str(),
+                                          static_cast<float>(font_size), 1.0f);
+            return size.x;
+        }
+    }
+    return static_cast<float>(MeasureText(text.c_str(), font_size));
 }
 
 // Camera/View
@@ -509,6 +603,20 @@ void RaylibGraphicsPlugin::create_default_texture() {
 
 TextureHandle RaylibGraphicsPlugin::get_default_texture() const {
     return default_texture_;
+}
+
+void* RaylibGraphicsPlugin::get_window_handle() const {
+    return nullptr;
+}
+
+void RaylibGraphicsPlugin::begin_blend_mode(int mode) {
+    // Map engine blend modes to Raylib blend modes
+    // 0=ALPHA (default), 1=ADDITIVE, 2=MULTIPLIED, 3=ADD_COLORS, 4=SUBTRACT_COLORS
+    BeginBlendMode(mode);
+}
+
+void RaylibGraphicsPlugin::end_blend_mode() {
+    EndBlendMode();
 }
 
 }

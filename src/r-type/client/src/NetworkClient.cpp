@@ -33,7 +33,7 @@ bool NetworkClient::connect(const std::string& host, uint16_t port) {
     server_host_ = host;
     tcp_port_ = port;
 
-    std::cout << "[NetworkClient] Connecting to " << host << ":" << port << " via TCP...\n";
+    // std::cout << "[NetworkClient] Connecting to " << host << ":" << port << " via TCP...\n";
 
     if (!network_plugin_.connect_tcp(host, port)) {
         std::cerr << "[NetworkClient] Failed to connect to server\n";
@@ -41,14 +41,14 @@ bool NetworkClient::connect(const std::string& host, uint16_t port) {
     }
 
     network_plugin_.set_on_disconnected([this]() {
-        std::cout << "[NetworkClient] Disconnected from server\n";
+        // std::cout << "[NetworkClient] Disconnected from server\n";
         in_lobby_ = false;
         in_game_ = false;
         if (on_disconnected_)
             on_disconnected_();
     });
 
-    std::cout << "[NetworkClient] TCP connected successfully\n";
+    // std::cout << "[NetworkClient] TCP connected successfully\n";
     return true;
 }
 
@@ -60,8 +60,10 @@ void NetworkClient::disconnect() {
     player_id_ = 0;
     session_id_ = 0;
     lobby_id_ = 0;
+    room_id_ = 0;
     in_lobby_ = false;
     in_game_ = false;
+    in_room_ = false;
 }
 
 bool NetworkClient::is_tcp_connected() const {
@@ -79,7 +81,7 @@ void NetworkClient::send_connect(const std::string& player_name) {
     payload.client_version = 0x01;
     payload.set_player_name(player_name);
 
-    std::cout << "[NetworkClient] Sending connect request as '" << player_name << "'\n";
+    // std::cout << "[NetworkClient] **NEW CODE VERSION** Sending connect request as '" << player_name << "'\n";
     send_tcp_packet(protocol::PacketType::CLIENT_CONNECT, serialize_payload(&payload, sizeof(payload)));
 }
 
@@ -111,8 +113,8 @@ void NetworkClient::send_join_lobby(protocol::GameMode mode, protocol::Difficult
     payload.game_mode = mode;
     payload.difficulty = difficulty;
 
-    std::cout << "[NetworkClient] Requesting to join lobby (mode=" << static_cast<int>(mode)
-              << ", difficulty=" << static_cast<int>(difficulty) << ")\n";
+    // std::cout << "[NetworkClient] Requesting to join lobby (mode=" << static_cast<int>(mode)
+    //           << ", difficulty=" << static_cast<int>(difficulty) << ")\n";
     send_tcp_packet(protocol::PacketType::CLIENT_JOIN_LOBBY, serialize_payload(&payload, sizeof(payload)));
 }
 
@@ -121,8 +123,92 @@ void NetworkClient::send_leave_lobby() {
     payload.player_id = htonl(player_id_);
     payload.lobby_id = htonl(lobby_id_);
 
-    std::cout << "[NetworkClient] Leaving lobby " << lobby_id_ << "\n";
+    // std::cout << "[NetworkClient] Leaving lobby " << lobby_id_ << "\n";
     send_tcp_packet(protocol::PacketType::CLIENT_LEAVE_LOBBY, serialize_payload(&payload, sizeof(payload)));
+}
+
+void NetworkClient::send_create_room(const std::string& room_name, const std::string& password,
+                                     protocol::GameMode mode, protocol::Difficulty difficulty,
+                                     uint16_t map_id, uint8_t max_players) {
+    protocol::ClientCreateRoomPayload payload;
+    payload.player_id = htonl(player_id_);
+    payload.set_room_name(room_name);
+
+    // Hash password if provided (simple SHA256 would be used in production)
+    if (!password.empty()) {
+        payload.set_password_hash(password);  // TODO: Implement proper SHA256 hashing
+    }
+
+    payload.game_mode = mode;
+    payload.difficulty = difficulty;
+    payload.map_id = htons(map_id);
+    payload.max_players = max_players;
+
+    // std::cout << "[NetworkClient] Creating room '" << room_name << "' (mode="
+    //           << static_cast<int>(mode) << ", diff=" << static_cast<int>(difficulty)
+    //           << ", map_id=" << map_id << ", max_players=" << static_cast<int>(max_players) << ")\n";
+    send_tcp_packet(protocol::PacketType::CLIENT_CREATE_ROOM, serialize_payload(&payload, sizeof(payload)));
+}
+
+void NetworkClient::send_join_room(uint32_t room_id, const std::string& password) {
+    protocol::ClientJoinRoomPayload payload;
+    payload.player_id = htonl(player_id_);
+    payload.room_id = htonl(room_id);
+
+    if (!password.empty()) {
+        payload.set_password_hash(password);  // TODO: Implement proper SHA256 hashing
+    }
+
+    // std::cout << "[NetworkClient] Joining room " << room_id << "\n";
+    send_tcp_packet(protocol::PacketType::CLIENT_JOIN_ROOM, serialize_payload(&payload, sizeof(payload)));
+}
+
+void NetworkClient::send_leave_room() {
+    protocol::ClientLeaveRoomPayload payload;
+    payload.player_id = htonl(player_id_);
+    payload.room_id = htonl(room_id_);
+
+    // std::cout << "[NetworkClient] Leaving room " << room_id_ << "\n";
+    send_tcp_packet(protocol::PacketType::CLIENT_LEAVE_ROOM, serialize_payload(&payload, sizeof(payload)));
+}
+
+void NetworkClient::send_request_room_list() {
+    // std::cout << "[NetworkClient] Requesting room list\n";
+    // No payload needed for room list request
+    send_tcp_packet(protocol::PacketType::CLIENT_REQUEST_ROOM_LIST, std::vector<uint8_t>());
+}
+
+void NetworkClient::send_start_game() {
+    protocol::ClientStartGamePayload payload;
+    payload.player_id = htonl(player_id_);
+    payload.room_id = htonl(room_id_);
+
+    // std::cout << "[NetworkClient] Requesting game start\n";
+    send_tcp_packet(protocol::PacketType::CLIENT_START_GAME, serialize_payload(&payload, sizeof(payload)));
+}
+
+void NetworkClient::send_set_player_name(const std::string& new_name) {
+    protocol::ClientSetPlayerNamePayload payload;
+    payload.player_id = htonl(player_id_);
+    payload.set_name(new_name);
+
+    // std::cout << "[NetworkClient] Changing player name to '" << new_name << "'\n";
+    send_tcp_packet(protocol::PacketType::CLIENT_SET_PLAYER_NAME, serialize_payload(&payload, sizeof(payload)));
+}
+
+void NetworkClient::send_set_player_skin(uint8_t skin_id) {
+    protocol::ClientSetPlayerSkinPayload payload;
+    payload.player_id = htonl(player_id_);
+    payload.skin_id = skin_id;
+
+    // std::cout << "[NetworkClient] Changing player skin to " << static_cast<int>(skin_id) << "\n";
+    send_tcp_packet(protocol::PacketType::CLIENT_SET_PLAYER_SKIN, serialize_payload(&payload, sizeof(payload)));
+}
+
+void NetworkClient::send_request_global_leaderboard() {
+    // std::cout << "[NetworkClient] Requesting global leaderboard\n";
+    // No payload needed for global leaderboard request
+    send_tcp_packet(protocol::PacketType::CLIENT_REQUEST_GLOBAL_LEADERBOARD, std::vector<uint8_t>());
 }
 
 void NetworkClient::send_input(uint16_t input_flags, uint32_t client_tick) {
@@ -130,6 +216,7 @@ void NetworkClient::send_input(uint16_t input_flags, uint32_t client_tick) {
     payload.player_id = htonl(player_id_);
     payload.input_flags = htons(input_flags);
     payload.client_tick = htonl(client_tick);
+    payload.sequence_number = htonl(input_sequence_number_++);  // Increment sequence for lag compensation
 
     // Send via UDP if connected, otherwise TCP
     if (network_plugin_.is_udp_connected()) {
@@ -150,7 +237,7 @@ void NetworkClient::update() {
     log_counter++;
 
     if (log_counter % 60 == 0 && packet_count > 0) {
-        std::cout << "[NetworkClient] Received " << packet_count << " packets in last 60 updates\n";
+        // std::cout << "[NetworkClient] Received " << packet_count << " packets in last 60 updates\n";
         packet_count = 0;
     }
 
@@ -173,18 +260,23 @@ void NetworkClient::handle_packet(const engine::NetworkPacket& packet) {
         return;
     }
 
-    std::vector<uint8_t> payload(
-        packet.data.begin() + protocol::HEADER_SIZE,
-        packet.data.begin() + protocol::HEADER_SIZE + header.payload_length
-    );
+    // Decompress payload if needed (handles both compressed and uncompressed packets)
+    std::vector<uint8_t> payload;
+    try {
+        payload = protocol::ProtocolEncoder::get_decompressed_payload(
+            packet.data.data(), packet.data.size());
+    } catch (const std::exception& e) {
+        std::cerr << "[NetworkClient] Failed to decompress packet: " << e.what() << "\n";
+        return;
+    }
 
     auto packet_type = static_cast<protocol::PacketType>(header.type);
 
-    // Log all non-snapshot packets to debug spawn issues
-    if (packet_type != protocol::PacketType::SERVER_SNAPSHOT &&
-        packet_type != protocol::PacketType::SERVER_DELTA_SNAPSHOT) {
-        std::cout << "[NetworkClient] Processing packet type: " << (int)packet_type << "\n";
-    }
+    // Log all non-snapshot packets to debug spawn issues (disabled for cleaner output)
+    // if (packet_type != protocol::PacketType::SERVER_SNAPSHOT &&
+    //     packet_type != protocol::PacketType::SERVER_DELTA_SNAPSHOT) {
+    //     std::cout << "[NetworkClient] Processing packet type: " << (int)packet_type << "\n";
+    // }
 
     switch (packet_type) {
         case protocol::PacketType::SERVER_ACCEPT:
@@ -214,6 +306,9 @@ void NetworkClient::handle_packet(const engine::NetworkPacket& packet) {
         case protocol::PacketType::SERVER_PROJECTILE_SPAWN:
             handle_projectile_spawn(payload);
             break;
+        case protocol::PacketType::SERVER_EXPLOSION_EVENT:
+            handle_explosion_event(payload);
+            break;
         case protocol::PacketType::SERVER_WAVE_START:
             handle_wave_start(payload);
             break;
@@ -223,18 +318,74 @@ void NetworkClient::handle_packet(const engine::NetworkPacket& packet) {
         case protocol::PacketType::SERVER_SCORE_UPDATE:
             handle_score_update(payload);
             break;
+        case protocol::PacketType::SERVER_PLAYER_LEVEL_UP:
+            handle_player_level_up(payload);
+            break;
+        case protocol::PacketType::SERVER_POWERUP_COLLECTED:
+            handle_powerup_collected(payload);
+            break;
+        case protocol::PacketType::SERVER_PLAYER_RESPAWN:
+            handle_player_respawn(payload);
+            break;
+        case protocol::PacketType::SERVER_LEVEL_TRANSITION:
+            handle_level_transition(payload);
+            break;
+        case protocol::PacketType::SERVER_LEVEL_READY:
+            handle_level_ready(payload);
+            break;
         case protocol::PacketType::SERVER_GAME_OVER:
             handle_game_over(payload);
             break;
+        case protocol::PacketType::SERVER_LEADERBOARD:
+            handle_leaderboard(payload);
+            break;
+        case protocol::PacketType::SERVER_GLOBAL_LEADERBOARD:
+            handle_global_leaderboard(payload);
+            break;
+        case protocol::PacketType::SERVER_ROOM_CREATED:
+            handle_room_created(payload);
+            break;
+        case protocol::PacketType::SERVER_ROOM_JOINED:
+            handle_room_joined(payload);
+            break;
+        case protocol::PacketType::SERVER_ROOM_LEFT:
+            handle_room_left(payload);
+            break;
+        case protocol::PacketType::SERVER_ROOM_LIST:
+            handle_room_list(payload);
+            break;
+        case protocol::PacketType::SERVER_ROOM_ERROR:
+            handle_room_error(payload);
+            break;
+        case protocol::PacketType::SERVER_PLAYER_NAME_UPDATED:
+            handle_player_name_updated(payload);
+            break;
+        case protocol::PacketType::SERVER_PLAYER_SKIN_UPDATED:
+            handle_player_skin_updated(payload);
+            break;
+        case protocol::PacketType::SERVER_ADMIN_AUTH_RESULT:
+            handle_admin_auth_result(payload);
+            break;
+        case protocol::PacketType::SERVER_ADMIN_COMMAND_RESULT:
+            handle_admin_command_result(payload);
+            break;
+        case protocol::PacketType::SERVER_ADMIN_NOTIFICATION:
+            handle_admin_notification(payload);
+            break;
+        case protocol::PacketType::SERVER_KICK_NOTIFICATION:
+            handle_kick_notification(payload);
+            break;
+        case protocol::PacketType::SERVER_CHAT_MESSAGE:
+            handle_chat_message(payload);
+            break;
         case protocol::PacketType::SERVER_SNAPSHOT:
         case protocol::PacketType::SERVER_DELTA_SNAPSHOT:
-            if (in_game_) {
+            if (in_game_)
                 handle_snapshot(payload);
-            }
             break;
         default:
-            std::cout << "[NetworkClient] Unhandled packet type: 0x" << std::hex
-                      << static_cast<int>(header.type) << std::dec << "\n";
+            // std::cout << "[NetworkClient] Unhandled packet type: 0x" << std::hex
+            //           << static_cast<int>(header.type) << std::dec << "\n";
             break;
     }
 }
@@ -251,9 +402,9 @@ void NetworkClient::handle_server_accept(const std::vector<uint8_t>& payload) {
     std::memcpy(&accept, payload.data(), sizeof(accept));
 
     player_id_ = ntohl(accept.assigned_player_id);
-    std::cout << "[NetworkClient] Connection accepted! Player ID: " << player_id_ << "\n";
-    std::cout << "[NetworkClient] Server tick rate: " << static_cast<int>(accept.server_tick_rate)
-              << ", Max players: " << static_cast<int>(accept.max_players) << "\n";
+    // std::cout << "[NetworkClient] Connection accepted! Player ID: " << player_id_ << "\n";
+    // std::cout << "[NetworkClient] Server tick rate: " << static_cast<int>(accept.server_tick_rate)
+    //           << ", Max players: " << static_cast<int>(accept.max_players) << "\n";
 
     if (on_accepted_)
         on_accepted_(player_id_);
@@ -323,9 +474,9 @@ void NetworkClient::handle_lobby_state(const std::vector<uint8_t>& payload) {
         players.push_back(entry);
     }
 
-    std::cout << "[NetworkClient] Lobby state - ID: " << lobby_id_
-              << ", Players: " << static_cast<int>(state.current_player_count)
-              << "/" << static_cast<int>(state.required_player_count) << "\n";
+    // std::cout << "[NetworkClient] Lobby state - ID: " << lobby_id_
+    //           << ", Players: " << static_cast<int>(state.current_player_count)
+    //           << "/" << static_cast<int>(state.required_player_count) << "\n";
 
     if (on_lobby_state_)
         on_lobby_state_(state, players);
@@ -339,7 +490,7 @@ void NetworkClient::handle_countdown(const std::vector<uint8_t>& payload) {
     protocol::ServerGameStartCountdownPayload countdown;
     std::memcpy(&countdown, payload.data(), sizeof(countdown));
 
-    std::cout << "[NetworkClient] Game starting in " << static_cast<int>(countdown.countdown_value) << "s\n";
+    // std::cout << "[NetworkClient] Game starting in " << static_cast<int>(countdown.countdown_value) << "s\n";
 
     if (on_countdown_)
         on_countdown_(countdown.countdown_value);
@@ -356,23 +507,26 @@ void NetworkClient::handle_game_start(const std::vector<uint8_t>& payload) {
 
     session_id_ = ntohl(game_start.game_session_id);
     udp_port_ = ntohs(game_start.udp_port);
+    uint16_t map_id = ntohs(game_start.map_id);
+    float scroll_speed = game_start.scroll_speed;
+    uint32_t level_seed = ntohl(game_start.level_seed);
     in_lobby_ = false;
     in_game_ = true;
 
-    std::cout << "[NetworkClient] Game started! Session: " << session_id_
-              << ", UDP port: " << udp_port_ << "\n";
+    // std::cout << "[NetworkClient] Game started! Session: " << session_id_
+    //           << ", UDP port: " << udp_port_ << ", Map: " << map_id 
+    //           << ", Seed: " << level_seed << "\n";
 
     // Connect UDP for gameplay
     connect_udp(udp_port_);
 
     if (on_game_start_)
-        on_game_start_(session_id_, udp_port_);
+        on_game_start_(session_id_, udp_port_, map_id, scroll_speed, level_seed);
 }
 
 void NetworkClient::handle_entity_spawn(const std::vector<uint8_t>& payload) {
-    if (payload.size() < sizeof(protocol::ServerEntitySpawnPayload)) {
+    if (payload.size() < sizeof(protocol::ServerEntitySpawnPayload))
         return;
-    }
 
     protocol::ServerEntitySpawnPayload spawn;
     std::memcpy(&spawn, payload.data(), sizeof(spawn));
@@ -403,6 +557,18 @@ void NetworkClient::handle_projectile_spawn(const std::vector<uint8_t>& payload)
 
     if (on_projectile_spawn_)
         on_projectile_spawn_(proj_spawn);
+}
+
+void NetworkClient::handle_explosion_event(const std::vector<uint8_t>& payload) {
+    if (payload.size() < sizeof(protocol::ServerExplosionPayload)) {
+        return;
+    }
+
+    protocol::ServerExplosionPayload explosion;
+    std::memcpy(&explosion, payload.data(), sizeof(explosion));
+
+    if (on_explosion_)
+        on_explosion_(explosion);
 }
 
 void NetworkClient::handle_snapshot(const std::vector<uint8_t>& payload) {
@@ -442,11 +608,74 @@ void NetworkClient::handle_game_over(const std::vector<uint8_t>& payload) {
     std::memcpy(&game_over, payload.data(), sizeof(game_over));
 
     in_game_ = false;
-    std::cout << "[NetworkClient] Game over! Result: "
-              << (game_over.result == protocol::GameResult::VICTORY ? "Victory" : "Defeat") << "\n";
+    // std::cout << "[NetworkClient] Game over! Result: "
+    //           << (game_over.result == protocol::GameResult::VICTORY ? "Victory" : "Defeat") << "\n";
 
     if (on_game_over_)
         on_game_over_(game_over);
+}
+
+void NetworkClient::handle_leaderboard(const std::vector<uint8_t>& payload) {
+    if (payload.size() < sizeof(protocol::ServerLeaderboardPayload)) {
+        return;
+    }
+
+    protocol::ServerLeaderboardPayload header;
+    std::memcpy(&header, payload.data(), sizeof(header));
+
+    // Extract entries
+    std::vector<protocol::LeaderboardEntry> entries;
+    size_t expected_size = sizeof(header) + header.entry_count * sizeof(protocol::LeaderboardEntry);
+    if (payload.size() >= expected_size) {
+        entries.reserve(header.entry_count);
+        const uint8_t* entry_data = payload.data() + sizeof(header);
+        for (uint8_t i = 0; i < header.entry_count; ++i) {
+            protocol::LeaderboardEntry entry;
+            std::memcpy(&entry, entry_data + (i * sizeof(protocol::LeaderboardEntry)), sizeof(entry));
+            // Convert from network byte order
+            entry.player_id = ntohl(entry.player_id);
+            entry.score = ntohl(entry.score);
+            entry.kills = ntohs(entry.kills);
+            entry.deaths = ntohs(entry.deaths);
+            entries.push_back(entry);
+        }
+    }
+
+    std::cout << "[NetworkClient] Received leaderboard with " << static_cast<int>(header.entry_count) << " entries\n";
+
+    if (on_leaderboard_)
+        on_leaderboard_(header, entries);
+}
+
+void NetworkClient::handle_global_leaderboard(const std::vector<uint8_t>& payload) {
+    if (payload.size() < sizeof(protocol::ServerGlobalLeaderboardPayload)) {
+        std::cerr << "[NetworkClient] Invalid SERVER_GLOBAL_LEADERBOARD payload size\n";
+        return;
+    }
+
+    protocol::ServerGlobalLeaderboardPayload header;
+    std::memcpy(&header, payload.data(), sizeof(header));
+
+    // Extract entries
+    std::vector<protocol::GlobalLeaderboardEntry> entries;
+    size_t expected_size = sizeof(header) + header.entry_count * sizeof(protocol::GlobalLeaderboardEntry);
+    if (payload.size() >= expected_size) {
+        entries.reserve(header.entry_count);
+        const uint8_t* entry_data = payload.data() + sizeof(header);
+        for (uint8_t i = 0; i < header.entry_count; ++i) {
+            protocol::GlobalLeaderboardEntry entry;
+            std::memcpy(&entry, entry_data + (i * sizeof(protocol::GlobalLeaderboardEntry)), sizeof(entry));
+            // Convert from network byte order
+            entry.score = ntohl(entry.score);
+            entry.timestamp = ntohl(entry.timestamp);
+            entries.push_back(entry);
+        }
+    }
+
+    std::cout << "[NetworkClient] Received global leaderboard with " << static_cast<int>(header.entry_count) << " entries\n";
+
+    if (on_global_leaderboard_)
+        on_global_leaderboard_(header, entries);
 }
 
 void NetworkClient::handle_wave_start(const std::vector<uint8_t>& payload) {
@@ -480,27 +709,255 @@ void NetworkClient::handle_score_update(const std::vector<uint8_t>& payload) {
 
     protocol::ServerScoreUpdatePayload score_update;
     std::memcpy(&score_update, payload.data(), sizeof(score_update));
+    score_update.player_id = ntohl(score_update.player_id);
+    score_update.entity_id = ntohl(score_update.entity_id);
     score_update.score_delta = ntohl(score_update.score_delta);
     score_update.new_total_score = ntohl(score_update.new_total_score);
 
-    std::cout << "[NetworkClient] Score update: +" << static_cast<int>(score_update.score_delta)
+    std::cout << "[NetworkClient] Score update for player " << score_update.player_id
+              << " (entity " << score_update.entity_id << ")"
+              << ": +" << static_cast<int>(score_update.score_delta)
               << " (Total: " << score_update.new_total_score << ")\n";
 
     if (on_score_update_)
         on_score_update_(score_update);
 }
 
+void NetworkClient::handle_player_level_up(const std::vector<uint8_t>& payload) {
+    if (payload.size() < sizeof(protocol::ServerPlayerLevelUpPayload)) {
+        return;
+    }
+
+    protocol::ServerPlayerLevelUpPayload level_up;
+    std::memcpy(&level_up, payload.data(), sizeof(level_up));
+    level_up.player_id = ntohl(level_up.player_id);
+    level_up.entity_id = ntohl(level_up.entity_id);
+    level_up.current_score = ntohl(level_up.current_score);
+
+    std::cout << "[NetworkClient] Player " << level_up.player_id
+              << " leveled up to level " << static_cast<int>(level_up.new_level)
+              << " (ship: " << static_cast<int>(level_up.new_ship_type)
+              << ", weapon: " << static_cast<int>(level_up.new_weapon_type)
+              << ", skin_id: " << static_cast<int>(level_up.new_skin_id) << ")\n";
+
+    if (on_player_level_up_)
+        on_player_level_up_(level_up);
+}
+
+void NetworkClient::handle_powerup_collected(const std::vector<uint8_t>& payload) {
+    if (payload.size() < sizeof(protocol::ServerPowerupCollectedPayload)) {
+        return;
+    }
+
+    protocol::ServerPowerupCollectedPayload powerup;
+    std::memcpy(&powerup, payload.data(), sizeof(powerup));
+    powerup.player_id = ntohl(powerup.player_id);
+
+    // std::cout << "[NetworkClient] Powerup collected by player " << powerup.player_id
+    //           << " type=" << static_cast<int>(powerup.powerup_type) << "\n";
+
+    if (on_powerup_collected_)
+        on_powerup_collected_(powerup);
+}
+
+void NetworkClient::handle_player_respawn(const std::vector<uint8_t>& payload) {
+    if (payload.size() < sizeof(protocol::ServerPlayerRespawnPayload)) {
+        std::cerr << "[NetworkClient] Invalid SERVER_PLAYER_RESPAWN payload\n";
+        return;
+    }
+
+    protocol::ServerPlayerRespawnPayload respawn;
+    std::memcpy(&respawn, payload.data(), sizeof(respawn));
+
+    // std::cout << "[NetworkClient] Player " << respawn.player_id
+    //           << " respawned at (" << respawn.respawn_x << ", " << respawn.respawn_y << ") "
+    //           << "with " << static_cast<int>(respawn.lives_remaining) << " lives\n";
+
+    if (on_player_respawn_)
+        on_player_respawn_(respawn);
+}
+
+void NetworkClient::handle_level_transition(const std::vector<uint8_t>& payload) {
+    if (payload.size() < sizeof(protocol::ServerLevelTransitionPayload)) {
+        return;
+    }
+
+    protocol::ServerLevelTransitionPayload transition;
+    std::memcpy(&transition, payload.data(), sizeof(transition));
+    transition.next_level_id = ntohs(transition.next_level_id);
+
+    // std::cout << "[NetworkClient] Transitioning to level " << transition.next_level_id << "\n";
+
+    if (on_level_transition_)
+        on_level_transition_(transition);
+}
+
+void NetworkClient::handle_level_ready(const std::vector<uint8_t>& payload) {
+    if (payload.size() < sizeof(protocol::ServerLevelReadyPayload)) {
+        return;
+    }
+
+    protocol::ServerLevelReadyPayload level_ready;
+    std::memcpy(&level_ready, payload.data(), sizeof(level_ready));
+    level_ready.level_id = ntohs(level_ready.level_id);
+
+    std::cout << "[NetworkClient] Level " << level_ready.level_id << " ready\n";
+
+    if (on_level_ready_)
+        on_level_ready_(level_ready);
+}
+
+void NetworkClient::handle_room_created(const std::vector<uint8_t>& payload) {
+    if (payload.size() < sizeof(protocol::ServerRoomCreatedPayload)) {
+        return;
+    }
+
+    protocol::ServerRoomCreatedPayload room_created;
+    std::memcpy(&room_created, payload.data(), sizeof(room_created));
+    room_created.room_id = ntohl(room_created.room_id);
+
+    room_id_ = room_created.room_id;
+    in_room_ = true;
+
+    // std::cout << "[NetworkClient] Room created: ID=" << room_id_
+    //           << ", name=" << room_created.room_name << "\n";
+
+    if (on_room_created_)
+        on_room_created_(room_created);
+}
+
+void NetworkClient::handle_room_joined(const std::vector<uint8_t>& payload) {
+    if (payload.size() < sizeof(protocol::ServerRoomJoinedPayload)) {
+        return;
+    }
+
+    protocol::ServerRoomJoinedPayload room_joined;
+    std::memcpy(&room_joined, payload.data(), sizeof(room_joined));
+    room_joined.room_id = ntohl(room_joined.room_id);
+
+    room_id_ = room_joined.room_id;
+    in_room_ = true;
+
+    // std::cout << "[NetworkClient] Joined room " << room_id_ << "\n";
+
+    if (on_room_joined_)
+        on_room_joined_(room_joined);
+}
+
+void NetworkClient::handle_room_left(const std::vector<uint8_t>& payload) {
+    if (payload.size() < sizeof(protocol::ServerRoomLeftPayload)) {
+        return;
+    }
+
+    protocol::ServerRoomLeftPayload room_left;
+    std::memcpy(&room_left, payload.data(), sizeof(room_left));
+    room_left.room_id = ntohl(room_left.room_id);
+    room_left.player_id = ntohl(room_left.player_id);
+
+    if (room_left.player_id == player_id_) {
+        room_id_ = 0;
+        in_room_ = false;
+        // std::cout << "[NetworkClient] Left room " << room_left.room_id << "\n";
+    } else {
+        // std::cout << "[NetworkClient] Player " << room_left.player_id
+        //           << " left room " << room_left.room_id << "\n";
+    }
+
+    if (on_room_left_)
+        on_room_left_(room_left);
+}
+
+void NetworkClient::handle_room_list(const std::vector<uint8_t>& payload) {
+    if (payload.size() < sizeof(protocol::ServerRoomListPayload)) {
+        return;
+    }
+
+    protocol::ServerRoomListPayload room_list_header;
+    std::memcpy(&room_list_header, payload.data(), sizeof(room_list_header));
+    room_list_header.room_count = ntohs(room_list_header.room_count);
+
+    std::vector<protocol::RoomInfo> rooms;
+    size_t offset = sizeof(protocol::ServerRoomListPayload);
+
+    for (uint16_t i = 0; i < room_list_header.room_count; ++i) {
+        if (offset + sizeof(protocol::RoomInfo) > payload.size()) {
+            break;
+        }
+
+        protocol::RoomInfo room;
+        std::memcpy(&room, payload.data() + offset, sizeof(room));
+        room.room_id = ntohl(room.room_id);
+        room.map_id = ntohs(room.map_id);
+
+        rooms.push_back(room);
+        offset += sizeof(protocol::RoomInfo);
+    }
+
+    // std::cout << "[NetworkClient] Received room list: " << rooms.size() << " rooms\n";
+
+    if (on_room_list_)
+        on_room_list_(rooms);
+}
+
+void NetworkClient::handle_room_error(const std::vector<uint8_t>& payload) {
+    if (payload.size() < sizeof(protocol::ServerRoomErrorPayload)) {
+        return;
+    }
+
+    protocol::ServerRoomErrorPayload room_error;
+    std::memcpy(&room_error, payload.data(), sizeof(room_error));
+
+    // std::cout << "[NetworkClient] Room error: " << room_error.error_message << "\n";
+
+    if (on_room_error_)
+        on_room_error_(room_error);
+}
+
+void NetworkClient::handle_player_name_updated(const std::vector<uint8_t>& payload) {
+    if (payload.size() < sizeof(protocol::ServerPlayerNameUpdatedPayload)) {
+        return;
+    }
+
+    protocol::ServerPlayerNameUpdatedPayload name_updated;
+    std::memcpy(&name_updated, payload.data(), sizeof(name_updated));
+    name_updated.player_id = ntohl(name_updated.player_id);
+    name_updated.room_id = ntohl(name_updated.room_id);
+
+    // std::cout << "[NetworkClient] Player " << name_updated.player_id
+    //           << " changed name to '" << name_updated.new_name << "'\n";
+
+    if (on_player_name_updated_)
+        on_player_name_updated_(name_updated);
+}
+
+void NetworkClient::handle_player_skin_updated(const std::vector<uint8_t>& payload) {
+    if (payload.size() < sizeof(protocol::ServerPlayerSkinUpdatedPayload)) {
+        return;
+    }
+
+    protocol::ServerPlayerSkinUpdatedPayload skin_updated;
+    std::memcpy(&skin_updated, payload.data(), sizeof(skin_updated));
+    skin_updated.player_id = ntohl(skin_updated.player_id);
+    skin_updated.room_id = ntohl(skin_updated.room_id);
+
+    // std::cout << "[NetworkClient] Player " << skin_updated.player_id
+    //           << " changed skin to " << static_cast<int>(skin_updated.skin_id) << "\n";
+
+    if (on_player_skin_updated_)
+        on_player_skin_updated_(skin_updated);
+}
+
 // ============== UDP Connection ==============
 
 void NetworkClient::connect_udp(uint16_t udp_port) {
-    std::cout << "[NetworkClient] Connecting UDP to " << server_host_ << ":" << udp_port << "...\n";
+    // std::cout << "[NetworkClient] Connecting UDP to " << server_host_ << ":" << udp_port << "...\n";
 
     if (!network_plugin_.connect_udp(server_host_, udp_port)) {
         std::cerr << "[NetworkClient] Failed to connect UDP\n";
         return;
     }
 
-    std::cout << "[NetworkClient] UDP connected, sending handshake...\n";
+    // std::cout << "[NetworkClient] UDP connected, sending handshake...\n";
     send_udp_handshake();
 }
 
@@ -512,8 +969,8 @@ void NetworkClient::send_udp_handshake() {
     send_udp_packet(protocol::PacketType::CLIENT_UDP_HANDSHAKE,
                     serialize_payload(&payload, sizeof(payload)));
 
-    std::cout << "[NetworkClient] UDP handshake sent (player=" << player_id_
-              << ", session=" << session_id_ << ")\n";
+    // std::cout << "[NetworkClient] UDP handshake sent (player=" << player_id_
+    //           << ", session=" << session_id_ << ")\n";
 }
 
 // ============== Packet Building ==============
@@ -524,15 +981,18 @@ void NetworkClient::send_tcp_packet(protocol::PacketType type, const std::vector
         return;
     }
 
-    protocol::PacketHeader header;
-    header.version = 0x01;
-    header.type = static_cast<uint8_t>(type);
-    header.payload_length = static_cast<uint16_t>(payload.size());
-    header.sequence_number = 0;
+    // Use ProtocolEncoder to handle compression automatically
+    // Pass nullptr if payload is empty to avoid undefined behavior
+    const void* payload_ptr = payload.empty() ? nullptr : payload.data();
+    std::vector<uint8_t> packet_data = protocol::ProtocolEncoder::encode_packet(
+        type,
+        payload_ptr,
+        payload.size(),
+        tcp_sequence_number_++
+    );
 
-    std::vector<uint8_t> packet_data(protocol::HEADER_SIZE);
-    protocol::ProtocolEncoder::encode_header(header, packet_data.data());
-    packet_data.insert(packet_data.end(), payload.begin(), payload.end());
+    // std::cout << "[NetworkClient] DEBUG: Sending TCP packet type=" << static_cast<int>(type)
+    //           << ", total_size=" << packet_data.size() << " bytes, payload_size=" << payload.size() << "\n";
 
     engine::NetworkPacket packet;
     packet.data = packet_data;
@@ -545,15 +1005,15 @@ void NetworkClient::send_udp_packet(protocol::PacketType type, const std::vector
         return;
     }
 
-    protocol::PacketHeader header;
-    header.version = 0x01;
-    header.type = static_cast<uint8_t>(type);
-    header.payload_length = static_cast<uint16_t>(payload.size());
-    header.sequence_number = 0;
-
-    std::vector<uint8_t> packet_data(protocol::HEADER_SIZE);
-    protocol::ProtocolEncoder::encode_header(header, packet_data.data());
-    packet_data.insert(packet_data.end(), payload.begin(), payload.end());
+    // Use ProtocolEncoder to handle compression automatically
+    // Pass nullptr if payload is empty to avoid undefined behavior
+    const void* payload_ptr = payload.empty() ? nullptr : payload.data();
+    std::vector<uint8_t> packet_data = protocol::ProtocolEncoder::encode_packet(
+        type,
+        payload_ptr,
+        payload.size(),
+        udp_sequence_number_++
+    );
 
     engine::NetworkPacket packet;
     packet.data = packet_data;
@@ -584,7 +1044,7 @@ void NetworkClient::set_on_countdown(std::function<void(uint8_t)> callback) {
     on_countdown_ = callback;
 }
 
-void NetworkClient::set_on_game_start(std::function<void(uint32_t, uint16_t)> callback) {
+void NetworkClient::set_on_game_start(std::function<void(uint32_t, uint16_t, uint16_t, float, uint32_t)> callback) {
     on_game_start_ = callback;
 }
 
@@ -598,6 +1058,10 @@ void NetworkClient::set_on_entity_destroy(std::function<void(const protocol::Ser
 
 void NetworkClient::set_on_projectile_spawn(std::function<void(const protocol::ServerProjectileSpawnPayload&)> callback) {
     on_projectile_spawn_ = callback;
+}
+
+void NetworkClient::set_on_explosion(std::function<void(const protocol::ServerExplosionPayload&)> callback) {
+    on_explosion_ = callback;
 }
 
 void NetworkClient::set_on_snapshot(std::function<void(const protocol::ServerSnapshotPayload&, const std::vector<protocol::EntityState>&)> callback) {
@@ -622,6 +1086,186 @@ void NetworkClient::set_on_wave_complete(std::function<void(const protocol::Serv
 
 void NetworkClient::set_on_score_update(std::function<void(const protocol::ServerScoreUpdatePayload&)> callback) {
     on_score_update_ = callback;
+}
+
+void NetworkClient::set_on_player_level_up(std::function<void(const protocol::ServerPlayerLevelUpPayload&)> callback) {
+    on_player_level_up_ = callback;
+}
+
+void NetworkClient::set_on_powerup_collected(std::function<void(const protocol::ServerPowerupCollectedPayload&)> callback) {
+    on_powerup_collected_ = callback;
+}
+
+void NetworkClient::set_on_player_respawn(std::function<void(const protocol::ServerPlayerRespawnPayload&)> callback) {
+    on_player_respawn_ = callback;
+}
+
+void NetworkClient::set_on_level_transition(std::function<void(const protocol::ServerLevelTransitionPayload&)> callback) {
+    on_level_transition_ = callback;
+}
+
+void NetworkClient::set_on_level_ready(std::function<void(const protocol::ServerLevelReadyPayload&)> callback) {
+    on_level_ready_ = callback;
+}
+
+void NetworkClient::set_on_leaderboard(std::function<void(const protocol::ServerLeaderboardPayload&, const std::vector<protocol::LeaderboardEntry>&)> callback) {
+    on_leaderboard_ = callback;
+}
+
+void NetworkClient::set_on_global_leaderboard(std::function<void(const protocol::ServerGlobalLeaderboardPayload&, const std::vector<protocol::GlobalLeaderboardEntry>&)> callback) {
+    on_global_leaderboard_ = callback;
+}
+
+void NetworkClient::set_on_room_created(std::function<void(const protocol::ServerRoomCreatedPayload&)> callback) {
+    on_room_created_ = callback;
+}
+
+void NetworkClient::set_on_room_joined(std::function<void(const protocol::ServerRoomJoinedPayload&)> callback) {
+    on_room_joined_ = callback;
+}
+
+void NetworkClient::set_on_room_left(std::function<void(const protocol::ServerRoomLeftPayload&)> callback) {
+    on_room_left_ = callback;
+}
+
+void NetworkClient::set_on_room_list(std::function<void(const std::vector<protocol::RoomInfo>&)> callback) {
+    on_room_list_ = callback;
+}
+
+void NetworkClient::set_on_room_error(std::function<void(const protocol::ServerRoomErrorPayload&)> callback) {
+    on_room_error_ = callback;
+}
+
+void NetworkClient::set_on_player_name_updated(std::function<void(const protocol::ServerPlayerNameUpdatedPayload&)> callback) {
+    on_player_name_updated_ = callback;
+}
+
+void NetworkClient::set_on_player_skin_updated(std::function<void(const protocol::ServerPlayerSkinUpdatedPayload&)> callback) {
+    on_player_skin_updated_ = callback;
+}
+
+void NetworkClient::send_admin_auth(const std::string& password) {
+    protocol::ClientAdminAuthPayload payload;
+    payload.client_id = htonl(player_id_);
+    std::hash<std::string> hasher;
+    std::ostringstream oss;
+
+    oss << std::hex << hasher(password);
+    payload.set_password_hash(oss.str());
+    payload.set_username("Admin");
+    send_tcp_packet(protocol::PacketType::CLIENT_ADMIN_AUTH,
+                   serialize_payload(&payload, sizeof(payload)));
+    std::cout << "[NetworkClient] Sent admin auth request\n";
+}
+
+void NetworkClient::send_admin_command(const std::string& command) {
+    if (!is_admin_authenticated_) {
+        std::cerr << "[NetworkClient] Cannot send command: not authenticated\n";
+        return;
+    }
+    protocol::ClientAdminCommandPayload payload;
+    payload.admin_id = htonl(player_id_);
+    payload.set_command(command);
+    send_tcp_packet(protocol::PacketType::CLIENT_ADMIN_COMMAND,
+                   serialize_payload(&payload, sizeof(payload)));
+}
+
+void NetworkClient::set_on_admin_auth_result(AdminAuthCallback callback) {
+    on_admin_auth_result_ = callback;
+}
+
+void NetworkClient::set_on_admin_command_result(AdminCommandResultCallback callback) {
+    on_admin_command_result_ = callback;
+}
+
+void NetworkClient::handle_admin_auth_result(const std::vector<uint8_t>& payload) {
+    if (payload.size() != sizeof(protocol::ServerAdminAuthResultPayload)) {
+        std::cerr << "[NetworkClient] Invalid SERVER_ADMIN_AUTH_RESULT payload size\n";
+        return;
+    }
+    protocol::ServerAdminAuthResultPayload data;
+    std::memcpy(&data, payload.data(), sizeof(data));
+    bool success = data.success != 0;
+    std::string message = success ? "Admin authenticated"
+                                  : std::string(data.failure_reason);
+    is_admin_authenticated_ = success;
+    if (on_admin_auth_result_)
+        on_admin_auth_result_(success, message);
+    std::cout << "[NetworkClient] Admin auth result: "
+              << (success ? "SUCCESS" : "FAILED") << "\n";
+}
+
+void NetworkClient::handle_admin_command_result(const std::vector<uint8_t>& payload) {
+    if (payload.size() != sizeof(protocol::ServerAdminCommandResultPayload)) {
+        std::cerr << "[NetworkClient] Invalid SERVER_ADMIN_COMMAND_RESULT payload size\n";
+        return;
+    }
+    protocol::ServerAdminCommandResultPayload data;
+    std::memcpy(&data, payload.data(), sizeof(data));
+    bool success = data.success != 0;
+    std::string message(data.message);
+    if (on_admin_command_result_)
+        on_admin_command_result_(success, message);
+}
+
+void NetworkClient::handle_admin_notification(const std::vector<uint8_t>& payload) {
+    if (payload.size() != sizeof(protocol::ServerAdminNotificationPayload)) {
+        std::cerr << "[NetworkClient] Invalid SERVER_ADMIN_NOTIFICATION payload size\n";
+        return;
+    }
+    protocol::ServerAdminNotificationPayload data;
+    std::memcpy(&data, payload.data(), sizeof(data));
+    std::string message(data.message);
+
+    if (on_admin_command_result_)
+        on_admin_command_result_(true, "[SERVER] " + message);
+}
+
+void NetworkClient::handle_kick_notification(const std::vector<uint8_t>& payload) {
+    if (payload.size() != sizeof(protocol::ServerKickNotificationPayload)) {
+        std::cerr << "[NetworkClient] Invalid SERVER_KICK_NOTIFICATION payload size\n";
+        return;
+    }
+    protocol::ServerKickNotificationPayload data;
+    std::memcpy(&data, payload.data(), sizeof(data));
+    std::string reason(data.reason);
+    std::cout << "[NetworkClient] Kicked from server: " << reason << "\n";
+
+    if (on_admin_command_result_)
+        on_admin_command_result_(false, "KICKED: " + reason);
+}
+
+// ============== Chat ==============
+
+void NetworkClient::send_chat_message(const std::string& message) {
+    protocol::ClientChatMessagePayload payload;
+    payload.player_id = htonl(player_id_);
+    payload.set_message(message);
+    send_tcp_packet(protocol::PacketType::CLIENT_CHAT_MESSAGE,
+                   serialize_payload(&payload, sizeof(payload)));
+}
+
+void NetworkClient::set_on_chat_message(ChatMessageCallback callback) {
+    on_chat_message_ = callback;
+}
+
+void NetworkClient::handle_chat_message(const std::vector<uint8_t>& payload) {
+    if (payload.size() != sizeof(protocol::ServerChatMessagePayload)) {
+        std::cerr << "[NetworkClient] Invalid SERVER_CHAT_MESSAGE payload size: "
+                  << payload.size() << " (expected " << sizeof(protocol::ServerChatMessagePayload) << ")\n";
+        return;
+    }
+    protocol::ServerChatMessagePayload data;
+    std::memcpy(&data, payload.data(), sizeof(data));
+
+    uint32_t sender_id = ntohl(data.sender_id);
+    std::string sender_name(data.sender_name, strnlen(data.sender_name, sizeof(data.sender_name)));
+    std::string message(data.message, strnlen(data.message, sizeof(data.message)));
+
+    std::cout << "[NetworkClient] Chat received from " << sender_name << ": " << message << "\n";
+
+    if (on_chat_message_)
+        on_chat_message_(sender_id, sender_name, message);
 }
 
 }

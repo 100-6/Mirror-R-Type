@@ -23,6 +23,37 @@ Bienvenue dans la documentation du projet R-Type!
   - Interface utilisateur
   - Configuration et déploiement
 
+### Network Protocol
+
+- **[UDP_ACK_SYSTEM.md](UDP_ACK_SYSTEM.md)** - UDP Acknowledgment System
+  - Why ACK over UDP?
+  - Sequence number-based ACK architecture
+  - Client-side and server-side implementation
+  - Data flow scenarios (packet loss, out-of-order)
+  - Metrics and monitoring
+  - Comparison with TCP, QUIC, and ENet
+
+- **[PROTOCOL.md](PROTOCOL.md)** - Complete Network Protocol Specification
+  - Packet structures and formats
+  - All packet types (client-to-server and server-to-client)
+  - LZ4 compression system
+  - Connection flows and gameplay loops
+
+### Game Systems
+
+- **[WAVE_SYSTEM.md](WAVE_SYSTEM.md)** - Système de vagues d'ennemis
+  - Configuration JSON des vagues
+  - Spawning d'ennemis
+  - Patterns de déploiement
+  - Gestion de la difficulté
+
+- **[PROCEDURAL_GENERATION.md](PROCEDURAL_GENERATION.md)** - Génération procédurale de maps
+  - Architecture du système
+  - Algorithmes de génération
+  - Synchronisation client-serveur
+  - Configuration et paramètres
+  - Performance et optimisation
+
 ### Refactorisation
 
 - **[../REFACTORING.md](../REFACTORING.md)** - Documentation de la refactorisation complète
@@ -51,6 +82,10 @@ Bienvenue dans la documentation du projet R-Type!
 - Consultez [CLIENT_ARCHITECTURE.md](CLIENT_ARCHITECTURE.md) section "Composants principaux"
 - Comprenez l'architecture ECS
 - Étudiez la synchronisation réseau
+
+#### Game Systems
+- Pour les vagues d'ennemis: [WAVE_SYSTEM.md](WAVE_SYSTEM.md)
+- Pour la génération de maps: [PROCEDURAL_GENERATION.md](PROCEDURAL_GENERATION.md)
 
 ## 🏗️ Architecture générale
 

@@ -8,9 +8,15 @@
 #include "systems/AISystem.hpp"
 #include "components/CombatHelpers.hpp"
 #include "ecs/events/GameEvents.hpp"
+#include "AssetsPaths.hpp"
 #include <iostream>
 #include <cmath>
 #include <cstdlib> // for rand()
+
+namespace {
+constexpr float ENEMY_PROJECTILE_WIDTH = 28.0f;
+constexpr float ENEMY_PROJECTILE_HEIGHT = 12.0f;
+}
 
 AISystem::AISystem(engine::IGraphicsPlugin& graphics)
     : graphics_(graphics)
@@ -22,7 +28,7 @@ void AISystem::init(Registry& registry)
     std::cout << "AISystem: Initialisation" << std::endl;
 
     // Load textures for bullets only (enemies are spawned by WaveSpawnerSystem)
-    bulletTex_ = graphics_.load_texture("assets/sprite/bullet.png");
+    bulletTex_ = graphics_.load_texture(assets::paths::BULLET_ANIMATION);
 }
 
 void AISystem::shutdown()
@@ -68,12 +74,16 @@ void AISystem::updateEnemyBehavior(Registry& registry, float dt)
     auto& positions = registry.get_components<Position>();
     auto& velocities = registry.get_components<Velocity>();
     auto& sprites = registry.get_components<Sprite>();
+    auto& kamikazes = registry.get_components<Kamikaze>();
 
     for (size_t i = 0; i < ais.size(); ++i) {
         Entity e = ais.get_entity_at(i);
         auto& ai = ais[e];
-        
+
         if (!positions.has_entity(e) || !velocities.has_entity(e)) continue;
+
+        // Kamikazes don't use standard AI behavior (they use Lua scripts)
+        bool isKamikaze = kamikazes.has_entity(e);
 
         auto& pos = positions[e];
         auto& vel = velocities[e];
@@ -117,7 +127,9 @@ void AISystem::updateEnemyBehavior(Registry& registry, float dt)
             }
         }
 
-        // 2. Shooting Logic
+        // 2. Shooting Logic (kamikazes don't shoot)
+        if (isKamikaze) continue;
+
         ai.timeSinceLastShot += dt;
         if (ai.timeSinceLastShot >= ai.shootCooldown) {
             // Check if player is in front (roughly)
@@ -135,7 +147,8 @@ void AISystem::updateEnemyBehavior(Registry& registry, float dt)
             if (shouldShoot) {
                  ai.timeSinceLastShot = 0.0f;
                  
-                 engine::Vector2f bulletSize = graphics_.get_texture_size(bulletTex_);
+                 const float bulletWidth = ENEMY_PROJECTILE_WIDTH;
+                 const float bulletHeight = ENEMY_PROJECTILE_HEIGHT;
                  float spawnX = pos.x;
                  float spawnY = pos.y;
                  if (sprites.has_entity(e)) {
@@ -146,9 +159,20 @@ void AISystem::updateEnemyBehavior(Registry& registry, float dt)
                      Entity bullet = registry.spawn_entity();
                      registry.add_component(bullet, Position{spawnX, spawnY});
                      registry.add_component(bullet, Velocity{-400.0f, vy_offset}); // Shoot left with optional Y spread
-                     registry.add_component(bullet, Sprite{bulletTex_, bulletSize.x, bulletSize.y, 0.0f, engine::Color{255, 100, 100, 255}}); 
-                     registry.add_component(bullet, Collider{bulletSize.x, bulletSize.y});
+                     Sprite bulletSprite{
+                         bulletTex_,
+                         bulletWidth,
+                         bulletHeight,
+                         0.0f,
+                         engine::Color{255, 100, 100, 255}
+                     };
+                     bulletSprite.source_rect = {16.0f, 0.0f, 16.0f, 16.0f};
+                     bulletSprite.origin_x = bulletWidth / 2.0f;
+                     bulletSprite.origin_y = bulletHeight / 2.0f;
+                     registry.add_component(bullet, bulletSprite);
+                     registry.add_component(bullet, Collider{bulletWidth, bulletHeight});
                      registry.add_component(bullet, Projectile{180.0f, 5.0f, 0.0f, ProjectileFaction::Enemy});
+                     registry.add_component(bullet, ProjectileOwner{e});  // Track which enemy fired this
                      registry.add_component(bullet, NoFriction{});
                  };
 

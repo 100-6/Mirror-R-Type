@@ -7,6 +7,8 @@
 
 #include "systems/GameStateSystem.hpp"
 #include "ecs/events/InputEvents.hpp"
+#include "ecs/events/GameEvents.hpp"
+#include "AssetsPaths.hpp"
 #include <sstream>
 #include <iomanip>
 #include <iostream>
@@ -33,8 +35,22 @@ void GameStateSystem::init(Registry& registry) {
         }
     });
 
+    // Subscribe to leaderboard events
+    eventBus.subscribe<ecs::LeaderboardReceivedEvent>([this](const ecs::LeaderboardReceivedEvent& event) {
+        std::vector<LeaderboardDisplayEntry> entries;
+        for (const auto& e : event.entries) {
+            LeaderboardDisplayEntry entry;
+            entry.player_id = e.player_id;
+            entry.player_name = e.player_name;
+            entry.score = e.score;
+            entry.rank = e.rank;
+            entries.push_back(entry);
+        }
+        setLeaderboard(entries);
+    });
+
     // Load background texture for Game Over/Victory screens
-    m_backgroundTexture = m_graphicsPlugin.load_texture("assets/sprite/background_rtype_menu.png");
+    m_backgroundTexture = m_graphicsPlugin.load_texture(assets::paths::BACKGROUND_MENU);
     if (m_backgroundTexture == engine::INVALID_HANDLE) {
         std::cerr << "GameStateSystem: Failed to load background texture!" << std::endl;
     } else {
@@ -201,6 +217,11 @@ void GameStateSystem::update(Registry& registry, float dt) {
             state.stateTimer += dt;
             updateOverlayAnimation(registry, dt);
 
+            // Render leaderboard if available
+            if (!m_leaderboardEntries.empty()) {
+                renderLeaderboard();
+            }
+
             // Check for restart input (R key via event system)
             if (m_restartKeyPressed) {
                 state.restartRequested = true;
@@ -366,5 +387,67 @@ void GameStateSystem::updateOverlayAnimation(Registry& registry, float dt) {
             UIPanel& panel = panels[m_overlayPanelEntity];
             panel.backgroundColor.a = static_cast<uint8_t>(180 * m_fadeAlpha);
         }
+    }
+}
+
+void GameStateSystem::setLeaderboard(const std::vector<LeaderboardDisplayEntry>& entries) {
+    m_leaderboardEntries = entries;
+    std::cout << "[GameStateSystem] Leaderboard set with " << entries.size() << " entries" << std::endl;
+}
+
+void GameStateSystem::renderLeaderboard() {
+    if (m_leaderboardEntries.empty())
+        return;
+
+    // Calculate overlay position
+    float overlayX = (m_screenWidth - OVERLAY_WIDTH) / 2.0f;
+    float overlayY = (m_screenHeight - OVERLAY_HEIGHT) / 2.0f;
+
+    // Leaderboard starts below the "FINAL SCORE" section
+    float leaderboardStartY = overlayY + 210.0f;
+    float entryHeight = 30.0f;
+
+    // Draw "LEADERBOARD" header
+    engine::Vector2f headerPos{overlayX + OVERLAY_WIDTH / 2.0f - 70.0f, leaderboardStartY};
+    m_graphicsPlugin.draw_text("LEADERBOARD", headerPos, {180, 180, 200, 255}, engine::INVALID_HANDLE, 20);
+
+    leaderboardStartY += 30.0f;
+
+    // Draw each entry
+    for (size_t i = 0; i < m_leaderboardEntries.size() && i < 4; ++i) {
+        const auto& entry = m_leaderboardEntries[i];
+
+        float entryY = leaderboardStartY + (i * entryHeight);
+
+        // Rank color (gold, silver, bronze, white)
+        engine::Color rankColor;
+        switch (i) {
+            case 0: rankColor = {255, 215, 0, 255}; break;    // Gold
+            case 1: rankColor = {192, 192, 192, 255}; break;  // Silver
+            case 2: rankColor = {205, 127, 50, 255}; break;   // Bronze
+            default: rankColor = {200, 200, 200, 255}; break; // White
+        }
+
+        // Format: "#1  PlayerName       12345"
+        std::stringstream ss;
+        ss << "#" << static_cast<int>(entry.rank) << "  ";
+
+        // Draw rank
+        engine::Vector2f rankPos{overlayX + 40.0f, entryY};
+        m_graphicsPlugin.draw_text(ss.str(), rankPos, rankColor, engine::INVALID_HANDLE, 18);
+
+        // Draw player name (truncate if too long)
+        std::string displayName = entry.player_name;
+        if (displayName.length() > 15) {
+            displayName = displayName.substr(0, 12) + "...";
+        }
+        engine::Vector2f namePos{overlayX + 90.0f, entryY};
+        m_graphicsPlugin.draw_text(displayName, namePos, {255, 255, 255, 255}, engine::INVALID_HANDLE, 18);
+
+        // Draw score (right-aligned)
+        std::stringstream scoreSs;
+        scoreSs << std::setw(8) << std::setfill('0') << entry.score;
+        engine::Vector2f scorePos{overlayX + OVERLAY_WIDTH - 130.0f, entryY};
+        m_graphicsPlugin.draw_text(scoreSs.str(), scorePos, rankColor, engine::INVALID_HANDLE, 18);
     }
 }

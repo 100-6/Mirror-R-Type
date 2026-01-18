@@ -89,6 +89,7 @@ route_packet()
 - `on_client_leave_lobby` - Demande de quitter un lobby
 - `on_udp_handshake` - Handshake UDP
 - `on_client_input` - Input du joueur
+- `on_client_chat_message` - Message de chat d'un joueur
 
 ### 3. PacketSender
 
@@ -217,6 +218,31 @@ Client 1, 2, 3          Server                    GameSession
 
 **Légende**: `───►` TCP, `═══►` UDP
 
+### Flux de chat
+
+```
+Client 1                Server                    Client 2, 3, 4
+  │                       │                           │
+  ├──► CLIENT_CHAT_MSG ──►│                           │
+  │     (message)         │                           │
+  │                       ├─► lookup player_id        │
+  │                       │   get player_name         │
+  │                       │                           │
+  │                       ├─► determine scope:        │
+  │                       │   - in_lobby → broadcast  │
+  │                       │     to lobby members      │
+  │                       │   - in_game → broadcast   │
+  │                       │     to session members    │
+  │                       │                           │
+  │◄── SERVER_CHAT_MSG ───┼───────────────────────────►
+  │     (sender_name,     │                           │
+  │      message)         │                           │
+```
+
+Le serveur route les messages de chat selon l'état du joueur:
+- **En lobby**: Broadcast aux membres du même lobby (`in_lobby` && `lobby_id`)
+- **En jeu**: Broadcast aux membres de la même session (`in_game` && `session_id`)
+
 ### Boucle de jeu
 
 ```
@@ -260,6 +286,7 @@ Client                  Server                    GameSession
 - `CLIENT_PING` - Mesure de latence
 - `CLIENT_JOIN_LOBBY` - Rejoindre un lobby
 - `CLIENT_LEAVE_LOBBY` - Quitter un lobby
+- `CLIENT_CHAT_MESSAGE` - Message de chat
 
 **TCP - Server → Client**:
 - `SERVER_ACCEPT` - Acceptation de connexion
@@ -268,6 +295,7 @@ Client                  Server                    GameSession
 - `SERVER_LOBBY_STATE` - État du lobby
 - `SERVER_GAME_START_COUNTDOWN` - Countdown
 - `SERVER_GAME_START` - Début de partie
+- `SERVER_CHAT_MESSAGE` - Broadcast d'un message de chat
 
 **UDP - Client → Server**:
 - `CLIENT_UDP_HANDSHAKE` - Association UDP/TCP
@@ -370,9 +398,15 @@ Le `GameSessionManager` nettoie automatiquement les sessions inactives à chaque
 ### Optimisations
 
 1. **Delta Snapshots**: Seules les entités qui ont changé sont envoyées
-2. **UDP pour gameplay**: Réduction de la latence
-3. **Pooling d'entités**: Réutilisation des entités détruites
-4. **Spatial partitioning**: Pour les collisions (dans GameSession)
+2. **Entity Prioritization**: Les snapshots priorisent les entités critiques:
+   - **PLAYER** (priorité maximale) - toujours inclus
+   - **PROJECTILE** (haute priorité) - inclus pour un gameplay précis
+   - **ENEMY** (priorité moyenne) - inclus pour la synchronisation
+   - **WALL** exclus des snapshots (défilement prédictible côté client)
+3. **Snapshot Size Limit**: Maximum 55 entités par snapshot (payload 1387 bytes / 25 bytes par EntityState)
+4. **UDP pour gameplay**: Réduction de la latence
+5. **Pooling d'entités**: Réutilisation des entités détruites
+6. **Spatial partitioning**: Pour les collisions (dans GameSession)
 
 ## Déploiement
 

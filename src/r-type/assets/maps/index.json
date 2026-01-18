@@ -1,0 +1,36 @@
+{
+    "maps": [
+        {
+            "id": "level_1_mars_assault",
+            "name": "Level 1: Mars Assault",
+            "description": "Storm the Martian defense installations (13 waves + boss)",
+            "difficulty": 1,
+            "thumbnail": "assets/maps/mars_outpost/thumbnail.png",
+            "wavesConfig": "assets/levels/level_1_mars_assault.json"
+        },
+        {
+            "id": "level_2_nebula_station",
+            "name": "Level 2: Nebula Station",
+            "description": "Assault the nebula defense station (18 waves + boss)",
+            "difficulty": 2,
+            "thumbnail": "assets/maps/nebula_outpost/thumbnail.png",
+            "wavesConfig": "assets/levels/level_2_nebula_station.json"
+        },
+        {
+            "id": "level_3_uranus_station",
+            "name": "Level 3: Uranus Station",
+            "description": "Assault the frozen ice planet installations (15 waves + boss)",
+            "difficulty": 3,
+            "thumbnail": "assets/maps/urasnus_outpost/thumbnail.png",
+            "wavesConfig": "assets/levels/level_3_uranus_station.json"
+        },
+        {
+            "id": "level_4_jupiter_orbit",
+            "name": "Level 4: Jupiter Orbit",
+            "description": "Navigate the turbulent orbital installations around Jupiter (16 waves + boss)",
+            "difficulty": 4,
+            "thumbnail": "assets/maps/jupiter_outpost/thumbnail.png",
+            "wavesConfig": "assets/levels/level_4_jupiter_orbit.json"
+        }
+    ]
+}

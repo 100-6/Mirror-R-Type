@@ -17,6 +17,12 @@
 
 namespace rtype::server {
 
+struct BonusDropConfig {
+    bool enabled = false;
+    std::string bonus_type = "health";  // "health", "shield", "speed", "bonus_weapon"
+    float drop_chance = 1.0f;
+};
+
 struct SpawnConfig {
     std::string type;           // "enemy", "wall", or "powerup"
     std::string enemy_type;     // "basic", "fast", "tank", "boss" (for enemies)
@@ -26,10 +32,12 @@ struct SpawnConfig {
     uint32_t count;
     std::string pattern;        // "single", "line", "formation"
     float spacing;
+    BonusDropConfig bonus_drop; // Optional bonus drop on death (for enemies)
 };
 
 struct WaveTrigger {
-    float scroll_distance;
+    int chunk_id = 0;
+    float offset = 0.0f;
     float time_delay;
 };
 
@@ -39,8 +47,11 @@ struct Wave {
     std::vector<SpawnConfig> spawns;
     bool completed;
     bool triggered;
+    float time_since_triggered;
+    uint32_t triggered_generation;  // Generation when wave was triggered
 
-    Wave() : wave_number(0), completed(false), triggered(false) {}
+    Wave() : wave_number(0), completed(false), triggered(false),
+             time_since_triggered(0.0f), triggered_generation(0) {}
 };
 
 struct WaveConfig {
@@ -71,9 +82,10 @@ public:
     void set_listener(IWaveListener* listener) { listener_ = listener; }
 
     /**
-     * @brief Load wave configuration from JSON file
+     * @brief Load waves from level phases (for level system)
+     * @param phases Vector of phases containing waves
      */
-    bool load_from_file(const std::string& filepath);
+    void load_from_phases(const std::vector<Wave>& all_waves);
 
     // === Update ===
 
@@ -88,6 +100,26 @@ public:
      */
     void reset();
 
+    /**
+     * @brief Reset to a specific wave number
+     * @param wave_number Target wave number to reset to
+     */
+    void reset_to_wave(uint32_t wave_number);
+
+    /**
+     * @brief Immediately spawn a specific wave, bypassing triggers
+     * @param wave_number Wave number to spawn
+     * @return true if wave found and spawned
+     */
+    bool spawn_wave(uint32_t wave_number);
+
+    /**
+     * @brief Get the scroll distance where a wave starts
+     * @param wave_number Wave number to look up
+     * @return float Scroll distance, or 0.0f if not found
+     */
+    float get_wave_start_scroll(uint32_t wave_number) const;
+
     // === Queries ===
 
     uint32_t get_total_waves() const { return config_.waves.size(); }
@@ -95,19 +127,38 @@ public:
     bool all_waves_complete() const;
 
     /**
-     * @brief Select map file based on game mode and difficulty
+     * @brief Get all waves (for broadcasting after reset)
+     * @return const reference to waves vector
      */
-    static std::string get_map_file(protocol::GameMode mode, protocol::Difficulty difficulty);
+    const std::vector<Wave>& get_waves() const { return config_.waves; }
+
+    /**
+     * @brief Select map file based on map_id
+     * @param map_id 1=Nebula Outpost, 2=Asteroid Belt, 3=Bydo Mothership
+     */
+    static std::string get_map_file(uint16_t map_id);
+
+    /**
+     * @brief Enable or disable procedural wave generation
+     */
+    void set_procedural_enabled(bool enabled) { procedural_enabled_ = enabled; }
 
 private:
     WaveConfig config_;
     uint32_t current_wave_index_;
     float accumulated_time_;
+    uint32_t wave_generation_;  // Increments on each reset
     IWaveListener* listener_ = nullptr;
+    
+    // Procedural generation state
+    bool procedural_enabled_ = false;
 
     void check_wave_triggers(float current_scroll);
+    void check_wave_completion(float delta_time);
     void trigger_wave(Wave& wave);
     void spawn_from_config(const SpawnConfig& spawn);
+    
+    void generate_procedural_wave(float current_scroll);
 };
 
 }

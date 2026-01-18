@@ -32,17 +32,45 @@ struct Lobby {
     std::chrono::steady_clock::time_point countdown_start;
     uint16_t map_id;
 
+    std::string room_name;
+    std::string password_hash;
+    uint32_t host_player_id;
+    bool is_custom_room;
+    protocol::RoomStatus status;
+
     Lobby(uint32_t id, protocol::GameMode mode, protocol::Difficulty diff)
         : lobby_id(id)
         , game_mode(mode)
         , difficulty(diff)
         , max_players(get_max_players_for_mode(mode))
         , countdown_active(false)
-        , map_id(0) {}
+        , map_id(0)
+        , room_name("")
+        , password_hash("")
+        , host_player_id(0)
+        , is_custom_room(false)
+        , status(protocol::RoomStatus::WAITING) {}
+
+    Lobby(uint32_t id, protocol::GameMode mode, protocol::Difficulty diff,
+          const std::string& name, const std::string& pwd_hash,
+          uint32_t host, uint16_t map, uint8_t max_plrs = 0)
+        : lobby_id(id)
+        , game_mode(mode)
+        , difficulty(diff)
+        , max_players(max_plrs > 0 ? max_plrs : get_max_players_for_mode(mode))
+        , countdown_active(false)
+        , map_id(map)
+        , room_name(name)
+        , password_hash(pwd_hash)
+        , host_player_id(host)
+        , is_custom_room(true)
+        , status(protocol::RoomStatus::WAITING) {}
 
     bool is_full() const { return player_ids.size() >= max_players; }
     bool has_space() const { return player_ids.size() < max_players; }
     bool is_empty() const { return player_ids.empty(); }
+    bool is_private() const { return !password_hash.empty(); }
+    bool is_host(uint32_t player_id) const { return host_player_id == player_id; }
 
 private:
     static uint8_t get_max_players_for_mode(protocol::GameMode mode) {

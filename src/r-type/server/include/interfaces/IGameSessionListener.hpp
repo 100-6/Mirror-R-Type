@@ -55,6 +55,13 @@ public:
     virtual void on_projectile_spawn(uint32_t session_id, const std::vector<uint8_t>& projectile_data) = 0;
 
     /**
+     * @brief Called when an explosion effect must be broadcast
+     * @param session_id The game session
+     * @param explosion_data Serialized explosion payload
+     */
+    virtual void on_explosion(uint32_t session_id, const std::vector<uint8_t>& explosion_data) = 0;
+
+    /**
      * @brief Called when a wave starts
      * @param session_id The game session
      * @param wave_data Serialized wave data
@@ -82,6 +89,49 @@ public:
      * @param score_data Serialized score data
      */
     virtual void on_score_update(uint32_t session_id, const std::vector<uint8_t>& score_data) = 0;
+
+    /**
+     * @brief Called when a powerup is collected
+     * @param session_id The game session
+     * @param powerup_data Serialized powerup data
+     */
+    virtual void on_powerup_collected(uint32_t session_id, const std::vector<uint8_t>& powerup_data) = 0;
+
+    /**
+     * @brief Called when a player respawns
+     * @param session_id The game session
+     * @param respawn_data Serialized respawn data
+     */
+    virtual void on_player_respawn(uint32_t session_id, const std::vector<uint8_t>& respawn_data) = 0;
+
+    /**
+     * @brief Called when a player levels up
+     * @param session_id The game session
+     * @param level_up_data Serialized level-up data
+     */
+    virtual void on_player_level_up(uint32_t session_id, const std::vector<uint8_t>& level_up_data) = 0;
+
+    /**
+     /**
+      * @brief Called when a level transition occurs
+      * @param session_id Session identifier
+      * @param transition_data Serialized transition data
+      */
+    virtual void on_level_transition(uint32_t session_id, const std::vector<uint8_t>& transition_data) = 0;
+
+    /**
+     * @brief Called when a level is fully loaded and ready
+     * @param session_id Session identifier
+     * @param level_ready_data Serialized level ready data
+     */
+    virtual void on_level_ready(uint32_t session_id, const std::vector<uint8_t>& level_ready_data) = 0;
+
+    /**
+     * @brief Called when leaderboard should be sent (before game over)
+     * @param session_id The game session
+     * @param leaderboard_data Serialized leaderboard data
+     */
+    virtual void on_leaderboard(uint32_t session_id, const std::vector<uint8_t>& leaderboard_data) = 0;
 };
 
-}
+} // namespace rtype::server

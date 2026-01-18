@@ -49,6 +49,7 @@ public:
     bool start_server(uint16_t tcp_port, uint16_t udp_port, bool listen_on_all_interfaces);
     void stop_server() override;
     bool is_server_running() const override;
+    void disconnect_client(ClientId client_id) override;
 
     // Client operations
     bool connect_tcp(const std::string& host, uint16_t port) override;
@@ -142,6 +143,7 @@ private:
     std::atomic<bool> running_{false};
     std::atomic<bool> tcp_connected_{false};
     std::atomic<bool> udp_connected_{false};
+    std::atomic<bool> disconnecting_{false};  // Prevent concurrent disconnect() calls
 
     // IO context and thread
     std::unique_ptr<boost::asio::io_context> io_context_;
@@ -202,7 +204,7 @@ private:
     // Constants
     static constexpr float CLIENT_TIMEOUT_SECONDS = 30.0f;
     static constexpr float TIMEOUT_CHECK_INTERVAL = 5.0f;
-    static constexpr size_t TCP_HEADER_SIZE = 8;  // Protocol header size
+    static constexpr size_t TCP_HEADER_SIZE = 9;  // Protocol header size (version + type + flags + payload_length + sequence_number)
     static constexpr size_t TCP_READ_BUFFER_SIZE = 65536;
 };
 

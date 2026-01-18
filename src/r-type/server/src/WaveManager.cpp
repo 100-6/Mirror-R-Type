@@ -15,101 +15,194 @@ namespace rtype::server {
 WaveManager::WaveManager()
     : current_wave_index_(0)
     , accumulated_time_(0.0f)
+    , wave_generation_(0)
 {
 }
 
-bool WaveManager::load_from_file(const std::string& filepath)
+void WaveManager::load_from_phases(const std::vector<Wave>& all_waves)
 {
-    std::ifstream file(filepath);
-    if (!file.is_open()) {
-        std::cerr << "[WaveManager] Failed to open wave config: " << filepath << "\n";
-        return false;
-    }
+    config_.waves = all_waves;
+    config_.default_spawn_interval = 2.0f;
+    config_.loop_waves = false;
 
-    try {
-        nlohmann::json j;
-        file >> j;
-
-        config_.default_spawn_interval = j.value("defaultSpawnInterval", 2.0f);
-        config_.loop_waves = j.value("loopWaves", false);
-
-        if (j.contains("waves") && j["waves"].is_array()) {
-            for (const auto& wave_json : j["waves"]) {
-                Wave wave;
-                wave.wave_number = wave_json.value("waveNumber", 0);
-
-                if (wave_json.contains("trigger")) {
-                    const auto& trigger = wave_json["trigger"];
-                    wave.trigger.scroll_distance = trigger.value("scrollDistance", 0.0f);
-                    wave.trigger.time_delay = trigger.value("timeDelay", 0.0f);
-                }
-
-                if (wave_json.contains("spawns") && wave_json["spawns"].is_array()) {
-                    for (const auto& spawn_json : wave_json["spawns"]) {
-                        SpawnConfig spawn;
-                        spawn.type = spawn_json.value("type", "enemy");
-                        spawn.enemy_type = spawn_json.value("enemyType", "basic");
-                        spawn.bonus_type = spawn_json.value("bonusType", "health");
-                        spawn.position_x = spawn_json.value("positionX", 1920.0f);
-                        spawn.position_y = spawn_json.value("positionY", 300.0f);
-                        spawn.count = spawn_json.value("count", 1);
-                        spawn.pattern = spawn_json.value("pattern", "single");
-                        spawn.spacing = spawn_json.value("spacing", 0.0f);
-                        wave.spawns.push_back(spawn);
-                    }
-                }
-                config_.waves.push_back(wave);
-            }
-        }
-
-        std::cout << "[WaveManager] Loaded " << config_.waves.size() << " waves from " << filepath << "\n";
-        return true;
-    } catch (const std::exception& e) {
-        std::cerr << "[WaveManager] JSON parse error: " << e.what() << "\n";
-        return false;
-    }
+    current_wave_index_ = 0;
+    accumulated_time_ = 0.0f;
 }
 
 void WaveManager::update(float delta_time, float current_scroll)
 {
     accumulated_time_ += delta_time;
     check_wave_triggers(current_scroll);
+    check_wave_completion(delta_time);
 }
 
 void WaveManager::reset()
 {
     current_wave_index_ = 0;
     accumulated_time_ = 0.0f;
+    wave_generation_++;  // Invalidate all pending completions
 
     for (auto& wave : config_.waves) {
         wave.completed = false;
         wave.triggered = false;
+        wave.time_since_triggered = 0.0f;
+        wave.triggered_generation = 0;  // Reset generation marker
     }
+}
+
+void WaveManager::check_wave_completion(float delta_time)
+{
+    const float WAVE_COMPLETION_TIMEOUT = 8.0f;
+
+    for (auto& wave : config_.waves) {
+        if (wave.triggered && !wave.completed) {
+            // CRITICAL: Only process waves from current generation
+            if (wave.triggered_generation != wave_generation_) {
+                std::cout << "[WaveManager] ⚠️ Skipping stale wave " << wave.wave_number
+                          << " (gen " << wave.triggered_generation
+                          << " vs current " << wave_generation_ << ")\n";
+                continue;
+            }
+
+            wave.time_since_triggered += delta_time;
+
+            if (wave.time_since_triggered >= WAVE_COMPLETION_TIMEOUT) {
+                wave.completed = true;
+
+                if (listener_)
+                    listener_->on_wave_completed(wave);
+            }
+        }
+    }
+}
+
+void WaveManager::reset_to_wave(uint32_t wave_number)
+{
+    // Find wave index for the given wave number
+    size_t target_index = 0;
+    bool found = false;
+
+    for (size_t i = 0; i < config_.waves.size(); ++i) {
+        if (config_.waves[i].wave_number == wave_number) {
+            target_index = i;
+            found = true;
+            break;
+        }
+    }
+
+    if (!found) {
+        std::cerr << "[WaveManager] Warning: wave " << wave_number
+                  << " not found, resetting to wave 0\n";
+        reset();
+        return;
+    }
+
+    current_wave_index_ = target_index;
+    wave_generation_++;  // Invalidate old wave completions
+
+    // Set accumulated time to target wave's delay so time-based triggers work immediately
+    if (target_index < config_.waves.size()) {
+        accumulated_time_ = config_.waves[target_index].trigger.time_delay;
+    } else {
+        accumulated_time_ = 0.0f;
+    }
+
+    // Mark waves BEFORE target as completed
+    for (size_t i = 0; i < target_index; ++i) {
+        config_.waves[i].completed = true;
+        config_.waves[i].triggered = true;
+        config_.waves[i].triggered_generation = wave_generation_;  // Mark with current generation
+    }
+
+    // Reset waves AT or AFTER target
+    for (size_t i = target_index; i < config_.waves.size(); ++i) {
+        config_.waves[i].completed = false;
+        config_.waves[i].triggered = false;
+        config_.waves[i].time_since_triggered = 0.0f;
+        config_.waves[i].triggered_generation = 0;  // Will be set when triggered
+    }
+
+    // std::cout << "[WaveManager] Reset to wave " << wave_number
+    //           << " (index " << target_index << "), generation=" << wave_generation_ << "\n";
+
+    // Manually spawn the target wave immediately
+    spawn_wave(wave_number);
+}
+
+bool WaveManager::spawn_wave(uint32_t wave_number)
+{
+    for (size_t i = 0; i < config_.waves.size(); ++i) {
+        if (config_.waves[i].wave_number == wave_number) {
+            Wave& wave = config_.waves[i];
+            
+            // Mark as triggered and set generation
+            wave.triggered = true;
+            wave.triggered_generation = wave_generation_;
+            wave.completed = false; // Ensure it's active
+            wave.time_since_triggered = 0.0f;
+            
+            // Update index tracking
+            current_wave_index_ = i;
+            
+            std::cout << "[WaveManager] 🎮 MANUAL SPAWN: Wave " << wave_number 
+                      << " (gen=" << wave_generation_ << ")\n";
+                      
+            trigger_wave(wave);
+            return true;
+        }
+    }
+    
+    std::cerr << "[WaveManager] Failed to manual spawn wave " << wave_number << " (not found)\n";
+    return false;
+}
+
+float WaveManager::get_wave_start_scroll(uint32_t wave_number) const
+{
+    const float CHUNK_SIZE = 480.0f;
+    for (const auto& wave : config_.waves) {
+        if (wave.wave_number == wave_number) {
+            return (wave.trigger.chunk_id * CHUNK_SIZE) +
+                   (wave.trigger.offset * CHUNK_SIZE);
+        }
+    }
+    return 0.0f;
 }
 
 bool WaveManager::all_waves_complete() const
 {
+    // If there are no waves at all, consider them complete (for instant boss levels)
+    if (config_.waves.empty()) {
+        return true;
+    }
+
+    // Check if all waves are completed
     for (const auto& wave : config_.waves) {
         if (!wave.completed)
             return false;
     }
-    return !config_.waves.empty();
+    return true;
 }
 
-std::string WaveManager::get_map_file(protocol::GameMode mode, protocol::Difficulty difficulty)
+std::string WaveManager::get_map_file(uint16_t map_id)
 {
-    // For now, use the simple wave file as fallback
-    // In production: waves_duo_easy.json, waves_squad_hard.json, etc.
-    return "assets/waves_simple.json";
+    // Map ID to file mapping:
+    // 1 = Nebula Outpost
+    switch (map_id) {
+        case 1:
+            return "assets/waves_nebula_outpost.json";
+
+        default:
+            // std::cout << "[WaveManager] Unknown map_id " << map_id << ", using Nebula Outpost\n";
+            return "assets/waves_nebula_outpost.json";
+    }
 }
 
 void WaveManager::check_wave_triggers(float current_scroll)
 {
-    static bool first_check = true;
-    if (first_check) {
-        std::cout << "[WaveManager] First check: " << config_.waves.size() << " waves loaded\n";
-        first_check = false;
-    }
+    // Calculate current chunk and offset (1 chunk = 480px = 30 tiles * 16px)
+    float chunkSizePx = 480.0f;
+    int currentChunk = static_cast<int>(current_scroll / chunkSizePx);
+    float currentOffset = (current_scroll - (currentChunk * chunkSizePx)) / chunkSizePx;
 
     for (size_t i = current_wave_index_; i < config_.waves.size(); ++i) {
         Wave& wave = config_.waves[i];
@@ -117,27 +210,57 @@ void WaveManager::check_wave_triggers(float current_scroll)
         if (wave.triggered || wave.completed)
             continue;
 
-        bool scroll_triggered = (current_scroll >= wave.trigger.scroll_distance);
-        bool time_triggered = (accumulated_time_ >= wave.trigger.time_delay);
+        bool should_trigger = false;
 
-        static int debug_counter = 0;
-        if (++debug_counter % 300 == 0 && i == current_wave_index_) {
-            std::cout << "[WaveManager] Wave " << wave.wave_number
-                      << " scroll=" << current_scroll << "/" << wave.trigger.scroll_distance
-                      << " time=" << accumulated_time_ << "/" << wave.trigger.time_delay << "\n";
-        }
+        // Check chunk trigger
+        if (currentChunk > wave.trigger.chunk_id) {
+            should_trigger = true;
+        } else if (currentChunk == wave.trigger.chunk_id) {
+             if (currentOffset >= wave.trigger.offset) {
+                 should_trigger = true;
+             }
+         }
+         
+         bool time_triggered = (accumulated_time_ >= wave.trigger.time_delay);
 
-        if (scroll_triggered && time_triggered) {
-            trigger_wave(wave);
-            wave.triggered = true;
-            current_wave_index_ = i;
-        }
-    }
+         if (should_trigger && time_triggered) {
+             trigger_wave(wave);
+             wave.triggered = true;
+             current_wave_index_ = i;
+             break;  // Only trigger one wave per update
+         }
+     }
+     
+     // Procedural generation check
+     if (procedural_enabled_ && !config_.loop_waves) {
+         // If we are at the last wave or all waves are triggered
+         if (current_wave_index_ >= config_.waves.size() - 1 || config_.waves.empty()) {
+             // Only generate if the last wave has been triggered
+             bool last_triggered = config_.waves.empty() ? true : config_.waves.back().triggered;
+             
+             if (last_triggered) {
+                 generate_procedural_wave(current_scroll);
+             }
+         }
+     }
 }
 
 void WaveManager::trigger_wave(Wave& wave)
 {
-    std::cout << "[WaveManager] Triggering wave " << wave.wave_number << "\n";
+    std::cout << "[WaveManager] 🌊 Wave " << wave.wave_number
+              << " START (gen=" << wave_generation_ << ")\n";
+
+    wave.triggered_generation = wave_generation_;
+
+    // CRITICAL FIX: Mark all previous waves as completed to prevent out-of-order completions
+    // When wave 5 starts, waves 1-4 should not auto-complete later and overwrite the current wave
+    for (auto& w : config_.waves) {
+        if (w.wave_number < wave.wave_number && w.triggered && !w.completed) {
+            w.completed = true;
+            std::cout << "[WaveManager] ⏭️ Auto-completing old wave " << w.wave_number
+                      << " (current wave " << wave.wave_number << " starting)\n";
+        }
+    }
 
     if (listener_)
         listener_->on_wave_started(wave);
@@ -145,30 +268,24 @@ void WaveManager::trigger_wave(Wave& wave)
     for (const auto& spawn : wave.spawns)
         spawn_from_config(spawn);
 
-    // Mark wave as completed immediately for now
-    wave.completed = true;
-
-    if (listener_)
-        listener_->on_wave_completed(wave);
+    wave.time_since_triggered = 0.0f;
 }
 
 void WaveManager::spawn_from_config(const SpawnConfig& spawn)
 {
     if (!listener_) {
-        std::cout << "[WaveManager] ERROR: No listener set!\n";
+        // std::cout << "[WaveManager] ERROR: No listener set!\n";
         return;
     }
 
     if (spawn.type == "enemy") {
-        std::cout << "[WaveManager] Spawning enemy: type=" << spawn.enemy_type
-                  << " pattern=" << spawn.pattern << " count=" << spawn.count << "\n";
 
         if (spawn.pattern == "single") {
-            listener_->on_spawn_enemy(spawn.enemy_type, spawn.position_x, spawn.position_y);
+            listener_->on_spawn_enemy(spawn.enemy_type, spawn.position_x, spawn.position_y, spawn.bonus_drop);
         } else if (spawn.pattern == "line") {
             for (uint32_t i = 0; i < spawn.count; ++i) {
                 float y = spawn.position_y + (i * spawn.spacing);
-                listener_->on_spawn_enemy(spawn.enemy_type, spawn.position_x, y);
+                listener_->on_spawn_enemy(spawn.enemy_type, spawn.position_x, y, spawn.bonus_drop);
             }
         } else if (spawn.pattern == "formation") {
             uint32_t cols = static_cast<uint32_t>(std::sqrt(spawn.count));
@@ -178,13 +295,12 @@ void WaveManager::spawn_from_config(const SpawnConfig& spawn)
                     if (r * cols + c >= spawn.count) break;
                     float x = spawn.position_x + (c * spawn.spacing);
                     float y = spawn.position_y + (r * spawn.spacing);
-                    listener_->on_spawn_enemy(spawn.enemy_type, x, y);
+                    listener_->on_spawn_enemy(spawn.enemy_type, x, y, spawn.bonus_drop);
                 }
             }
         }
     }
     else if (spawn.type == "wall") {
-        std::cout << "[WaveManager] Spawning wall: pattern=" << spawn.pattern << " count=" << spawn.count << "\n";
 
         if (spawn.pattern == "single") {
             listener_->on_spawn_wall(spawn.position_x, spawn.position_y);
@@ -196,8 +312,6 @@ void WaveManager::spawn_from_config(const SpawnConfig& spawn)
         }
     }
     else if (spawn.type == "powerup") {
-        std::cout << "[WaveManager] Spawning powerup: type=" << spawn.bonus_type
-                  << " pattern=" << spawn.pattern << " count=" << spawn.count << "\n";
 
         if (spawn.pattern == "single") {
             listener_->on_spawn_powerup(spawn.bonus_type, spawn.position_x, spawn.position_y);
@@ -208,9 +322,76 @@ void WaveManager::spawn_from_config(const SpawnConfig& spawn)
             }
         }
     }
-    else {
-        std::cout << "[WaveManager] WARNING: Unknown spawn type: " << spawn.type << "\n";
+}
+
+
+void WaveManager::generate_procedural_wave(float current_scroll)
+{
+    static bool seeded = false;
+    if (!seeded) {
+        std::srand(static_cast<unsigned int>(std::time(nullptr)));
+        seeded = true;
     }
+
+    Wave newWave;
+    newWave.wave_number = config_.waves.size() + 1;
+    
+    // Set trigger at next chunk based on current scroll
+    float chunkSizePx = 480.0f;
+    int currentChunk = static_cast<int>(current_scroll / chunkSizePx);
+    
+    // If the list is not empty, ensure we spawn AFTER the last wave's chunk
+    if (!config_.waves.empty()) {
+        int lastChunk = config_.waves.back().trigger.chunk_id;
+        if (currentChunk <= lastChunk) {
+            currentChunk = lastChunk; // Start check from last known chunk
+        }
+    }
+    
+    newWave.trigger.chunk_id = currentChunk + 1;
+    newWave.trigger.offset = 0.1f;
+    newWave.trigger.time_delay = 0.0f;
+    newWave.triggered = false;
+    newWave.completed = false;
+    newWave.time_since_triggered = 0.0f;
+    newWave.triggered_generation = 0;
+
+    // Randomize Content
+    int enemyCount = 3 + (std::rand() % 4); // 3-6 enemies
+    
+    std::string types[] = {"basic", "fast", "tank"};
+    std::string selectedType = types[std::rand() % 3];
+    
+    std::string patterns[] = {"line", "formation", "single"}; // "grid" not in SpawnConfig string set yet? Check WaveManager.cpp implementation
+    std::string selectedPattern = patterns[std::rand() % 3];
+    
+    SpawnConfig spawn;
+    spawn.type = "enemy";
+    spawn.enemy_type = selectedType;
+    spawn.count = enemyCount;
+    spawn.pattern = selectedPattern;
+    // Spawn ahead of the camera (current scroll + screen width + buffer)
+    // Screen width is usually 1920, adding extra buffer
+    spawn.position_x = current_scroll + 1920.0f + 200.0f;
+    // Fixed spawn position as requested by user ("pour facilité")
+    spawn.position_y = 500.0f; // Center-ish
+    spawn.spacing = 80.0f + static_cast<float>(std::rand() % 100);
+    
+    // 5% bonus drop chance
+    if ((std::rand() % 100) < 5) {
+        spawn.bonus_drop.enabled = true;
+        spawn.bonus_drop.drop_chance = 1.0f;
+        std::string bonuses[] = {"health", "shield", "speed", "bonus_weapon"};
+        spawn.bonus_drop.bonus_type = bonuses[std::rand() % 4];
+    }
+    
+    newWave.spawns.push_back(spawn);
+    
+    config_.waves.push_back(newWave);
+    
+    std::cout << "[WaveManager] Generated procedural wave " << newWave.wave_number 
+              << " at chunk " << newWave.trigger.chunk_id << "\n";
 }
 
 }
+

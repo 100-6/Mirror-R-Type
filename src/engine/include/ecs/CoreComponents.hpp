@@ -54,6 +54,17 @@ struct Sprite {
 
     // Layer pour l'ordre de rendu (0=fond, plus élevé=premier plan)
     int layer = 0;
+
+    // Rectangle source pour découper une partie de la texture (spritesheet)
+    // Si width/height = 0, utilise la texture complète
+    struct SourceRect {
+        float x = 0.0f;
+        float y = 0.0f;
+        float width = 0.0f;
+        float height = 0.0f;
+        
+        bool is_valid() const { return width > 0.0f && height > 0.0f; }
+    } source_rect;
 };
 
 // Animation de sprite (alternance entre plusieurs textures)
@@ -71,6 +82,7 @@ struct Attached {
     size_t parentEntity = 0;
     float offsetX = 0.0f;
     float offsetY = 0.0f;
+    float smoothFactor = 0.0f;  // 0.0 = suivi direct, > 0.0 = suivi avec latence (valeur typique: 5.0-15.0)
 };
 
 // Tags Génériques
@@ -148,6 +160,13 @@ struct UIText {
     float shadowOffsetY = 2.0f;
     bool active = true;
     int layer = 102;  // Text on top of everything
+};
+
+// White flash overlay for damage/hit effects
+struct FlashOverlay {
+    float time_remaining = 0.0f;
+    float total_duration = 0.0f;
+    float max_alpha = 200.0f;
 };
 
 #endif /* !CORE_COMPONENTS_HPP_ */

@@ -15,6 +15,14 @@
 #include "EntityManager.hpp"
 #include "StatusOverlay.hpp"
 #include "InputHandler.hpp"
+#include "MenuManager.hpp"
+#include "systems/ChunkManagerSystem.hpp"
+#include "systems/ParallaxBackgroundSystem.hpp"
+#include "systems/ClientPredictionSystem.hpp"
+#include "systems/InterpolationSystem.hpp"
+#include "DebugNetworkOverlay.hpp"
+#include "ui/ConsoleOverlay.hpp"
+#include "ui/ChatOverlay.hpp"
 
 namespace rtype::client {
 
@@ -71,14 +79,70 @@ private:
     std::unique_ptr<EntityManager> entity_manager_;
     std::unique_ptr<StatusOverlay> status_overlay_;
     std::unique_ptr<InputHandler> input_handler_;
+    std::unique_ptr<MenuManager> menu_manager_;
+
+    // Map system (new)
+    std::unique_ptr<rtype::ParallaxBackgroundSystem> parallax_system_;
+    std::unique_ptr<rtype::ChunkManagerSystem> chunk_manager_;
+    double map_scroll_x_ = 0.0;  // Use double for precision over long play sessions
+    std::string current_map_id_str_ = "nebula_outpost";
+    float server_scroll_speed_ = 60.0f;
 
     // Network client
     std::unique_ptr<rtype::client::NetworkClient> network_client_;
 
+    // Lag compensation system
+    std::unique_ptr<rtype::client::ClientPredictionSystem> prediction_system_;
+    std::unique_ptr<rtype::client::InterpolationSystem> interpolation_system_;
+    std::unique_ptr<rtype::client::DebugNetworkOverlay> debug_network_overlay_;
+
+    // Admin console overlay
+    std::unique_ptr<ConsoleOverlay> console_overlay_;
+    bool admin_authenticated_ = false;
+    std::string admin_password_;
+
+    // Chat overlay
+    std::unique_ptr<ChatOverlay> chat_overlay_;
+
     // Game state
     std::atomic<bool> running_;
+    std::atomic<bool> is_shutting_down_{false};
     uint32_t client_tick_;
     Entity wave_tracker_;
+    float current_time_;
+    uint16_t current_map_id_ = 1;
+    int last_known_score_ = 0;
+
+    // Level transition state (prevents scroll desync during transitions)
+    bool level_transition_in_progress_ = false;
+    float level_transition_timer_ = 0.0f;
+    bool level_ready_received_ = true;  // True by default (no transition pending)
+
+    // Pending transition data (applied when screen is fully black)
+    uint16_t pending_level_id_ = 0;  // 0 = no pending transition
+    bool pending_level_transition_apply_ = false;
+
+    // Pending respawn data (applied when screen is fully black)
+    bool pending_respawn_apply_ = false;
+
+    // Fade state (moved from static to member for access across methods)
+    float fade_alpha_ = 0.0f;
+    int fade_state_ = 0;  // 0=none, 1=fading in, 2=waiting, 3=fading out
+
+    // Audio state for client-side sound triggers
+    bool was_shooting_ = false;
+    float shoot_sound_cooldown_ = 0.0f;
+
+    // Background entities (legacy, kept for menu)
+    Entity background1_;
+    Entity background2_;
+
+    // HUD overlay
+    engine::TextureHandle hud_texture_;
+    bool hud_loaded_ = false;
+
+    // Visual effects
+    bool fade_trigger_ = false;
 
     // Initialization helpers
     bool load_plugins();
@@ -86,11 +150,29 @@ private:
     void setup_registry();
     void setup_systems();
     void setup_background();
+    void setup_map_system();
+    void load_map(const std::string& mapId);
     void setup_network_callbacks();
+
+    // Map-specific theming
+    void apply_map_theme(uint16_t map_id);
+    void load_level_checkpoints(uint16_t map_id);
+
+    // Level transition (called when screen is fully black)
+    void apply_pending_level_transition();
+
+    // Respawn cleanup (called when screen is fully black)
+    void apply_pending_respawn();
 
     // Update methods
     void update(float delta_time);
     void handle_input();
+
+    // Client-side prediction
+    void apply_input_to_local_player(uint16_t input_flags);
+
+    // Admin console
+    void handle_console_command(const std::string& command);
 };
 
 }

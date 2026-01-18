@@ -1,0 +1,131 @@
+{
+  "level_id": 2,
+  "level_name": "Nebula Station Siege",
+  "level_description": "Infiltrate the heavily defended nebula station",
+  "map_id": 2,
+  "base_scroll_speed": 65.0,
+  "total_chunks": -1,
+  "phases": [
+    {
+      "phase_number": 1,
+      "phase_name": "Nebula Approach",
+      "scroll_start": 0.0,
+      "scroll_end": 1440.0,
+      "difficulty": "easy",
+      "waves": [
+        {
+          "wave_number": 1,
+          "trigger": {
+            "chunkId": 0,
+            "offset": 0.0,
+            "timeDelay": 0
+          },
+          "spawns": [
+            {
+              "type": "enemy",
+              "enemyType": "basic",
+              "positionX": 2100,
+              "positionY": 350,
+              "count": 4,
+              "pattern": "line",
+              "spacing": 140
+            }
+          ]
+        },
+        {
+          "wave_number": 2,
+          "trigger": {
+            "chunkId": 2,
+            "offset": 0.0,
+            "timeDelay": 0
+          },
+          "spawns": [
+            {
+              "type": "enemy",
+              "enemyType": "zigzag",
+              "positionX": 2100,
+              "positionY": 200,
+              "count": 3,
+              "pattern": "line",
+              "spacing": 130
+            },
+            {
+              "type": "powerup",
+              "bonusType": "health",
+              "positionX": 2300,
+              "positionY": 540,
+              "count": 1,
+              "pattern": "single"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "phase_number": 2,
+      "phase_name": "Station Defense Grid",
+      "scroll_start": 1440.0,
+      "scroll_end": 2880.0,
+      "difficulty": "medium",
+      "waves": []
+    }
+  ],
+  "boss": {
+    "boss_name": "Nebula Core",
+    "spawn_scroll_distance": 2000.0,
+    "spawn_position_x": 1600.0,
+    "spawn_position_y": 540.0,
+    "enemy_type": "boss",
+    "total_phases": 3,
+    "script_path": "boss/boss2_nebula_core.lua",
+    "phases": [
+      {
+        "phase_number": 1,
+        "health_threshold": 1.0,
+        "movement_pattern": "stationary",
+        "movement_speed_multiplier": 0.0,
+        "attack_patterns": [
+          {
+            "pattern": "spray_360",
+            "cooldown": 3.0,
+            "projectile_count": 12,
+            "projectile_speed": 200.0,
+            "projectile_damage": 20
+          }
+        ]
+      },
+      {
+        "phase_number": 2,
+        "health_threshold": 0.66,
+        "movement_pattern": "chase_player",
+        "movement_speed_multiplier": 0.8,
+        "attack_patterns": [
+          {
+            "pattern": "aimed_burst",
+            "cooldown": 2.0,
+            "projectile_count": 8,
+            "projectile_speed": 250.0,
+            "projectile_damage": 25,
+            "spread_angle": 30.0
+          }
+        ]
+      },
+      {
+        "phase_number": 3,
+        "health_threshold": 0.33,
+        "movement_pattern": "chase_player",
+        "movement_speed_multiplier": 1.2,
+        "attack_patterns": [
+          {
+            "pattern": "spiral",
+            "cooldown": 1.5,
+            "projectile_count": 16,
+            "projectile_speed": 220.0,
+            "projectile_damage": 30,
+            "rotation_speed": 80.0
+          }
+        ]
+      }
+    ]
+  }
+}

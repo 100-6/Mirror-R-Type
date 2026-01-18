@@ -1,0 +1,154 @@
+name: Build and Deploy R-Type & Bagario Servers
+
+on:
+  push:
+    branches:
+      - main
+      - test-CI
+    paths:
+      - 'src/r-type/server/**'
+      - 'src/bagario/server/**'
+      - 'src/r-type/assets/**'
+      - 'src/bagario/assets/**'
+      - 'src/engine/**'
+      - 'Dockerfile.rtype-server'
+      - 'Dockerfile.bagario-server'
+      - 'CMakeLists.txt'
+      - 'vcpkg.json'
+      - '.github/workflows/deploy.yaml'
+
+env:
+  REGISTRY: registry.eliasdrissi.dev
+  RTYPE_IMAGE: rtype-server
+  BAGARIO_IMAGE: bagario-server
+  BUILDER_IMAGE: rtype-builder
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-24.04-arm  # Native ARM64 runner (requires public repo)
+    timeout-minutes: 30  # Much faster with native ARM64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install CA certificate
+        run: |
+          echo -n | openssl s_client -connect registry.eliasdrissi.dev:443 -servername registry.eliasdrissi.dev 2>/dev/null | openssl x509 > /tmp/registry-ca.crt
+          sudo mkdir -p /usr/local/share/ca-certificates/
+          sudo cp /tmp/registry-ca.crt /usr/local/share/ca-certificates/registry-eliasdrissi-dev.crt
+          sudo update-ca-certificates
+          sudo mkdir -p /etc/docker/certs.d/registry.eliasdrissi.dev
+          sudo cp /tmp/registry-ca.crt /etc/docker/certs.d/registry.eliasdrissi.dev/ca.crt
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          buildkitd-config-inline: |
+            [registry."registry.eliasdrissi.dev"]
+              ca=["/etc/docker/certs.d/registry.eliasdrissi.dev/ca.crt"]
+
+      - name: Log in to Docker Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Extract metadata
+        id: meta
+        run: |
+          # Generate tags: latest, date-sha
+          DATE=$(date +%Y%m%d)
+          SHA=${GITHUB_SHA::7}
+          echo "date=${DATE}" >> $GITHUB_OUTPUT
+          echo "sha=${SHA}" >> $GITHUB_OUTPUT
+          echo "rtype_tags=${{ env.REGISTRY }}/${{ env.RTYPE_IMAGE }}:latest,${{ env.REGISTRY }}/${{ env.RTYPE_IMAGE }}:${DATE}-${SHA}" >> $GITHUB_OUTPUT
+          echo "bagario_tags=${{ env.REGISTRY }}/${{ env.BAGARIO_IMAGE }}:latest,${{ env.REGISTRY }}/${{ env.BAGARIO_IMAGE }}:${DATE}-${SHA}" >> $GITHUB_OUTPUT
+
+      # ==========================================
+      # BUILD & PUSH R-TYPE SERVER
+      # ==========================================
+      - name: Build and push R-Type Server
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.rtype-server
+          platforms: linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.rtype_tags }}
+          labels: |
+            org.opencontainers.image.source=${{ github.repositoryUrl }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.created=${{ steps.meta.outputs.date }}
+          cache-from: type=gha,scope=rtype-server
+          cache-to: type=gha,mode=max,scope=rtype-server
+          provenance: false
+          sbom: false
+
+      # ==========================================
+      # BUILD & PUSH BAGARIO SERVER
+      # ==========================================
+      - name: Build and push Bagario Server
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.bagario-server
+          platforms: linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.bagario_tags }}
+          labels: |
+            org.opencontainers.image.source=${{ github.repositoryUrl }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.created=${{ steps.meta.outputs.date }}
+          cache-from: type=gha,scope=bagario-server
+          cache-to: type=gha,mode=max,scope=bagario-server
+          provenance: false
+          sbom: false
+
+      # ==========================================
+      # SECURITY SCANS
+      # ==========================================
+      - name: Run Trivy scan on R-Type Server
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.RTYPE_IMAGE }}:latest
+          format: 'table'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'
+        env:
+          TRIVY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
+          TRIVY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Run Trivy scan on Bagario Server
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.BAGARIO_IMAGE }}:latest
+          format: 'table'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'
+        env:
+          TRIVY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
+          TRIVY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+
+      # ==========================================
+      # DEPLOYMENT NOTIFICATION
+      # ==========================================
+      - name: Notify deployment
+        if: success()
+        run: |
+          echo "=========================================="
+          echo "R-Type & Bagario Images pushed successfully!"
+          echo "=========================================="
+          echo ""
+          echo "R-Type Server tags:"
+          echo "   - ${{ env.REGISTRY }}/${{ env.RTYPE_IMAGE }}:latest"
+          echo "   - ${{ env.REGISTRY }}/${{ env.RTYPE_IMAGE }}:${{ steps.meta.outputs.date }}-${{ steps.meta.outputs.sha }}"
+          echo ""
+          echo "Bagario Server tags:"
+          echo "   - ${{ env.REGISTRY }}/${{ env.BAGARIO_IMAGE }}:latest"
+          echo "   - ${{ env.REGISTRY }}/${{ env.BAGARIO_IMAGE }}:${{ steps.meta.outputs.date }}-${{ steps.meta.outputs.sha }}"
+          echo ""
+          echo "  Security scans completed"
+          echo "  Watchtower will detect and deploy in ~5 minutes"
+          echo "=========================================="

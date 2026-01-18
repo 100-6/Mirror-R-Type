@@ -34,7 +34,6 @@ void ShootingSystem::init(Registry& registry)
 
         auto& weapon = weapons[event.player];
         weapon.trigger_held = true;
-        std::cout << "[SHOOT] PlayerStartFireEvent received for entity " << event.player << ", trigger_held now true\n";
 
         // Pour les armes automatiques, on tire immédiatement si le cooldown est prêt
         if (weapon.type != WeaponType::CHARGE) {
@@ -67,7 +66,6 @@ void ShootingSystem::init(Registry& registry)
 
         auto& weapon = weapons[event.player];
         weapon.trigger_held = false;
-        std::cout << "[SHOOT] PlayerStopFireEvent received for entity " << event.player << ", trigger_held now false\n";
 
         // Pour le tir chargé, on tire au relâchement
         if (weapon.type == WeaponType::CHARGE) {
@@ -116,11 +114,6 @@ void ShootingSystem::update(Registry& registry, float dt)
 
         // Logique Joueur
         if (!enemies.has_entity(entity)) {
-            static int trigger_check_counter = 0;
-            if (++trigger_check_counter % 60 == 0 && weapon.trigger_held) {
-                std::cout << "[SHOOT] Entity " << entity << " has trigger_held=true, type=" << (int)weapon.type << ", cooldown=" << weapon.time_since_last_fire << "\n";
-            }
-
             if (weapon.trigger_held) {
                 if (weapon.type == WeaponType::CHARGE) {
                     weapon.is_charging = true;
@@ -186,7 +179,6 @@ void ShootingSystem::update(Registry& registry, float dt)
 
                     if (weapon.time_since_last_fire >= firerate) {
                         if (positions.has_entity(entity)) {
-                            std::cout << "[SHOOT] Creating projectiles for entity " << entity << "\n";
                             auto& colliders = registry.get_components<Collider>();
                             float w = sprites.has_entity(entity) ? sprites[entity].width :
                                       (colliders.has_entity(entity) ? colliders[entity].width : 0.0f);
@@ -258,6 +250,7 @@ void ShootingSystem::update(Registry& registry, float dt)
                 });
                 registry.add_component(projectile, Damage{damage});
                 registry.add_component(projectile, Projectile{180.0f, 5.0f, 0.0f, ProjectileFaction::Enemy});
+                registry.add_component(projectile, ProjectileOwner{entity});  // Track which enemy fired this
                 registry.add_component(projectile, NoFriction{});
             }
         }
@@ -340,9 +333,10 @@ void ShootingSystem::createProjectiles(Registry& registry, Entity shooter, Weapo
 
         Entity projectile = registry.spawn_entity();
 
-        // Positionner le projectile à l'extrémité droite du vaisseau
-        float bulletOffsetX = shooterWidth + 5.0f;
-        float bulletOffsetY = (shooterHeight / 2.0f) - (actual_height / 2.0f);
+        // Positionner le projectile au centre du vaisseau (origine déjà centrée)
+        // Le vaisseau est maintenant centré grâce au source_rect, donc pas besoin d'offset complexe
+        float bulletOffsetX = shooterWidth / 2.0f + 5.0f;  // Du centre vers la droite
+        float bulletOffsetY = 0.0f;  // Au centre verticalement
 
         registry.add_component(projectile, Position{
             shooterPos.x + bulletOffsetX,
@@ -368,14 +362,11 @@ void ShootingSystem::createProjectiles(Registry& registry, Entity shooter, Weapo
 
         registry.add_component(projectile, Damage{actual_damage});
         registry.add_component(projectile, Projectile{angle, 5.0f, 0.0f, ProjectileFaction::Player});
+        registry.add_component(projectile, ProjectileOwner{shooter});  // Track who fired this projectile
         registry.add_component(projectile, NoFriction{});
 
         // Event for ServerNetworkSystem to pick up - MUST be published AFTER all components are added
-        std::cout << "[SHOOT] Publishing ShotFiredEvent: shooter=" << shooter << " projectile=" << projectile << "\n";
         registry.get_event_bus().publish(ecs::ShotFiredEvent{shooter, projectile});
-
-        // Deprecated direct bus call if we use new event above, keeping it for now but ensuring payload is correct
-        // registry.get_event_bus().publish(ecs::ShotFiredEvent{shooter, projectile});
     }
 
     // Gérer la rafale (BURST)

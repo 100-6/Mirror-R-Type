@@ -85,6 +85,20 @@ void RaylibInputPlugin::init_key_mapping() {
     key_mapping[engine::Key::RControl] = KEY_RIGHT_CONTROL;
     key_mapping[engine::Key::LAlt] = KEY_LEFT_ALT;
     key_mapping[engine::Key::RAlt] = KEY_RIGHT_ALT;
+
+    // Function keys
+    key_mapping[engine::Key::F1] = KEY_F1;
+    key_mapping[engine::Key::F2] = KEY_F2;
+    key_mapping[engine::Key::F3] = KEY_F3;
+    key_mapping[engine::Key::F4] = KEY_F4;
+    key_mapping[engine::Key::F5] = KEY_F5;
+    key_mapping[engine::Key::F6] = KEY_F6;
+    key_mapping[engine::Key::F7] = KEY_F7;
+    key_mapping[engine::Key::F8] = KEY_F8;
+    key_mapping[engine::Key::F9] = KEY_F9;
+    key_mapping[engine::Key::F10] = KEY_F10;
+    key_mapping[engine::Key::F11] = KEY_F11;
+    key_mapping[engine::Key::F12] = KEY_F12;
 }
 
 int RaylibInputPlugin::to_raylib_key(engine::Key key) const {
@@ -114,11 +128,8 @@ bool RaylibInputPlugin::is_key_pressed(engine::Key key) const {
 }
 
 bool RaylibInputPlugin::is_key_just_pressed(engine::Key key) const {
-    auto it = previous_key_state.find(key);
-    bool was_pressed = (it != previous_key_state.end() && it->second);
-    bool is_pressed_now = is_key_pressed(key);
-    
-    return is_pressed_now && !was_pressed;
+    int raylib_key = to_raylib_key(key);
+    return raylib_key != KEY_NULL && IsKeyPressed(raylib_key);
 }
 
 bool RaylibInputPlugin::is_key_just_released(engine::Key key) const {
@@ -187,6 +198,14 @@ void RaylibInputPlugin::update() {
     previous_mouse_state[engine::MouseButton::Left] = is_mouse_button_pressed(engine::MouseButton::Left);
     previous_mouse_state[engine::MouseButton::Right] = is_mouse_button_pressed(engine::MouseButton::Right);
     previous_mouse_state[engine::MouseButton::Middle] = is_mouse_button_pressed(engine::MouseButton::Middle);
+}
+
+void RaylibInputPlugin::set_window_handle([[maybe_unused]] void* handle) {
+    // Raylib manages its own window state globally
+}
+
+bool RaylibInputPlugin::has_focus() const {
+    return IsWindowFocused();
 }
 
 // ============== PLUGIN FACTORY ==============

@@ -7,9 +7,39 @@ set(RTYPE_CLIENT_SOURCES
     src/ClientGame.cpp
     src/TextureManager.cpp
     src/InputHandler.cpp
+    src/KeyBindings.cpp
     src/ScreenManager.cpp
     src/EntityManager.cpp
     src/StatusOverlay.cpp
+    src/MenuManager.cpp
+    src/ui/UIButton.cpp
+    src/ui/UITextField.cpp
+    src/ui/UILabel.cpp
+    src/ui/ConsoleOverlay.cpp
+    src/ui/ChatOverlay.cpp
+    # Screen classes
+    src/screens/ConnectionScreen.cpp
+    src/screens/MainMenuScreen.cpp
+    src/screens/CreateRoomScreen.cpp
+    src/screens/BrowseRoomsScreen.cpp
+    src/screens/RoomLobbyScreen.cpp
+    src/screens/PasswordDialog.cpp
+    src/screens/SkinSelectorDialog.cpp
+    src/screens/SettingsScreen.cpp
+    src/screens/GlobalLeaderboardScreen.cpp
+    # CreateRoom module
+    src/screens/createroom/CreateRoomInput.cpp
+    src/screens/createroom/CreateRoomRenderer.cpp
+    src/screens/createroom/CreateRoomInitializer.cpp
+    src/screens/createroom/CreateRoomUpdater.cpp
+    src/screens/createroom/CreateRoomDrawer.cpp
+    src/SpaceshipManager.cpp
+    src/systems/LocalPredictionSystem.cpp
+    src/systems/ColliderDebugSystem.cpp
+    src/systems/ClientPredictionSystem.cpp
+    src/systems/InterpolationSystem.cpp
+    src/systems/ClientHitFlashSystem.cpp
+    src/DebugNetworkOverlay.cpp
 )
 
 add_executable(r-type_client ${RTYPE_CLIENT_SOURCES})
@@ -25,6 +55,7 @@ target_link_libraries(r-type_client
     PRIVATE
         game_engine
         rtype_logic
+        rtype_protocol
 )
 
 # Link Winsock on Windows
@@ -34,7 +65,7 @@ endif()
 
 # Ensure the client can find shared libraries at runtime
 set_target_properties(r-type_client PROPERTIES
-    INSTALL_RPATH "$ORIGIN"
+    INSTALL_RPATH "$ORIGIN:$ORIGIN/vcpkg_installed/x64-linux-dynamic/lib:$ORIGIN/vcpkg_installed/x64-linux-dynamic/debug/lib"
     BUILD_WITH_INSTALL_RPATH TRUE
 )
 
@@ -60,6 +91,7 @@ target_include_directories(r-type_test_client
 target_link_libraries(r-type_test_client
     PRIVATE
         game_engine
+        rtype_protocol
 )
 
 # Link Winsock on Windows
@@ -68,6 +100,6 @@ if(WIN32)
 endif()
 
 set_target_properties(r-type_test_client PROPERTIES
-    INSTALL_RPATH "$ORIGIN"
+    INSTALL_RPATH "$ORIGIN:$ORIGIN/vcpkg_installed/x64-linux-dynamic/lib:$ORIGIN/vcpkg_installed/x64-linux-dynamic/debug/lib"
     BUILD_WITH_INSTALL_RPATH TRUE
 )

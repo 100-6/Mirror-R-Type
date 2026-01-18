@@ -52,6 +52,11 @@ public:
     void update_name_tags();
 
     /**
+     * @brief Spawn a transient explosion effect at the given coordinates
+     */
+    void spawn_explosion(float x, float y, float scale);
+
+    /**
      * @brief Set local player ID
      */
     void set_local_player_id(uint32_t player_id) { local_player_id_ = player_id; }
@@ -67,6 +72,11 @@ public:
     void set_player_name(uint32_t server_id, const std::string& name);
 
     /**
+     * @brief Get player name by player ID
+     */
+    std::string get_player_name(uint32_t player_id) const;
+
+    /**
      * @brief Get entity by server ID
      */
     Entity get_entity(uint32_t server_id) const;
@@ -76,11 +86,32 @@ public:
      */
     bool has_entity(uint32_t server_id) const;
 
+    /**
+     * @brief Get entity type by server ID
+     * @param server_id Server ID of the entity
+     * @param out_type Output parameter for the entity type
+     * @return true if entity exists and type was retrieved, false otherwise
+     */
+    bool get_entity_type(uint32_t server_id, protocol::EntityType& out_type) const;
+
+    /**
+     * @brief Update player sprite when level-up occurs
+     * @param server_id Server entity ID of the player
+     * @param new_skin_id New skin_id (color * 5 + ship_type)
+     */
+    void update_player_skin(uint32_t server_id, uint8_t new_skin_id);
+
+    /**
+     * @brief Set current map ID to select correct boss sprites
+     */
+    void set_current_map_id(uint16_t map_id) { current_map_id_ = map_id; }
+
 private:
     Registry& registry_;
     TextureManager& textures_;
     int screen_width_;
     int screen_height_;
+    uint16_t current_map_id_ = 1;
 
     // Entity tracking
     std::unordered_map<uint32_t, Entity> server_to_local_;
@@ -92,8 +123,9 @@ private:
     // Player management
     uint32_t local_player_id_;
     uint32_t local_player_entity_id_;
-    std::unordered_map<uint32_t, std::string> player_names_;
-    std::unordered_map<uint32_t, Entity> player_name_tags_;
+    std::unordered_map<uint32_t, std::string> player_names_;  // player_id -> name
+    std::unordered_map<uint32_t, Entity> player_name_tags_;   // server_id -> name tag entity
+    std::unordered_map<uint32_t, uint8_t> server_to_player_id_;  // server_id -> player_id (from subtype)
 
     // Helper functions
     Sprite build_sprite(protocol::EntityType type, bool is_local_player, uint8_t subtype);

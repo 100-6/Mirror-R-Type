@@ -9,6 +9,7 @@
 #define GAME_COMPONENTS_HPP_
 
 #include "ecs/CoreComponents.hpp"
+#include "ecs/SparseSet.hpp"  // For Entity type
 
 // AI
 
@@ -25,6 +26,21 @@ struct AI {
     float shootCooldown = 2.0f;
     float timeSinceLastShot = 0.0f;
     float moveSpeed = 100.0f;
+};
+
+struct Script {
+    std::string path;
+    bool loaded = false;
+};
+
+struct BossScript {
+    std::string path;
+    bool loaded = false;
+
+    // Boss state passed to Lua
+    float attack_timer = 0.0f;      // Time since last attack
+    float phase_timer = 0.0f;       // Time in current phase
+    int current_phase = 0;          // 0, 1, or 2
 };
 
 // Scrolling
@@ -64,9 +80,27 @@ struct FireRate {
     float time_since_last_fire = 999.0f;
 };
 
+// Forward declarations for bonus system
+enum class BonusType {
+    HEALTH,       // +20 HP (vert)
+    SHIELD,       // Protection 1 hit (violet)
+    SPEED,        // +50% vitesse pendant 20s (bleu)
+    BONUS_WEAPON  // Arme bonus qui tire automatiquement
+};
+
+struct BonusDrop {
+    bool enabled = false;                     // Whether this enemy drops a bonus
+    BonusType bonusType = BonusType::HEALTH; // Type of bonus to drop
+    float dropChance = 1.0f;                  // Probability of drop (0.0 to 1.0)
+};
+
 // Tags Spécifiques R-Type
 
-struct Enemy {};
+struct Enemy {
+    BonusDrop bonusDrop;  // Information about bonus drop on death
+};
+
+struct LocalPlayer {};
 
 enum class ProjectileFaction {
     Player,
@@ -80,12 +114,52 @@ struct Projectile {
     ProjectileFaction faction = ProjectileFaction::Player;
 };
 
+struct ProjectileOwner {
+    Entity owner = 0;  // Entity that fired this projectile
+};
+
+struct ShotAnimation {
+    float timer = 0.0f;           // Timer for frame switching
+    float lifetime = 0.0f;        // Total time alive (for non-persistent destruction)
+    float frameDuration = 0.1f;   // Switch frame every 0.1 seconds (faster animation)
+    bool currentFrame = false;    // false = frame 1, true = frame 2
+    bool persistent = false;      // If true, animation stays active (for companion turret)
+};
+
+struct BulletAnimation {
+    float timer = 0.0f;
+    float frameDuration = 0.1f;  // Switch frame every 0.1 seconds
+    int currentFrame = 0;         // 0, 1, or 2 (3 frames total)
+};
+
+struct ExplosionAnimation {
+    float timer = 0.0f;
+    float frameDuration = 0.05f;
+    int currentFrame = 0;
+    int totalFrames = 1;
+    int framesPerRow = 1;
+    int frameWidth = 32;
+    int frameHeight = 32;
+};
+
 struct Wall {};
 struct Background {};
 
+// Kamikaze enemy: dies on collision with player and deals damage
+struct Kamikaze {};
+
+// Camera entity for scroll management via ECS
+// The camera's Position.x represents the current scroll offset
+// MovementSystem updates Position based on Velocity
+struct Camera {
+    float scroll_speed = 60.0f;  // Base scroll speed (stored for reference)
+};
+
 struct HitFlash {
     float time_remaining = 0.0f;
+    float total_duration = 0.0f;        // Total flash duration for fade calculation
     engine::Color original_color = engine::Color::White;
+    uint8_t max_alpha = 200;            // Peak alpha value for white flash overlay
 };
 
 // Logique de jeu (Stats)
@@ -112,13 +186,24 @@ struct Score
 
 // Bonus System
 
-enum class BonusType {
-    HEALTH,     // +20 HP (vert)
-    SHIELD,     // Protection 1 hit (violet)
-    SPEED       // +50% vitesse pendant 20s (bleu)
-};
+// BonusType enum is defined above (before Enemy struct)
 
 // Wave System
+
+// Tag entities with their source wave for completion tracking
+struct WaveEntityTag {
+    uint32_t wave_number = 0;  // Which wave spawned this entity
+    bool is_boss = false;      // Special handling for boss entities (can't scroll away)
+};
+
+// Track active wave completion status
+struct ActiveWave {
+    uint32_t wave_number = 0;
+    uint32_t entities_spawned = 0;     // Total entities spawned in this wave
+    uint32_t entities_remaining = 0;   // Alive + on-screen entities
+    float wave_start_time = 0.0f;      // When wave started (for completion time)
+    bool completion_pending = false;   // Waiting for entities to clear
+};
 
 enum class SpawnPattern {
     SINGLE,      // Spawn single entity at position
@@ -135,6 +220,8 @@ enum class EntitySpawnType {
     POWERUP
 };
 
+// BonusDrop struct is defined above (before Enemy struct)
+
 struct WaveSpawnData {
     EntitySpawnType entityType = EntitySpawnType::ENEMY;
     EnemyType enemyType = EnemyType::Basic;  // Used if entityType is ENEMY
@@ -144,10 +231,12 @@ struct WaveSpawnData {
     int count = 1;                            // Number of entities to spawn
     SpawnPattern pattern = SpawnPattern::SINGLE;
     float spacing = 0.0f;                     // Spacing between entities in pattern
+    BonusDrop bonusDrop;                      // Optional bonus drop on death (for enemies)
 };
 
 struct WaveTrigger {
-    float scrollDistance = 0.0f;              // Scroll distance to trigger wave
+    int chunkId = 0;                          // Trigger at specific map chunk
+    float offset = 0.0f;                      // Offset within chunk (0.0 - 1.0)
     float timeDelay = 0.0f;                   // Optional time delay after scroll trigger
     bool triggered = false;                   // Has this wave been triggered?
 };
@@ -159,11 +248,16 @@ struct WaveController {
     int currentWaveNumber = 0;                // Current wave number from JSON
     size_t totalWaveCount = 0;                // Total number of waves
     bool allWavesCompleted = false;           // All waves finished
+    bool proceduralMobs = false;              // Generate random waves after config is done
 };
 
 struct Bonus {
     BonusType type = BonusType::HEALTH;
     float radius = 20.0f;
+};
+
+struct BonusLifetime {
+    float timeRemaining = 10.0f;  // Durée de vie en secondes
 };
 
 struct Shield {
@@ -174,6 +268,14 @@ struct SpeedBoost {
     float timeRemaining = 20.0f;      // Durée restante
     float multiplier = 1.5f;          // +50% vitesse
     float originalSpeed = 0.0f;       // Vitesse originale pour restauration
+};
+
+// Bonus Weapon System
+
+struct BonusWeapon {
+    size_t weaponEntity = -1;         // Entity du vaisseau bonus attaché
+    float timeSinceLastFire = 0.0f;   // Cooldown du tir
+    bool active = true;                // Arme active ou non
 };
 
 // Game State System
@@ -197,5 +299,7 @@ struct GameState {
 struct NetworkId {
     uint32_t server_entity_id = 0;  // Server-side entity ID for network sync
 };
+
+
 
 #endif /* !GAME_COMPONENTS_HPP_ */

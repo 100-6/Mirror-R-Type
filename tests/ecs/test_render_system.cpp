@@ -71,9 +71,11 @@ public:
     void draw_rectangle_outline(const engine::Rectangle&, engine::Color, float) override {}
     void draw_circle(engine::Vector2f, float, engine::Color) override {}
     void draw_line(engine::Vector2f, engine::Vector2f, engine::Color, float) override {}
+    float measure_text(const std::string&, int, engine::FontHandle) const override { return 0.0f; }
 
     // Resource loading (not used in tests)
     engine::TextureHandle load_texture(const std::string&) override { return 1; }
+    engine::TextureHandle load_texture_from_memory(const uint8_t*, size_t) override { return 1; }
     void unload_texture(engine::TextureHandle) override {}
     engine::Vector2f get_texture_size(engine::TextureHandle) const override {
         return {0.0f, 0.0f};
@@ -85,6 +87,11 @@ public:
     // Camera/View (not used in tests)
     void set_view(engine::Vector2f, engine::Vector2f) override {}
     void reset_view() override {}
+    void* get_window_handle() const override { return nullptr; }
+
+    // Blend modes (not used in tests)
+    void begin_blend_mode(int) override {}
+    void end_blend_mode() override {}
 
     // Test helpers
     int get_draw_call_count() const { return draw_sprite_call_count_; }

@@ -25,8 +25,6 @@ class INetworkListener {
 public:
     virtual ~INetworkListener() = default;
 
-    // === Connection Events ===
-
     /**
      * @brief Called when a client sends CONNECTION request
      * @param client_id TCP client ID
@@ -48,8 +46,6 @@ public:
      */
     virtual void on_client_ping(uint32_t client_id, const protocol::ClientPingPayload& payload) = 0;
 
-    // === Lobby Events ===
-
     /**
      * @brief Called when a client wants to join a lobby
      * @param client_id TCP client ID
@@ -64,7 +60,39 @@ public:
      */
     virtual void on_client_leave_lobby(uint32_t client_id, const protocol::ClientLeaveLobbyPayload& payload) = 0;
 
-    // === Game Events ===
+    /**
+     * @brief Called when a client wants to create a custom room
+     * @param client_id TCP client ID
+     * @param payload Room creation data
+     */
+    virtual void on_client_create_room(uint32_t client_id, const protocol::ClientCreateRoomPayload& payload) = 0;
+
+    /**
+     * @brief Called when a client wants to join a custom room
+     * @param client_id TCP client ID
+     * @param payload Room join data
+     */
+    virtual void on_client_join_room(uint32_t client_id, const protocol::ClientJoinRoomPayload& payload) = 0;
+
+    /**
+     * @brief Called when a client wants to leave a custom room
+     * @param client_id TCP client ID
+     * @param payload Room leave data
+     */
+    virtual void on_client_leave_room(uint32_t client_id, const protocol::ClientLeaveRoomPayload& payload) = 0;
+
+    /**
+     * @brief Called when a client requests the list of available rooms
+     * @param client_id TCP client ID
+     */
+    virtual void on_client_request_room_list(uint32_t client_id) = 0;
+
+    /**
+     * @brief Called when a client (host) wants to start the game
+     * @param client_id TCP client ID
+     * @param payload Start game data
+     */
+    virtual void on_client_start_game(uint32_t client_id, const protocol::ClientStartGamePayload& payload) = 0;
 
     /**
      * @brief Called when a client sends UDP handshake
@@ -79,6 +107,47 @@ public:
      * @param payload Input data (movement, shooting)
      */
     virtual void on_client_input(uint32_t client_id, const protocol::ClientInputPayload& payload) = 0;
+
+    /**
+     * @brief Called when a client wants to change their player name
+     * @param client_id TCP client ID
+     * @param payload Name change data
+     */
+    virtual void on_client_set_player_name(uint32_t client_id, const protocol::ClientSetPlayerNamePayload& payload) = 0;
+
+    /**
+     * @brief Called when a client wants to change their player skin
+     * @param client_id TCP client ID
+     * @param payload Skin change data
+     */
+    virtual void on_client_set_player_skin(uint32_t client_id, const protocol::ClientSetPlayerSkinPayload& payload) = 0;
+
+    /**
+     * @brief Called when a client sends admin authentication
+     * @param client_id TCP client ID
+     * @param payload Admin auth data (password hash, username)
+     */
+    virtual void on_admin_auth(uint32_t client_id, const protocol::ClientAdminAuthPayload& payload) = 0;
+
+    /**
+     * @brief Called when a client sends admin command
+     * @param client_id TCP client ID
+     * @param payload Admin command data (command string)
+     */
+    virtual void on_admin_command(uint32_t client_id, const protocol::ClientAdminCommandPayload& payload) = 0;
+
+    /**
+     * @brief Called when a client requests the global leaderboard
+     * @param client_id TCP client ID
+     */
+    virtual void on_client_request_global_leaderboard(uint32_t client_id) = 0;
+
+    /**
+     * @brief Called when a client sends a chat message
+     * @param client_id TCP client ID
+     * @param payload Chat message data
+     */
+    virtual void on_client_chat_message(uint32_t client_id, const protocol::ClientChatMessagePayload& payload) = 0;
 };
 
 }

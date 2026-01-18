@@ -32,6 +32,14 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# AddressSanitizer support for debugging memory issues
+option(ENABLE_ASAN "Enable AddressSanitizer for memory debugging" OFF)
+if(ENABLE_ASAN)
+    message(STATUS "AddressSanitizer ENABLED")
+    add_compile_options(-fsanitize=address -fno-omit-frame-pointer -g)
+    add_link_options(-fsanitize=address)
+endif()
+
 # Disable Windows min/max macros that conflict with std::min/std::max
 if(WIN32)
     add_compile_definitions(NOMINMAX)
@@ -52,6 +60,8 @@ endif()
 option(BUILD_CLIENT "Build client executable" ON)
 option(BUILD_SERVER "Build server executable" ON)
 option(BUILD_TESTS "Build unit tests" ON)
+option(BUILD_RTYPE "Build R-Type game" ON)
+option(BUILD_BAGARIO "Build Bagario game" ON)
 
 # list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 # include(CPM)
@@ -72,8 +82,27 @@ endforeach()
 add_subdirectory(src/engine)
 
 # Add R-Type game
-add_subdirectory(src/r-type)
+if(BUILD_RTYPE)
+    add_subdirectory(src/r-type)
+endif()
 
+# Add Bagario game
+if(BUILD_BAGARIO)
+    add_subdirectory(src/bagario)
+endif()
+
+# Add tests
 if (BUILD_TESTS)
     add_subdirectory(tests)
 endif()
+
+# Lua and Sol2
+find_package(Lua REQUIRED)
+find_path(SOL2_INCLUDE_DIR NAMES sol/sol.hpp)
+
+if(NOT SOL2_INCLUDE_DIR)
+    message(FATAL_ERROR "sol2 not found!")
+endif()
+
+message(STATUS "Found Lua: ${LUA_LIBRARIES}")
+message(STATUS "Found Sol2: ${SOL2_INCLUDE_DIR}")

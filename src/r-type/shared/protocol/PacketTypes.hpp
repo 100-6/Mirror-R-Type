@@ -12,11 +12,14 @@ namespace rtype::protocol {
  * - 0x01-0x04: Connection Management (Client → Server)
  * - 0x05-0x09: Lobby & Matchmaking (Client → Server)
  * - 0x10-0x1F: Player Input (Client → Server)
- * - 0x20-0x3F: Reserved for future client-to-server use
+ * - 0x20-0x29: Room Management (Client → Server)
+ * - 0x30-0x3F: Admin Commands (Client → Server)
  * - 0x81-0x8A: Connection & Lobby (Server → Client)
+ * - 0x90-0x9F: Room Management (Server → Client)
  * - 0xA0-0xAF: World State (Server → Client)
  * - 0xB0-0xBF: Entity Events (Server → Client)
  * - 0xC0-0xCF: Game Mechanics (Server → Client)
+ * - 0xD0-0xDF: Admin Responses (Server → Client)
  * - 0xF0-0xFF: System & Chat (Server → Client)
  */
 enum class PacketType : uint8_t {
@@ -34,6 +37,23 @@ enum class PacketType : uint8_t {
     // Player Input (0x10-0x1F)
     CLIENT_INPUT = 0x10,
 
+    // Room Management (0x20-0x29)
+    CLIENT_CREATE_ROOM = 0x20,
+    CLIENT_JOIN_ROOM = 0x21,
+    CLIENT_LEAVE_ROOM = 0x22,
+    CLIENT_REQUEST_ROOM_LIST = 0x23,
+    CLIENT_START_GAME = 0x24,
+    CLIENT_SET_PLAYER_NAME = 0x25,  // Change player name in lobby
+    CLIENT_SET_PLAYER_SKIN = 0x26,  // Change player skin in lobby
+    CLIENT_REQUEST_GLOBAL_LEADERBOARD = 0x27,  // Request global all-time leaderboard
+
+    // Admin Commands (0x30-0x3F)
+    CLIENT_ADMIN_AUTH = 0x30,           // Admin authentication request
+    CLIENT_ADMIN_COMMAND = 0x31,        // Admin command execution (kick, list, etc.)
+
+    // Chat (0x40-0x4F)
+    CLIENT_CHAT_MESSAGE = 0x40,         // Client sends a chat message
+
     // ========== Server → Client ==========
     // Connection & Lobby (0x81-0x8A)
     SERVER_ACCEPT = 0x81,
@@ -46,6 +66,16 @@ enum class PacketType : uint8_t {
     SERVER_COUNTDOWN_CANCELLED = 0x89,
     SERVER_GAME_START = 0x8A,
 
+    // Room Management (0x90-0x9F)
+    SERVER_ROOM_CREATED = 0x90,
+    SERVER_ROOM_LIST = 0x91,
+    SERVER_ROOM_JOINED = 0x92,
+    SERVER_ROOM_LEFT = 0x93,
+    SERVER_ROOM_STATE_UPDATE = 0x94,
+    SERVER_ROOM_ERROR = 0x95,
+    SERVER_PLAYER_NAME_UPDATED = 0x96,  // Player name changed in room
+    SERVER_PLAYER_SKIN_UPDATED = 0x97,  // Player skin changed in room
+
     // World State (0xA0-0xAF)
     SERVER_SNAPSHOT = 0xA0,
     SERVER_DELTA_SNAPSHOT = 0xA1,
@@ -55,14 +85,29 @@ enum class PacketType : uint8_t {
     SERVER_ENTITY_DESTROY = 0xB1,
     SERVER_ENTITY_DAMAGE = 0xB2,
     SERVER_PROJECTILE_SPAWN = 0xB3,
+    SERVER_EXPLOSION_EVENT = 0xB4,
 
     // Game Mechanics (0xC0-0xCF)
     SERVER_POWERUP_COLLECTED = 0xC0,
     SERVER_SCORE_UPDATE = 0xC1,
     SERVER_WAVE_START = 0xC2,
     SERVER_WAVE_COMPLETE = 0xC3,
+    SERVER_PLAYER_LEVEL_UP = 0xC4,  // Player leveled up (ship/weapon changed)
     SERVER_PLAYER_RESPAWN = 0xC5,
     SERVER_GAME_OVER = 0xC6,
+    SERVER_LEADERBOARD = 0xC7,      // End-game leaderboard with all player scores
+    SERVER_GLOBAL_LEADERBOARD = 0xC8,  // Global all-time top 10 leaderboard
+    SERVER_LEVEL_TRANSITION = 0xC9,
+    SERVER_LEVEL_READY = 0xCA,  // Level fully loaded, client can stop fading
+
+    // Admin Responses (0xD0-0xDF)
+    SERVER_ADMIN_AUTH_RESULT = 0xD0,    // Admin authentication result
+    SERVER_ADMIN_COMMAND_RESULT = 0xD1, // Admin command execution result
+    SERVER_ADMIN_NOTIFICATION = 0xD2,   // Admin notifications (player events, etc.)
+    SERVER_KICK_NOTIFICATION = 0xD3,    // Kick notification sent before disconnect
+
+    // Chat (0xF0-0xFF)
+    SERVER_CHAT_MESSAGE = 0xF0,         // Server broadcasts a chat message to all clients
 };
 
 /**
@@ -81,6 +126,28 @@ enum class Difficulty : uint8_t {
     EASY = 0x01,
     NORMAL = 0x02,
     HARD = 0x03,
+};
+
+/**
+ * @brief Room status codes
+ */
+enum class RoomStatus : uint8_t {
+    WAITING = 0x01,
+    IN_PROGRESS = 0x02,
+    FINISHED = 0x03,
+};
+
+/**
+ * @brief Room error codes
+ */
+enum class RoomError : uint8_t {
+    ROOM_NOT_FOUND = 0x01,
+    ROOM_FULL = 0x02,
+    WRONG_PASSWORD = 0x03,
+    ALREADY_STARTED = 0x04,
+    NOT_HOST = 0x05,
+    INVALID_CONFIGURATION = 0x06,
+    ALREADY_IN_ROOM = 0x07,
 };
 
 /**
@@ -292,6 +359,16 @@ inline std::string packet_type_to_string(PacketType type) {
         return "CLIENT_UDP_HANDSHAKE";
     case PacketType::CLIENT_INPUT:
         return "CLIENT_INPUT";
+    case PacketType::CLIENT_CREATE_ROOM:
+        return "CLIENT_CREATE_ROOM";
+    case PacketType::CLIENT_JOIN_ROOM:
+        return "CLIENT_JOIN_ROOM";
+    case PacketType::CLIENT_LEAVE_ROOM:
+        return "CLIENT_LEAVE_ROOM";
+    case PacketType::CLIENT_REQUEST_ROOM_LIST:
+        return "CLIENT_REQUEST_ROOM_LIST";
+    case PacketType::CLIENT_START_GAME:
+        return "CLIENT_START_GAME";
     case PacketType::SERVER_ACCEPT:
         return "SERVER_ACCEPT";
     case PacketType::SERVER_REJECT:
@@ -310,6 +387,18 @@ inline std::string packet_type_to_string(PacketType type) {
         return "SERVER_COUNTDOWN_CANCELLED";
     case PacketType::SERVER_GAME_START:
         return "SERVER_GAME_START";
+    case PacketType::SERVER_ROOM_CREATED:
+        return "SERVER_ROOM_CREATED";
+    case PacketType::SERVER_ROOM_LIST:
+        return "SERVER_ROOM_LIST";
+    case PacketType::SERVER_ROOM_JOINED:
+        return "SERVER_ROOM_JOINED";
+    case PacketType::SERVER_ROOM_LEFT:
+        return "SERVER_ROOM_LEFT";
+    case PacketType::SERVER_ROOM_STATE_UPDATE:
+        return "SERVER_ROOM_STATE_UPDATE";
+    case PacketType::SERVER_ROOM_ERROR:
+        return "SERVER_ROOM_ERROR";
     case PacketType::SERVER_SNAPSHOT:
         return "SERVER_SNAPSHOT";
     case PacketType::SERVER_DELTA_SNAPSHOT:
@@ -330,10 +419,46 @@ inline std::string packet_type_to_string(PacketType type) {
         return "SERVER_WAVE_START";
     case PacketType::SERVER_WAVE_COMPLETE:
         return "SERVER_WAVE_COMPLETE";
+    case PacketType::SERVER_PLAYER_LEVEL_UP:
+        return "SERVER_PLAYER_LEVEL_UP";
     case PacketType::SERVER_PLAYER_RESPAWN:
         return "SERVER_PLAYER_RESPAWN";
     case PacketType::SERVER_GAME_OVER:
         return "SERVER_GAME_OVER";
+    case PacketType::SERVER_LEADERBOARD:
+        return "SERVER_LEADERBOARD";
+    case PacketType::SERVER_GLOBAL_LEADERBOARD:
+        return "SERVER_GLOBAL_LEADERBOARD";
+    case PacketType::CLIENT_REQUEST_GLOBAL_LEADERBOARD:
+        return "CLIENT_REQUEST_GLOBAL_LEADERBOARD";
+    case PacketType::SERVER_LEVEL_TRANSITION:
+        return "SERVER_LEVEL_TRANSITION";
+    case PacketType::SERVER_LEVEL_READY:
+        return "SERVER_LEVEL_READY";
+    case PacketType::CLIENT_SET_PLAYER_NAME:
+        return "CLIENT_SET_PLAYER_NAME";
+    case PacketType::CLIENT_SET_PLAYER_SKIN:
+        return "CLIENT_SET_PLAYER_SKIN";
+    case PacketType::CLIENT_ADMIN_AUTH:
+        return "CLIENT_ADMIN_AUTH";
+    case PacketType::CLIENT_ADMIN_COMMAND:
+        return "CLIENT_ADMIN_COMMAND";
+    case PacketType::SERVER_PLAYER_NAME_UPDATED:
+        return "SERVER_PLAYER_NAME_UPDATED";
+    case PacketType::SERVER_PLAYER_SKIN_UPDATED:
+        return "SERVER_PLAYER_SKIN_UPDATED";
+    case PacketType::SERVER_ADMIN_AUTH_RESULT:
+        return "SERVER_ADMIN_AUTH_RESULT";
+    case PacketType::SERVER_ADMIN_COMMAND_RESULT:
+        return "SERVER_ADMIN_COMMAND_RESULT";
+    case PacketType::SERVER_ADMIN_NOTIFICATION:
+        return "SERVER_ADMIN_NOTIFICATION";
+    case PacketType::SERVER_KICK_NOTIFICATION:
+        return "SERVER_KICK_NOTIFICATION";
+    case PacketType::CLIENT_CHAT_MESSAGE:
+        return "CLIENT_CHAT_MESSAGE";
+    case PacketType::SERVER_CHAT_MESSAGE:
+        return "SERVER_CHAT_MESSAGE";
     default:
         return "UNKNOWN";
     }

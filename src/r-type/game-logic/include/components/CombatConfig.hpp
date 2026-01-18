@@ -85,6 +85,20 @@
 #define WEAPON_CHARGE_TIME_MIN      0.5f
 #define WEAPON_CHARGE_TIME_MAX      1.5f
 
+// BONUS - Arme bonus automatique
+#define WEAPON_BONUS_PROJECTILES    1
+#define WEAPON_BONUS_SPREAD         0.0f
+#define WEAPON_BONUS_DAMAGE         5
+#define WEAPON_BONUS_SPEED          600.0f
+#define WEAPON_BONUS_FIRERATE       0.7f
+#define WEAPON_BONUS_BURST_DELAY    0.0f
+#define WEAPON_BONUS_WIDTH          20.0f
+#define WEAPON_BONUS_HEIGHT         8.0f
+#define WEAPON_BONUS_COLOR_R        255
+#define WEAPON_BONUS_COLOR_G        200
+#define WEAPON_BONUS_COLOR_B        0
+#define WEAPON_BONUS_COLOR_A        255
+
 // ============= ENEMIES AI =============
 
 // Enemy Projectile Color

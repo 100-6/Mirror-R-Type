@@ -23,6 +23,17 @@ struct Sprite {
     Vector2f origin{0.0f, 0.0f};
     float rotation = 0.0f;
     Color tint = Color::White;
+    
+    // Rectangle source pour découper une partie de la texture (spritesheet)
+    // Si non défini (x=0, y=0, width=0, height=0), utilise la texture complète
+    struct SourceRect {
+        float x = 0.0f;
+        float y = 0.0f;
+        float width = 0.0f;
+        float height = 0.0f;
+        
+        bool is_valid() const { return width > 0.0f && height > 0.0f; }
+    } source_rect;
 };
 
 /**
@@ -154,6 +165,17 @@ public:
     virtual TextureHandle load_texture(const std::string& path) = 0;
 
     /**
+     * @brief Load a texture from memory (raw image bytes)
+     * @param data Pointer to image data (PNG, JPG, etc. file bytes)
+     * @param size Size of the data in bytes
+     * @return Texture handle, or INVALID_HANDLE on failure
+     *
+     * This is useful for loading textures received over the network
+     * without writing to disk first.
+     */
+    virtual TextureHandle load_texture_from_memory(const uint8_t* data, size_t size) = 0;
+
+    /**
      * @brief Unload a texture
      * @param handle Texture handle to unload
      */
@@ -185,6 +207,16 @@ public:
      */
     virtual void unload_font(FontHandle handle) = 0;
 
+    /**
+     * @brief Measure the width of text in pixels
+     * @param text Text to measure
+     * @param font_size Font size in pixels
+     * @param font_handle Font to use (INVALID_HANDLE for default font)
+     * @return Width of the text in pixels
+     */
+    virtual float measure_text(const std::string& text, int font_size,
+                               FontHandle font_handle = INVALID_HANDLE) const = 0;
+
     // Camera/View
     /**
      * @brief Set the camera view
@@ -197,6 +229,24 @@ public:
      * @brief Reset the view to the default (window size)
      */
     virtual void reset_view() = 0;
+
+    /**
+     * @brief Get the internal window handle
+     * @return Pointer to the window handle (platform specific void*)
+     */
+    virtual void* get_window_handle() const = 0;
+
+    // Blend modes
+    /**
+     * @brief Begin blend mode for additive/multiplicative rendering
+     * @param mode 0=ALPHA (default), 1=ADDITIVE, 2=MULTIPLIED, 3=ADD_COLORS, 4=SUBTRACT_COLORS
+     */
+    virtual void begin_blend_mode(int mode) = 0;
+
+    /**
+     * @brief End blend mode and return to default
+     */
+    virtual void end_blend_mode() = 0;
 };
 
 }

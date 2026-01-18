@@ -38,8 +38,6 @@ public:
 
     ~NetworkClient();
 
-    // ============== Connection ==============
-
     /**
      * @brief Connect to server via TCP
      * @param host Server hostname or IP
@@ -62,8 +60,6 @@ public:
      * @brief Check if UDP is connected
      */
     bool is_udp_connected() const;
-
-    // ============== Sending ==============
 
     /**
      * @brief Send connection request to server
@@ -94,20 +90,68 @@ public:
     void send_leave_lobby();
 
     /**
+     * @brief Request to create a custom room
+     * @param room_name Room name (optional, empty for auto-name)
+     * @param password Room password (optional, empty for no password)
+     * @param mode Game mode
+     * @param difficulty Difficulty level
+     * @param map_id Map identifier (1=Nebula Outpost, 2=Asteroid Belt, 3=Bydo Mothership)
+     * @param max_players Maximum players (2-4)
+     */
+    void send_create_room(const std::string& room_name, const std::string& password,
+                          protocol::GameMode mode, protocol::Difficulty difficulty,
+                          uint16_t map_id, uint8_t max_players);
+
+    /**
+     * @brief Request to join a custom room
+     * @param room_id Room ID to join
+     * @param password Room password (empty if no password)
+     */
+    void send_join_room(uint32_t room_id, const std::string& password);
+
+    /**
+     * @brief Request to leave current room
+     */
+    void send_leave_room();
+
+    /**
+     * @brief Request list of available rooms
+     */
+    void send_request_room_list();
+
+    /**
+     * @brief Request to start game (host only)
+     */
+    void send_start_game();
+
+    /**
+     * @brief Change player name in lobby
+     * @param new_name New player name (max 31 chars)
+     */
+    void send_set_player_name(const std::string& new_name);
+
+    /**
+     * @brief Change player skin in lobby
+     * @param skin_id Skin ID (0-14 for 3 colors x 5 ship types)
+     */
+    void send_set_player_skin(uint8_t skin_id);
+
+    /**
+     * @brief Request global all-time leaderboard
+     */
+    void send_request_global_leaderboard();
+
+    /**
      * @brief Send player input (via UDP if connected, TCP otherwise)
      * @param input_flags Input bitfield
      * @param client_tick Current client tick
      */
     void send_input(uint16_t input_flags, uint32_t client_tick);
 
-    // ============== Update ==============
-
     /**
      * @brief Process incoming packets - call this every frame
      */
     void update();
-
-    // ============== Callbacks ==============
 
     /**
      * @brief Set callback for when connection is accepted
@@ -136,9 +180,9 @@ public:
 
     /**
      * @brief Set callback for game start
-     * @param callback Function receiving session_id and udp_port
+     * @param callback Function receiving session_id, udp_port, map_id and scroll speed
      */
-    void set_on_game_start(std::function<void(uint32_t session_id, uint16_t udp_port)> callback);
+    void set_on_game_start(std::function<void(uint32_t session_id, uint16_t udp_port, uint16_t map_id, float scroll_speed, uint32_t seed)> callback);
 
     /**
      * @brief Set callback for entity spawn
@@ -157,6 +201,12 @@ public:
      * @param callback Function receiving projectile spawn data
      */
     void set_on_projectile_spawn(std::function<void(const protocol::ServerProjectileSpawnPayload& spawn)> callback);
+
+    /**
+     * @brief Set callback for explosion events
+     * @param callback Function receiving explosion payload
+     */
+    void set_on_explosion(std::function<void(const protocol::ServerExplosionPayload& payload)> callback);
 
     /**
      * @brief Set callback for game snapshot
@@ -191,13 +241,128 @@ public:
      */
     void set_on_score_update(std::function<void(const protocol::ServerScoreUpdatePayload&)> callback);
 
-    // ============== Getters ==============
+    /**
+     * @brief Set callback for player level-up events
+     */
+    void set_on_player_level_up(std::function<void(const protocol::ServerPlayerLevelUpPayload&)> callback);
+
+    /**
+     * @brief Set callback for level transition events
+     */
+    void set_on_level_transition(std::function<void(const protocol::ServerLevelTransitionPayload&)> callback);
+
+    /**
+     * @brief Set callback for level ready events (level fully loaded on server)
+     */
+    void set_on_level_ready(std::function<void(const protocol::ServerLevelReadyPayload&)> callback);
+
+    /**
+     * @brief Set callback for powerup collected events
+     */
+    void set_on_powerup_collected(std::function<void(const protocol::ServerPowerupCollectedPayload&)> callback);
+
+    /**
+     * @brief Set callback for player respawn events
+     */
+    void set_on_player_respawn(std::function<void(const protocol::ServerPlayerRespawnPayload&)> callback);
+
+    /**
+     * @brief Set callback for leaderboard updates
+     */
+    void set_on_leaderboard(std::function<void(const protocol::ServerLeaderboardPayload&, const std::vector<protocol::LeaderboardEntry>&)> callback);
+
+    /**
+     * @brief Set callback for global leaderboard response
+     */
+    void set_on_global_leaderboard(std::function<void(const protocol::ServerGlobalLeaderboardPayload&, const std::vector<protocol::GlobalLeaderboardEntry>&)> callback);
+
+    /**
+     * @brief Set callback for room creation response
+     * @param callback Function receiving room_created payload
+     */
+    void set_on_room_created(std::function<void(const protocol::ServerRoomCreatedPayload&)> callback);
+
+    /**
+     * @brief Set callback for room join response
+     * @param callback Function receiving room_joined payload
+     */
+    void set_on_room_joined(std::function<void(const protocol::ServerRoomJoinedPayload&)> callback);
+
+    /**
+     * @brief Set callback for room left notification
+     * @param callback Function receiving room_left payload
+     */
+    void set_on_room_left(std::function<void(const protocol::ServerRoomLeftPayload&)> callback);
+
+    /**
+     * @brief Set callback for room list response
+     * @param callback Function receiving list of rooms
+     */
+    void set_on_room_list(std::function<void(const std::vector<protocol::RoomInfo>& rooms)> callback);
+
+    /**
+     * @brief Set callback for room errors
+     * @param callback Function receiving error payload
+     */
+    void set_on_room_error(std::function<void(const protocol::ServerRoomErrorPayload&)> callback);
+
+    /**
+     * @brief Set callback for player name updates in room
+     * @param callback Function receiving name update payload
+     */
+    void set_on_player_name_updated(std::function<void(const protocol::ServerPlayerNameUpdatedPayload&)> callback);
+
+    /**
+     * @brief Set callback for player skin updates in room
+     * @param callback Function receiving skin update payload
+     */
+    void set_on_player_skin_updated(std::function<void(const protocol::ServerPlayerSkinUpdatedPayload&)> callback);
+
+    /**
+     * @brief Send admin authentication request
+     * @param password Admin password (will be hashed client-side)
+     */
+    void send_admin_auth(const std::string& password);
+
+    /**
+     * @brief Send admin command
+     * @param command Command string to execute
+     */
+    void send_admin_command(const std::string& command);
+
+    /**
+     * @brief Set callback for admin auth result
+     * @param callback Function receiving success status and message
+     */
+    using AdminAuthCallback = std::function<void(bool success, const std::string& message)>;
+    void set_on_admin_auth_result(AdminAuthCallback callback);
+
+    /**
+     * @brief Set callback for admin command result
+     * @param callback Function receiving success status and message
+     */
+    using AdminCommandResultCallback = std::function<void(bool success, const std::string& message)>;
+    void set_on_admin_command_result(AdminCommandResultCallback callback);
+
+    /**
+     * @brief Send a chat message to all players in the session
+     * @param message Message text (max 127 chars)
+     */
+    void send_chat_message(const std::string& message);
+
+    /**
+     * @brief Set callback for receiving chat messages
+     * @param callback Function receiving sender_id, sender_name, and message
+     */
+    using ChatMessageCallback = std::function<void(uint32_t sender_id, const std::string& sender_name, const std::string& message)>;
+    void set_on_chat_message(ChatMessageCallback callback);
 
     uint32_t get_player_id() const { return player_id_; }
     uint32_t get_session_id() const { return session_id_; }
     uint32_t get_lobby_id() const { return lobby_id_; }
     bool is_in_lobby() const { return in_lobby_; }
     bool is_in_game() const { return in_game_; }
+    uint32_t get_last_input_sequence() const { return input_sequence_number_ - 1; }
 
 private:
     void handle_packet(const engine::NetworkPacket& packet);
@@ -212,11 +377,31 @@ private:
     void handle_entity_spawn(const std::vector<uint8_t>& payload);
     void handle_entity_destroy(const std::vector<uint8_t>& payload);
     void handle_projectile_spawn(const std::vector<uint8_t>& payload);
+    void handle_explosion_event(const std::vector<uint8_t>& payload);
     void handle_snapshot(const std::vector<uint8_t>& payload);
     void handle_game_over(const std::vector<uint8_t>& payload);
     void handle_wave_start(const std::vector<uint8_t>& payload);
     void handle_wave_complete(const std::vector<uint8_t>& payload);
     void handle_score_update(const std::vector<uint8_t>& payload);
+    void handle_player_level_up(const std::vector<uint8_t>& payload);
+    void handle_level_transition(const std::vector<uint8_t>& payload);
+    void handle_level_ready(const std::vector<uint8_t>& payload);
+    void handle_powerup_collected(const std::vector<uint8_t>& payload);
+    void handle_player_respawn(const std::vector<uint8_t>& payload);
+    void handle_leaderboard(const std::vector<uint8_t>& payload);
+    void handle_global_leaderboard(const std::vector<uint8_t>& payload);
+    void handle_room_created(const std::vector<uint8_t>& payload);
+    void handle_room_joined(const std::vector<uint8_t>& payload);
+    void handle_room_left(const std::vector<uint8_t>& payload);
+    void handle_room_list(const std::vector<uint8_t>& payload);
+    void handle_room_error(const std::vector<uint8_t>& payload);
+    void handle_player_name_updated(const std::vector<uint8_t>& payload);
+    void handle_player_skin_updated(const std::vector<uint8_t>& payload);
+    void handle_admin_auth_result(const std::vector<uint8_t>& payload);
+    void handle_admin_command_result(const std::vector<uint8_t>& payload);
+    void handle_admin_notification(const std::vector<uint8_t>& payload);
+    void handle_kick_notification(const std::vector<uint8_t>& payload);
+    void handle_chat_message(const std::vector<uint8_t>& payload);
 
     // UDP connection after game start
     void connect_udp(uint16_t udp_port);
@@ -236,28 +421,60 @@ private:
     uint32_t player_id_ = 0;
     uint32_t session_id_ = 0;
     uint32_t lobby_id_ = 0;
+    uint32_t room_id_ = 0;
     std::atomic<bool> in_lobby_{false};
     std::atomic<bool> in_game_{false};
+    std::atomic<bool> in_room_{false};
 
     // Ping tracking
     uint32_t last_ping_timestamp_ = 0;
     int server_ping_ms_ = -1;
+
+    // Input sequence tracking (for lag compensation)
+    uint32_t input_sequence_number_ = 0;
+
+    // Packet sequence tracking (for compression/ordering)
+    uint32_t tcp_sequence_number_ = 0;
+    uint32_t udp_sequence_number_ = 0;
 
     // Callbacks
     std::function<void(uint32_t)> on_accepted_;
     std::function<void(uint8_t, const std::string&)> on_rejected_;
     std::function<void(const protocol::ServerLobbyStatePayload&, const std::vector<protocol::PlayerLobbyEntry>&)> on_lobby_state_;
     std::function<void(uint8_t)> on_countdown_;
-    std::function<void(uint32_t, uint16_t)> on_game_start_;
+    std::function<void(uint32_t, uint16_t, uint16_t, float, uint32_t)> on_game_start_;
     std::function<void(const protocol::ServerEntitySpawnPayload&)> on_entity_spawn_;
     std::function<void(const protocol::ServerEntityDestroyPayload&)> on_entity_destroy_;
     std::function<void(const protocol::ServerProjectileSpawnPayload&)> on_projectile_spawn_;
+    std::function<void(const protocol::ServerExplosionPayload&)> on_explosion_;
     std::function<void(const protocol::ServerSnapshotPayload&, const std::vector<protocol::EntityState>&)> on_snapshot_;
     std::function<void(const protocol::ServerGameOverPayload&)> on_game_over_;
     std::function<void()> on_disconnected_;
     std::function<void(const protocol::ServerWaveStartPayload&)> on_wave_start_;
     std::function<void(const protocol::ServerWaveCompletePayload&)> on_wave_complete_;
     std::function<void(const protocol::ServerScoreUpdatePayload&)> on_score_update_;
+    std::function<void(const protocol::ServerPlayerLevelUpPayload&)> on_player_level_up_;
+    std::function<void(const protocol::ServerLevelTransitionPayload&)> on_level_transition_;
+    std::function<void(const protocol::ServerLevelReadyPayload&)> on_level_ready_;
+    std::function<void(const protocol::ServerPowerupCollectedPayload&)> on_powerup_collected_;
+    std::function<void(const protocol::ServerPlayerRespawnPayload&)> on_player_respawn_;
+    std::function<void(const protocol::ServerLeaderboardPayload&, const std::vector<protocol::LeaderboardEntry>&)> on_leaderboard_;
+    std::function<void(const protocol::ServerGlobalLeaderboardPayload&, const std::vector<protocol::GlobalLeaderboardEntry>&)> on_global_leaderboard_;
+    std::function<void(const protocol::ServerRoomCreatedPayload&)> on_room_created_;
+    std::function<void(const protocol::ServerRoomJoinedPayload&)> on_room_joined_;
+    std::function<void(const protocol::ServerRoomLeftPayload&)> on_room_left_;
+    std::function<void(const std::vector<protocol::RoomInfo>&)> on_room_list_;
+    std::function<void(const protocol::ServerRoomErrorPayload&)> on_room_error_;
+    std::function<void(const protocol::ServerPlayerNameUpdatedPayload&)> on_player_name_updated_;
+    std::function<void(const protocol::ServerPlayerSkinUpdatedPayload&)> on_player_skin_updated_;
+
+    // Admin callbacks
+    bool is_admin_authenticated_ = false;
+    AdminAuthCallback on_admin_auth_result_;
+    AdminCommandResultCallback on_admin_command_result_;
+
+    // Chat callback
+    ChatMessageCallback on_chat_message_;
 };
 
 }
