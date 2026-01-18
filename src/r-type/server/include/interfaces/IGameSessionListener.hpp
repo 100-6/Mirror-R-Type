@@ -132,6 +132,13 @@ public:
      * @param leaderboard_data Serialized leaderboard data
      */
     virtual void on_leaderboard(uint32_t session_id, const std::vector<uint8_t>& leaderboard_data) = 0;
+
+    /**
+     * @brief Called when a player's shield is broken
+     * @param session_id The game session
+     * @param shield_data Serialized shield broken data
+     */
+    virtual void on_shield_broken(uint32_t session_id, const std::vector<uint8_t>& shield_data) = 0;
 };
 
 } // namespace rtype::server

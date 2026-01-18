@@ -11,6 +11,11 @@
 #include "ecs/CoreComponents.hpp"
 #include "ecs/SparseSet.hpp"  // For Entity type
 
+// Network identification for player entities
+struct NetworkPlayerId {
+    uint32_t player_id = 0;
+};
+
 // AI
 
 enum class EnemyType {

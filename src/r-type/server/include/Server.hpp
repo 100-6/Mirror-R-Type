@@ -134,6 +134,7 @@ private:
     void on_level_transition(uint32_t session_id, const std::vector<uint8_t>& transition_data) override;
     void on_level_ready(uint32_t session_id, const std::vector<uint8_t>& level_ready_data) override;
     void on_leaderboard(uint32_t session_id, const std::vector<uint8_t>& leaderboard_data) override;
+    void on_shield_broken(uint32_t session_id, const std::vector<uint8_t>& shield_data) override;
 
     void on_tcp_client_disconnected(uint32_t client_id);
     uint32_t generate_player_id();
