@@ -62,23 +62,38 @@ enum class WeaponType {
     BASIC,
     SPREAD,
     BURST,
-    LASER,
-    CHARGE
+    MACHINE_GUN,  // Anciennement LASER - tir rapide continu
+    LASER         // Anciennement CHARGE - vrai rayon laser
 };
 
 struct Weapon {
     WeaponType type = WeaponType::BASIC;
     float time_since_last_fire = 999.0f;
     int burst_count = 0;
-    
-    // Charge System
+
+    // Trigger state
     bool trigger_held = false;
-    bool is_charging = false;
-    float current_charge_duration = 0.0f;
-    size_t chargeEffectEntity = -1; // -1 = invalid
 
     Sprite projectile_sprite;
 };
+
+// Laser beam state for continuous beam weapons (Level 5)
+struct LaserBeam {
+    bool active = false;                // Rayon actif?
+    float range = 1000.0f;              // Portée max
+    float current_length = 0.0f;        // Longueur actuelle (collision)
+    float damage_per_tick = 3.0f;       // Dégâts par tick
+    float tick_rate = 0.05f;            // 20 ticks/sec
+    float time_since_last_tick = 0.0f;
+    float width = 8.0f;                 // Épaisseur visuelle
+    engine::Color beam_color{255, 50, 50, 255};   // Rouge
+    engine::Color core_color{255, 255, 200, 255}; // Blanc/jaune
+
+    // Position de fin du rayon
+    float hit_x = 0.0f;
+    float hit_y = 0.0f;
+};
+
 
 struct FireRate {
     float cooldown = 0.1f;

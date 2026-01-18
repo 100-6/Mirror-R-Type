@@ -109,6 +109,7 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
     registry_.register_component<Bonus>();
     registry_.register_component<Shield>();
     registry_.register_component<Weapon>();
+    registry_.register_component<LaserBeam>();
     registry_.register_component<SpeedBoost>();
     registry_.register_component<Scrollable>();
     registry_.register_component<Attached>();

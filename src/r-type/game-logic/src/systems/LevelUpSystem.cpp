@@ -109,18 +109,7 @@ void LevelUpSystem::apply_level_up(Registry& registry, Entity player_entity, uin
 
     // Update weapon
     if (weapons.has_entity(player_entity)) {
-        Weapon& weapon = weapons[player_entity];
-        // Preserve charge state if relevant
-        bool was_charging = weapon.is_charging;
-        float charge_duration = weapon.current_charge_duration;
-
-        weapon = create_weapon(new_weapon_type, engine::INVALID_HANDLE);
-
-        // Restore charge state if the new weapon is CHARGE type
-        if (new_weapon_type == WeaponType::CHARGE && was_charging) {
-            weapon.is_charging = was_charging;
-            weapon.current_charge_duration = charge_duration;
-        }
+        weapons[player_entity] = create_weapon(new_weapon_type, engine::INVALID_HANDLE);
     }
 
     // Update hitbox based on new ship type
