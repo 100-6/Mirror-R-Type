@@ -374,7 +374,7 @@ void ShootingSystem::updateLaserBeam(Registry& registry, Entity shooter, const P
                         if (healths[enemy].current <= 0) {
                             registry.add_component(enemy, ToDestroy{});
                             // Publier l'événement pour le score (100 points par défaut)
-                            registry.get_event_bus().publish(ecs::EnemyKilledEvent{enemy, 100, shooter});
+                            registry.get_event_bus().publish(ecs::EnemyKilledEvent{enemy, 10000, shooter});
                         }
                     }
                     // Arrêter au premier ennemi touché

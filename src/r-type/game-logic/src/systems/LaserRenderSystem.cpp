@@ -148,7 +148,7 @@ void LaserRenderSystem::update(Registry& registry, float dt)
         float playerWidth = sprites.has_entity(entity) ? sprites[entity].width : 0.0f;
 
         // Point de départ du laser (collé au vaisseau)
-        float startX = pos.x + playerWidth + 10.0f;  // Collé au vaisseau (pas d'offset)
+        float startX = pos.x + playerWidth / 3 - 15;  // Collé au vaisseau (pas d'offset)
         float startY = pos.y;  // Centré sur le vaisseau
         
         // Raycast visuel côté client pour déterminer la longueur
