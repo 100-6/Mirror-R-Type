@@ -52,7 +52,7 @@ void WaveManager::reset()
 
 void WaveManager::check_wave_completion(float delta_time)
 {
-    const float WAVE_COMPLETION_TIMEOUT = 30.0f;
+    const float WAVE_COMPLETION_TIMEOUT = 8.0f;
 
     for (auto& wave : config_.waves) {
         if (wave.triggered && !wave.completed) {

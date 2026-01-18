@@ -35,8 +35,8 @@
         {
           "wave_number": 2,
           "trigger": {
-            "chunkId": 2,
-            "offset": 0.0,
+            "chunkId": 0,
+            "offset": 0.5,
             "timeDelay": 0
           },
           "spawns": [
@@ -58,6 +58,80 @@
               "pattern": "single"
             }
           ]
+        },
+        {
+          "wave_number": 3,
+          "trigger": {
+            "chunkId": 1,
+            "offset": 0.0,
+            "timeDelay": 0
+          },
+          "spawns": [
+            {
+              "type": "enemy",
+              "enemyType": "basic",
+              "positionX": 2100,
+              "positionY": 150,
+              "count": 2,
+              "pattern": "line",
+              "spacing": 100
+            },
+            {
+              "type": "enemy",
+              "enemyType": "basic",
+              "positionX": 2100,
+              "positionY": 700,
+              "count": 2,
+              "pattern": "line",
+              "spacing": 100
+            }
+          ]
+        },
+        {
+          "wave_number": 4,
+          "trigger": {
+            "chunkId": 2,
+            "offset": 0.0,
+            "timeDelay": 0
+          },
+          "spawns": [
+            {
+              "type": "enemy",
+              "enemyType": "kamikaze",
+              "positionX": 2200,
+              "positionY": 300,
+              "count": 3,
+              "pattern": "line",
+              "spacing": 180
+            }
+          ]
+        },
+        {
+          "wave_number": 5,
+          "trigger": {
+            "chunkId": 2,
+            "offset": 0.5,
+            "timeDelay": 0
+          },
+          "spawns": [
+            {
+              "type": "enemy",
+              "enemyType": "basic",
+              "positionX": 2100,
+              "positionY": 350,
+              "count": 5,
+              "pattern": "formation",
+              "spacing": 80
+            },
+            {
+              "type": "powerup",
+              "bonusType": "shield",
+              "positionX": 2500,
+              "positionY": 540,
+              "count": 1,
+              "pattern": "single"
+            }
+          ]
         }
       ]
     },
@@ -67,7 +141,137 @@
       "scroll_start": 1440.0,
       "scroll_end": 2880.0,
       "difficulty": "medium",
-      "waves": []
+      "waves": [
+        {
+          "wave_number": 6,
+          "trigger": {
+            "chunkId": 3,
+            "offset": 0.0,
+            "timeDelay": 0
+          },
+          "spawns": [
+            {
+              "type": "enemy",
+              "enemyType": "basic",
+              "positionX": 2100,
+              "positionY": 250,
+              "count": 4,
+              "pattern": "line",
+              "spacing": 120
+            },
+            {
+              "type": "enemy",
+              "enemyType": "kamikaze",
+              "positionX": 2300,
+              "positionY": 600,
+              "count": 2,
+              "pattern": "line",
+              "spacing": 150
+            }
+          ]
+        },
+        {
+          "wave_number": 7,
+          "trigger": {
+            "chunkId": 3,
+            "offset": 0.5,
+            "timeDelay": 0
+          },
+          "spawns": [
+            {
+              "type": "enemy",
+              "enemyType": "basic",
+              "positionX": 2100,
+              "positionY": 200,
+              "count": 1,
+              "pattern": "single",
+              "spacing": 0
+            },
+            {
+              "type": "enemy",
+              "enemyType": "basic",
+              "positionX": 2200,
+              "positionY": 450,
+              "count": 1,
+              "pattern": "single",
+              "spacing": 0
+            },
+            {
+              "type": "enemy",
+              "enemyType": "basic",
+              "positionX": 2100,
+              "positionY": 700,
+              "count": 1,
+              "pattern": "single",
+              "spacing": 0
+            }
+          ]
+        },
+        {
+          "wave_number": 8,
+          "trigger": {
+            "chunkId": 4,
+            "offset": 0.0,
+            "timeDelay": 0
+          },
+          "spawns": [
+            {
+              "type": "enemy",
+              "enemyType": "basic",
+              "positionX": 2100,
+              "positionY": 300,
+              "count": 6,
+              "pattern": "formation",
+              "spacing": 100
+            },
+            {
+              "type": "powerup",
+              "bonusType": "health",
+              "positionX": 2600,
+              "positionY": 540,
+              "count": 1,
+              "pattern": "single"
+            }
+          ]
+        },
+        {
+          "wave_number": 9,
+          "trigger": {
+            "chunkId": 4,
+            "offset": 0.5,
+            "timeDelay": 0
+          },
+          "spawns": [
+            {
+              "type": "enemy",
+              "enemyType": "kamikaze",
+              "positionX": 2100,
+              "positionY": 200,
+              "count": 2,
+              "pattern": "line",
+              "spacing": 150
+            },
+            {
+              "type": "enemy",
+              "enemyType": "kamikaze",
+              "positionX": 2100,
+              "positionY": 650,
+              "count": 2,
+              "pattern": "line",
+              "spacing": 150
+            },
+            {
+              "type": "enemy",
+              "enemyType": "basic",
+              "positionX": 2300,
+              "positionY": 450,
+              "count": 2,
+              "pattern": "line",
+              "spacing": 100
+            }
+          ]
+        }
+      ]
     }
   ],
   "boss": {
