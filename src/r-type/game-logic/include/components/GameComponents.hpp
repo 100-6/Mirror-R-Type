@@ -80,7 +80,7 @@ struct Weapon {
 // Laser beam state for continuous beam weapons (Level 5)
 struct LaserBeam {
     bool active = false;                // Rayon actif?
-    float range = 1000.0f;              // Portée max
+    float range = 2000.0f;              // Portée max (traverse l'écran)
     float current_length = 0.0f;        // Longueur actuelle (collision)
     float damage_per_tick = 3.0f;       // Dégâts par tick
     float tick_rate = 0.05f;            // 20 ticks/sec
