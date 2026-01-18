@@ -42,6 +42,40 @@ static const T* get_from_vector(const std::vector<uint8_t>& vec) {
     return reinterpret_cast<const T*>(vec.data());
 }
 
+// Shader source (GLSL 330 for Raylib)
+static const char* RAYLIB_COLORBLIND_SHADER = R"(
+#version 330
+in vec2 fragTexCoord;
+in vec4 fragColor;
+out vec4 finalColor;
+uniform sampler2D texture0;
+uniform vec4 colDiffuse;
+uniform int mode; // 0: None, 1: Protanopia, 2: Deuteranopia, 3: Tritanopia
+
+void main() {
+    vec4 color = texture(texture0, fragTexCoord) * colDiffuse * fragColor;
+    
+    if (mode == 1) { // Protanopia (Red-blind)
+        float r = 0.567 * color.r + 0.433 * color.g;
+        float g = 0.558 * color.r + 0.442 * color.g;
+        float b = 0.242 * color.g + 0.758 * color.b;
+        color.r = r; color.g = g; color.b = b;
+    } else if (mode == 2) { // Deuteranopia (Green-blind)
+        float r = 0.625 * color.r + 0.375 * color.g;
+        float g = 0.700 * color.r + 0.300 * color.g;
+        float b = 0.300 * color.g + 0.700 * color.b;
+        color.r = r; color.g = g; color.b = b;
+    } else if (mode == 3) { // Tritanopia (Blue-blind)
+        float r = 0.950 * color.r + 0.050 * color.g;
+        float g = 0.433 * color.r + 0.567 * color.g;
+        float b = 0.475 * color.g + 0.525 * color.b;
+        color.r = r; color.g = g; color.b = b;
+    }
+    
+    finalColor = color;
+}
+)";
+
 // Constructor
 RaylibGraphicsPlugin::RaylibGraphicsPlugin()
     : initialized_(false)
@@ -53,12 +87,46 @@ RaylibGraphicsPlugin::RaylibGraphicsPlugin()
     , next_font_handle_(1)
     , view_center_{0.0f, 0.0f}
     , view_size_{0.0f, 0.0f}
-    , using_custom_view_(false) {
+    , using_custom_view_(false)
+    , current_colorblind_mode_(ColorBlindMode::None)
+    , shaders_ready_(false) {
 }
 
 // Destructor
 RaylibGraphicsPlugin::~RaylibGraphicsPlugin() {
     shutdown();
+}
+
+void RaylibGraphicsPlugin::init_shaders() {
+    // Load shader from memory
+    // Raylib LoadShaderFromMemory takes vsCode and fsCode. 0 or NULL for default VS.
+    Shader shader = LoadShaderFromMemory(0, RAYLIB_COLORBLIND_SHADER);
+    
+    if (shader.id != 0) {
+        store_in_vector(shader_storage_, shader);
+        shaders_ready_ = true;
+        std::cout << "RaylibGraphicsPlugin: Colorblind shader loaded successfully" << std::endl;
+        
+        // Get uniform location
+        int modeLoc = GetShaderLocation(shader, "mode");
+        int mode = static_cast<int>(current_colorblind_mode_);
+        SetShaderValue(shader, modeLoc, &mode, SHADER_UNIFORM_INT);
+    } else {
+        std::cerr << "RaylibGraphicsPlugin: Failed to load colorblind shader" << std::endl;
+    }
+}
+
+void RaylibGraphicsPlugin::set_colorblind_mode(ColorBlindMode mode) {
+    current_colorblind_mode_ = mode;
+    
+    if (shaders_ready_ && !shader_storage_.empty()) {
+        Shader* shader = get_from_vector<Shader>(shader_storage_);
+        if (shader && shader->id != 0) {
+            int modeLoc = GetShaderLocation(*shader, "mode");
+            int modeInt = static_cast<int>(mode);
+            SetShaderValue(*shader, modeLoc, &modeInt, SHADER_UNIFORM_INT);
+        }
+    }
 }
 
 // IPlugin interface
@@ -108,6 +176,27 @@ void RaylibGraphicsPlugin::shutdown() {
     }
     textures_.clear();
 
+    // Unload render texture
+    if (!render_texture_storage_.empty()) {
+        RenderTexture2D* target = get_from_vector<RenderTexture2D>(render_texture_storage_);
+        if (target && target->id != 0) {
+            UnloadRenderTexture(*target);
+            target->id = 0;
+        }
+        render_texture_storage_.clear();
+    }
+
+    // Unload shader
+    if (!shader_storage_.empty()) {
+        Shader* shader = get_from_vector<Shader>(shader_storage_);
+        if (shader && shader->id != 0) {
+            UnloadShader(*shader);
+            shader->id = 0;
+        }
+        shader_storage_.clear();
+    }
+    shaders_ready_ = false;
+
     // Now close the window (destroys OpenGL context)
     if (window_open_) {
         CloseWindow();
@@ -144,6 +233,16 @@ bool RaylibGraphicsPlugin::create_window(int width, int height, const char* titl
 
     // Create default pink/black checkerboard texture
     create_default_texture();
+
+    // Initialize shaders and render texture for post-processing
+    init_shaders();
+    
+    RenderTexture2D target = LoadRenderTexture(width, height);
+    if (target.id != 0) {
+        store_in_vector(render_texture_storage_, target);
+    } else {
+        std::cerr << "RaylibGraphicsPlugin: Failed to create render texture" << std::endl;
+    }
 
     return true;
 }
@@ -185,8 +284,16 @@ void RaylibGraphicsPlugin::clear(Color color) {
         return;
     }
     
-    BeginDrawing();
-    ClearBackground(to_raylib_color(color));
+    RenderTexture2D* target = get_from_vector<RenderTexture2D>(render_texture_storage_);
+    
+    if (target && target->id != 0) {
+        BeginTextureMode(*target);
+        ClearBackground(to_raylib_color(color));
+        // EndTextureMode is called in display()
+    } else {
+        BeginDrawing();
+        ClearBackground(to_raylib_color(color));
+    }
 }
 
 void RaylibGraphicsPlugin::display() {
@@ -194,7 +301,38 @@ void RaylibGraphicsPlugin::display() {
         return;
     }
     
-    EndDrawing();
+    RenderTexture2D* target = get_from_vector<RenderTexture2D>(render_texture_storage_);
+    
+    if (target && target->id != 0) {
+        EndTextureMode();
+        
+        BeginDrawing();
+        ClearBackground(::BLACK);
+        
+        Shader* shader = nullptr;
+        if (shaders_ready_ && !shader_storage_.empty() && current_colorblind_mode_ != ColorBlindMode::None) {
+            shader = get_from_vector<Shader>(shader_storage_);
+        }
+        
+        if (shader && shader->id != 0) {
+            BeginShaderMode(*shader);
+        }
+        
+        // Draw the render texture to the screen
+        // Note: Render textures in Raylib are vertically flipped (OpenGL coordinates)
+        ::Rectangle sourceRec = { 0.0f, 0.0f, (float)target->texture.width, -(float)target->texture.height };
+        ::Rectangle destRec = { 0.0f, 0.0f, (float)GetScreenWidth(), (float)GetScreenHeight() };
+        Vector2 origin = { 0.0f, 0.0f };
+        DrawTexturePro(target->texture, sourceRec, destRec, origin, 0.0f, ::WHITE);
+        
+        if (shader && shader->id != 0) {
+            EndShaderMode();
+        }
+        
+        EndDrawing();
+    } else {
+        EndDrawing();
+    }
 }
 
 // Drawing primitives
