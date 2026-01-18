@@ -158,8 +158,9 @@ private:
     
     int m_currentSegment = 0;
     int m_nextChunkIndex = 0;
-    
+
     bool m_initialized = false;
+    bool m_transitionLock = false;  // Prevents chunk loading during level transitions
 };
 
 } // namespace rtype

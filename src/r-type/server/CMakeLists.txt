@@ -24,6 +24,7 @@ target_include_directories(r-type_server
 )
 
 find_package(Threads REQUIRED)
+find_package(Lua REQUIRED)
 
 target_link_libraries(r-type_server
     PRIVATE
@@ -31,6 +32,7 @@ target_link_libraries(r-type_server
         rtype_logic
         rtype_protocol
         Threads::Threads
+        ${LUA_LIBRARIES}
 )
 
 if(WIN32)

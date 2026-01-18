@@ -1,0 +1,30 @@
+{
+    "basic": {
+        "script": "basic.lua",
+        "description": "Standard enemy - moves left steadily"
+    },
+    "fast": {
+        "script": "zigzag.lua",
+        "description": "Fast enemy - zigzag movement pattern"
+    },
+    "tank": {
+        "script": "basic.lua",
+        "description": "Heavy enemy - moves left slowly"
+    },
+    "boss": {
+        "script": "basic.lua",
+        "description": "Boss - moves left"
+    },
+    "zigzag": {
+        "script": "zigzag.lua",
+        "description": "Zigzag enemy - long diagonal movements"
+    },
+    "kamikaze": {
+        "script": "kamikaze.lua",
+        "description": "Suicide bomber - charges at player"
+    },
+    "bouncer": {
+        "script": "bouncer.lua",
+        "description": "Ball enemy - bounces vertically"
+    }
+}

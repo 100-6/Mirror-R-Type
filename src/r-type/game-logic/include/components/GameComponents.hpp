@@ -28,6 +28,21 @@ struct AI {
     float moveSpeed = 100.0f;
 };
 
+struct Script {
+    std::string path;
+    bool loaded = false;
+};
+
+struct BossScript {
+    std::string path;
+    bool loaded = false;
+
+    // Boss state passed to Lua
+    float attack_timer = 0.0f;      // Time since last attack
+    float phase_timer = 0.0f;       // Time in current phase
+    int current_phase = 0;          // 0, 1, or 2
+};
+
 // Scrolling
 
 struct Scrollable {
@@ -130,6 +145,9 @@ struct ExplosionAnimation {
 struct Wall {};
 struct Background {};
 
+// Kamikaze enemy: dies on collision with player and deals damage
+struct Kamikaze {};
+
 // Camera entity for scroll management via ECS
 // The camera's Position.x represents the current scroll offset
 // MovementSystem updates Position based on Velocity
@@ -217,7 +235,8 @@ struct WaveSpawnData {
 };
 
 struct WaveTrigger {
-    float scrollDistance = 0.0f;              // Scroll distance to trigger wave
+    int chunkId = 0;                          // Trigger at specific map chunk
+    float offset = 0.0f;                      // Offset within chunk (0.0 - 1.0)
     float timeDelay = 0.0f;                   // Optional time delay after scroll trigger
     bool triggered = false;                   // Has this wave been triggered?
 };

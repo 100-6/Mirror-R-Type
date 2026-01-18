@@ -8,6 +8,7 @@
 #include "LevelManager.hpp"
 #include <fstream>
 #include <iostream>
+#include <filesystem>
 
 namespace rtype::server {
 
@@ -46,26 +47,89 @@ bool LevelManager::load_from_file(const std::string& filepath)
 
 bool LevelManager::load_level(uint8_t level_id)
 {
+    // Clear existing config basics
+    config_ = LevelConfig();
+    
     // Allow debug levels (0, 99) in addition to regular levels (1-3)
-    std::string filepath = get_level_file(level_id);
-    return load_from_file(filepath);
+    std::string base_filepath = get_level_file(level_id);
+
+    // List of prefixes to try
+    std::vector<std::string> prefixes = {
+        "",
+        "../",
+        "../../",
+        "src/r-type/",
+        "../src/r-type/"
+    };
+
+    for (const auto& prefix : prefixes) {
+        std::string full_path = prefix + base_filepath;
+        if (std::filesystem::exists(full_path)) {
+            // Found existing file, try to load it
+            // std::cout << "[LevelManager] Found level configuration at: " << full_path << "\n";
+            return load_from_file(full_path);
+        }
+    }
+
+    std::cerr << "[LevelManager] ERROR: Could not find level configuration file: " << base_filepath << "\n";
+    return load_from_file(base_filepath);
+}
+
+bool LevelManager::load_level_index(const std::string& filepath)
+{
+    std::ifstream file(filepath);
+    if (!file.is_open()) {
+        std::cerr << "[LevelManager] Failed to open level index: " << filepath << "\n";
+        return false;
+    }
+
+    try {
+        nlohmann::json j;
+        file >> j;
+
+        if (j.contains("maps") && j["maps"].is_array()) {
+            for (const auto& map : j["maps"]) {
+                std::string id_str = map.value("id", "");
+                std::string config_path = map.value("wavesConfig", "");
+                
+                // Extract level number from id string "level_X_..."
+                int level_id = 0;
+                if (sscanf(id_str.c_str(), "level_%d_", &level_id) == 1) {
+                    level_files_[static_cast<uint8_t>(level_id)] = config_path;
+                    std::cout << "[LevelManager] Registered level " << level_id << ": " << config_path << "\n";
+                }
+            }
+        }
+        return true;
+    } catch (const std::exception& e) {
+        std::cerr << "[LevelManager] Index parse error: " << e.what() << "\n";
+        return false;
+    }
 }
 
 std::string LevelManager::get_level_file(uint8_t level_id)
 {
+    // Check map first
+    if (level_files_.find(level_id) != level_files_.end()) {
+        return level_files_[level_id];
+    }
+
+    // Fallback logic
     switch (level_id) {
         case 0:
             return "assets/levels/level_0_test.json";
         case 1:
-            return "assets/levels/level_1_asteroid_belt.json";
+            return "assets/levels/level_1_mars_assault.json";
         case 2:
             return "assets/levels/level_2_nebula_station.json";
         case 3:
-            return "assets/levels/level_3_bydo_fortress.json";
+            return "assets/levels/level_3_uranus_station.json";
+        case 4:
+            return "assets/levels/level_4_jupiter_orbit.json";
         case 99:
             return "assets/levels/level_99_instant_boss.json";
         default:
-            return "assets/levels/level_1_asteroid_belt.json";
+            return "assets/levels/level_1_mars_assault.json";
     }
 }
 
@@ -81,6 +145,14 @@ bool LevelManager::parse_level_metadata(const nlohmann::json& j)
     config_.map_id = j.value("map_id", 1);
     config_.base_scroll_speed = j.value("base_scroll_speed", 60.0f);
     config_.total_scroll_distance = j.value("total_scroll_distance", 8000.0f);
+    
+    // Parse total_chunks (new chunk-based system)
+    // If not present, calculate from total_scroll_distance / 480
+    if (j.contains("total_chunks")) {
+        config_.total_chunks = j.value("total_chunks", 20);
+    } else {
+        config_.total_chunks = static_cast<uint32_t>(config_.total_scroll_distance / 480.0f);
+    }
 
     return true;
 }
@@ -114,6 +186,7 @@ bool LevelManager::parse_boss_config(const nlohmann::json& j)
     config_.boss.spawn_position_y = boss_json.value("spawn_position_y", 540.0f);
     config_.boss.enemy_type = boss_json.value("enemy_type", "boss");
     config_.boss.total_phases = boss_json.value("total_phases", 3);
+    config_.boss.script_path = boss_json.value("script_path", "boss/boss1_mars_guardian.lua");
 
     if (boss_json.contains("phases") && boss_json["phases"].is_array()) {
         for (const auto& phase_json : boss_json["phases"]) {
@@ -158,7 +231,8 @@ Wave LevelManager::parse_wave(const nlohmann::json& j)
 
     if (j.contains("trigger")) {
         const auto& trigger = j["trigger"];
-        wave.trigger.scroll_distance = trigger.value("scrollDistance", 0.0f);
+        wave.trigger.chunk_id = trigger.value("chunkId", 0);
+        wave.trigger.offset = trigger.value("offset", 0.0f);
         wave.trigger.time_delay = trigger.value("timeDelay", 0.0f);
     }
 

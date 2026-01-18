@@ -13,7 +13,9 @@
     "lz4",
     "miniaudio",
     "nlohmann-json",
-    "sfml"
+    "sfml",
+    "lua",
+    "sol2"
   ],
   "builtin-baseline": "bd52fac7114fdaa2208de8dd1227212a6683e562"
 }

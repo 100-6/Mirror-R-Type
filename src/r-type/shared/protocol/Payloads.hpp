@@ -626,6 +626,20 @@ PACK_END
 static_assert(sizeof(ServerPlayerRespawnPayload) == 15, "ServerPlayerRespawnPayload must be 15 bytes");
 
 /**
+ * @brief SERVER_LEVEL_TRANSITION payload (0xC7)
+ * Total size: 2 bytes
+ */
+PACK_START
+struct PACKED ServerLevelTransitionPayload {
+    uint16_t next_level_id;
+
+    ServerLevelTransitionPayload() : next_level_id(0) {}
+};
+PACK_END
+
+static_assert(sizeof(ServerLevelTransitionPayload) == 2, "ServerLevelTransitionPayload must be 2 bytes");
+
+/**
  * @brief Score entry in SERVER_GAME_OVER
  * Size: 12 bytes
  */

@@ -496,6 +496,23 @@ void RaylibGraphicsPlugin::unload_font(FontHandle handle) {
     }
 }
 
+float RaylibGraphicsPlugin::measure_text(const std::string& text, int font_size,
+                                          FontHandle font_handle) const {
+    if (font_handle == INVALID_HANDLE) {
+        return static_cast<float>(MeasureText(text.c_str(), font_size));
+    }
+    auto it = fonts_.find(font_handle);
+    if (it != fonts_.end()) {
+        const ::Font* font = get_from_vector<::Font>(it->second.data);
+        if (font) {
+            Vector2 size = MeasureTextEx(*font, text.c_str(),
+                                          static_cast<float>(font_size), 1.0f);
+            return size.x;
+        }
+    }
+    return static_cast<float>(MeasureText(text.c_str(), font_size));
+}
+
 // Camera/View
 void RaylibGraphicsPlugin::set_view(Vector2f center, Vector2f size) {
     view_center_ = center;

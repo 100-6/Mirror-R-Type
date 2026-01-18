@@ -15,6 +15,9 @@
     #include <arpa/inet.h>
 #endif
 
+#include <fstream>
+#include <nlohmann/json.hpp>
+
 #include "GameSession.hpp"
 #include "ServerConfig.hpp"
 #include "systems/ShootingSystem.hpp"
@@ -23,11 +26,13 @@
 #include "systems/AttachmentSystem.hpp"
 #include "systems/ScoreSystem.hpp"
 #include "systems/LevelUpSystem.hpp"
+#include "systems/LuaSystem.hpp"
 #include "components/CombatHelpers.hpp"
 #include "components/ShipComponents.hpp"
 #include "components/PlayerLevelComponent.hpp"
 #include "components/LevelComponents.hpp"
 #include "ProceduralMapGenerator.hpp"
+#include "AssetsPaths.hpp"
 
 #undef ENEMY_BASIC_SPEED
 #undef ENEMY_BASIC_HEALTH
@@ -40,6 +45,7 @@
 
 #include "NetworkUtils.hpp"
 #include <iostream>
+#include <unordered_map>
 
 #include "ecs/CoreComponents.hpp"
 #include "components/GameComponents.hpp"
@@ -60,8 +66,27 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
     , tick_count_(0)
     , current_scroll_(0.0)
     , scroll_speed_(config::GAME_SCROLL_SPEED)
-    , session_start_time_(std::chrono::steady_clock::now())
+    , loaded_level_id_(static_cast<uint8_t>(map_id))
+    , last_level_state_(game::LevelState::LEVEL_START)
 {
+    session_start_time_ = std::chrono::steady_clock::now();
+    // Load local enemy config
+    try {
+        std::ifstream f(assets::paths::ENEMIES_CONFIG);
+        if (f.good()) {
+            nlohmann::json data = nlohmann::json::parse(f);
+            for (auto& [key, value] : data.items()) {
+                 if (value.contains("script")) {
+                     enemy_scripts_[key] = value["script"];
+                 }
+            }
+        } else {
+            std::cerr << "[GameSession] Warning: Could not load enemies.json at " << assets::paths::ENEMIES_CONFIG << std::endl;
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "[GameSession] Error loading enemies.json: " << e.what() << std::endl;
+    }
+
     // std::cout << "[GameSession " << session_id_ << "] Created (mode: " << static_cast<int>(game_mode)
     //           << ", difficulty: " << static_cast<int>(difficulty) << ", map: " << map_id << ")\n";
 
@@ -93,6 +118,8 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
     registry_.register_component<BonusWeapon>();
     registry_.register_component<BonusLifetime>();
     registry_.register_component<Camera>();
+    registry_.register_component<Kamikaze>();
+    registry_.register_component<BossScript>();
 
     // Register Level System components
     registry_.register_component<game::LevelController>();
@@ -110,8 +137,10 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
     registry_.register_system<ShootingSystem>();
     registry_.register_system<BonusSystem>();
     registry_.register_system<BonusWeaponSystem>();
+
     registry_.register_system<ScoreSystem>();
     registry_.register_system<game::LevelUpSystem>();
+    registry_.register_system<LuaSystem>();
 
     registry_.get_system<HealthSystem>().init(registry_);
     registry_.get_system<ShootingSystem>().init(registry_);
@@ -119,6 +148,7 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
     registry_.get_system<BonusWeaponSystem>().init(registry_);
     registry_.get_system<ScoreSystem>().init(registry_);
     registry_.get_system<game::LevelUpSystem>().init(registry_);
+    registry_.get_system<LuaSystem>().init(registry_);
 
     registry_.register_system<ServerNetworkSystem>(session_id_, config::SNAPSHOT_INTERVAL);
     network_system_ = &registry_.get_system<ServerNetworkSystem>();
@@ -174,7 +204,6 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
 
     // Register Level System systems
     registry_.register_system<game::LevelSystem>();
-    registry_.register_system<game::BossSystem>();
     registry_.register_system<game::CheckpointSystem>();
 
     // Wire CheckpointSystem callbacks
@@ -355,11 +384,15 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
     }
     wave_manager_.load_from_phases(all_waves);
     wave_manager_.set_listener(this);
+    initialize_wave_state();
 
     // Create LevelController entity
     Entity level_controller_entity = registry_.spawn_entity();
     game::LevelController lc;
     lc.current_level = starting_level;
+    const auto& level_config = level_manager_.get_level_config();
+    lc.total_chunks = level_config.total_chunks;
+    // Default total_scroll_distance also maintained for now if needed by other systems
     lc.state = game::LevelState::LEVEL_START;
     lc.state_timer = 0.0f;
     lc.current_phase_index = 0;
@@ -520,8 +553,26 @@ void GameSession::update(float delta_time)
 
         // Check if boss should be spawned
         if (lc.state == game::LevelState::BOSS_FIGHT && !lc.boss_spawned) {
+            // STOP SCROLL when boss spawns
+            auto& camera_velocities = registry_.get_components<Velocity>();
+            for (size_t ci = 0; ci < cameras.size(); ++ci) {
+                Entity cam_entity = cameras.get_entity_at(ci);
+                if (camera_velocities.has_entity(cam_entity)) {
+                    camera_velocities[cam_entity].x = 0.0f;  // Stop scroll
+                    std::cout << "[GameSession] Scroll stopped for boss fight\n";
+                }
+            }
+
             // Spawn boss
             const BossConfig& boss_config = level_manager_.get_boss_config();
+
+            if (boss_config.phases.empty()) {
+                std::cerr << "[GameSession] ERROR: Boss has no phases configured! Cannot spawn boss.\n";
+                // Mark as spawned but invalid to prevent infinite spawn attempts
+                lc.boss_spawned = true;
+                lc.boss_entity = engine::INVALID_HANDLE;
+                return;
+            }
 
             Entity boss_entity = registry_.spawn_entity();
 
@@ -555,32 +606,40 @@ void GameSession::update(float delta_time)
             sprite.layer = 4;
             registry_.add_component(boss_entity, sprite);
 
-            // BossPhase component
+            // Add BossScript component for Lua-driven behavior
+            BossScript boss_script;
+            boss_script.path = boss_config.script_path;
+            boss_script.loaded = false;
+            boss_script.attack_timer = 0.0f;
+            boss_script.phase_timer = 0.0f;
+            boss_script.current_phase = 0;
+            registry_.add_component(boss_entity, boss_script);
+
+            // Add BossPhase component for phase management
             game::BossPhase boss_phase;
-            boss_phase.current_phase = 0;
             boss_phase.total_phases = boss_config.total_phases;
-            boss_phase.phase_health_thresholds = {1.0f, 0.66f, 0.33f};
-            boss_phase.phase_timer = 0.0f;
-            boss_phase.attack_cooldown = 2.0f;
-            boss_phase.attack_pattern_index = 0;
-
-            // Safety check: ensure phases vector is not empty
-            if (boss_config.phases.empty()) {
-                std::cerr << "[GameSession] ERROR: Boss has no phases configured! Cannot spawn boss.\n";
-                registry_.kill_entity(boss_entity);
-                return;
-            }
-
-            boss_phase.movement_pattern = boss_config.phases[0].movement_pattern;
-            boss_phase.movement_speed_multiplier = boss_config.phases[0].movement_speed_multiplier;
             boss_phase.phase_configs = boss_config.phases;
+            
+            // Set initial phase parameters from config
+            if (!boss_phase.phase_configs.empty()) {
+                boss_phase.phase_health_thresholds.clear();
+                for (const auto& pc : boss_phase.phase_configs) {
+                    boss_phase.phase_health_thresholds.push_back(pc.health_threshold);
+                }
+                
+                // Initialize with first phase settings
+                const auto& first_phase = boss_phase.phase_configs[0];
+                boss_phase.movement_pattern = first_phase.movement_pattern;
+                boss_phase.movement_speed_multiplier = first_phase.movement_speed_multiplier;
+            }
             registry_.add_component(boss_entity, boss_phase);
 
             // Update level controller
             lc.boss_spawned = true;
             lc.boss_entity = boss_entity;
 
-            // std::cout << "[GameSession] Boss spawned: " << boss_config.boss_name << "\n";
+            std::cout << "[GameSession] Boss spawned: " << boss_config.boss_name
+                      << " (script: " << boss_config.script_path << ")\n";
 
             // Notify network
             if (network_system_) {
@@ -597,45 +656,91 @@ void GameSession::update(float delta_time)
 
         // Level complete - load next level or declare victory
         if (lc.state == game::LevelState::LEVEL_COMPLETE) {
-            if (lc.current_level >= 3) {
-                // Final victory: Level 3 complete
-                // std::cout << "[GameSession " << session_id_ << "] FINAL VICTORY - All 3 levels complete!\n";
+            // Check for final victory (Level >= 3 or configured total)
+            // Using logic from both branches: If current_level >= total, victory.
+            // Also respecting the hardcoded '3' from remote branch if total_levels wasn't set correctly, but preferring lc.total_levels if valid.
+            uint8_t max_level = (lc.total_levels > 0) ? lc.total_levels : 3;
+            
+            if (lc.current_level >= max_level) {
+                // Final victory
+                // std::cout << "[GameSession " << session_id_ << "] FINAL VICTORY - All levels complete!\n";
                 is_active_.store(false, std::memory_order_release);
                 send_leaderboard();  // Send leaderboard before game over
                 if (listener_)
                     listener_->on_game_over(session_id_, get_player_ids(), true);  // Victory
                 return;
+            } 
+            // Level Transition logic (from HEAD)
+            else if (last_level_state_ != game::LevelState::LEVEL_COMPLETE) {
+                // Entered LEVEL_COMPLETE state this frame
+                
+                uint8_t next_level_id = lc.current_level + 1;
+                // SKIP LEVEL 2 (Nebula) - Match logic in LevelSystem
+                if (next_level_id == 2) {
+                    next_level_id++;
+                }
+
+                network_system_->queue_level_transition(next_level_id);
+                std::cout << "[GameSession] Level " << static_cast<int>(lc.current_level) << " Complete! Sending transition signal for Level " << static_cast<int>(next_level_id) << "\n";
+
+                // IMMEDIATELY reset scroll to 0 to prevent client desync
+                // This ensures all subsequent snapshots have scroll=0 before new level loads
+                current_scroll_ = 0.0f;
+
+                // Reset camera position and KEEP velocity at 0 during transition
+                // Velocity will be restored when entering LEVEL_START
+                auto& positions = registry_.get_components<Position>();
+                auto& cameras = registry_.get_components<Camera>();
+                auto& camera_velocities = registry_.get_components<Velocity>();
+                for (size_t i = 0; i < cameras.size(); ++i) {
+                    Entity cam_entity = cameras.get_entity_at(i);
+                    if (positions.has_entity(cam_entity)) {
+                        positions[cam_entity].x = 0.0f;
+                    }
+                    if (camera_velocities.has_entity(cam_entity)) {
+                        camera_velocities[cam_entity].x = 0.0f;  // KEEP at 0 during LEVEL_COMPLETE
+                    }
+                }
+
+                // Reset scroll state component
+                auto& scroll_states = registry_.get_components<game::ScrollState>();
+                if (scroll_states.size() > 0) {
+                    scroll_states.get_data_at(0).current_scroll = 0.0f;
+                }
+            }
+        }
+
+        // 2. Detect level index change (triggered by LevelSystem after 5s victory screen)
+        if (lc.current_level != loaded_level_id_) {
+            uint8_t next_level = lc.current_level;
+            std::cout << "[GameSession] Transition detected: Loading level " << static_cast<int>(next_level) << "\n";
+
+            // Load new level configuration
+            if (!level_manager_.load_level(next_level)) {
+                std::cerr << "[GameSession " << session_id_ << "] Failed to load level " << static_cast<int>(next_level) << "\n";
             } else {
-                // Load next level
-                uint8_t next_level = lc.current_level + 1;
-                // std::cout << "[GameSession " << session_id_ << "] Loading level " << static_cast<int>(next_level) << "...\n";
-
-                // Load next level configuration
-                if (!level_manager_.load_level(next_level)) {
-                    std::cerr << "[GameSession " << session_id_ << "] Failed to load level " << static_cast<int>(next_level) << "\n";
-                    return;
-                }
-
-                // Clear all enemies and projectiles
+                // CLEAR OLD ENTITIES (Enemies, Projectiles)
                 auto& enemies = registry_.get_components<Enemy>();
-                std::vector<Entity> enemies_to_kill;
+                std::vector<Entity> to_kill;
                 for (size_t i = 0; i < enemies.size(); ++i) {
-                    enemies_to_kill.push_back(enemies.get_entity_at(i));
+                    to_kill.push_back(enemies.get_entity_at(i));
                 }
-                for (Entity e : enemies_to_kill) {
+                for (Entity e : to_kill) {
                     registry_.kill_entity(e);
+                    if (network_system_) network_system_->queue_entity_destroy(e);
                 }
 
                 auto& projectiles = registry_.get_components<Projectile>();
-                std::vector<Entity> projectiles_to_kill;
+                to_kill.clear();
                 for (size_t i = 0; i < projectiles.size(); ++i) {
-                    projectiles_to_kill.push_back(projectiles.get_entity_at(i));
+                    to_kill.push_back(projectiles.get_entity_at(i));
                 }
-                for (Entity p : projectiles_to_kill) {
+                for (Entity p : to_kill) {
                     registry_.kill_entity(p);
+                    if (network_system_) network_system_->queue_entity_destroy(p);
                 }
 
-                // Extract waves from new level and load into WaveManager
+                // EXTRACT NEW WAVES
                 std::vector<Wave> all_waves;
                 for (const auto& phase : level_manager_.get_phases()) {
                     for (const auto& wave : phase.waves) {
@@ -643,24 +748,80 @@ void GameSession::update(float delta_time)
                     }
                 }
                 wave_manager_.load_from_phases(all_waves);
+                initialize_wave_state();
 
-                // Update level controller
-                lc.current_level = next_level;
+                // Note: Scroll & camera already reset when entering LEVEL_COMPLETE state
+
+                // RESET PLAYERS (Health, Lives, Bonuses)
+                auto& player_lives = registry_.get_components<game::PlayerLives>();
+                auto& healths = registry_.get_components<Health>();
+                auto& bonus_speeds = registry_.get_components<SpeedBoost>();
+                auto& shields = registry_.get_components<Shield>();
+
+                for (size_t i = 0; i < player_lives.size(); ++i) {
+                    auto& pl = player_lives.get_data_at(i);
+                    pl.lives_remaining = config::PLAYER_LIVES;
+                    pl.respawn_pending = false;
+                    pl.respawn_timer = 0.0f;
+
+                    if (players_.find(pl.player_id) != players_.end()) {
+                        Entity player_entity = players_[pl.player_id].entity;
+                        if (healths.has_entity(player_entity)) {
+                            healths[player_entity].current = healths[player_entity].max;
+                        }
+                        if (bonus_speeds.has_entity(player_entity)) {
+                            registry_.remove_component<SpeedBoost>(player_entity);
+                            auto& controllables = registry_.get_components<Controllable>();
+                            if (controllables.has_entity(player_entity)) {
+                                controllables[player_entity].speed = config::PLAYER_MOVEMENT_SPEED;
+                            }
+                        }
+                        if (shields.has_entity(player_entity)) {
+                            registry_.remove_component<Shield>(player_entity);
+                        }
+                    }
+                }
+
+                // RELOAD MAP DATA (Walls)
+                load_map_segments(next_level);
+                
+                // Finalize loading
+                loaded_level_id_ = next_level;
+
+                // Explicitly reset level controller state to LEVEL_START
+                // This ensures LevelSystem starts from clean state, not lingering LEVEL_COMPLETE
                 lc.state = game::LevelState::LEVEL_START;
-                lc.state_timer = 0.0f;
-                lc.current_phase_index = 0;
-                lc.current_wave_in_phase = 0;
                 lc.boss_spawned = false;
                 lc.boss_entity = engine::INVALID_HANDLE;
                 lc.all_waves_triggered = false;
+                lc.state_timer = 0.0f;
 
-                // Update checkpoint manager with new level checkpoints
-                // CheckpointManager removed - Dynamic respawn implementation used instead
-
-                // std::cout << "[GameSession " << session_id_ << "] Level " << static_cast<int>(next_level)
-                //           << " loaded: " << level_manager_.get_level_name() << "\n";
+                // NOW restore camera scroll velocity for the new level
+                // Also ensure camera position is still at 0 (should already be from LEVEL_COMPLETE reset)
+                auto& positions = registry_.get_components<Position>();
+                auto& cameras = registry_.get_components<Camera>();
+                auto& camera_velocities = registry_.get_components<Velocity>();
+                for (size_t i = 0; i < cameras.size(); ++i) {
+                    Entity cam_entity = cameras.get_entity_at(i);
+                    if (positions.has_entity(cam_entity)) {
+                        positions[cam_entity].x = 0.0f;  // Ensure position is at 0
+                    }
+                    if (camera_velocities.has_entity(cam_entity)) {
+                        camera_velocities[cam_entity].x = scroll_speed_;  // Restore scroll
+                    }
+                }
             }
         }
+
+        // Final victory: Last level complete (already handled by LevelSystem transitioning to GAME_OVER or waiting here)
+        if (lc.state == game::LevelState::LEVEL_COMPLETE && lc.current_level >= lc.total_levels && lc.state_timer >= 5.0f) {
+            is_active_.store(false, std::memory_order_release);
+            if (listener_)
+                listener_->on_game_over(session_id_, get_player_ids(), true);  // Victory
+            return;
+        }
+
+        last_level_state_ = lc.state;
 
         // Defeat: All players out of lives
         if (lc.state == game::LevelState::GAME_OVER) {
@@ -739,7 +900,6 @@ void GameSession::on_wave_started(const Wave& wave)
     protocol::ServerWaveStartPayload payload;
     payload.wave_number = ByteOrder::host_to_net32(wave.wave_number);
     payload.total_waves = ByteOrder::host_to_net16(static_cast<uint16_t>(wave_manager_.get_total_waves()));
-    payload.scroll_distance = wave.trigger.scroll_distance;
     uint16_t enemy_count = 0;
     for (const auto& spawn : wave.spawns) {
         if (spawn.type == "enemy")
@@ -769,53 +929,144 @@ void GameSession::on_wave_completed(const Wave& wave)
     listener_->on_wave_complete(session_id_, serialize(payload));
 }
 
+void GameSession::initialize_wave_state()
+{
+    if (wave_manager_.get_total_waves() == 0) {
+        std::cout << "[GameSession " << session_id_ << "] No waves to initialize\n";
+        return;
+    }
+
+    const auto& waves = wave_manager_.get_waves();
+    if (waves.empty()) {
+        std::cout << "[GameSession " << session_id_ << "] Empty waves list\n";
+        return;
+    }
+
+    const Wave& first_wave = waves[0];
+
+    // Prepare payload for wave 1
+    protocol::ServerWaveStartPayload payload;
+    payload.wave_number = ByteOrder::host_to_net32(first_wave.wave_number);
+    payload.total_waves = ByteOrder::host_to_net16(
+        static_cast<uint16_t>(wave_manager_.get_total_waves())
+    );
+
+    // Count enemies in this wave
+    uint16_t enemy_count = 0;
+    for (const auto& spawn : first_wave.spawns) {
+        if (spawn.type == "enemy")
+            enemy_count += static_cast<uint16_t>(spawn.count);
+    }
+    payload.expected_enemies = ByteOrder::host_to_net16(enemy_count);
+    payload.set_wave_name("Wave " + std::to_string(first_wave.wave_number));
+
+    // Store for late joiners
+    last_wave_start_payload_ = payload;
+    has_wave_started_ = true;
+
+    // Broadcast to all players
+    if (listener_) {
+        listener_->on_wave_start(session_id_, serialize(payload));
+    }
+
+    std::cout << "[GameSession " << session_id_
+              << "] Initialized wave state: Wave 1/"
+              << wave_manager_.get_total_waves() << "\n";
+}
+
 void GameSession::on_spawn_enemy(const std::string& enemy_type, float x, float y, const BonusDropConfig& bonus_drop)
 {
-    Entity enemy = registry_.spawn_entity();
-    float velocity_x = -config::ENEMY_BASIC_SPEED;
-    uint16_t health = config::ENEMY_BASIC_HEALTH;
-    float width = config::ENEMY_BASIC_WIDTH;
-    float height = config::ENEMY_BASIC_HEIGHT;
-    EntityType entity_type = EntityType::ENEMY_BASIC;
-    protocol::EnemySubtype subtype = protocol::EnemySubtype::BASIC;
-    EnemyType ai_type = EnemyType::Basic;
+    struct EnemyStats {
+        float velocity_x = -config::ENEMY_BASIC_SPEED;
+        uint16_t health = config::ENEMY_BASIC_HEALTH;
+        float width = config::ENEMY_BASIC_WIDTH;
+        float height = config::ENEMY_BASIC_HEIGHT;
+        EntityType entity_type = EntityType::ENEMY_BASIC;
+        uint8_t color_subtype = 0;
+        EnemyType ai_type = EnemyType::Basic;
+    };
 
-    if (enemy_type == "fast") {
-        velocity_x = -config::ENEMY_FAST_SPEED;
-        health = config::ENEMY_FAST_HEALTH;
-        width = config::ENEMY_FAST_WIDTH;
-        height = config::ENEMY_FAST_HEIGHT;
-        entity_type = EntityType::ENEMY_FAST;
-        subtype = protocol::EnemySubtype::FAST;
-        ai_type = EnemyType::Fast;
-    } else if (enemy_type == "tank") {
-        velocity_x = -config::ENEMY_TANK_SPEED;
-        health = config::ENEMY_TANK_HEALTH;
-        width = config::ENEMY_TANK_WIDTH;
-        height = config::ENEMY_TANK_HEIGHT;
-        entity_type = EntityType::ENEMY_TANK;
-        subtype = protocol::EnemySubtype::TANK;
-        ai_type = EnemyType::Tank;
-    } else if (enemy_type == "boss") {
-        velocity_x = -config::ENEMY_BOSS_SPEED;
-        health = config::ENEMY_BOSS_HEALTH;
-        width = config::ENEMY_BOSS_WIDTH;
-        height = config::ENEMY_BOSS_HEIGHT;
-        entity_type = EntityType::ENEMY_BOSS;
-        subtype = protocol::EnemySubtype::BOSS;
-        ai_type = EnemyType::Boss;
+    static const std::unordered_map<std::string, EnemyStats> enemy_presets = []{
+        std::unordered_map<std::string, EnemyStats> m;
+
+        // Base templates
+        EnemyStats basic; // Default constructor has basic stats
+        
+        EnemyStats fast;
+        fast.velocity_x = -config::ENEMY_FAST_SPEED;
+        fast.health = config::ENEMY_FAST_HEALTH;
+        fast.width = config::ENEMY_FAST_WIDTH;
+        fast.height = config::ENEMY_FAST_HEIGHT;
+        fast.entity_type = EntityType::ENEMY_FAST;
+        fast.color_subtype = 1;
+        fast.ai_type = EnemyType::Fast;
+
+        EnemyStats tank;
+        tank.velocity_x = -config::ENEMY_TANK_SPEED;
+        tank.health = config::ENEMY_TANK_HEALTH;
+        tank.width = config::ENEMY_TANK_WIDTH;
+        tank.height = config::ENEMY_TANK_HEIGHT;
+        tank.entity_type = EntityType::ENEMY_TANK;
+        tank.color_subtype = 2;
+        tank.ai_type = EnemyType::Tank;
+
+        EnemyStats boss;
+        boss.velocity_x = -config::ENEMY_BOSS_SPEED;
+        boss.health = config::ENEMY_BOSS_HEALTH;
+        boss.width = config::ENEMY_BOSS_WIDTH;
+        boss.height = config::ENEMY_BOSS_HEIGHT;
+        boss.entity_type = EntityType::ENEMY_BOSS;
+        boss.color_subtype = 3;
+        boss.ai_type = EnemyType::Boss;
+
+        // Register base types
+        m["basic"] = basic;
+        m["fast"] = fast;
+        m["tank"] = tank;
+        m["boss"] = boss;
+
+        // Register variations
+        auto add_variant = [&](const std::string& name, EnemyStats stats, uint8_t color) {
+            stats.color_subtype = color;
+            m[name] = stats;
+        };
+
+        add_variant("zigzag", fast, 11);
+        add_variant("kamikaze", fast, 12);
+        add_variant("bouncer", basic, 13);
+
+        return m;
+    }();
+
+    EnemyStats stats; // Default basic
+    auto it = enemy_presets.find(enemy_type);
+    if (it != enemy_presets.end()) {
+        stats = it->second;
     }
-    float center_x = x + width / 2.0f;
-    float center_y = y + height / 2.0f;
+
+    Entity enemy = registry_.spawn_entity();
+    float center_x = x + stats.width / 2.0f;
+    float center_y = y + stats.height / 2.0f;
+    
     registry_.add_component(enemy, Position{center_x, center_y});
-    registry_.add_component(enemy, Velocity{velocity_x, 0.0f});
-    registry_.add_component(enemy, Health{static_cast<int>(health), static_cast<int>(health)});
+    registry_.add_component(enemy, Velocity{stats.velocity_x, 0.0f});
+    registry_.add_component(enemy, Health{static_cast<int>(stats.health), static_cast<int>(stats.health)});
 
     // Add AI component for enemy type detection in snapshots
     AI ai;
-    ai.type = ai_type;
-    ai.moveSpeed = std::abs(velocity_x);
+    ai.type = stats.ai_type;
+    ai.moveSpeed = std::abs(stats.velocity_x);
     registry_.add_component(enemy, ai);
+
+    // Initialize Level Manager with index
+    level_manager_.load_level_index(assets::paths::MAPS_INDEX);
+
+    // Lua System Initegration
+    Script script;
+    if (enemy_scripts_.find(enemy_type) != enemy_scripts_.end()) {
+        script.path = enemy_scripts_[enemy_type];
+    }
+    registry_.add_component(enemy, script);
 
     // Convert BonusDropConfig to BonusDrop component
     BonusDrop drop;
@@ -833,17 +1084,15 @@ void GameSession::on_spawn_enemy(const std::string& enemy_type, float x, float y
 
     registry_.add_component(enemy, Enemy{drop});
     registry_.add_component(enemy, NoFriction{});
-    registry_.add_component(enemy, Collider{width, height});
+    registry_.add_component(enemy, Collider{stats.width, stats.height});
 
-    // std::cout << "[GameSession " << session_id_ << "] Spawned " << enemy_type << " enemy " << enemy
-    //           << " at (" << x << ", " << y << ")";
-    // if (bonus_drop.enabled) {
-    //     std::cout << " with bonusDrop: " << bonus_drop.bonus_type;
-    // }
-    // std::cout << "\n";
+    // Add Kamikaze tag for kamikaze enemies
+    if (enemy_type == "kamikaze") {
+        registry_.add_component(enemy, Kamikaze{});
+    }
 
     if (network_system_)
-        network_system_->queue_entity_spawn(enemy, entity_type, center_x, center_y, health, static_cast<uint8_t>(subtype));
+        network_system_->queue_entity_spawn(enemy, stats.entity_type, center_x, center_y, stats.health, stats.color_subtype);
 }
 
 void GameSession::on_spawn_wall(float x, float y)
@@ -928,6 +1177,13 @@ void GameSession::on_player_level_up(uint32_t session_id, const std::vector<uint
         listener_->on_player_level_up(session_id, level_up_data);
 }
 
+void GameSession::on_level_transition(uint32_t session_id, const std::vector<uint8_t>& transition_data)
+{
+    if (listener_)
+        listener_->on_level_transition(session_id, transition_data);
+}
+
+// === HELPER METHODS ===
 void GameSession::check_game_over()
 {
     // Check PlayerLives components, not just is_alive flag
@@ -1101,9 +1357,29 @@ void GameSession::load_map_segments(uint16_t map_id)
             : config::GAME_SCROLL_SPEED;
         tile_size_ = map_config_.tileSize;
 
+        // Clear existing map data
+        map_segments_.clear();
+        generated_segments_.clear();
+        next_segment_to_spawn_ = 0;
+
         // Check if procedural generation is enabled
         procedural_enabled_ = map_config_.procedural.enabled;
         procedural_config_ = map_config_.procedural;
+
+        // CRITICAL: Clear all existing wall entities from the registry
+        // This ensures old map walls don't persist into the new level
+        auto& walls = registry_.get_components<Wall>();
+        std::vector<Entity> walls_to_kill;
+        for (size_t i = 0; i < walls.size(); ++i) {
+            walls_to_kill.push_back(walls.get_entity_at(i));
+        }
+        for (Entity e : walls_to_kill) {
+            registry_.kill_entity(e);
+            if (network_system_) {
+                network_system_->queue_entity_destroy(e);
+            }
+        }
+        std::cout << "[GameSession " << session_id_ << "] Cleared " << walls_to_kill.size() << " walls from previous map\n";
 
         if (procedural_enabled_) {
             // Procedural mode: generate seed and initialize generator
