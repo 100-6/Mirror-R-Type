@@ -1,0 +1,3461 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for the Mirror R-Type game project">
+      
+      
+        <meta name="author" content="Team 100-6">
+      
+      
+      
+        <link rel="prev" href="../PROTOCOL/">
+      
+      
+        <link rel="next" href="../create-room-archi/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+    
+    
+      
+        <title>UDP ACK System - Mirror R-Type Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#udp-ack-system-r-type-network-protocol" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Mirror R-Type Documentation" class="md-header__button md-logo" aria-label="Mirror R-Type Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Mirror R-Type Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              UDP ACK System
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../SETUP/" class="md-tabs__link">
+          
+  
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../CLIENT_ARCHITECTURE/" class="md-tabs__link">
+          
+  
+  
+  Architecture
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../LEVEL_SYSTEM/" class="md-tabs__link">
+          
+  
+  
+  Game Systems
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../DEVELOPER/" class="md-tabs__link">
+          
+  
+  
+  Development
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../RELEASE/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Release
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Mirror R-Type Documentation" class="md-nav__button md-logo" aria-label="Mirror R-Type Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Mirror R-Type Documentation
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../SETUP/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../CLIENT_ARCHITECTURE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Client Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../SERVER_ARCHITECTURE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Server Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../PROTOCOL/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Protocol
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    UDP ACK System
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    UDP ACK System
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#table-of-contents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Table of Contents
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-introduction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Introduction
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Introduction">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#11-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.1 Context
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#12-udp-challenges" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.2 UDP Challenges
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-why-ack-over-udp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Why ACK over UDP?
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Why ACK over UDP?">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-real-time-gameplay-requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 Real-time Gameplay Requirements
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.1 Real-time Gameplay Requirements">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#non-critical-data-loss-tolerant" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Non-critical data (loss-tolerant)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#critical-data-requiring-confirmation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Critical data (requiring confirmation)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-why-not-tcp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 Why not TCP?
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-ack-system-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. ACK System Architecture
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. ACK System Architecture">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-sequence-number-based-ack-system" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 Sequence Number-Based ACK System
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-key-components" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2 Key Components
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3.2 Key Components">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a-packetheader-all-packets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A) PacketHeader (all packets)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#b-clientinputpayload-player-inputs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        B) ClientInputPayload (player inputs)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#c-entitystate-state-snapshots" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        C) EntityState (state snapshots)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-implementation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Implementation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Implementation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-client-side-clientpredictionsystem" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.1 Client-Side (ClientPredictionSystem)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4.1 Client-Side (ClientPredictionSystem)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#data-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Structure
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sending-input-with-sequence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sending Input with Sequence
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#receiving-ack-from-server" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Receiving ACK from Server
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-server-side-servernetworksystem" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.2 Server-Side (ServerNetworkSystem)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4.2 Server-Side (ServerNetworkSystem)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#data-structure_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Structure
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#processing-input-with-sequence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Processing Input with Sequence
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#generating-snapshot-with-ack" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Generating Snapshot with ACK
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-data-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Data Flow
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. Data Flow">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#51-normal-scenario-no-packet-loss" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.1 Normal Scenario (no packet loss)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#52-packet-loss-scenario" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.2 Packet Loss Scenario
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#53-out-of-order-delivery-scenario" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.3 Out-of-Order Delivery Scenario
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-advantages-and-trade-offs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Advantages and Trade-offs
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. Advantages and Trade-offs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#61-advantages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.1 Advantages
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6.1 Advantages">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#bandwidth-efficiency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bandwidth Efficiency
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#low-latency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Low Latency
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#packet-loss-detection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Packet Loss Detection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#client-server-reconciliation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Client-Server Reconciliation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#62-trade-offs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.2 Trade-offs
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6.2 Trade-offs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#no-delivery-guarantee" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        No Delivery Guarantee
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ack-delay" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ACK Delay
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#out-of-order-handling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Out-of-Order Handling
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-metrics-and-monitoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Metrics and Monitoring
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="7. Metrics and Monitoring">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#71-client-side-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.1 Client-Side Metrics
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="7.1 Client-Side Metrics">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pending-inputs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pending Inputs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#input-acknowledgment-delay" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Input Acknowledgment Delay
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#packet-loss-rate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Packet Loss Rate
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#72-server-side-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.2 Server-Side Metrics
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="7.2 Server-Side Metrics">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#input-reception-rate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Input Reception Rate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sequence-gap-detection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sequence Gap Detection
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#73-logging-and-debugging" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.3 Logging and Debugging
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="7.3 Logging and Debugging">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#recommended-log-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recommended Log Format
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#debug-visualization-optional" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Debug Visualization (optional)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-comparison-with-other-approaches" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Comparison with Other Approaches
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="8. Comparison with Other Approaches">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#81-tcp-reliable-stream" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.1 TCP (Reliable Stream)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#82-quic-udp-with-reliable-streams" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.2 QUIC (UDP with Reliable Streams)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#83-enet-gaming-library" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.3 ENet (Gaming Library)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-conclusion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Conclusion
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="9. Conclusion">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#91-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.1 Summary
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#92-key-advantages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.2 Key Advantages
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#93-acceptable-limitations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.3 Acceptable Limitations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#94-applicability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.4 Applicability
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. References
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="10. References">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#101-source-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10.1 Source Files
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#102-related-documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10.2 Related Documentation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#103-external-resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10.3 External Resources
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../create-room-archi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Create Room Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Game Systems
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Game Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../LEVEL_SYSTEM/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Level System
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../WAVE_SYSTEM/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Wave System
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../WAVE_CONFIGURATION_GUIDE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Wave Configuration Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../PROCEDURAL_GENERATION/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Procedural Generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Development
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../DEVELOPER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developer Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../SERVER_DEVELOPMENT_GUIDE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Server Development Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../LUA_SCRIPTING/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lua Scripting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../RELEASE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#table-of-contents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Table of Contents
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-introduction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Introduction
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Introduction">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#11-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.1 Context
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#12-udp-challenges" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.2 UDP Challenges
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-why-ack-over-udp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Why ACK over UDP?
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Why ACK over UDP?">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-real-time-gameplay-requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 Real-time Gameplay Requirements
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.1 Real-time Gameplay Requirements">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#non-critical-data-loss-tolerant" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Non-critical data (loss-tolerant)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#critical-data-requiring-confirmation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Critical data (requiring confirmation)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-why-not-tcp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 Why not TCP?
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-ack-system-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. ACK System Architecture
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. ACK System Architecture">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-sequence-number-based-ack-system" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 Sequence Number-Based ACK System
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-key-components" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2 Key Components
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3.2 Key Components">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a-packetheader-all-packets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A) PacketHeader (all packets)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#b-clientinputpayload-player-inputs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        B) ClientInputPayload (player inputs)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#c-entitystate-state-snapshots" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        C) EntityState (state snapshots)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-implementation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Implementation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Implementation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-client-side-clientpredictionsystem" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.1 Client-Side (ClientPredictionSystem)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4.1 Client-Side (ClientPredictionSystem)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#data-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Structure
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sending-input-with-sequence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sending Input with Sequence
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#receiving-ack-from-server" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Receiving ACK from Server
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-server-side-servernetworksystem" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.2 Server-Side (ServerNetworkSystem)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4.2 Server-Side (ServerNetworkSystem)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#data-structure_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Structure
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#processing-input-with-sequence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Processing Input with Sequence
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#generating-snapshot-with-ack" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Generating Snapshot with ACK
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-data-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Data Flow
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. Data Flow">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#51-normal-scenario-no-packet-loss" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.1 Normal Scenario (no packet loss)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#52-packet-loss-scenario" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.2 Packet Loss Scenario
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#53-out-of-order-delivery-scenario" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.3 Out-of-Order Delivery Scenario
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-advantages-and-trade-offs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Advantages and Trade-offs
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. Advantages and Trade-offs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#61-advantages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.1 Advantages
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6.1 Advantages">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#bandwidth-efficiency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bandwidth Efficiency
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#low-latency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Low Latency
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#packet-loss-detection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Packet Loss Detection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#client-server-reconciliation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Client-Server Reconciliation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#62-trade-offs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.2 Trade-offs
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6.2 Trade-offs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#no-delivery-guarantee" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        No Delivery Guarantee
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ack-delay" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ACK Delay
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#out-of-order-handling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Out-of-Order Handling
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-metrics-and-monitoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Metrics and Monitoring
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="7. Metrics and Monitoring">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#71-client-side-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.1 Client-Side Metrics
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="7.1 Client-Side Metrics">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pending-inputs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pending Inputs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#input-acknowledgment-delay" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Input Acknowledgment Delay
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#packet-loss-rate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Packet Loss Rate
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#72-server-side-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.2 Server-Side Metrics
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="7.2 Server-Side Metrics">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#input-reception-rate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Input Reception Rate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sequence-gap-detection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sequence Gap Detection
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#73-logging-and-debugging" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.3 Logging and Debugging
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="7.3 Logging and Debugging">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#recommended-log-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recommended Log Format
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#debug-visualization-optional" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Debug Visualization (optional)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-comparison-with-other-approaches" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Comparison with Other Approaches
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="8. Comparison with Other Approaches">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#81-tcp-reliable-stream" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.1 TCP (Reliable Stream)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#82-quic-udp-with-reliable-streams" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.2 QUIC (UDP with Reliable Streams)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#83-enet-gaming-library" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.3 ENet (Gaming Library)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-conclusion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Conclusion
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="9. Conclusion">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#91-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.1 Summary
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#92-key-advantages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.2 Key Advantages
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#93-acceptable-limitations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.3 Acceptable Limitations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#94-applicability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.4 Applicability
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. References
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="10. References">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#101-source-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10.1 Source Files
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#102-related-documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10.2 Related Documentation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#103-external-resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10.3 External Resources
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="udp-ack-system-r-type-network-protocol">UDP ACK System - R-Type Network Protocol</h1>
+<p><strong>Status</strong>: Implementation Documentation
+<strong>Version</strong>: 1.0
+<strong>Date</strong>: January 2026
+<strong>Author</strong>: R-Type Development Team</p>
+<hr />
+<h2 id="table-of-contents">Table of Contents</h2>
+<ol>
+<li><a href="#1-introduction">Introduction</a></li>
+<li><a href="#2-why-ack-over-udp">Why ACK over UDP?</a></li>
+<li><a href="#3-ack-system-architecture">ACK System Architecture</a></li>
+<li><a href="#4-implementation">Implementation</a></li>
+<li><a href="#5-data-flow">Data Flow</a></li>
+<li><a href="#6-advantages-and-trade-offs">Advantages and Trade-offs</a></li>
+<li><a href="#7-metrics-and-monitoring">Metrics and Monitoring</a></li>
+</ol>
+<hr />
+<h2 id="1-introduction">1. Introduction</h2>
+<h3 id="11-context">1.1 Context</h3>
+<p>The R-Type protocol uses <strong>UDP (User Datagram Protocol)</strong> for real-time gameplay communication. UDP, unlike TCP, is an <strong>unreliable</strong> protocol: it provides no guarantees about packet delivery, ordering, or duplicate detection.</p>
+<p>However, for certain critical data types in a multiplayer game, an <strong>acknowledgment (ACK)</strong> mechanism is required to:
+- Confirm reception of player inputs
+- Enable client-server state reconciliation
+- Detect packet loss
+- Optimize bandwidth utilization</p>
+<h3 id="12-udp-challenges">1.2 UDP Challenges</h3>
+<p>The main challenges with UDP:
+- <strong>Packet loss</strong>: Packets can be lost in transit
+- <strong>Out-of-order delivery</strong>: Packets can arrive in the wrong order
+- <strong>No acknowledgment</strong>: The sender doesn't know if the packet arrived
+- <strong>No flow control</strong>: No native mechanism to prevent congestion</p>
+<p>Our ACK system solves these problems <strong>while maintaining UDP's low latency</strong>.</p>
+<hr />
+<h2 id="2-why-ack-over-udp">2. Why ACK over UDP?</h2>
+<h3 id="21-real-time-gameplay-requirements">2.1 Real-time Gameplay Requirements</h3>
+<p>In R-Type, we have two types of data:</p>
+<h4 id="non-critical-data-loss-tolerant">Non-critical data (loss-tolerant)</h4>
+<ul>
+<li><strong>State snapshots</strong>: Sent at 60 Hz, losing one snapshot isn't critical since a new one arrives 16ms later</li>
+<li><strong>Entity positions</strong>: Interpolated client-side, a missing position can be compensated</li>
+<li><strong>Visual effects</strong>: Not essential to gameplay</li>
+</ul>
+<h4 id="critical-data-requiring-confirmation">Critical data (requiring confirmation)</h4>
+<ul>
+<li><strong>Player inputs</strong>: Must be confirmed for client prediction</li>
+<li><strong>Critical entity spawns</strong>: Bosses, important power-ups</li>
+<li><strong>Score and progression</strong>: Must be reliable</li>
+<li><strong>Important game events</strong>: Wave start/end, victory/defeat</li>
+</ul>
+<h3 id="22-why-not-tcp">2.2 Why not TCP?</h3>
+<p>TCP provides native ACKs, but:
+- <strong>Head-of-line blocking</strong>: A lost packet blocks all subsequent packets
+- <strong>Increased latency</strong>: Automatic retransmissions increase latency
+- <strong>Overhead</strong>: Larger headers (20 bytes vs 8 bytes for UDP)
+- <strong>No control</strong>: Can't choose which packets are critical</p>
+<p><strong>Solution</strong>: UDP with selective acknowledgment provides the reliability benefits of TCP where needed while preserving UDP's low-latency characteristics.</p>
+<hr />
+<h2 id="3-ack-system-architecture">3. ACK System Architecture</h2>
+<h3 id="31-sequence-number-based-ack-system">3.1 Sequence Number-Based ACK System</h3>
+<p>Our implementation uses an <strong>implicit ACK via piggybacking</strong> system:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>┌─────────────────────────────────────────────────────────┐
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>│              R-Type UDP ACK Architecture                │
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>└─────────────────────────────────────────────────────────┘
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>CLIENT                                    SERVER
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>  │                                          │
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>  │  ┌─────────────────────────┐            │
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>  │  │ CLIENT_INPUT            │            │
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>  │  │ ├─ sequence_number: 42  │            │
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>  │  │ ├─ input_flags: 0x05    │            │
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>  │  │ └─ timestamp            │            │
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>  │  └─────────────────────────┘            │
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>  │────────────────────────────────────────►│
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>  │                                          │
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>  │                               ┌──────────────────────┐
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>  │                               │ Process input #42    │
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>  │                               │ Update game state    │
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>  │                               │ Store last_ack = 42  │
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>  │                               └──────────────────────┘
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>  │                                          │
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>  │            ┌─────────────────────────┐   │
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>  │            │ SERVER_SNAPSHOT         │   │
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>  │            │ ├─ entity_count         │   │
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>  │            │ └─ entities[]           │   │
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>  │            │    ├─ player_id: 123    │   │
+<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>  │            │    ├─ position: (x,y)   │   │
+<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>  │            │    └─ last_ack_seq: 42  │&lt;---+ Implicit ACK
+<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>  │            └─────────────────────────┘   │
+<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>  │◄────────────────────────────────────────┤
+<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>  │                                          │
+<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>  │  ┌──────────────────────────┐            │
+<a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>  │  │ Client receives ACK #42  │            │
+<a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a>  │  │ → Confirms input handled │            │
+<a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a>  │  │ → Can clean buffer       │            │
+<a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a>  │  └──────────────────────────┘            │
+<a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a>  │                                          │
+</code></pre></div>
+<h3 id="32-key-components">3.2 Key Components</h3>
+<h4 id="a-packetheader-all-packets">A) PacketHeader (all packets)</h4>
+<p>Every UDP packet contains a <strong>monotonic sequence number</strong>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">struct</span><span class="w"> </span><span class="nc">PacketHeader</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">    </span><span class="kt">uint8_t</span><span class="w">  </span><span class="n">version</span><span class="p">;</span><span class="w">          </span><span class="c1">// Protocol version (0x01)</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="kt">uint8_t</span><span class="w">  </span><span class="n">type</span><span class="p">;</span><span class="w">             </span><span class="c1">// Packet type</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="kt">uint8_t</span><span class="w">  </span><span class="n">flags</span><span class="p">;</span><span class="w">            </span><span class="c1">// Flags (compression, etc.)</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="kt">uint16_t</span><span class="w"> </span><span class="n">payload_length</span><span class="p">;</span><span class="w">   </span><span class="c1">// Payload size</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="kt">uint32_t</span><span class="w"> </span><span class="n">sequence_number</span><span class="p">;</span><span class="w">  </span><span class="c1">// ← Monotonic sequence for ordering</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span><span class="c1">// ... optional compression fields</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="p">}</span><span class="w"> </span><span class="n">__attribute__</span><span class="p">((</span><span class="n">packed</span><span class="p">));</span>
+</code></pre></div>
+<p><strong>Usage</strong>:
+- <strong>Monotonic</strong>: Increments with each sent packet
+- <strong>Ordering</strong>: Allows detection of out-of-order packets
+- <strong>Loss detection</strong>: Gaps in sequence = packet loss</p>
+<h4 id="b-clientinputpayload-player-inputs">B) ClientInputPayload (player inputs)</h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">struct</span><span class="w"> </span><span class="nc">ClientInputPayload</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">    </span><span class="kt">uint32_t</span><span class="w"> </span><span class="n">sequence_number</span><span class="p">;</span><span class="w">  </span><span class="c1">// ← Input-specific sequence</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="kt">uint16_t</span><span class="w"> </span><span class="n">input_flags</span><span class="p">;</span><span class="w">      </span><span class="c1">// Pressed buttons</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="kt">uint32_t</span><span class="w"> </span><span class="n">timestamp</span><span class="p">;</span><span class="w">        </span><span class="c1">// Client timestamp</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="kt">float</span><span class="w">    </span><span class="n">delta_time</span><span class="p">;</span><span class="w">       </span><span class="c1">// Delta since last input</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="p">}</span><span class="w"> </span><span class="n">__attribute__</span><span class="p">((</span><span class="n">packed</span><span class="p">));</span>
+</code></pre></div>
+<p><strong>Usage</strong>:
+- Client increments <code>sequence_number</code> for each input sent
+- Server must ACK this sequence to confirm processing</p>
+<h4 id="c-entitystate-state-snapshots">C) EntityState (state snapshots)</h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">struct</span><span class="w"> </span><span class="nc">EntityState</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">    </span><span class="kt">uint32_t</span><span class="w"> </span><span class="n">entity_id</span><span class="p">;</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="kt">uint16_t</span><span class="w"> </span><span class="n">entity_type</span><span class="p">;</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="kt">float</span><span class="w">    </span><span class="n">position_x</span><span class="p">;</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span><span class="kt">float</span><span class="w">    </span><span class="n">position_y</span><span class="p">;</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">    </span><span class="kt">int16_t</span><span class="w">  </span><span class="n">velocity_x</span><span class="p">;</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span><span class="kt">int16_t</span><span class="w">  </span><span class="n">velocity_y</span><span class="p">;</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">    </span><span class="kt">uint16_t</span><span class="w"> </span><span class="n">health</span><span class="p">;</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">    </span><span class="kt">uint16_t</span><span class="w"> </span><span class="n">flags</span><span class="p">;</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">    </span><span class="kt">uint32_t</span><span class="w"> </span><span class="n">last_ack_sequence</span><span class="p">;</span><span class="w">  </span><span class="c1">// ← ACK of last processed input</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="p">}</span><span class="w"> </span><span class="n">__attribute__</span><span class="p">((</span><span class="n">packed</span><span class="p">));</span>
+</code></pre></div>
+<p><strong>Usage</strong>:
+- For player-controlled entities, <code>last_ack_sequence</code> contains the <strong>last processed input_sequence</strong>
+- Client compares this value with its pending inputs
+- If <code>last_ack_sequence &gt;= input.sequence</code>, the input is confirmed</p>
+<hr />
+<h2 id="4-implementation">4. Implementation</h2>
+<h3 id="41-client-side-clientpredictionsystem">4.1 Client-Side (ClientPredictionSystem)</h3>
+<p><strong>Files</strong>:
+- <code>src/r-type/client/include/systems/ClientPredictionSystem.hpp</code>
+- <code>src/r-type/client/src/systems/ClientPredictionSystem.cpp</code></p>
+<h4 id="data-structure">Data Structure</h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">ClientPredictionSystem</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="k">private</span><span class="o">:</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="kt">uint32_t</span><span class="w"> </span><span class="n">local_player_id_</span><span class="p">;</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="kt">uint32_t</span><span class="w"> </span><span class="n">next_sequence_number_</span><span class="p">;</span><span class="w">  </span><span class="c1">// Next sequence number</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">deque</span><span class="o">&lt;</span><span class="n">PredictedInput</span><span class="o">&gt;</span><span class="w"> </span><span class="n">pending_inputs_</span><span class="p">;</span><span class="w">  </span><span class="c1">// Buffer of unacknowledged inputs</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">    </span><span class="k">static</span><span class="w"> </span><span class="k">constexpr</span><span class="w"> </span><span class="kt">size_t</span><span class="w"> </span><span class="n">MAX_PENDING_INPUTS</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">64</span><span class="p">;</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="p">};</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="k">struct</span><span class="w"> </span><span class="nc">PredictedInput</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">    </span><span class="kt">uint32_t</span><span class="w"> </span><span class="n">sequence_number</span><span class="p">;</span><span class="w">   </span><span class="c1">// Unique sequence number</span>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="w">    </span><span class="kt">uint16_t</span><span class="w"> </span><span class="n">input_flags</span><span class="p">;</span><span class="w">       </span><span class="c1">// Copy of input flags</span>
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="w">    </span><span class="kt">uint32_t</span><span class="w"> </span><span class="n">timestamp</span><span class="p">;</span><span class="w">         </span><span class="c1">// Send timestamp</span>
+<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="p">};</span>
+</code></pre></div>
+<h4 id="sending-input-with-sequence">Sending Input with Sequence</h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kt">void</span><span class="w"> </span><span class="nf">ClientPredictionSystem::on_input_sent</span><span class="p">(</span><span class="kt">uint16_t</span><span class="w"> </span><span class="n">input_flags</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">    </span><span class="c1">// Create input with sequence</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="n">PredictedInput</span><span class="w"> </span><span class="n">predicted</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">        </span><span class="p">.</span><span class="n">sequence_number</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">next_sequence_number_</span><span class="o">++</span><span class="p">,</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">        </span><span class="p">.</span><span class="n">input_flags</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">input_flags</span><span class="p">,</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">        </span><span class="p">.</span><span class="n">timestamp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">get_current_timestamp</span><span class="p">()</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">    </span><span class="p">};</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">    </span><span class="c1">// Store in buffer (for future reconciliation)</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">    </span><span class="n">pending_inputs_</span><span class="p">.</span><span class="n">push_back</span><span class="p">(</span><span class="n">predicted</span><span class="p">);</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">    </span><span class="c1">// Limit buffer size</span>
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">pending_inputs_</span><span class="p">.</span><span class="n">size</span><span class="p">()</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">MAX_PENDING_INPUTS</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="w">        </span><span class="n">pending_inputs_</span><span class="p">.</span><span class="n">pop_front</span><span class="p">();</span>
+<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a>
+<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a><span class="w">    </span><span class="c1">// Packet is sent by NetworkSystem with this sequence_number</span>
+<a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a><span class="w">    </span><span class="c1">// CLIENT_INPUT { sequence_number: predicted.sequence_number, ... }</span>
+<a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a><span class="p">}</span>
+</code></pre></div>
+<h4 id="receiving-ack-from-server">Receiving ACK from Server</h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kt">void</span><span class="w"> </span><span class="nf">ClientPredictionSystem::on_snapshot_received</span><span class="p">(</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="n">SnapshotPayload</span><span class="o">&amp;</span><span class="w"> </span><span class="n">snapshot</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">    </span><span class="c1">// Iterate through snapshot entities</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="k">auto</span><span class="o">&amp;</span><span class="w"> </span><span class="n">entity</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">snapshot</span><span class="p">.</span><span class="n">entities</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">        </span><span class="c1">// Find local player entity</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">entity</span><span class="p">.</span><span class="n">entity_id</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">local_player_id_</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">            </span><span class="kt">uint32_t</span><span class="w"> </span><span class="n">acked_sequence</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">entity</span><span class="p">.</span><span class="n">last_ack_sequence</span><span class="p">;</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="w">            </span><span class="c1">// Confirm all inputs up to this sequence</span>
+<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="w">            </span><span class="n">acknowledge_input</span><span class="p">(</span><span class="n">acked_sequence</span><span class="p">);</span>
+<a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="w">            </span><span class="k">break</span><span class="p">;</span>
+<a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="w">        </span><span class="p">}</span>
+<a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a><span class="p">}</span>
+<a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a>
+<a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a><span class="kt">void</span><span class="w"> </span><span class="nf">ClientPredictionSystem::acknowledge_input</span><span class="p">(</span><span class="kt">uint32_t</span><span class="w"> </span><span class="n">ack_sequence</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a><span class="w">    </span><span class="c1">// Remove all confirmed inputs (≤ ack_sequence)</span>
+<a id="__codelineno-6-19" name="__codelineno-6-19" href="#__codelineno-6-19"></a><span class="w">    </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">pending_inputs_</span><span class="p">.</span><span class="n">empty</span><span class="p">()</span><span class="w"> </span><span class="o">&amp;&amp;</span>
+<a id="__codelineno-6-20" name="__codelineno-6-20" href="#__codelineno-6-20"></a><span class="w">           </span><span class="n">pending_inputs_</span><span class="p">.</span><span class="n">front</span><span class="p">().</span><span class="n">sequence_number</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">ack_sequence</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-6-21" name="__codelineno-6-21" href="#__codelineno-6-21"></a><span class="w">        </span><span class="n">pending_inputs_</span><span class="p">.</span><span class="n">pop_front</span><span class="p">();</span>
+<a id="__codelineno-6-22" name="__codelineno-6-22" href="#__codelineno-6-22"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-6-23" name="__codelineno-6-23" href="#__codelineno-6-23"></a>
+<a id="__codelineno-6-24" name="__codelineno-6-24" href="#__codelineno-6-24"></a><span class="w">    </span><span class="c1">// Remaining inputs in pending_inputs_ are unacknowledged</span>
+<a id="__codelineno-6-25" name="__codelineno-6-25" href="#__codelineno-6-25"></a><span class="w">    </span><span class="c1">// → Can be used for reconciliation if needed</span>
+<a id="__codelineno-6-26" name="__codelineno-6-26" href="#__codelineno-6-26"></a><span class="p">}</span>
+</code></pre></div>
+<h3 id="42-server-side-servernetworksystem">4.2 Server-Side (ServerNetworkSystem)</h3>
+<p><strong>Files</strong>:
+- <code>src/r-type/server/include/ServerNetworkSystem.hpp</code>
+- <code>src/r-type/server/src/ServerNetworkSystem.cpp</code></p>
+<h4 id="data-structure_1">Data Structure</h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">ServerNetworkSystem</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="k">private</span><span class="o">:</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">    </span><span class="c1">// Tracking last processed input per player</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">unordered_map</span><span class="o">&lt;</span><span class="kt">uint32_t</span><span class="p">,</span><span class="w"> </span><span class="kt">uint32_t</span><span class="o">&gt;</span><span class="w"> </span><span class="n">last_processed_input_seq_</span><span class="p">;</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">    </span><span class="c1">// Key: player_id, Value: last processed input sequence</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="p">};</span>
+</code></pre></div>
+<h4 id="processing-input-with-sequence">Processing Input with Sequence</h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kt">void</span><span class="w"> </span><span class="nf">ServerNetworkSystem::on_input_received</span><span class="p">(</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">    </span><span class="kt">uint32_t</span><span class="w"> </span><span class="n">player_id</span><span class="p">,</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="n">ClientInputPayload</span><span class="o">&amp;</span><span class="w"> </span><span class="n">input</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">    </span><span class="kt">uint32_t</span><span class="w"> </span><span class="n">input_seq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">input</span><span class="p">.</span><span class="n">sequence_number</span><span class="p">;</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">    </span><span class="c1">// Check if this input has already been processed (duplication)</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">input_seq</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">last_processed_input_seq_</span><span class="p">[</span><span class="n">player_id</span><span class="p">])</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">        </span><span class="c1">// Input already processed or old out-of-order → ignore</span>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="w">        </span><span class="k">return</span><span class="p">;</span>
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>
+<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="w">    </span><span class="c1">// Process input (apply movement, shooting, etc.)</span>
+<a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a><span class="w">    </span><span class="n">process_player_input</span><span class="p">(</span><span class="n">player_id</span><span class="p">,</span><span class="w"> </span><span class="n">input</span><span class="p">);</span>
+<a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a>
+<a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a><span class="w">    </span><span class="c1">// Update last processed input</span>
+<a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a><span class="w">    </span><span class="n">last_processed_input_seq_</span><span class="p">[</span><span class="n">player_id</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">input_seq</span><span class="p">;</span>
+<a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a>
+<a id="__codelineno-8-19" name="__codelineno-8-19" href="#__codelineno-8-19"></a><span class="w">    </span><span class="c1">// Next snapshot will automatically include this last_ack_sequence</span>
+<a id="__codelineno-8-20" name="__codelineno-8-20" href="#__codelineno-8-20"></a><span class="p">}</span>
+</code></pre></div>
+<h4 id="generating-snapshot-with-ack">Generating Snapshot with ACK</h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kt">void</span><span class="w"> </span><span class="nf">ServerNetworkSystem::send_snapshot</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">    </span><span class="n">SnapshotPayload</span><span class="w"> </span><span class="n">snapshot</span><span class="p">;</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">    </span><span class="n">snapshot</span><span class="p">.</span><span class="n">server_tick</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">current_tick_</span><span class="p">;</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">    </span><span class="c1">// For each game entity</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="k">auto</span><span class="o">&amp;</span><span class="w"> </span><span class="n">entity</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">game_entities_</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">        </span><span class="n">EntityState</span><span class="w"> </span><span class="n">state</span><span class="p">;</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">        </span><span class="n">state</span><span class="p">.</span><span class="n">entity_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">entity</span><span class="p">.</span><span class="n">id</span><span class="p">;</span>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="w">        </span><span class="n">state</span><span class="p">.</span><span class="n">position_x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">entity</span><span class="p">.</span><span class="n">position</span><span class="p">.</span><span class="n">x</span><span class="p">;</span>
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="w">        </span><span class="n">state</span><span class="p">.</span><span class="n">position_y</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">entity</span><span class="p">.</span><span class="n">position</span><span class="p">.</span><span class="n">y</span><span class="p">;</span>
+<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="w">        </span><span class="c1">// ... other fields ...</span>
+<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>
+<a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a><span class="w">        </span><span class="c1">// If it&#39;s a player, include last_ack_sequence</span>
+<a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">entity</span><span class="p">.</span><span class="n">is_player</span><span class="p">())</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a><span class="w">            </span><span class="kt">uint32_t</span><span class="w"> </span><span class="n">player_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">entity</span><span class="p">.</span><span class="n">get_player_id</span><span class="p">();</span>
+<a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a><span class="w">            </span><span class="n">state</span><span class="p">.</span><span class="n">last_ack_sequence</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">last_processed_input_seq_</span><span class="p">[</span><span class="n">player_id</span><span class="p">];</span>
+<a id="__codelineno-9-17" name="__codelineno-9-17" href="#__codelineno-9-17"></a><span class="w">        </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-9-18" name="__codelineno-9-18" href="#__codelineno-9-18"></a><span class="w">            </span><span class="n">state</span><span class="p">.</span><span class="n">last_ack_sequence</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w">  </span><span class="c1">// Not applicable</span>
+<a id="__codelineno-9-19" name="__codelineno-9-19" href="#__codelineno-9-19"></a><span class="w">        </span><span class="p">}</span>
+<a id="__codelineno-9-20" name="__codelineno-9-20" href="#__codelineno-9-20"></a>
+<a id="__codelineno-9-21" name="__codelineno-9-21" href="#__codelineno-9-21"></a><span class="w">        </span><span class="n">snapshot</span><span class="p">.</span><span class="n">entities</span><span class="p">.</span><span class="n">push_back</span><span class="p">(</span><span class="n">state</span><span class="p">);</span>
+<a id="__codelineno-9-22" name="__codelineno-9-22" href="#__codelineno-9-22"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-9-23" name="__codelineno-9-23" href="#__codelineno-9-23"></a>
+<a id="__codelineno-9-24" name="__codelineno-9-24" href="#__codelineno-9-24"></a><span class="w">    </span><span class="c1">// Broadcast snapshot to all clients</span>
+<a id="__codelineno-9-25" name="__codelineno-9-25" href="#__codelineno-9-25"></a><span class="w">    </span><span class="n">broadcast_snapshot</span><span class="p">(</span><span class="n">snapshot</span><span class="p">);</span>
+<a id="__codelineno-9-26" name="__codelineno-9-26" href="#__codelineno-9-26"></a><span class="p">}</span>
+</code></pre></div>
+<hr />
+<h2 id="5-data-flow">5. Data Flow</h2>
+<h3 id="51-normal-scenario-no-packet-loss">5.1 Normal Scenario (no packet loss)</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>Time  │ Client (sequence)           │ Server (last_ack)       │ Network
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>──────┼─────────────────────────────┼─────────────────────────┼──────────
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>t=0   │ Send INPUT seq=100 ────────►│                         │ [OK] Delivered
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>t=16  │                             │ Process seq=100         │
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>      │                             │ last_ack[player] = 100  │
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>t=16  │                             │◄────── SNAPSHOT         │ last_ack=100
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>t=32  │ Receive ACK(100)            │                         │
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>      │ → Confirm input 100         │                         │
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>      │ → Remove from pending       │                         │
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>──────┼─────────────────────────────┼─────────────────────────┼──────────
+<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>t=33  │ Send INPUT seq=101 ────────►│                         │ [OK] Delivered
+<a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a>t=49  │                             │ Process seq=101         │
+<a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a>      │                             │ last_ack[player] = 101  │
+<a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a>t=49  │                             │◄────── SNAPSHOT         │ last_ack=101
+<a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a>t=65  │ Receive ACK(101)            │                         │
+<a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a>      │ → Confirm input 101         │                         │
+</code></pre></div>
+<p><strong>Result</strong>: Input RTT ≈ 32-65ms (typical for 60 Hz updates)</p>
+<h3 id="52-packet-loss-scenario">5.2 Packet Loss Scenario</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>Time  │ Client (sequence)           │ Server (last_ack)       │ Network
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>──────┼─────────────────────────────┼─────────────────────────┼──────────
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>t=0   │ Send INPUT seq=200 ────────►│                         │ [LOST]
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>      │ pending: [200]              │                         │
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>──────┼─────────────────────────────┼─────────────────────────┼──────────
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>t=16  │                             │ No input received       │
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>      │                             │ last_ack[player] = 199  │ (unchanged)
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>t=16  │                             │◄────── SNAPSHOT         │ last_ack=199
+<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>t=32  │ Receive ACK(199)            │                         │
+<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a>      │ → Input 200 still pending   │                         │
+<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a>      │ pending: [200]              │                         │
+<a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a>──────┼─────────────────────────────┼─────────────────────────┼──────────
+<a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a>t=33  │ Send INPUT seq=201 ────────►│                         │ [OK] Delivered
+<a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a>      │ pending: [200, 201]         │                         │
+<a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a>t=49  │                             │ Process seq=201         │
+<a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a>      │                             │ last_ack[player] = 201  │ &lt;- Skip seq=200
+<a id="__codelineno-11-17" name="__codelineno-11-17" href="#__codelineno-11-17"></a>t=49  │                             │◄────── SNAPSHOT         │ last_ack=201
+<a id="__codelineno-11-18" name="__codelineno-11-18" href="#__codelineno-11-18"></a>t=65  │ Receive ACK(201)            │                         │
+<a id="__codelineno-11-19" name="__codelineno-11-19" href="#__codelineno-11-19"></a>      │ → Confirm inputs ≤ 201      │                         │
+<a id="__codelineno-11-20" name="__codelineno-11-20" href="#__codelineno-11-20"></a>      │ → Remove 200 AND 201        │                         │
+<a id="__codelineno-11-21" name="__codelineno-11-21" href="#__codelineno-11-21"></a>      │ pending: []                 │                         │
+</code></pre></div>
+<p><strong>Result</strong>:
+- Server processes seq=201 regardless of seq=200 loss
+- Client removes all inputs with sequence &lt;= 201 from pending buffer
+- Input seq=200 is permanently lost (acceptable trade-off for high-frequency input streams)</p>
+<h3 id="53-out-of-order-delivery-scenario">5.3 Out-of-Order Delivery Scenario</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>Time  │ Client (sequence)           │ Server (last_ack)       │ Network
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>──────┼─────────────────────────────┼─────────────────────────┼──────────
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>t=0   │ Send INPUT seq=300 ────────►│                         │ [DELAYED]
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>t=16  │ Send INPUT seq=301 ────────►│                         │ [OK] Fast path
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>──────┼─────────────────────────────┼─────────────────────────┼──────────
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>t=20  │                             │ Receive seq=301 FIRST!  │
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>      │                             │ Process seq=301         │
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>      │                             │ last_ack = 301          │
+<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>──────┼─────────────────────────────┼─────────────────────────┼──────────
+<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a>t=30  │                             │ Receive seq=300 (late)  │
+<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a>      │                             │ → seq=300 &lt; last_ack    │
+<a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a>      │                             │ → REJECT (already past) │
+<a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a>──────┼─────────────────────────────┼─────────────────────────┼──────────
+<a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a>t=32  │                             │◄────── SNAPSHOT         │ last_ack=301
+<a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a>t=48  │ Receive ACK(301)            │                         │
+<a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a>      │ → Confirm inputs ≤ 301      │                         │
+<a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a>      │ → Remove 300 and 301        │                         │
+</code></pre></div>
+<p><strong>Result</strong>:
+- Server rejects stale out-of-order inputs
+- Duplicate processing is prevented
+- Client buffer cleanup proceeds correctly via last_ack</p>
+<hr />
+<h2 id="6-advantages-and-trade-offs">6. Advantages and Trade-offs</h2>
+<h3 id="61-advantages">6.1 Advantages</h3>
+<h4 id="bandwidth-efficiency">Bandwidth Efficiency</h4>
+<ul>
+<li><strong>Piggybacking</strong>: ACK is embedded within state snapshots, eliminating dedicated acknowledgment packets</li>
+<li><strong>Minimal overhead</strong>: 4 bytes per player entity (field already present in EntityState)</li>
+<li><strong>No retransmissions</strong>: Unlike TCP, the protocol does not perform automatic retransmissions</li>
+</ul>
+<h4 id="low-latency">Low Latency</h4>
+<ul>
+<li><strong>No head-of-line blocking</strong>: Each input packet is processed independently</li>
+<li><strong>Asynchronous transmission</strong>: Client can send seq=N+1 before receiving ACK(N)</li>
+<li><strong>Native UDP performance</strong>: Minimal processing overhead (~1-2ms compared to raw UDP)</li>
+</ul>
+<h4 id="packet-loss-detection">Packet Loss Detection</h4>
+<ul>
+<li><strong>Sequence gap analysis</strong>: If ACK jumps from 100 to 103, packets 101-102 are identified as lost</li>
+<li><strong>Metrics collection</strong>: Packet loss rate can be computed automatically</li>
+<li><strong>Adaptive behavior</strong>: Protocol strategy can be adjusted based on observed loss rate</li>
+</ul>
+<h4 id="client-server-reconciliation">Client-Server Reconciliation</h4>
+<ul>
+<li><strong>Client-side prediction</strong>: Inputs are applied locally for immediate responsiveness</li>
+<li><strong>Server confirmation</strong>: ACK validates that server state matches client expectations</li>
+<li><strong>Divergence correction</strong>: State mismatches are corrected using authoritative server snapshots</li>
+</ul>
+<h3 id="62-trade-offs">6.2 Trade-offs</h3>
+<h4 id="no-delivery-guarantee">No Delivery Guarantee</h4>
+<ul>
+<li><strong>Lost inputs</strong>: A lost input packet is not recovered</li>
+<li><strong>Mitigation</strong>: High input frequency (60 Hz) renders single input loss negligible</li>
+<li><strong>Impact</strong>: Players may experience brief input lag if multiple consecutive packets are lost</li>
+</ul>
+<h4 id="ack-delay">ACK Delay</h4>
+<ul>
+<li><strong>Latency</strong>: ACK is delivered with the next snapshot (~16-33ms at 60-30 Hz update rate)</li>
+<li><strong>No immediate acknowledgment</strong>: Unlike TCP, instant ACK is not provided</li>
+<li><strong>Design rationale</strong>: Immediate ACK is sacrificed to reduce packet count</li>
+</ul>
+<h4 id="out-of-order-handling">Out-of-Order Handling</h4>
+<ul>
+<li><strong>Rejection policy</strong>: Stale out-of-order inputs are discarded</li>
+<li><strong>Consequence</strong>: Delayed inputs may be lost even upon arrival</li>
+<li><strong>Justification</strong>: At 60 Hz tick rate, an input delayed by 50ms provides no gameplay value</li>
+</ul>
+<hr />
+<h2 id="7-metrics-and-monitoring">7. Metrics and Monitoring</h2>
+<h3 id="71-client-side-metrics">7.1 Client-Side Metrics</h3>
+<h4 id="pending-inputs">Pending Inputs</h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="kt">size_t</span><span class="w"> </span><span class="n">pending_count</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pending_inputs_</span><span class="p">.</span><span class="n">size</span><span class="p">();</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">pending_count</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">30</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="w">    </span><span class="c1">// WARNING: More than 30 unacknowledged inputs</span>
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="w">    </span><span class="c1">// → Probable network issues or server lag</span>
+<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="w">    </span><span class="n">display_warning</span><span class="p">(</span><span class="s">&quot;High latency detected&quot;</span><span class="p">);</span>
+<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="p">}</span>
+<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>
+<a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">pending_count</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">60</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="w">    </span><span class="c1">// CRITICAL: Buffer full</span>
+<a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a><span class="w">    </span><span class="c1">// → Connection timeout probable</span>
+<a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a><span class="w">    </span><span class="n">disconnect_with_error</span><span class="p">(</span><span class="s">&quot;Connection lost&quot;</span><span class="p">);</span>
+<a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a><span class="p">}</span>
+</code></pre></div>
+<h4 id="input-acknowledgment-delay">Input Acknowledgment Delay</h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="kt">uint32_t</span><span class="w"> </span><span class="n">input_rtt_ms</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">current_time</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">pending_inputs_</span><span class="p">.</span><span class="n">front</span><span class="p">().</span><span class="n">timestamp</span><span class="p">;</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">input_rtt_ms</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">200</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="w">    </span><span class="c1">// Input ACK takes more than 200ms</span>
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="w">    </span><span class="c1">// → Display lag indicator</span>
+<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="w">    </span><span class="n">show_lag_indicator</span><span class="p">();</span>
+<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="p">}</span>
+</code></pre></div>
+<h4 id="packet-loss-rate">Packet Loss Rate</h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="kt">uint32_t</span><span class="w"> </span><span class="n">total_inputs_sent</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="kt">uint32_t</span><span class="w"> </span><span class="n">total_inputs_acked</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="kt">void</span><span class="w"> </span><span class="nf">on_input_sent</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">total_inputs_sent</span><span class="o">++</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="kt">void</span><span class="w"> </span><span class="nf">on_ack_received</span><span class="p">(</span><span class="kt">uint32_t</span><span class="w"> </span><span class="n">ack_seq</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="w">    </span><span class="c1">// Count how many inputs were ACKed</span>
+<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="w">    </span><span class="n">total_inputs_acked</span><span class="o">++</span><span class="p">;</span>
+<a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="p">}</span>
+<a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a>
+<a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a><span class="kt">float</span><span class="w"> </span><span class="n">packet_loss_rate</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">1.0f</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="p">(</span><span class="kt">float</span><span class="p">(</span><span class="n">total_inputs_acked</span><span class="p">)</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">total_inputs_sent</span><span class="p">);</span>
+<a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a><span class="c1">// Example: 0.023 = 2.3% packet loss</span>
+</code></pre></div>
+<h3 id="72-server-side-metrics">7.2 Server-Side Metrics</h3>
+<h4 id="input-reception-rate">Input Reception Rate</h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="n">std</span><span class="o">::</span><span class="n">unordered_map</span><span class="o">&lt;</span><span class="kt">uint32_t</span><span class="p">,</span><span class="w"> </span><span class="kt">uint32_t</span><span class="o">&gt;</span><span class="w"> </span><span class="n">inputs_received_per_player</span><span class="p">;</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="n">std</span><span class="o">::</span><span class="n">unordered_map</span><span class="o">&lt;</span><span class="kt">uint32_t</span><span class="p">,</span><span class="w"> </span><span class="kt">uint32_t</span><span class="o">&gt;</span><span class="w"> </span><span class="n">last_input_time_per_player</span><span class="p">;</span>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="kt">void</span><span class="w"> </span><span class="nf">on_input_received</span><span class="p">(</span><span class="kt">uint32_t</span><span class="w"> </span><span class="n">player_id</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="w">    </span><span class="n">inputs_received_per_player</span><span class="p">[</span><span class="n">player_id</span><span class="p">]</span><span class="o">++</span><span class="p">;</span>
+<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="w">    </span><span class="n">last_input_time_per_player</span><span class="p">[</span><span class="n">player_id</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">current_time_ms</span><span class="p">();</span>
+<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="p">}</span>
+<a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>
+<a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="kt">void</span><span class="w"> </span><span class="nf">check_player_timeout</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a><span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="k">auto</span><span class="o">&amp;</span><span class="w"> </span><span class="p">[</span><span class="n">player_id</span><span class="p">,</span><span class="w"> </span><span class="n">last_time</span><span class="p">]</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">last_input_time_per_player</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a><span class="w">        </span><span class="kt">uint32_t</span><span class="w"> </span><span class="n">silence_duration</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">current_time_ms</span><span class="p">()</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">last_time</span><span class="p">;</span>
+<a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a>
+<a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">silence_duration</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">10000</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">  </span><span class="c1">// 10 seconds</span>
+<a id="__codelineno-16-14" name="__codelineno-16-14" href="#__codelineno-16-14"></a><span class="w">            </span><span class="c1">// No input for 10s → Disconnect</span>
+<a id="__codelineno-16-15" name="__codelineno-16-15" href="#__codelineno-16-15"></a><span class="w">            </span><span class="n">disconnect_player</span><span class="p">(</span><span class="n">player_id</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Timeout&quot;</span><span class="p">);</span>
+<a id="__codelineno-16-16" name="__codelineno-16-16" href="#__codelineno-16-16"></a><span class="w">        </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">silence_duration</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">5000</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-16-17" name="__codelineno-16-17" href="#__codelineno-16-17"></a><span class="w">            </span><span class="c1">// 5 seconds → Warning</span>
+<a id="__codelineno-16-18" name="__codelineno-16-18" href="#__codelineno-16-18"></a><span class="w">            </span><span class="n">log_warning</span><span class="p">(</span><span class="s">&quot;Player {} inactive for 5s&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">player_id</span><span class="p">);</span>
+<a id="__codelineno-16-19" name="__codelineno-16-19" href="#__codelineno-16-19"></a><span class="w">        </span><span class="p">}</span>
+<a id="__codelineno-16-20" name="__codelineno-16-20" href="#__codelineno-16-20"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-16-21" name="__codelineno-16-21" href="#__codelineno-16-21"></a><span class="p">}</span>
+</code></pre></div>
+<h4 id="sequence-gap-detection">Sequence Gap Detection</h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="kt">void</span><span class="w"> </span><span class="nf">on_input_received</span><span class="p">(</span><span class="kt">uint32_t</span><span class="w"> </span><span class="n">player_id</span><span class="p">,</span><span class="w"> </span><span class="kt">uint32_t</span><span class="w"> </span><span class="n">input_seq</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="w">    </span><span class="kt">uint32_t</span><span class="w"> </span><span class="n">expected_seq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">last_processed_input_seq_</span><span class="p">[</span><span class="n">player_id</span><span class="p">]</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">input_seq</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">expected_seq</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="w">        </span><span class="kt">uint32_t</span><span class="w"> </span><span class="n">gap</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">input_seq</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">expected_seq</span><span class="p">;</span>
+<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>
+<a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a><span class="w">        </span><span class="c1">// Log packet loss</span>
+<a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a><span class="w">        </span><span class="n">log_info</span><span class="p">(</span><span class="s">&quot;Player {} lost {} inputs (seq {}-{})&quot;</span><span class="p">,</span>
+<a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a><span class="w">                 </span><span class="n">player_id</span><span class="p">,</span><span class="w"> </span><span class="n">gap</span><span class="p">,</span><span class="w"> </span><span class="n">expected_seq</span><span class="p">,</span><span class="w"> </span><span class="n">input_seq</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span>
+<a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a>
+<a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a><span class="w">        </span><span class="c1">// Statistics</span>
+<a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a><span class="w">        </span><span class="n">packet_loss_stats_</span><span class="p">[</span><span class="n">player_id</span><span class="p">]</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">gap</span><span class="p">;</span>
+<a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-17-14" name="__codelineno-17-14" href="#__codelineno-17-14"></a><span class="p">}</span>
+</code></pre></div>
+<h3 id="73-logging-and-debugging">7.3 Logging and Debugging</h3>
+<h4 id="recommended-log-format">Recommended Log Format</h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>[Client] INPUT_SENT    seq=12345 flags=0x05 ts=1234567890
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>[Client] ACK_RECEIVED  seq=12340 (5 inputs pending)
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>[Server] INPUT_RECV    player=1 seq=12345 (gap=0)
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>[Server] INPUT_PROCESS player=1 seq=12345 last_ack=12345
+<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>[Server] SNAPSHOT_SENT tick=6789 entities=20 (player1_ack=12345)
+</code></pre></div>
+<h4 id="debug-visualization-optional">Debug Visualization (optional)</h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>Client Sequence Timeline:
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>[100][101][102][X][104][105][106]  &lt;- X = packet lost
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>       ^                    ^
+<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>       +-- ACK(101)         +-- ACK(106) -&gt; clears all &lt;=106
+<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>
+<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a>Server Processed Sequence:
+<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a>[100][101][102][  ][104][105][106]  &lt;- Gap detected between 102-104
+<a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a>                    ^
+<a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a>                    +-- Server continues with seq=104
+</code></pre></div>
+<hr />
+<h2 id="8-comparison-with-other-approaches">8. Comparison with Other Approaches</h2>
+<h3 id="81-tcp-reliable-stream">8.1 TCP (Reliable Stream)</h3>
+<table>
+<thead>
+<tr>
+<th>Criteria</th>
+<th>TCP</th>
+<th>R-Type UDP ACK</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Delivery guarantee</td>
+<td>Yes</td>
+<td>No (acceptable for use case)</td>
+</tr>
+<tr>
+<td>Order guarantee</td>
+<td>Yes</td>
+<td>No (stale inputs rejected)</td>
+</tr>
+<tr>
+<td>Latency</td>
+<td>Variable (retransmissions)</td>
+<td>Consistent and low</td>
+</tr>
+<tr>
+<td>Head-of-line blocking</td>
+<td>Present</td>
+<td>Absent</td>
+</tr>
+<tr>
+<td>Header overhead</td>
+<td>~20 bytes</td>
+<td>8 bytes</td>
+</tr>
+<tr>
+<td>Congestion control</td>
+<td>Automatic</td>
+<td>Manual (if required)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Analysis</strong>: The UDP ACK approach provides superior performance characteristics for real-time gameplay scenarios.</p>
+<h3 id="82-quic-udp-with-reliable-streams">8.2 QUIC (UDP with Reliable Streams)</h3>
+<table>
+<thead>
+<tr>
+<th>Criteria</th>
+<th>QUIC</th>
+<th>R-Type UDP ACK</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Implementation complexity</td>
+<td>High (cryptography, streams)</td>
+<td>Low</td>
+</tr>
+<tr>
+<td>Latency</td>
+<td>Low</td>
+<td>Low</td>
+</tr>
+<tr>
+<td>Multiplexed streams</td>
+<td>Supported</td>
+<td>Not required</td>
+</tr>
+<tr>
+<td>Header overhead</td>
+<td>~30-50 bytes</td>
+<td>9-13 bytes</td>
+</tr>
+<tr>
+<td>Target domain</td>
+<td>Web transport standard</td>
+<td>Gaming-specific</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Analysis</strong>: QUIC introduces unnecessary complexity for this use case. The additional features (TLS 1.3, stream multiplexing) are not required for game input acknowledgment.</p>
+<h3 id="83-enet-gaming-library">8.3 ENet (Gaming Library)</h3>
+<table>
+<thead>
+<tr>
+<th>Criteria</th>
+<th>ENet</th>
+<th>R-Type UDP ACK</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Reliable channels</td>
+<td>Full support</td>
+<td>Partial (implicit ACK)</td>
+</tr>
+<tr>
+<td>Sequenced channels</td>
+<td>Supported</td>
+<td>Supported (sequence numbers)</td>
+</tr>
+<tr>
+<td>Unsequenced channels</td>
+<td>Supported</td>
+<td>Supported (events)</td>
+</tr>
+<tr>
+<td>Header overhead</td>
+<td>~8-12 bytes</td>
+<td>9-13 bytes</td>
+</tr>
+<tr>
+<td>External dependency</td>
+<td>Required</td>
+<td>None (custom implementation)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Analysis</strong>: The R-Type implementation provides functionality comparable to ENet while being specifically optimized for the game's requirements without external dependencies.</p>
+<hr />
+<h2 id="9-conclusion">9. Conclusion</h2>
+<h3 id="91-summary">9.1 Summary</h3>
+<p>The R-Type UDP ACK system implements an <strong>implicit acknowledgment mechanism via piggybacking</strong> with the following characteristics:</p>
+<ul>
+<li>Uses <code>sequence_number</code> fields for input ordering and tracking</li>
+<li>Embeds <code>last_ack_sequence</code> within state snapshots, eliminating dedicated ACK packets</li>
+<li>Enables detection of packet loss and out-of-order delivery</li>
+<li>Supports client-side prediction and server-authoritative reconciliation</li>
+<li>Maintains low latency while optimizing bandwidth utilization</li>
+</ul>
+<h3 id="92-key-advantages">9.2 Key Advantages</h3>
+<ol>
+<li><strong>Efficient</strong>: No network overhead (ACK in existing snapshot)</li>
+<li><strong>Low latency</strong>: No blocking, independent inputs</li>
+<li><strong>Robust</strong>: Packet loss and timeout detection</li>
+<li><strong>Simple</strong>: Clear and maintainable implementation</li>
+</ol>
+<h3 id="93-acceptable-limitations">9.3 Acceptable Limitations</h3>
+<ol>
+<li><strong>No delivery guarantee</strong>: A lost input is lost (OK @ 60 Hz)</li>
+<li><strong>ACK delay</strong>: ~16-33ms depending on snapshot rate (acceptable)</li>
+<li><strong>Out-of-order rejection</strong>: Old inputs rejected (OK for real-time)</li>
+</ol>
+<h3 id="94-applicability">9.4 Applicability</h3>
+<p><strong>Recommended use cases</strong>:
+- Real-time action games (shooters, racing, fighting games)
+- Applications requiring low latency with high update frequency
+- Systems tolerant to occasional data loss</p>
+<p><strong>Not recommended for</strong>:
+- Chat or messaging systems (reliable channels preferred)
+- File transfers (TCP recommended)
+- Critical transactions (TCP with explicit acknowledgment required)</p>
+<hr />
+<h2 id="10-references">10. References</h2>
+<h3 id="101-source-files">10.1 Source Files</h3>
+<ul>
+<li><strong>Protocol definition</strong>: <code>src/r-type/shared/protocol/PacketHeader.hpp</code></li>
+<li><strong>Payloads</strong>: <code>src/r-type/shared/protocol/Payloads.hpp</code></li>
+<li><strong>Client prediction</strong>: <code>src/r-type/client/src/systems/ClientPredictionSystem.cpp</code></li>
+<li><strong>Server network</strong>: <code>src/r-type/server/src/ServerNetworkSystem.cpp</code></li>
+</ul>
+<h3 id="102-related-documentation">10.2 Related Documentation</h3>
+<ul>
+<li><a href="../PROTOCOL/">PROTOCOL.md</a> - Complete protocol specification</li>
+<li><a href="../CLIENT_ARCHITECTURE/">CLIENT_ARCHITECTURE.md</a> - Client architecture</li>
+<li><a href="../SERVER_ARCHITECTURE/">SERVER_ARCHITECTURE.md</a> - Server architecture</li>
+</ul>
+<h3 id="103-external-resources">10.3 External Resources</h3>
+<ul>
+<li><a href="https://gafferongames.com/post/networked_physics_in_virtual_reality/">Gaffer on Games - Networked Physics</a></li>
+<li><a href="https://developer.valvesoftware.com/wiki/Latency_Compensating_Methods_in_Client/Server_In-game_Protocol_Design_and_Optimization">Valve - Latency Compensating Methods</a></li>
+<li><a href="https://gafferongames.com/post/udp_vs_tcp/">Glenn Fiedler - UDP vs TCP</a></li>
+</ul>
+<hr />
+<p><strong>Document written by R-Type Development Team</strong>
+<strong>Last updated</strong>: January 2026
+<strong>Version</strong>: 1.0</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "search.highlight", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
