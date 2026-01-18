@@ -37,7 +37,8 @@ enum class LevelState : uint8_t {
  * level, phase, and wave progression. Only one should exist per game session.
  */
 struct LevelController {
-    uint8_t current_level;           ///< Current level number (1-3)
+    uint8_t current_level;           ///< Current level number (1-N)
+    uint8_t total_levels;            ///< Total number of levels in the game
     LevelState state;                ///< Current level state
     float state_timer;               ///< Time spent in current state
     uint32_t current_phase_index;    ///< Current phase (0-2: intro, escalation, final)
@@ -49,6 +50,7 @@ struct LevelController {
 
     LevelController()
         : current_level(1)
+        , total_levels(4)
         , state(LevelState::LEVEL_START)
         , state_timer(0.0f)
         , current_phase_index(0)

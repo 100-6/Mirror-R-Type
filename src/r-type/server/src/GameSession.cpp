@@ -65,8 +65,10 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
     , tick_count_(0)
     , current_scroll_(0.0)
     , scroll_speed_(config::GAME_SCROLL_SPEED)
-    , session_start_time_(std::chrono::steady_clock::now())
+    , loaded_level_id_(static_cast<uint8_t>(map_id))
+    , last_level_state_(game::LevelState::LEVEL_START)
 {
+    session_start_time_ = std::chrono::steady_clock::now();
     // Load local enemy config
     try {
         std::ifstream f(assets::paths::ENEMIES_CONFIG);
@@ -374,6 +376,7 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
     }
     wave_manager_.load_from_phases(all_waves);
     wave_manager_.set_listener(this);
+    initialize_wave_state();
 
     // Create LevelController entity
     Entity level_controller_entity = registry_.spawn_entity();
@@ -555,6 +558,14 @@ void GameSession::update(float delta_time)
             // Spawn boss
             const BossConfig& boss_config = level_manager_.get_boss_config();
 
+            if (boss_config.phases.empty()) {
+                std::cerr << "[GameSession] ERROR: Boss has no phases configured! Cannot spawn boss.\n";
+                // Mark as spawned but invalid to prevent infinite spawn attempts
+                lc.boss_spawned = true;
+                lc.boss_entity = engine::INVALID_HANDLE;
+                return;
+            }
+
             Entity boss_entity = registry_.spawn_entity();
 
             // Position
@@ -596,6 +607,25 @@ void GameSession::update(float delta_time)
             boss_script.current_phase = 0;
             registry_.add_component(boss_entity, boss_script);
 
+            // Add BossPhase component for phase management
+            game::BossPhase boss_phase;
+            boss_phase.total_phases = boss_config.total_phases;
+            boss_phase.phase_configs = boss_config.phases;
+            
+            // Set initial phase parameters from config
+            if (!boss_phase.phase_configs.empty()) {
+                boss_phase.phase_health_thresholds.clear();
+                for (const auto& pc : boss_phase.phase_configs) {
+                    boss_phase.phase_health_thresholds.push_back(pc.health_threshold);
+                }
+                
+                // Initialize with first phase settings
+                const auto& first_phase = boss_phase.phase_configs[0];
+                boss_phase.movement_pattern = first_phase.movement_pattern;
+                boss_phase.movement_speed_multiplier = first_phase.movement_speed_multiplier;
+            }
+            registry_.add_component(boss_entity, boss_phase);
+
             // Update level controller
             lc.boss_spawned = true;
             lc.boss_entity = boss_entity;
@@ -616,46 +646,70 @@ void GameSession::update(float delta_time)
             }
         }
 
-        // Level complete - load next level or declare victory
-        if (lc.state == game::LevelState::LEVEL_COMPLETE) {
-            if (lc.current_level >= 3) {
-                // Final victory: Level 3 complete
-                // std::cout << "[GameSession " << session_id_ << "] FINAL VICTORY - All 3 levels complete!\n";
-                is_active_.store(false, std::memory_order_release);
-                if (listener_)
-                    listener_->on_game_over(session_id_, get_player_ids(), true);  // Victory
-                return;
+        // 1. Detect entry into LEVEL_COMPLETE to send fade-out packet ONCE
+        if (lc.state == game::LevelState::LEVEL_COMPLETE && last_level_state_ != game::LevelState::LEVEL_COMPLETE) {
+            if (lc.current_level < lc.total_levels) {
+                network_system_->queue_level_transition(lc.current_level + 1);
+                std::cout << "[GameSession] Level " << static_cast<int>(lc.current_level) << " Complete! Sending transition signal for Level " << static_cast<int>(lc.current_level + 1) << "\n";
+
+                // IMMEDIATELY reset scroll to 0 to prevent client desync
+                // This ensures all subsequent snapshots have scroll=0 before new level loads
+                current_scroll_ = 0.0f;
+
+                // Reset camera position and KEEP velocity at 0 during transition
+                // Velocity will be restored when entering LEVEL_START
+                auto& positions = registry_.get_components<Position>();
+                auto& cameras = registry_.get_components<Camera>();
+                auto& camera_velocities = registry_.get_components<Velocity>();
+                for (size_t i = 0; i < cameras.size(); ++i) {
+                    Entity cam_entity = cameras.get_entity_at(i);
+                    if (positions.has_entity(cam_entity)) {
+                        positions[cam_entity].x = 0.0f;
+                    }
+                    if (camera_velocities.has_entity(cam_entity)) {
+                        camera_velocities[cam_entity].x = 0.0f;  // KEEP at 0 during LEVEL_COMPLETE
+                    }
+                }
+
+                // Reset scroll state component
+                auto& scroll_states = registry_.get_components<game::ScrollState>();
+                if (scroll_states.size() > 0) {
+                    scroll_states.get_data_at(0).current_scroll = 0.0f;
+                }
+            }
+        }
+
+        // 2. Detect level index change (triggered by LevelSystem after 5s victory screen)
+        if (lc.current_level != loaded_level_id_) {
+            uint8_t next_level = lc.current_level;
+            std::cout << "[GameSession] Transition detected: Loading level " << static_cast<int>(next_level) << "\n";
+
+            // Load new level configuration
+            if (!level_manager_.load_level(next_level)) {
+                std::cerr << "[GameSession " << session_id_ << "] Failed to load level " << static_cast<int>(next_level) << "\n";
             } else {
-                // Load next level
-                uint8_t next_level = lc.current_level + 1;
-                // std::cout << "[GameSession " << session_id_ << "] Loading level " << static_cast<int>(next_level) << "...\n";
-
-                // Load next level configuration
-                if (!level_manager_.load_level(next_level)) {
-                    std::cerr << "[GameSession " << session_id_ << "] Failed to load level " << static_cast<int>(next_level) << "\n";
-                    return;
-                }
-
-                // Clear all enemies and projectiles
+                // CLEAR OLD ENTITIES (Enemies, Projectiles)
                 auto& enemies = registry_.get_components<Enemy>();
-                std::vector<Entity> enemies_to_kill;
+                std::vector<Entity> to_kill;
                 for (size_t i = 0; i < enemies.size(); ++i) {
-                    enemies_to_kill.push_back(enemies.get_entity_at(i));
+                    to_kill.push_back(enemies.get_entity_at(i));
                 }
-                for (Entity e : enemies_to_kill) {
+                for (Entity e : to_kill) {
                     registry_.kill_entity(e);
+                    if (network_system_) network_system_->queue_entity_destroy(e);
                 }
 
                 auto& projectiles = registry_.get_components<Projectile>();
-                std::vector<Entity> projectiles_to_kill;
+                to_kill.clear();
                 for (size_t i = 0; i < projectiles.size(); ++i) {
-                    projectiles_to_kill.push_back(projectiles.get_entity_at(i));
+                    to_kill.push_back(projectiles.get_entity_at(i));
                 }
-                for (Entity p : projectiles_to_kill) {
+                for (Entity p : to_kill) {
                     registry_.kill_entity(p);
+                    if (network_system_) network_system_->queue_entity_destroy(p);
                 }
 
-                // Extract waves from new level and load into WaveManager
+                // EXTRACT NEW WAVES
                 std::vector<Wave> all_waves;
                 for (const auto& phase : level_manager_.get_phases()) {
                     for (const auto& wave : phase.waves) {
@@ -663,24 +717,80 @@ void GameSession::update(float delta_time)
                     }
                 }
                 wave_manager_.load_from_phases(all_waves);
+                initialize_wave_state();
 
-                // Update level controller
-                lc.current_level = next_level;
+                // Note: Scroll & camera already reset when entering LEVEL_COMPLETE state
+
+                // RESET PLAYERS (Health, Lives, Bonuses)
+                auto& player_lives = registry_.get_components<game::PlayerLives>();
+                auto& healths = registry_.get_components<Health>();
+                auto& bonus_speeds = registry_.get_components<SpeedBoost>();
+                auto& shields = registry_.get_components<Shield>();
+
+                for (size_t i = 0; i < player_lives.size(); ++i) {
+                    auto& pl = player_lives.get_data_at(i);
+                    pl.lives_remaining = config::PLAYER_LIVES;
+                    pl.respawn_pending = false;
+                    pl.respawn_timer = 0.0f;
+
+                    if (players_.find(pl.player_id) != players_.end()) {
+                        Entity player_entity = players_[pl.player_id].entity;
+                        if (healths.has_entity(player_entity)) {
+                            healths[player_entity].current = healths[player_entity].max;
+                        }
+                        if (bonus_speeds.has_entity(player_entity)) {
+                            registry_.remove_component<SpeedBoost>(player_entity);
+                            auto& controllables = registry_.get_components<Controllable>();
+                            if (controllables.has_entity(player_entity)) {
+                                controllables[player_entity].speed = config::PLAYER_MOVEMENT_SPEED;
+                            }
+                        }
+                        if (shields.has_entity(player_entity)) {
+                            registry_.remove_component<Shield>(player_entity);
+                        }
+                    }
+                }
+
+                // RELOAD MAP DATA (Walls)
+                load_map_segments(next_level);
+                
+                // Finalize loading
+                loaded_level_id_ = next_level;
+
+                // Explicitly reset level controller state to LEVEL_START
+                // This ensures LevelSystem starts from clean state, not lingering LEVEL_COMPLETE
                 lc.state = game::LevelState::LEVEL_START;
-                lc.state_timer = 0.0f;
-                lc.current_phase_index = 0;
-                lc.current_wave_in_phase = 0;
                 lc.boss_spawned = false;
                 lc.boss_entity = engine::INVALID_HANDLE;
                 lc.all_waves_triggered = false;
+                lc.state_timer = 0.0f;
 
-                // Update checkpoint manager with new level checkpoints
-                // CheckpointManager removed - Dynamic respawn implementation used instead
-
-                // std::cout << "[GameSession " << session_id_ << "] Level " << static_cast<int>(next_level)
-                //           << " loaded: " << level_manager_.get_level_name() << "\n";
+                // NOW restore camera scroll velocity for the new level
+                // Also ensure camera position is still at 0 (should already be from LEVEL_COMPLETE reset)
+                auto& positions = registry_.get_components<Position>();
+                auto& cameras = registry_.get_components<Camera>();
+                auto& camera_velocities = registry_.get_components<Velocity>();
+                for (size_t i = 0; i < cameras.size(); ++i) {
+                    Entity cam_entity = cameras.get_entity_at(i);
+                    if (positions.has_entity(cam_entity)) {
+                        positions[cam_entity].x = 0.0f;  // Ensure position is at 0
+                    }
+                    if (camera_velocities.has_entity(cam_entity)) {
+                        camera_velocities[cam_entity].x = scroll_speed_;  // Restore scroll
+                    }
+                }
             }
         }
+
+        // Final victory: Last level complete (already handled by LevelSystem transitioning to GAME_OVER or waiting here)
+        if (lc.state == game::LevelState::LEVEL_COMPLETE && lc.current_level >= lc.total_levels && lc.state_timer >= 5.0f) {
+            is_active_.store(false, std::memory_order_release);
+            if (listener_)
+                listener_->on_game_over(session_id_, get_player_ids(), true);  // Victory
+            return;
+        }
+
+        last_level_state_ = lc.state;
 
         // Defeat: All players out of lives
         if (lc.state == game::LevelState::GAME_OVER) {
@@ -758,7 +868,6 @@ void GameSession::on_wave_started(const Wave& wave)
     protocol::ServerWaveStartPayload payload;
     payload.wave_number = ByteOrder::host_to_net32(wave.wave_number);
     payload.total_waves = ByteOrder::host_to_net16(static_cast<uint16_t>(wave_manager_.get_total_waves()));
-    payload.scroll_distance = wave.trigger.scroll_distance;
     uint16_t enemy_count = 0;
     for (const auto& spawn : wave.spawns) {
         if (spawn.type == "enemy")
@@ -786,6 +895,51 @@ void GameSession::on_wave_completed(const Wave& wave)
     has_wave_complete_ = payload.all_waves_complete != 0;
 
     listener_->on_wave_complete(session_id_, serialize(payload));
+}
+
+void GameSession::initialize_wave_state()
+{
+    if (wave_manager_.get_total_waves() == 0) {
+        std::cout << "[GameSession " << session_id_ << "] No waves to initialize\n";
+        return;
+    }
+
+    const auto& waves = wave_manager_.get_waves();
+    if (waves.empty()) {
+        std::cout << "[GameSession " << session_id_ << "] Empty waves list\n";
+        return;
+    }
+
+    const Wave& first_wave = waves[0];
+
+    // Prepare payload for wave 1
+    protocol::ServerWaveStartPayload payload;
+    payload.wave_number = ByteOrder::host_to_net32(first_wave.wave_number);
+    payload.total_waves = ByteOrder::host_to_net16(
+        static_cast<uint16_t>(wave_manager_.get_total_waves())
+    );
+
+    // Count enemies in this wave
+    uint16_t enemy_count = 0;
+    for (const auto& spawn : first_wave.spawns) {
+        if (spawn.type == "enemy")
+            enemy_count += static_cast<uint16_t>(spawn.count);
+    }
+    payload.expected_enemies = ByteOrder::host_to_net16(enemy_count);
+    payload.set_wave_name("Wave " + std::to_string(first_wave.wave_number));
+
+    // Store for late joiners
+    last_wave_start_payload_ = payload;
+    has_wave_started_ = true;
+
+    // Broadcast to all players
+    if (listener_) {
+        listener_->on_wave_start(session_id_, serialize(payload));
+    }
+
+    std::cout << "[GameSession " << session_id_
+              << "] Initialized wave state: Wave 1/"
+              << wave_manager_.get_total_waves() << "\n";
 }
 
 void GameSession::on_spawn_enemy(const std::string& enemy_type, float x, float y, const BonusDropConfig& bonus_drop)
@@ -991,6 +1145,13 @@ void GameSession::on_player_level_up(uint32_t session_id, const std::vector<uint
         listener_->on_player_level_up(session_id, level_up_data);
 }
 
+void GameSession::on_level_transition(uint32_t session_id, const std::vector<uint8_t>& transition_data)
+{
+    if (listener_)
+        listener_->on_level_transition(session_id, transition_data);
+}
+
+// === HELPER METHODS ===
 void GameSession::check_game_over()
 {
     // Check PlayerLives components, not just is_alive flag
@@ -1163,9 +1324,29 @@ void GameSession::load_map_segments(uint16_t map_id)
             : config::GAME_SCROLL_SPEED;
         tile_size_ = map_config_.tileSize;
 
+        // Clear existing map data
+        map_segments_.clear();
+        generated_segments_.clear();
+        next_segment_to_spawn_ = 0;
+
         // Check if procedural generation is enabled
         procedural_enabled_ = map_config_.procedural.enabled;
         procedural_config_ = map_config_.procedural;
+
+        // CRITICAL: Clear all existing wall entities from the registry
+        // This ensures old map walls don't persist into the new level
+        auto& walls = registry_.get_components<Wall>();
+        std::vector<Entity> walls_to_kill;
+        for (size_t i = 0; i < walls.size(); ++i) {
+            walls_to_kill.push_back(walls.get_entity_at(i));
+        }
+        for (Entity e : walls_to_kill) {
+            registry_.kill_entity(e);
+            if (network_system_) {
+                network_system_->queue_entity_destroy(e);
+            }
+        }
+        std::cout << "[GameSession " << session_id_ << "] Cleared " << walls_to_kill.size() << " walls from previous map\n";
 
         if (procedural_enabled_) {
             // Procedural mode: generate seed and initialize generator

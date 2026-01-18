@@ -398,7 +398,7 @@ void ClientGame::setup_background() {
     wave_tracker_ = registry_->spawn_entity();
     WaveController wave_ctrl;
     wave_ctrl.totalWaveCount = 0;
-    wave_ctrl.currentWaveNumber = 0;
+    wave_ctrl.currentWaveNumber = 1;
     wave_ctrl.currentWaveIndex = 0;
     wave_ctrl.totalScrollDistance = 0.0f;
     wave_ctrl.allWavesCompleted = false;
@@ -632,7 +632,7 @@ void ClientGame::setup_network_callbacks() {
         auto& wave_controllers = registry_->get_components<WaveController>();
         if (wave_controllers.has_entity(wave_tracker_)) {
             WaveController& ctrl = wave_controllers[wave_tracker_];
-            ctrl.currentWaveNumber = 0;
+            ctrl.currentWaveNumber = 1;
             ctrl.currentWaveIndex = 0;
             ctrl.allWavesCompleted = false;
             ctrl.totalScrollDistance = 0.0f;
@@ -796,14 +796,16 @@ void ClientGame::setup_network_callbacks() {
 
         // Synchronize scroll position from server for visual tile rendering
         // Wall collisions are handled server-side only, but tiles need to render at correct position
-        // ALWAYS sync to server scroll to ensure visual tiles match server wall positions
-        double server_scroll = static_cast<double>(header.scroll_x);
-        if (chunk_manager_) {
-            // Force chunk manager scroll to match server exactly
-            // This ensures chunk loading/unloading decisions use the same scroll as rendering
-            chunk_manager_->setScrollX(server_scroll);
+        // Skip scroll updates during level transitions to prevent chunk loading desync
+        if (!level_transition_in_progress_) {
+            double server_scroll = static_cast<double>(header.scroll_x);
+            if (chunk_manager_) {
+                // Force chunk manager scroll to match server exactly
+                // This ensures chunk loading/unloading decisions use the same scroll as rendering
+                chunk_manager_->setScrollX(server_scroll);
+            }
+            map_scroll_x_ = server_scroll;
         }
-        map_scroll_x_ = server_scroll;
 
         for (const auto& state : entities) {
             uint32_t server_id = ntohl(state.entity_id);
@@ -1058,6 +1060,109 @@ void ClientGame::setup_network_callbacks() {
             }
         }
     });
+
+    // Level transition callback
+    network_client_->set_on_level_transition([this](const protocol::ServerLevelTransitionPayload& payload) {
+        // Trigger visual reset (fade to black)
+        fade_trigger_ = true;
+
+        // Enable transition lock to prevent scroll desync during map reload
+        level_transition_in_progress_ = true;
+        level_transition_timer_ = 0.0f;
+
+        uint16_t next_level = payload.next_level_id;
+        std::cout << "[ClientGame] Level transition to Level " << next_level << "\n";
+
+        // Map visual assets based on level
+        std::string mapIdTransitionStr;
+        switch (next_level) {
+            case 0:   // Debug: Quick Test
+            case 99:  // Debug: Instant Boss
+                mapIdTransitionStr = "nebula_outpost";
+                break;
+            case 1:   // Level 1: Mars Assault
+                mapIdTransitionStr = "mars_outpost";
+                break;
+            case 2:   // Level 2: Nebula Station
+                mapIdTransitionStr = "nebula_outpost";
+                break;
+            case 3:   // Level 3: Uranus Station
+                mapIdTransitionStr = "urasnus_outpost";
+                break;
+            case 4:   // Level 4: Jupiter Orbit
+                mapIdTransitionStr = "jupiter_outpost";
+                break;
+            default:
+                mapIdTransitionStr = "nebula_outpost";
+                break;
+        }
+
+        // Load the selected map
+        load_map(mapIdTransitionStr);
+        if (chunk_manager_) {
+            // Pass registry to update velocities of existing wall entities
+            chunk_manager_->setScrollSpeed(server_scroll_speed_, registry_.get());
+        }
+
+        // Apply map-specific theme (background color)
+        apply_map_theme(next_level);
+
+        // Load checkpoints for the level
+        load_level_checkpoints(next_level);
+
+        // Clear local entities (enemies, projectiles, bonuses) to prepare for new level
+        if (registry_) {
+            auto& enemies = registry_->get_components<Enemy>();
+            std::vector<Entity> to_kill;
+            for (size_t i = 0; i < enemies.size(); ++i) {
+                to_kill.push_back(enemies.get_entity_at(i));
+            }
+            auto& projectiles = registry_->get_components<Projectile>();
+            for (size_t i = 0; i < projectiles.size(); ++i) {
+                to_kill.push_back(projectiles.get_entity_at(i));
+            }
+            auto& bonuses = registry_->get_components<Bonus>();
+            for (size_t i = 0; i < bonuses.size(); ++i) {
+                to_kill.push_back(bonuses.get_entity_at(i));
+            }
+            for (Entity e : to_kill) {
+                registry_->kill_entity(e);
+            }
+        }
+        
+        // Also clear walls for level transition as map changes
+        if (registry_) {
+            auto& walls = registry_->get_components<Wall>();
+            std::vector<Entity> to_kill;
+            for (size_t i = 0; i < walls.size(); ++i) {
+                to_kill.push_back(walls.get_entity_at(i));
+            }
+            for (Entity e : to_kill) {
+                registry_->kill_entity(e);
+            }
+        }
+
+        // Reset prediction system
+        if (prediction_system_) {
+            prediction_system_->reset();
+        }
+        
+        // Reset local map scroll tracking
+        map_scroll_x_ = 0.0;
+
+        // Reset ChunkManager to clear old map chunks
+        if (chunk_manager_) {
+            chunk_manager_->reset(*registry_);
+        }
+
+        // Reset background entities position to prevent them from being off-screen
+        auto& positions = registry_->get_components<Position>();
+        if (positions.has_entity(background1_)) positions[background1_].x = 0.0f;
+        if (positions.has_entity(background2_)) positions[background2_].x = 0.0f;
+
+        // Map visual assets based on level
+        std::string mapIdStr;
+    });
 }
 
 void ClientGame::run() {
@@ -1073,6 +1178,14 @@ void ClientGame::run() {
 
         // Mettre à jour le temps écoulé pour l'extrapolation
         current_time_ += dt;
+
+        // Release transition lock after 200ms safety window
+        if (level_transition_in_progress_) {
+            level_transition_timer_ += dt;
+            if (level_transition_timer_ >= 0.2f) {
+                level_transition_in_progress_ = false;
+            }
+        }
 
         network_plugin_->update(dt);
         network_client_->update();

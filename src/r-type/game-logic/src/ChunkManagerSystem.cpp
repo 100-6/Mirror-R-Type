@@ -70,6 +70,7 @@ void ChunkManagerSystem::reset(Registry& registry) {
     m_renderScrollX = 0.0;
     m_nextChunkIndex = 0;
     m_currentSegment = 0;
+    m_transitionLock = true;  // Lock chunk loading during level transition
 }
 
 bool ChunkManagerSystem::loadTileSheet(const std::string& path) {
@@ -271,6 +272,11 @@ void ChunkManagerSystem::update(Registry& registry, float dt) {
         return;
     }
 
+    // Skip chunk loading during level transitions to prevent desync
+    if (m_transitionLock) {
+        return;
+    }
+
     // In procedural mode, we always have segments available
     // In static mode, check if segments were loaded
     if (!m_proceduralEnabled && m_segments.empty()) {
@@ -369,6 +375,11 @@ void ChunkManagerSystem::advanceRenderScroll(float delta) {
 void ChunkManagerSystem::setConfirmedScrollX(double scroll) {
     m_confirmedScrollX = scroll;
     m_renderScrollX = scroll;  // Snap render to confirmed
+
+    // Release transition lock on first scroll update from server after reset
+    if (m_transitionLock) {
+        m_transitionLock = false;
+    }
 }
 
 void ChunkManagerSystem::setScrollX(double scroll) {

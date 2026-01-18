@@ -271,31 +271,25 @@ void LevelSystem::transition_to_game_over(LevelController& lc)
 
 void LevelSystem::load_next_level_or_final_victory(Registry& registry, LevelController& lc)
 {
-    if (lc.current_level >= 3) {
-        // Final victory! All 3 levels completed
-        std::cout << "[LevelSystem] FINAL VICTORY! All levels completed!\n";
+    if (lc.current_level >= lc.total_levels) {
+        // Final victory! All levels completed
+        std::cout << "[LevelSystem] FINAL VICTORY! All " << static_cast<int>(lc.total_levels) << " levels completed!\n";
         transition_to_game_over(lc);
-        // TODO: Trigger final victory event (notify server to send GAME_OVER with VICTORY)
         return;
     }
 
-    // Load next level
+    // Load next level index
     uint8_t next_level = lc.current_level + 1;
-    std::cout << "[LevelSystem] Loading level " << static_cast<int>(next_level) << "...\n";
-
-    // Clear all enemies and projectiles
-    clear_all_enemies_and_projectiles(registry);
+    std::cout << "[LevelSystem] Moving to level " << static_cast<int>(next_level) << "\n";
 
     // Update level controller
     lc.current_level = next_level;
-    lc.boss_spawned = false;
-    lc.boss_entity = engine::INVALID_HANDLE;
-
+    
     // Transition to level start
     transition_to_level_start(lc);
 
-    // Note: Level loading and wave reset are handled by GameSession::update()
-    // See GameSession.cpp lines 464-496 for next level loading logic
+    // Note: Actual data loading (waves, maps) is handled by GameSession::update()
+    // by detecting the current_level change.
 }
 
 void LevelSystem::clear_all_enemies_and_projectiles(Registry& registry)
