@@ -13,6 +13,7 @@
 #include "screens/RoomLobbyScreen.hpp"
 #include "screens/PasswordDialog.hpp"
 #include "screens/SettingsScreen.hpp"
+#include "screens/GlobalLeaderboardScreen.hpp"
 #include "protocol/Payloads.hpp"
 
 namespace rtype::client {
@@ -87,6 +88,7 @@ private:
     std::unique_ptr<RoomLobbyScreen> room_lobby_screen_;
     std::unique_ptr<PasswordDialog> password_dialog_;
     std::unique_ptr<SettingsScreen> settings_screen_;
+    std::unique_ptr<GlobalLeaderboardScreen> global_leaderboard_screen_;
 
     // Room state tracking (for periodic refresh)
     float room_list_refresh_timer_ = 0.0f;

@@ -40,6 +40,10 @@ void KeyBindings::init_defaults() {
 
     primary_bindings_[GameAction::TOGGLE_NETWORK_DEBUG] = engine::Key::F3;
     alt_bindings_[GameAction::TOGGLE_NETWORK_DEBUG] = engine::Key::Unknown;
+
+    // UI
+    primary_bindings_[GameAction::SHOW_SCOREBOARD] = engine::Key::LAlt;
+    alt_bindings_[GameAction::SHOW_SCOREBOARD] = engine::Key::RAlt;
 }
 
 engine::Key KeyBindings::get_key(GameAction action) const {
@@ -147,6 +151,7 @@ std::string KeyBindings::get_action_name(GameAction action) {
         case GameAction::SPECIAL: return "Special";
         case GameAction::TOGGLE_HITBOX: return "Toggle Hitbox";
         case GameAction::TOGGLE_NETWORK_DEBUG: return "Network Debug";
+        case GameAction::SHOW_SCOREBOARD: return "Show Scoreboard";
         default: return "Unknown";
     }
 }

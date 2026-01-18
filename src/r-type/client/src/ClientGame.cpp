@@ -303,6 +303,7 @@ void ClientGame::setup_registry() {
     registry_->register_component<Wall>();
     registry_->register_component<Damage>();
     registry_->register_component<Projectile>();
+    registry_->register_component<ProjectileOwner>();
     registry_->register_component<Enemy>();
     registry_->register_component<NoFriction>();
     registry_->register_component<BonusWeapon>();
@@ -561,7 +562,7 @@ void ClientGame::setup_network_callbacks() {
         status_overlay_->refresh();
     });
 
-    network_client_->set_on_game_start([this](uint32_t session_id, uint16_t udp_port, uint16_t map_id, float scroll_speed) {
+    network_client_->set_on_game_start([this](uint32_t session_id, uint16_t udp_port, uint16_t map_id, float scroll_speed, uint32_t seed) {
         (void)udp_port;
         status_overlay_->set_session("In game (session " + std::to_string(session_id) + ")");
         status_overlay_->refresh();
@@ -608,6 +609,10 @@ void ClientGame::setup_network_callbacks() {
         if (chunk_manager_) {
             // Pass registry to update velocities of existing wall entities
             chunk_manager_->setScrollSpeed(server_scroll_speed_, registry_.get());
+            
+            // Set the map seed for procedural generation (ensure this happens AFTER map load/init)
+            // load_map() resets the generator with config seed, so we must override it here
+            chunk_manager_->setProceduralSeed(seed);
         }
 
         // Apply map-specific theme (background color)
@@ -694,15 +699,44 @@ void ClientGame::setup_network_callbacks() {
     });
 
     network_client_->set_on_score_update([this](const protocol::ServerScoreUpdatePayload& score) {
-        uint32_t local_server_id = entity_manager_->get_local_player_entity_id();
-        if (entity_manager_->has_entity(local_server_id)) {
-            Entity entity = entity_manager_->get_entity(local_server_id);
+        // Use entity_id from payload to find the correct entity (like level-up does)
+        uint32_t server_entity_id = score.entity_id;
+        uint32_t player_id = score.player_id;
+
+        std::cout << "[CLIENT] Received score update - player_id: " << player_id
+                  << ", entity_id: " << server_entity_id
+                  << ", score: " << score.new_total_score
+                  << ", has_entity: " << entity_manager_->has_entity(server_entity_id) << std::endl;
+
+        if (entity_manager_->has_entity(server_entity_id)) {
+            Entity entity = entity_manager_->get_entity(server_entity_id);
             auto& scores = registry_->get_components<Score>();
+
+            std::cout << "[CLIENT]   Local entity: " << entity
+                      << ", has_score_component: " << scores.has_entity(entity) << std::endl;
+
             if (scores.has_entity(entity)) {
                 scores[entity].value = score.new_total_score;
-                // Save the score for game over screen (in case entity is destroyed)
-                last_known_score_ = static_cast<int>(score.new_total_score);
+                std::cout << "[CLIENT] ✅ Score updated for player " << player_id
+                          << " (server_entity " << server_entity_id
+                          << ", local_entity " << entity << "): " << score.new_total_score << std::endl;
+
+                // Save the score for game over screen only if this is the local player
+                uint32_t local_server_id = entity_manager_->get_local_player_entity_id();
+                if (server_entity_id == local_server_id) {
+                    last_known_score_ = static_cast<int>(score.new_total_score);
+                }
+            } else {
+                std::cout << "[CLIENT] ❌ Entity " << entity << " has no Score component!" << std::endl;
             }
+        } else {
+            std::cout << "[CLIENT] ❌ No entity found for server_entity_id " << server_entity_id << std::endl;
+        }
+
+        // Update HUDSystem scoreboard with player scores
+        if (registry_->has_system<HUDSystem>()) {
+            std::string player_name = entity_manager_->get_player_name(player_id);
+            registry_->get_system<HUDSystem>().update_player_score(player_id, player_name, score.new_total_score);
         }
     });
 
@@ -982,6 +1016,37 @@ void ClientGame::setup_network_callbacks() {
         screen_manager_->show_result(victory, final_score);
     });
 
+    network_client_->set_on_leaderboard([this](const protocol::ServerLeaderboardPayload& header,
+                                               const std::vector<protocol::LeaderboardEntry>& entries) {
+        std::cout << "[ClientGame] Received leaderboard with " << static_cast<int>(header.entry_count)
+                  << " entries" << std::endl;
+
+        // Convert to LeaderboardEntryData and publish event
+        std::vector<ecs::LeaderboardEntryData> displayEntries;
+        for (const auto& entry : entries) {
+            ecs::LeaderboardEntryData data;
+            data.player_id = entry.player_id;
+            data.player_name = std::string(entry.player_name, strnlen(entry.player_name, sizeof(entry.player_name)));
+            data.score = entry.score;
+            data.rank = entry.rank;
+            displayEntries.push_back(data);
+        }
+
+        registry_->get_event_bus().publish(ecs::LeaderboardReceivedEvent{displayEntries});
+
+        // Also update ScreenManager for result screen display
+        std::vector<ResultLeaderboardEntry> screenEntries;
+        for (const auto& entry : entries) {
+            ResultLeaderboardEntry e;
+            e.player_id = entry.player_id;
+            e.player_name = std::string(entry.player_name, strnlen(entry.player_name, sizeof(entry.player_name)));
+            e.score = entry.score;
+            e.rank = entry.rank;
+            screenEntries.push_back(e);
+        }
+        screen_manager_->set_leaderboard(screenEntries);
+    });
+
     network_client_->set_on_disconnected([this]() {
         // Only set running flag, don't touch registry from background thread
         running_ = false;
@@ -1227,6 +1292,11 @@ void ClientGame::run() {
             }
         }
 
+        // Toggle scoreboard visibility with Tab key (hold to show)
+        if (registry_->has_system<HUDSystem>()) {
+            bool scoreboard_pressed = input_handler_->is_scoreboard_pressed();
+            registry_->get_system<HUDSystem>().set_scoreboard_visible(scoreboard_pressed);
+        }
 
         if (network_client_->is_in_game() &&
             std::chrono::duration_cast<std::chrono::milliseconds>(now - last_input_send).count() >= 15) {
@@ -1276,7 +1346,8 @@ void ClientGame::run() {
                        current_screen == GameScreen::CREATE_ROOM ||
                        current_screen == GameScreen::BROWSE_ROOMS ||
                        current_screen == GameScreen::ROOM_LOBBY ||
-                       current_screen == GameScreen::SETTINGS);
+                       current_screen == GameScreen::SETTINGS ||
+                       current_screen == GameScreen::GLOBAL_LEADERBOARD);
         bool in_result = (current_screen == GameScreen::VICTORY ||
                          current_screen == GameScreen::DEFEAT);
         entity_manager_->update_projectiles(dt);

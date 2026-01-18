@@ -1,0 +1,10 @@
+# Generated installer files
+RType-Setup.exe
+RType-Windows-x64.zip
+
+# Temporary build directories
+build/
+installer-package/
+
+# NSIS log files
+*.log

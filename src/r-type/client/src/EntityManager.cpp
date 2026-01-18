@@ -967,6 +967,14 @@ void EntityManager::set_player_name(uint32_t server_id, const std::string& name)
     }
 }
 
+std::string EntityManager::get_player_name(uint32_t player_id) const {
+    auto it = player_names_.find(player_id);
+    if (it != player_names_.end()) {
+        return it->second;
+    }
+    return "Player " + std::to_string(player_id);
+}
+
 Entity EntityManager::get_entity(uint32_t server_id) const {
     auto it = server_to_local_.find(server_id);
     if (it != server_to_local_.end())

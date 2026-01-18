@@ -113,6 +113,7 @@ public:
     ServerNetworkSystem* get_network_system() { return network_system_; }
     float get_scroll_speed() const { return scroll_speed_; }
     double get_current_scroll() const { return current_scroll_; }  // NEW: For checkpoint system
+    uint32_t get_map_seed() const { return map_seed_; }
 
     /**
      * @brief Resync a client with all existing entities
@@ -123,6 +124,17 @@ public:
     void pause();
     void resume();
     void clear_enemies();
+
+    /**
+     * @brief Send the leaderboard to all players (called before game over)
+     */
+    void send_leaderboard();
+
+    /**
+     * @brief Get player scores for global leaderboard
+     * @return Vector of pairs (player_name, score)
+     */
+    std::vector<std::pair<std::string, uint32_t>> get_player_scores() const;
 
 private:
     void on_wave_started(const Wave& wave) override;

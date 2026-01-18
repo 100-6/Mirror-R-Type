@@ -137,6 +137,11 @@ public:
     void send_set_player_skin(uint8_t skin_id);
 
     /**
+     * @brief Request global all-time leaderboard
+     */
+    void send_request_global_leaderboard();
+
+    /**
      * @brief Send player input (via UDP if connected, TCP otherwise)
      * @param input_flags Input bitfield
      * @param client_tick Current client tick
@@ -177,7 +182,7 @@ public:
      * @brief Set callback for game start
      * @param callback Function receiving session_id, udp_port, map_id and scroll speed
      */
-    void set_on_game_start(std::function<void(uint32_t session_id, uint16_t udp_port, uint16_t map_id, float scroll_speed)> callback);
+    void set_on_game_start(std::function<void(uint32_t session_id, uint16_t udp_port, uint16_t map_id, float scroll_speed, uint32_t seed)> callback);
 
     /**
      * @brief Set callback for entity spawn
@@ -255,6 +260,16 @@ public:
      * @brief Set callback for player respawn events
      */
     void set_on_player_respawn(std::function<void(const protocol::ServerPlayerRespawnPayload&)> callback);
+
+    /**
+     * @brief Set callback for leaderboard updates
+     */
+    void set_on_leaderboard(std::function<void(const protocol::ServerLeaderboardPayload&, const std::vector<protocol::LeaderboardEntry>&)> callback);
+
+    /**
+     * @brief Set callback for global leaderboard response
+     */
+    void set_on_global_leaderboard(std::function<void(const protocol::ServerGlobalLeaderboardPayload&, const std::vector<protocol::GlobalLeaderboardEntry>&)> callback);
 
     /**
      * @brief Set callback for room creation response
@@ -354,6 +369,8 @@ private:
     void handle_level_transition(const std::vector<uint8_t>& payload);
     void handle_powerup_collected(const std::vector<uint8_t>& payload);
     void handle_player_respawn(const std::vector<uint8_t>& payload);
+    void handle_leaderboard(const std::vector<uint8_t>& payload);
+    void handle_global_leaderboard(const std::vector<uint8_t>& payload);
     void handle_room_created(const std::vector<uint8_t>& payload);
     void handle_room_joined(const std::vector<uint8_t>& payload);
     void handle_room_left(const std::vector<uint8_t>& payload);
@@ -405,7 +422,7 @@ private:
     std::function<void(uint8_t, const std::string&)> on_rejected_;
     std::function<void(const protocol::ServerLobbyStatePayload&, const std::vector<protocol::PlayerLobbyEntry>&)> on_lobby_state_;
     std::function<void(uint8_t)> on_countdown_;
-    std::function<void(uint32_t, uint16_t, uint16_t, float)> on_game_start_;
+    std::function<void(uint32_t, uint16_t, uint16_t, float, uint32_t)> on_game_start_;
     std::function<void(const protocol::ServerEntitySpawnPayload&)> on_entity_spawn_;
     std::function<void(const protocol::ServerEntityDestroyPayload&)> on_entity_destroy_;
     std::function<void(const protocol::ServerProjectileSpawnPayload&)> on_projectile_spawn_;
@@ -420,6 +437,8 @@ private:
     std::function<void(const protocol::ServerLevelTransitionPayload&)> on_level_transition_;
     std::function<void(const protocol::ServerPowerupCollectedPayload&)> on_powerup_collected_;
     std::function<void(const protocol::ServerPlayerRespawnPayload&)> on_player_respawn_;
+    std::function<void(const protocol::ServerLeaderboardPayload&, const std::vector<protocol::LeaderboardEntry>&)> on_leaderboard_;
+    std::function<void(const protocol::ServerGlobalLeaderboardPayload&, const std::vector<protocol::GlobalLeaderboardEntry>&)> on_global_leaderboard_;
     std::function<void(const protocol::ServerRoomCreatedPayload&)> on_room_created_;
     std::function<void(const protocol::ServerRoomJoinedPayload&)> on_room_joined_;
     std::function<void(const protocol::ServerRoomLeftPayload&)> on_room_left_;

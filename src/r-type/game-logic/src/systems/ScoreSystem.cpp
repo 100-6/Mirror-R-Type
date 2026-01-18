@@ -22,12 +22,16 @@ void ScoreSystem::init(Registry& registry)
         [&registry](const ecs::EnemyKilledEvent& event) {
             auto& scores = registry.get_components<Score>();
 
-            for (size_t i = 0; i < scores.size(); i++) {
-                Entity entity = scores.get_entity_at(i);
-                Score& score = scores[entity];
+            // Only award score to the killer, not all players
+            if (event.killer != 0 && scores.has_entity(event.killer)) {
+                Score& score = scores[event.killer];
                 int old_score = score.value;
                 score.value += event.scoreValue;
-                std::cout << "Enemy killed! Score: " << old_score << " -> " << score.value << std::endl;
+                std::cout << "[ScoreSystem] Enemy killed by entity " << event.killer
+                          << "! Score: " << old_score << " -> " << score.value << std::endl;
+            } else {
+                std::cout << "[ScoreSystem] Enemy killed but no valid killer entity (killer="
+                          << event.killer << ")" << std::endl;
             }
         }
     );

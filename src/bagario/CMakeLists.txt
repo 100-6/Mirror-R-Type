@@ -2,6 +2,10 @@ add_subdirectory(shared)
 
 add_subdirectory(game-logic)
 
-add_subdirectory(server)
+if(BUILD_SERVER)
+    add_subdirectory(server)
+endif()
 
-add_subdirectory(client)
+if(BUILD_CLIENT)
+    add_subdirectory(client)
+endif()

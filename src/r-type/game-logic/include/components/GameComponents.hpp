@@ -9,6 +9,7 @@
 #define GAME_COMPONENTS_HPP_
 
 #include "ecs/CoreComponents.hpp"
+#include "ecs/SparseSet.hpp"  // For Entity type
 
 // AI
 
@@ -111,6 +112,10 @@ struct Projectile {
     float lifetime = 5.0f;
     float time_alive = 0.0f;
     ProjectileFaction faction = ProjectileFaction::Player;
+};
+
+struct ProjectileOwner {
+    Entity owner = 0;  // Entity that fired this projectile
 };
 
 struct ShotAnimation {

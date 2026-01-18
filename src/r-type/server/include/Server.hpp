@@ -32,6 +32,7 @@
 #include "interfaces/IGameSessionListener.hpp"
 
 #include "AdminManager.hpp"
+#include "GlobalLeaderboardManager.hpp"
 #include <chrono>
 
 namespace rtype::server {
@@ -111,6 +112,7 @@ private:
 
     void on_admin_auth(uint32_t client_id, const protocol::ClientAdminAuthPayload& payload) override;
     void on_admin_command(uint32_t client_id, const protocol::ClientAdminCommandPayload& payload) override;
+    void on_client_request_global_leaderboard(uint32_t client_id) override;
 
     void on_lobby_state_changed(uint32_t lobby_id, const std::vector<uint8_t>& payload) override;
     void on_countdown_tick(uint32_t lobby_id, uint8_t seconds_remaining) override;
@@ -129,6 +131,7 @@ private:
     void on_player_respawn(uint32_t session_id, const std::vector<uint8_t>& respawn_data) override;
     void on_player_level_up(uint32_t session_id, const std::vector<uint8_t>& level_up_data) override;
     void on_level_transition(uint32_t session_id, const std::vector<uint8_t>& transition_data) override;
+    void on_leaderboard(uint32_t session_id, const std::vector<uint8_t>& leaderboard_data) override;
 
     void on_tcp_client_disconnected(uint32_t client_id);
     uint32_t generate_player_id();
@@ -163,6 +166,7 @@ private:
     uint32_t next_session_id_;
 
     std::unique_ptr<AdminManager> admin_manager_;
+    std::unique_ptr<GlobalLeaderboardManager> global_leaderboard_manager_;
     std::chrono::steady_clock::time_point server_start_time_;
     uint32_t total_connections_;
 };

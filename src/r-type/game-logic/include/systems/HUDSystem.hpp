@@ -16,6 +16,8 @@
 #include "plugin_manager/IInputPlugin.hpp"
 #include <string>
 #include <cmath>
+#include <vector>
+#include <map>
 
 /**
  * @brief System for rendering a modern, stylized HUD with health bars, shields, score
@@ -65,6 +67,25 @@ public:
      */
     void update_lives(Registry& registry, uint8_t lives);
 
+    /**
+     * @brief Set whether the scoreboard should be visible
+     * @param visible True to show scoreboard
+     */
+    void set_scoreboard_visible(bool visible) { m_showScoreboard = visible; }
+
+    /**
+     * @brief Check if scoreboard is currently visible
+     */
+    bool is_scoreboard_visible() const { return m_showScoreboard; }
+
+    /**
+     * @brief Update a player's score in the scoreboard
+     * @param player_id Network player ID
+     * @param player_name Player name
+     * @param score Current score
+     */
+    void update_player_score(uint32_t player_id, const std::string& player_name, uint32_t score);
+
 private:
     engine::IGraphicsPlugin& m_graphicsPlugin;
     engine::IInputPlugin* m_inputPlugin;
@@ -104,6 +125,14 @@ private:
     int m_selectedElement = 0;  // 0=HEALTH, 1=SCORE, 2=WAVE
     float m_moveSpeed = 5.0f;  // Pixels to move per key press
 
+    // Scoreboard state
+    bool m_showScoreboard = false;
+    struct PlayerScoreInfo {
+        std::string name;
+        uint32_t score;
+    };
+    std::map<uint32_t, PlayerScoreInfo> m_playerScores;
+
     /**
      * @brief Get color for health percentage
      */
@@ -113,6 +142,11 @@ private:
      * @brief Interpolate between two values
      */
     float lerp(float a, float b, float t) const;
+
+    /**
+     * @brief Render the in-game scoreboard overlay
+     */
+    void renderScoreboard(Registry& registry);
 };
 
 #endif // HUD_SYSTEM_HPP

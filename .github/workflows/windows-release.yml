@@ -1,0 +1,178 @@
+name: Windows Release Build
+
+on:
+  push:
+    tags:
+      - 'v*'  # Trigger on version tags (e.g., v1.0.0), 
+      # Example of how to create a tag and push it:
+      # git add .
+      # git commit -m "Prepare release v1.0.0"
+      # git push origin main
+
+      # git tag v1.0.0
+      # git push origin v1.0.0
+  workflow_dispatch:
+
+jobs:
+  build-windows-installer:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Setup MSVC
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x64
+
+    - name: Setup vcpkg
+      run: |
+        git clone https://github.com/Microsoft/vcpkg.git
+        .\vcpkg\bootstrap-vcpkg.bat
+        echo "VCPKG_ROOT=$PWD\vcpkg" >> $env:GITHUB_ENV
+      shell: pwsh
+
+    - name: Cache vcpkg
+      uses: actions/cache@v4
+      with:
+        path: |
+          vcpkg/installed
+          vcpkg/packages
+          vcpkg/buildtrees
+        key: ${{ runner.os }}-vcpkg-${{ hashFiles('vcpkg.json') }}
+        restore-keys: |
+          ${{ runner.os }}-vcpkg-
+
+    - name: Configure CMake
+      run: |
+        cmake -B build -S . `
+          -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" `
+          -DCMAKE_BUILD_TYPE=Release `
+          -DVCPKG_TARGET_TRIPLET=x64-windows
+      shell: pwsh
+
+    - name: Build
+      run: cmake --build build --config Release --parallel
+      shell: pwsh
+
+    - name: Collect DLL dependencies
+      run: |
+        # Copy all necessary DLLs to build directory
+        $buildDir = "build"
+        $vcpkgDir = "$env:VCPKG_ROOT/installed/x64-windows"
+
+        # Create output directory
+        New-Item -ItemType Directory -Force -Path "$buildDir/release-package"
+
+        # Copy executables
+        Copy-Item "$buildDir/Release/r_type_client.exe" "$buildDir/release-package/" -ErrorAction SilentlyContinue
+        Copy-Item "$buildDir/Release/r_type_server.exe" "$buildDir/release-package/" -ErrorAction SilentlyContinue
+        Copy-Item "$buildDir/r_type_client.exe" "$buildDir/release-package/" -ErrorAction SilentlyContinue
+        Copy-Item "$buildDir/r_type_server.exe" "$buildDir/release-package/" -ErrorAction SilentlyContinue
+
+        # Copy plugins
+        New-Item -ItemType Directory -Force -Path "$buildDir/release-package/plugins"
+        Copy-Item "$buildDir/plugins/*.dll" "$buildDir/release-package/plugins/" -ErrorAction SilentlyContinue
+        Copy-Item "$buildDir/Release/plugins/*.dll" "$buildDir/release-package/plugins/" -ErrorAction SilentlyContinue
+
+        # Copy DLL dependencies
+        Copy-Item "$vcpkgDir/bin/*.dll" "$buildDir/release-package/" -ErrorAction SilentlyContinue
+
+        # Copy assets
+        Copy-Item -Path "assets" -Destination "$buildDir/release-package/assets" -Recurse -ErrorAction SilentlyContinue
+
+        Write-Host "Package contents:"
+        Get-ChildItem -Path "$buildDir/release-package" -Recurse
+      shell: pwsh
+
+    - name: Setup NSIS
+      run: |
+        choco install nsis -y
+        echo "C:\Program Files (x86)\NSIS" >> $env:GITHUB_PATH
+      shell: pwsh
+
+    - name: Create LICENSE file if not exists
+      run: |
+        if (-not (Test-Path "LICENSE")) {
+          @"
+        EPITECH Project License
+
+        This project is part of the EPITECH curriculum.
+        Copyright (c) 2025
+        "@ | Out-File -FilePath "LICENSE" -Encoding utf8
+        }
+      shell: pwsh
+
+    - name: Build NSIS Installer
+      run: |
+        # Copy files from release-package to build for NSIS
+        Copy-Item "build/release-package/*" "build/" -Recurse -Force
+
+        # Build installer
+        makensis installer/rtype-installer.nsi
+      shell: pwsh
+
+    - name: Create ZIP archive
+      run: |
+        Compress-Archive -Path "build/release-package/*" -DestinationPath "RType-Windows-x64.zip"
+      shell: pwsh
+
+    - name: Get version from tag
+      id: get_version
+      run: |
+        if ($env:GITHUB_REF -match "refs/tags/(.*)") {
+          $version = $matches[1]
+        } else {
+          $version = "dev-$(git rev-parse --short HEAD)"
+        }
+        echo "VERSION=$version" >> $env:GITHUB_ENV
+        echo "version=$version" >> $env:GITHUB_OUTPUT
+      shell: pwsh
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: RType-Windows-Installer
+        path: |
+          installer/RType-Setup.exe
+          RType-Windows-x64.zip
+
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          installer/RType-Setup.exe
+          RType-Windows-x64.zip
+        body: |
+          # R-Type Game Release ${{ env.VERSION }}
+
+          ## Windows Installation
+
+          ### Option 1: Installer (Recommended)
+          Download and run `RType-Setup.exe` for an automatic installation with shortcuts.
+
+          ### Option 2: Portable
+          Download `RType-Windows-x64.zip`, extract it, and run `r_type_client.exe` or `r_type_server.exe`.
+
+          ## Requirements
+          - Windows 10/11 (64-bit)
+          - Visual C++ Redistributable 2015-2022 (usually pre-installed)
+
+          ## How to Play
+          1. Launch **R-Type Client** to start the game
+          2. Launch **R-Type Server** on a host machine for multiplayer
+          3. Connect clients to the server IP address
+
+          ## Features
+          - Classic R-Type gameplay
+          - Multiplayer support (up to 4 players)
+          - Plugin-based architecture
+          - Multiple graphics and audio backends
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

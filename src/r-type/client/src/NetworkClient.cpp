@@ -205,6 +205,12 @@ void NetworkClient::send_set_player_skin(uint8_t skin_id) {
     send_tcp_packet(protocol::PacketType::CLIENT_SET_PLAYER_SKIN, serialize_payload(&payload, sizeof(payload)));
 }
 
+void NetworkClient::send_request_global_leaderboard() {
+    // std::cout << "[NetworkClient] Requesting global leaderboard\n";
+    // No payload needed for global leaderboard request
+    send_tcp_packet(protocol::PacketType::CLIENT_REQUEST_GLOBAL_LEADERBOARD, std::vector<uint8_t>());
+}
+
 void NetworkClient::send_input(uint16_t input_flags, uint32_t client_tick) {
     protocol::ClientInputPayload payload;
     payload.player_id = htonl(player_id_);
@@ -326,6 +332,12 @@ void NetworkClient::handle_packet(const engine::NetworkPacket& packet) {
             break;
         case protocol::PacketType::SERVER_GAME_OVER:
             handle_game_over(payload);
+            break;
+        case protocol::PacketType::SERVER_LEADERBOARD:
+            handle_leaderboard(payload);
+            break;
+        case protocol::PacketType::SERVER_GLOBAL_LEADERBOARD:
+            handle_global_leaderboard(payload);
             break;
         case protocol::PacketType::SERVER_ROOM_CREATED:
             handle_room_created(payload);
@@ -491,17 +503,19 @@ void NetworkClient::handle_game_start(const std::vector<uint8_t>& payload) {
     udp_port_ = ntohs(game_start.udp_port);
     uint16_t map_id = ntohs(game_start.map_id);
     float scroll_speed = game_start.scroll_speed;
+    uint32_t level_seed = ntohl(game_start.level_seed);
     in_lobby_ = false;
     in_game_ = true;
 
     // std::cout << "[NetworkClient] Game started! Session: " << session_id_
-    //           << ", UDP port: " << udp_port_ << ", Map: " << map_id << "\n";
+    //           << ", UDP port: " << udp_port_ << ", Map: " << map_id 
+    //           << ", Seed: " << level_seed << "\n";
 
     // Connect UDP for gameplay
     connect_udp(udp_port_);
 
     if (on_game_start_)
-        on_game_start_(session_id_, udp_port_, map_id, scroll_speed);
+        on_game_start_(session_id_, udp_port_, map_id, scroll_speed, level_seed);
 }
 
 void NetworkClient::handle_entity_spawn(const std::vector<uint8_t>& payload) {
@@ -595,6 +609,69 @@ void NetworkClient::handle_game_over(const std::vector<uint8_t>& payload) {
         on_game_over_(game_over);
 }
 
+void NetworkClient::handle_leaderboard(const std::vector<uint8_t>& payload) {
+    if (payload.size() < sizeof(protocol::ServerLeaderboardPayload)) {
+        return;
+    }
+
+    protocol::ServerLeaderboardPayload header;
+    std::memcpy(&header, payload.data(), sizeof(header));
+
+    // Extract entries
+    std::vector<protocol::LeaderboardEntry> entries;
+    size_t expected_size = sizeof(header) + header.entry_count * sizeof(protocol::LeaderboardEntry);
+    if (payload.size() >= expected_size) {
+        entries.reserve(header.entry_count);
+        const uint8_t* entry_data = payload.data() + sizeof(header);
+        for (uint8_t i = 0; i < header.entry_count; ++i) {
+            protocol::LeaderboardEntry entry;
+            std::memcpy(&entry, entry_data + (i * sizeof(protocol::LeaderboardEntry)), sizeof(entry));
+            // Convert from network byte order
+            entry.player_id = ntohl(entry.player_id);
+            entry.score = ntohl(entry.score);
+            entry.kills = ntohs(entry.kills);
+            entry.deaths = ntohs(entry.deaths);
+            entries.push_back(entry);
+        }
+    }
+
+    std::cout << "[NetworkClient] Received leaderboard with " << static_cast<int>(header.entry_count) << " entries\n";
+
+    if (on_leaderboard_)
+        on_leaderboard_(header, entries);
+}
+
+void NetworkClient::handle_global_leaderboard(const std::vector<uint8_t>& payload) {
+    if (payload.size() < sizeof(protocol::ServerGlobalLeaderboardPayload)) {
+        std::cerr << "[NetworkClient] Invalid SERVER_GLOBAL_LEADERBOARD payload size\n";
+        return;
+    }
+
+    protocol::ServerGlobalLeaderboardPayload header;
+    std::memcpy(&header, payload.data(), sizeof(header));
+
+    // Extract entries
+    std::vector<protocol::GlobalLeaderboardEntry> entries;
+    size_t expected_size = sizeof(header) + header.entry_count * sizeof(protocol::GlobalLeaderboardEntry);
+    if (payload.size() >= expected_size) {
+        entries.reserve(header.entry_count);
+        const uint8_t* entry_data = payload.data() + sizeof(header);
+        for (uint8_t i = 0; i < header.entry_count; ++i) {
+            protocol::GlobalLeaderboardEntry entry;
+            std::memcpy(&entry, entry_data + (i * sizeof(protocol::GlobalLeaderboardEntry)), sizeof(entry));
+            // Convert from network byte order
+            entry.score = ntohl(entry.score);
+            entry.timestamp = ntohl(entry.timestamp);
+            entries.push_back(entry);
+        }
+    }
+
+    std::cout << "[NetworkClient] Received global leaderboard with " << static_cast<int>(header.entry_count) << " entries\n";
+
+    if (on_global_leaderboard_)
+        on_global_leaderboard_(header, entries);
+}
+
 void NetworkClient::handle_wave_start(const std::vector<uint8_t>& payload) {
     if (payload.size() < sizeof(protocol::ServerWaveStartPayload)) {
         return;
@@ -626,11 +703,15 @@ void NetworkClient::handle_score_update(const std::vector<uint8_t>& payload) {
 
     protocol::ServerScoreUpdatePayload score_update;
     std::memcpy(&score_update, payload.data(), sizeof(score_update));
+    score_update.player_id = ntohl(score_update.player_id);
+    score_update.entity_id = ntohl(score_update.entity_id);
     score_update.score_delta = ntohl(score_update.score_delta);
     score_update.new_total_score = ntohl(score_update.new_total_score);
 
-    // std::cout << "[NetworkClient] Score update: +" << static_cast<int>(score_update.score_delta)
-    //           << " (Total: " << score_update.new_total_score << ")\n";
+    std::cout << "[NetworkClient] Score update for player " << score_update.player_id
+              << " (entity " << score_update.entity_id << ")"
+              << ": +" << static_cast<int>(score_update.score_delta)
+              << " (Total: " << score_update.new_total_score << ")\n";
 
     if (on_score_update_)
         on_score_update_(score_update);
@@ -942,7 +1023,7 @@ void NetworkClient::set_on_countdown(std::function<void(uint8_t)> callback) {
     on_countdown_ = callback;
 }
 
-void NetworkClient::set_on_game_start(std::function<void(uint32_t, uint16_t, uint16_t, float)> callback) {
+void NetworkClient::set_on_game_start(std::function<void(uint32_t, uint16_t, uint16_t, float, uint32_t)> callback) {
     on_game_start_ = callback;
 }
 
@@ -1000,6 +1081,14 @@ void NetworkClient::set_on_player_respawn(std::function<void(const protocol::Ser
 
 void NetworkClient::set_on_level_transition(std::function<void(const protocol::ServerLevelTransitionPayload&)> callback) {
     on_level_transition_ = callback;
+}
+
+void NetworkClient::set_on_leaderboard(std::function<void(const protocol::ServerLeaderboardPayload&, const std::vector<protocol::LeaderboardEntry>&)> callback) {
+    on_leaderboard_ = callback;
+}
+
+void NetworkClient::set_on_global_leaderboard(std::function<void(const protocol::ServerGlobalLeaderboardPayload&, const std::vector<protocol::GlobalLeaderboardEntry>&)> callback) {
+    on_global_leaderboard_ = callback;
 }
 
 void NetworkClient::set_on_room_created(std::function<void(const protocol::ServerRoomCreatedPayload&)> callback) {

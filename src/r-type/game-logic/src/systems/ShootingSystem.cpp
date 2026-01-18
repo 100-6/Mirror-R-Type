@@ -258,6 +258,7 @@ void ShootingSystem::update(Registry& registry, float dt)
                 });
                 registry.add_component(projectile, Damage{damage});
                 registry.add_component(projectile, Projectile{180.0f, 5.0f, 0.0f, ProjectileFaction::Enemy});
+                registry.add_component(projectile, ProjectileOwner{entity});  // Track which enemy fired this
                 registry.add_component(projectile, NoFriction{});
             }
         }
@@ -369,6 +370,7 @@ void ShootingSystem::createProjectiles(Registry& registry, Entity shooter, Weapo
 
         registry.add_component(projectile, Damage{actual_damage});
         registry.add_component(projectile, Projectile{angle, 5.0f, 0.0f, ProjectileFaction::Player});
+        registry.add_component(projectile, ProjectileOwner{shooter});  // Track who fired this projectile
         registry.add_component(projectile, NoFriction{});
 
         // Event for ServerNetworkSystem to pick up - MUST be published AFTER all components are added

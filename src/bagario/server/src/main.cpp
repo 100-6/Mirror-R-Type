@@ -26,38 +26,53 @@ struct ServerConfig {
 };
 
 bool parse_arguments(int argc, char* argv[], ServerConfig& config) {
-    config.tcp_port = bagario::config::DEFAULT_TCP_PORT;
-    config.udp_port = bagario::config::DEFAULT_UDP_PORT;
-    config.listen_on_all_interfaces = false;
+    int port_count = 0;
 
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
-
         if (arg == "-h" || arg == "--help") {
             print_usage(argv[0]);
             return false;
         } else if (arg == "--network") {
             config.listen_on_all_interfaces = true;
         } else {
-            // Try to parse as port number
             try {
                 uint16_t port = static_cast<uint16_t>(std::stoi(arg));
-                if (config.tcp_port == bagario::config::DEFAULT_TCP_PORT) {
+                if (port_count == 0) {
                     config.tcp_port = port;
-                } else if (config.udp_port == bagario::config::DEFAULT_UDP_PORT) {
+                } else if (port_count == 1) {
                     config.udp_port = port;
                 } else {
                     std::cerr << "[Main] Too many port arguments" << std::endl;
                     return false;
                 }
+                port_count++;
             } catch (const std::exception& e) {
                 std::cerr << "[Main] Invalid argument: " << arg << std::endl;
                 return false;
             }
         }
     }
-
     return true;
+}
+
+void load_ports_from_env(ServerConfig& config) {
+    if (const char* env_tcp = std::getenv("BAGARIO_SERVER_PORT_TCP")) {
+        try {
+            config.tcp_port = static_cast<uint16_t>(std::stoi(env_tcp));
+            std::cout << "[Main] Using TCP port from environment: " << config.tcp_port << std::endl;
+        } catch (...) {
+            std::cerr << "[Main] Warning: Invalid BAGARIO_SERVER_PORT_TCP value, using default" << std::endl;
+        }
+    }
+    if (const char* env_udp = std::getenv("BAGARIO_SERVER_PORT_UDP")) {
+        try {
+            config.udp_port = static_cast<uint16_t>(std::stoi(env_udp));
+            std::cout << "[Main] Using UDP port from environment: " << config.udp_port << std::endl;
+        } catch (...) {
+            std::cerr << "[Main] Warning: Invalid BAGARIO_SERVER_PORT_UDP value, using default" << std::endl;
+        }
+    }
 }
 
 void setup_signal_handlers() {
@@ -99,20 +114,19 @@ void shutdown_server(bagario::server::BagarioServer& server) {
 
 int main(int argc, char* argv[]) {
     ServerConfig config;
+    config.tcp_port = bagario::config::DEFAULT_TCP_PORT;
+    config.udp_port = bagario::config::DEFAULT_UDP_PORT;
+    config.listen_on_all_interfaces = false;
 
+    load_ports_from_env(config);
     if (!parse_arguments(argc, argv, config))
         return argc >= 2 ? 1 : 0;
-
     setup_signal_handlers();
     print_server_info(config);
-
     bagario::server::BagarioServer server(config.tcp_port, config.udp_port, config.listen_on_all_interfaces);
-
     if (!initialize_server(server))
         return 1;
-
     run_server_loop(server);
     shutdown_server(server);
-
     return 0;
 }

@@ -212,6 +212,7 @@ struct PlayerSkin {
 struct LocalGameState {
     std::string username = "Player";
     std::string server_ip = "127.0.0.1";
+    uint16_t server_port = 4444;  // ENet uses single UDP port
     int music_volume = 70;
     int sfx_volume = 80;
     bool fullscreen = false;
@@ -263,6 +264,7 @@ struct LocalGameState {
 
         username = config.get_string("Profile.username", username);
         server_ip = config.get_string("Network.server_ip", server_ip);
+        server_port = static_cast<uint16_t>(config.get_int("Network.server_port", server_port));
 
         // Load skin settings
         int pattern = config.get_int("Skin.pattern", static_cast<int>(skin.pattern));
@@ -299,6 +301,7 @@ struct LocalGameState {
 
         config.set("Profile.username", username);
         config.set("Network.server_ip", server_ip);
+        config.set("Network.server_port", static_cast<int>(server_port));
 
         config.set("Skin.pattern", static_cast<int>(skin.pattern));
         config.set("Skin.primary_r", static_cast<int>(skin.primary.r));
@@ -335,5 +338,5 @@ struct LocalGameState {
     }
 };
 
-}  // namespace bagario
+}
 

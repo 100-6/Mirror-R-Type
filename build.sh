@@ -141,6 +141,14 @@ case "$CMD" in
         fi
         echo "Building (incremental)..."
         cmake --build "$BUILD_DIR" -j$(nproc)
+
+        # Copy .env file to build directory if it exists
+        if [ -f ".env" ]; then
+            echo "Copying .env to build directory..."
+            cp .env "$BUILD_DIR/.env"
+            echo "✓ .env copied to $BUILD_DIR/"
+        fi
+
         echo "✓ Build completed"
         exit 0
         ;;
@@ -167,5 +175,12 @@ cmake -S . -B "$BUILD_DIR" \
 
 echo "Building..."
 cmake --build "$BUILD_DIR" -j$(nproc)
+
+# Copy .env file to build directory if it exists
+if [ -f ".env" ]; then
+    echo "Copying .env to build directory..."
+    cp .env "$BUILD_DIR/.env"
+    echo "✓ .env copied to $BUILD_DIR/"
+fi
 
 echo "✓ Build completed successfully"

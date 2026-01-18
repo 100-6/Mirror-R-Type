@@ -512,17 +512,18 @@ static_assert(sizeof(ServerPowerupCollectedPayload) == 6, "ServerPowerupCollecte
  */
 PACK_START
 struct PACKED ServerScoreUpdatePayload {
-    uint32_t player_id;
+    uint32_t player_id;          // Network player ID (for identification)
+    uint32_t entity_id;          // Server entity ID (for client lookup)
     int32_t score_delta;
     uint32_t new_total_score;
     uint8_t combo_multiplier;
 
     ServerScoreUpdatePayload()
-        : player_id(0), score_delta(0), new_total_score(0), combo_multiplier(1) {}
+        : player_id(0), entity_id(0), score_delta(0), new_total_score(0), combo_multiplier(1) {}
 };
 PACK_END
 
-static_assert(sizeof(ServerScoreUpdatePayload) == 13, "ServerScoreUpdatePayload must be 13 bytes");
+static_assert(sizeof(ServerScoreUpdatePayload) == 17, "ServerScoreUpdatePayload must be 17 bytes");
 
 /**
  * @brief SERVER_WAVE_START payload (0xC2)
@@ -671,6 +672,89 @@ struct PACKED ServerGameOverPayload {
 PACK_END
 
 static_assert(sizeof(ServerGameOverPayload) == 9, "ServerGameOverPayload base must be 9 bytes");
+
+/**
+ * @brief Leaderboard entry for SERVER_LEADERBOARD
+ * Contains player info and stats for end-game display
+ * Size: 48 bytes
+ */
+PACK_START
+struct PACKED LeaderboardEntry {
+    uint32_t player_id;
+    char player_name[32];
+    uint32_t score;
+    uint16_t kills;
+    uint16_t deaths;
+    uint8_t rank;
+    uint8_t padding[3];  // Align to 48 bytes
+
+    LeaderboardEntry() : player_id(0), score(0), kills(0), deaths(0), rank(0) {
+        std::memset(player_name, 0, sizeof(player_name));
+        std::memset(padding, 0, sizeof(padding));
+    }
+
+    void set_name(const std::string& name) {
+        std::memset(player_name, 0, sizeof(player_name));
+        std::strncpy(player_name, name.c_str(), sizeof(player_name) - 1);
+    }
+};
+PACK_END
+
+static_assert(sizeof(LeaderboardEntry) == 48, "LeaderboardEntry must be 48 bytes");
+
+/**
+ * @brief SERVER_LEADERBOARD payload header (0xC7)
+ * Sent at end-game with all player scores
+ * Base size: 2 bytes + (48 × entry_count) bytes
+ */
+PACK_START
+struct PACKED ServerLeaderboardPayload {
+    uint8_t entry_count;
+    uint8_t is_final;     // 1 if game is over, 0 if in-game update
+
+    ServerLeaderboardPayload() : entry_count(0), is_final(1) {}
+};
+PACK_END
+
+static_assert(sizeof(ServerLeaderboardPayload) == 2, "ServerLeaderboardPayload must be 2 bytes");
+
+/**
+ * @brief Global leaderboard entry for all-time top scores
+ * Size: 40 bytes
+ */
+PACK_START
+struct PACKED GlobalLeaderboardEntry {
+    char player_name[32];
+    uint32_t score;
+    uint32_t timestamp;
+
+    GlobalLeaderboardEntry() : score(0), timestamp(0) {
+        std::memset(player_name, 0, sizeof(player_name));
+    }
+
+    void set_name(const std::string& name) {
+        std::memset(player_name, 0, sizeof(player_name));
+        std::strncpy(player_name, name.c_str(), sizeof(player_name) - 1);
+    }
+};
+PACK_END
+
+static_assert(sizeof(GlobalLeaderboardEntry) == 40, "GlobalLeaderboardEntry must be 40 bytes");
+
+/**
+ * @brief SERVER_GLOBAL_LEADERBOARD payload header (0xC8)
+ * Sent in response to CLIENT_REQUEST_GLOBAL_LEADERBOARD
+ * Base size: 1 byte + (40 × entry_count) bytes
+ */
+PACK_START
+struct PACKED ServerGlobalLeaderboardPayload {
+    uint8_t entry_count;
+
+    ServerGlobalLeaderboardPayload() : entry_count(0) {}
+};
+PACK_END
+
+static_assert(sizeof(ServerGlobalLeaderboardPayload) == 1, "ServerGlobalLeaderboardPayload must be 1 byte");
 
 /**
  * @brief CLIENT_CREATE_ROOM payload (0x20)

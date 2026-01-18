@@ -24,6 +24,7 @@ set(RTYPE_CLIENT_SOURCES
     src/screens/PasswordDialog.cpp
     src/screens/SkinSelectorDialog.cpp
     src/screens/SettingsScreen.cpp
+    src/screens/GlobalLeaderboardScreen.cpp
     # CreateRoom module
     src/screens/createroom/CreateRoomInput.cpp
     src/screens/createroom/CreateRoomRenderer.cpp

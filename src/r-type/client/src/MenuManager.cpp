@@ -37,6 +37,14 @@ void MenuManager::initialize() {
             room_lobby_screen_->set_countdown(seconds_remaining);
         }
     });
+
+    network_client_.set_on_global_leaderboard([this](const protocol::ServerGlobalLeaderboardPayload& header,
+                                                      const std::vector<protocol::GlobalLeaderboardEntry>& entries) {
+        if (global_leaderboard_screen_) {
+            global_leaderboard_screen_->on_leaderboard_received(header, entries);
+        }
+    });
+
     // Create all screen instances
     main_menu_screen_ = std::make_unique<MainMenuScreen>(network_client_, screen_width_, screen_height_);
     create_room_screen_ = std::make_unique<CreateRoomScreen>(network_client_, screen_width_, screen_height_);
@@ -44,6 +52,7 @@ void MenuManager::initialize() {
     room_lobby_screen_ = std::make_unique<RoomLobbyScreen>(network_client_, screen_width_, screen_height_);
     password_dialog_ = std::make_unique<PasswordDialog>(screen_width_, screen_height_);
     settings_screen_ = std::make_unique<SettingsScreen>(network_client_, screen_width_, screen_height_);
+    global_leaderboard_screen_ = std::make_unique<GlobalLeaderboardScreen>(network_client_, screen_width_, screen_height_);
 
     // Set screen change callbacks
     main_menu_screen_->set_screen_change_callback([this](GameScreen screen) {
@@ -63,6 +72,10 @@ void MenuManager::initialize() {
     });
 
     settings_screen_->set_screen_change_callback([this](GameScreen screen) {
+        set_screen(screen);
+    });
+
+    global_leaderboard_screen_->set_screen_change_callback([this](GameScreen screen) {
         set_screen(screen);
     });
 
@@ -86,6 +99,7 @@ void MenuManager::initialize() {
     room_lobby_screen_->initialize();
     password_dialog_->initialize();
     settings_screen_->initialize();
+    global_leaderboard_screen_->initialize();
 }
 
 // =============================================================================
@@ -109,6 +123,9 @@ void MenuManager::set_screen(GameScreen screen) {
             break;
         case GameScreen::SETTINGS:
             if (settings_screen_) settings_screen_->on_exit();
+            break;
+        case GameScreen::GLOBAL_LEADERBOARD:
+            if (global_leaderboard_screen_) global_leaderboard_screen_->on_exit();
             break;
         default:
             break;
@@ -138,6 +155,9 @@ void MenuManager::set_screen(GameScreen screen) {
             break;
         case GameScreen::SETTINGS:
             if (settings_screen_) settings_screen_->on_enter();
+            break;
+        case GameScreen::GLOBAL_LEADERBOARD:
+            if (global_leaderboard_screen_) global_leaderboard_screen_->on_enter();
             break;
         default:
             break;
@@ -183,6 +203,9 @@ void MenuManager::update(engine::IGraphicsPlugin* graphics, engine::IInputPlugin
         case GameScreen::SETTINGS:
             if (settings_screen_) settings_screen_->update(graphics, input);
             break;
+        case GameScreen::GLOBAL_LEADERBOARD:
+            if (global_leaderboard_screen_) global_leaderboard_screen_->update(graphics, input);
+            break;
         default:
             break;
     }
@@ -205,6 +228,9 @@ void MenuManager::draw(engine::IGraphicsPlugin* graphics) {
             break;
         case GameScreen::SETTINGS:
             if (settings_screen_) settings_screen_->draw(graphics);
+            break;
+        case GameScreen::GLOBAL_LEADERBOARD:
+            if (global_leaderboard_screen_) global_leaderboard_screen_->draw(graphics);
             break;
         default:
             break;
