@@ -23,6 +23,22 @@ Bienvenue dans la documentation du projet R-Type!
   - Interface utilisateur
   - Configuration et déploiement
 
+### Network Protocol
+
+- **[UDP_ACK_SYSTEM.md](UDP_ACK_SYSTEM.md)** - UDP Acknowledgment System
+  - Why ACK over UDP?
+  - Sequence number-based ACK architecture
+  - Client-side and server-side implementation
+  - Data flow scenarios (packet loss, out-of-order)
+  - Metrics and monitoring
+  - Comparison with TCP, QUIC, and ENet
+
+- **[PROTOCOL.md](PROTOCOL.md)** - Complete Network Protocol Specification
+  - Packet structures and formats
+  - All packet types (client-to-server and server-to-client)
+  - LZ4 compression system
+  - Connection flows and gameplay loops
+
 ### Game Systems
 
 - **[WAVE_SYSTEM.md](WAVE_SYSTEM.md)** - Système de vagues d'ennemis
