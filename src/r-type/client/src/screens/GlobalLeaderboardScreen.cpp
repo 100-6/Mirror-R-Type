@@ -20,12 +20,14 @@ GlobalLeaderboardScreen::GlobalLeaderboardScreen(NetworkClient& network_client, 
 void GlobalLeaderboardScreen::initialize() {
     loading_ = true;
     entries_.clear();
+    network_client_.send_request_global_leaderboard();
     rebuild_ui();
 }
 
 void GlobalLeaderboardScreen::on_enter() {
     loading_ = true;
     entries_.clear();
+    network_client_.send_request_global_leaderboard();
     rebuild_ui();
 }
 
