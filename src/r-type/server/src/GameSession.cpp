@@ -386,6 +386,13 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
     }
     wave_manager_.load_from_phases(all_waves);
     wave_manager_.set_listener(this);
+    
+    // Enable procedural waves for Nebula map (ID 2) "Nebula Station Siege"
+    if (map_id_ == 2) {
+        wave_manager_.set_procedural_enabled(true);
+        std::cout << "[GameSession] Enabled procedural mobs for Nebula map\n";
+    }
+    
     initialize_wave_state();
 
     // Create LevelController entity
@@ -677,17 +684,30 @@ void GameSession::update(float delta_time)
                 return;
             } 
             // Level Transition logic (from HEAD)
-            else if (last_level_state_ != game::LevelState::LEVEL_COMPLETE) {
-                // Entered LEVEL_COMPLETE state this frame
-                
+            else if (last_level_state_ != game::LevelState::LEVEL_COMPLETE && !level_transition_pending_) {
+                // Entered LEVEL_COMPLETE state this frame - start delay timer
+
                 uint8_t next_level_id = lc.current_level + 1;
                 // SKIP LEVEL 2 (Nebula) - Match logic in LevelSystem
                 if (next_level_id == 2) {
                     next_level_id++;
                 }
 
-                network_system_->queue_level_transition(next_level_id);
-                std::cout << "[GameSession] Level " << static_cast<int>(lc.current_level) << " Complete! Sending transition signal for Level " << static_cast<int>(next_level_id) << "\n";
+                // Start the delay timer instead of immediately sending transition
+                level_transition_pending_ = true;
+                level_transition_delay_timer_ = 0.0f;
+                pending_next_level_id_ = next_level_id;
+                std::cout << "[GameSession] Level " << static_cast<int>(lc.current_level) << " Complete! Starting " << LEVEL_TRANSITION_DELAY << "s delay before transition to Level " << static_cast<int>(next_level_id) << "\n";
+            }
+
+            // Handle delayed level transition
+            if (level_transition_pending_) {
+                level_transition_delay_timer_ += delta_time;
+                if (level_transition_delay_timer_ >= LEVEL_TRANSITION_DELAY) {
+                    // Now send the transition after the delay
+                    network_system_->queue_level_transition(pending_next_level_id_);
+                    level_transition_pending_ = false;
+                    std::cout << "[GameSession] Delay complete! Sending transition signal for Level " << static_cast<int>(pending_next_level_id_) << "\n";
 
                 // IMMEDIATELY reset scroll to 0 to prevent client desync
                 // This ensures all subsequent snapshots have scroll=0 before new level loads
@@ -712,6 +732,7 @@ void GameSession::update(float delta_time)
                 auto& scroll_states = registry_.get_components<game::ScrollState>();
                 if (scroll_states.size() > 0) {
                     scroll_states.get_data_at(0).current_scroll = 0.0f;
+                }
                 }
             }
         }
@@ -815,6 +836,11 @@ void GameSession::update(float delta_time)
                     if (camera_velocities.has_entity(cam_entity)) {
                         camera_velocities[cam_entity].x = scroll_speed_;  // Restore scroll
                     }
+                }
+
+                // Notify clients that the level is fully loaded
+                if (network_system_) {
+                    network_system_->queue_level_ready(next_level);
                 }
             }
         }
@@ -1194,6 +1220,12 @@ void GameSession::on_level_transition(uint32_t session_id, const std::vector<uin
 {
     if (listener_)
         listener_->on_level_transition(session_id, transition_data);
+}
+
+void GameSession::on_level_ready(uint32_t session_id, const std::vector<uint8_t>& level_ready_data)
+{
+    if (listener_)
+        listener_->on_level_ready(session_id, level_ready_data);
 }
 
 // === HELPER METHODS ===

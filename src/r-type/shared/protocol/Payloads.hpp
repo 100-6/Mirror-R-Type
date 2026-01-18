@@ -640,6 +640,21 @@ PACK_END
 static_assert(sizeof(ServerLevelTransitionPayload) == 2, "ServerLevelTransitionPayload must be 2 bytes");
 
 /**
+ * @brief SERVER_LEVEL_READY payload (0xCA)
+ * Sent when the server has fully loaded the level and spawned all entities
+ * Total size: 2 bytes
+ */
+PACK_START
+struct PACKED ServerLevelReadyPayload {
+    uint16_t level_id;
+
+    ServerLevelReadyPayload() : level_id(0) {}
+};
+PACK_END
+
+static_assert(sizeof(ServerLevelReadyPayload) == 2, "ServerLevelReadyPayload must be 2 bytes");
+
+/**
  * @brief Score entry in SERVER_GAME_OVER
  * Size: 12 bytes
  */
@@ -1204,5 +1219,63 @@ struct PACKED ServerKickNotificationPayload {
 PACK_END
 
 static_assert(sizeof(ServerKickNotificationPayload) == 128, "ServerKickNotificationPayload must be 128 bytes");
+
+/**
+ * @brief CLIENT_CHAT_MESSAGE payload (0x40)
+ * Client sends a chat message to the server
+ * Total size: 132 bytes
+ */
+PACK_START
+struct PACKED ClientChatMessagePayload {
+    uint32_t player_id;              // 4 bytes - Sender player ID
+    char message[128];               // 128 bytes - Chat message
+
+    ClientChatMessagePayload() : player_id(0) {
+        std::memset(message, 0, sizeof(message));
+    }
+
+    void set_message(const std::string& msg) {
+        std::memset(message, 0, sizeof(message));
+        std::strncpy(message, msg.c_str(), sizeof(message) - 1);
+    }
+
+    std::string get_message() const {
+        return std::string(message, strnlen(message, sizeof(message)));
+    }
+};
+PACK_END
+
+static_assert(sizeof(ClientChatMessagePayload) == 132, "ClientChatMessagePayload must be 132 bytes");
+
+/**
+ * @brief SERVER_CHAT_MESSAGE payload (0xF0)
+ * Server broadcasts a chat message to all clients
+ * Total size: 168 bytes
+ */
+PACK_START
+struct PACKED ServerChatMessagePayload {
+    uint32_t sender_id;              // 4 bytes - Sender player ID
+    char sender_name[32];            // 32 bytes - Sender display name
+    char message[128];               // 128 bytes - Chat message
+    uint32_t timestamp;              // 4 bytes - Server timestamp
+
+    ServerChatMessagePayload() : sender_id(0), timestamp(0) {
+        std::memset(sender_name, 0, sizeof(sender_name));
+        std::memset(message, 0, sizeof(message));
+    }
+
+    void set_sender_name(const std::string& name) {
+        std::memset(sender_name, 0, sizeof(sender_name));
+        std::strncpy(sender_name, name.c_str(), sizeof(sender_name) - 1);
+    }
+
+    void set_message(const std::string& msg) {
+        std::memset(message, 0, sizeof(message));
+        std::strncpy(message, msg.c_str(), sizeof(message) - 1);
+    }
+};
+PACK_END
+
+static_assert(sizeof(ServerChatMessagePayload) == 168, "ServerChatMessagePayload must be 168 bytes");
 
 }

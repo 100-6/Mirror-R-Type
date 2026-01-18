@@ -57,8 +57,6 @@ void ServerNetworkSystem::init(Registry& registry)
                 std::lock_guard lock(projectiles_mutex_);
                 pending_projectiles_.push(spawn);
             }
-            std::cout << "[SHOOT] Queued projectile " << event.projectile
-                      << " from shooter " << event.shooter << "\n";
         });
     enemyKilledSubId_ = registry.get_event_bus().subscribe<ecs::EnemyKilledEvent>(
         [this, &registry](const ecs::EnemyKilledEvent& event) {
@@ -90,8 +88,6 @@ void ServerNetworkSystem::init(Registry& registry)
                 std::lock_guard lock(scores_mutex_);
                 pending_scores_.push(score_update);
             }
-            std::cout << "[SCORE] Queued score update for player " << killer_player_id
-                      << ": +" << event.scoreValue << " (Total: " << killer_score << ")\n";
         });
 
     explosionSubId_ = registry.get_event_bus().subscribe<ecs::ExplosionEvent>(
@@ -160,6 +156,7 @@ void ServerNetworkSystem::update(Registry& registry, float dt)
     broadcast_pending_respawns();
     broadcast_pending_level_ups();
     broadcast_pending_level_transitions();
+    broadcast_pending_level_ready();
 }
 
 void ServerNetworkSystem::shutdown()
@@ -240,6 +237,14 @@ void ServerNetworkSystem::queue_level_transition(uint16_t next_level_id)
     payload.next_level_id = ByteOrder::host_to_net16(next_level_id);
     pending_level_transitions_.push(payload);
     std::cout << "[ServerNetworkSystem] Queued level transition to level " << next_level_id << "\n";
+}
+
+void ServerNetworkSystem::queue_level_ready(uint16_t level_id)
+{
+    protocol::ServerLevelReadyPayload payload;
+    payload.level_id = ByteOrder::host_to_net16(level_id);
+    pending_level_ready_.push(payload);
+    std::cout << "[ServerNetworkSystem] Queued level ready for level " << level_id << "\n";
 }
 
 void ServerNetworkSystem::process_pending_inputs(Registry& registry)
@@ -469,7 +474,6 @@ void ServerNetworkSystem::broadcast_pending_projectiles()
         const auto& proj = pending_projectiles_.front();
         listener_->on_projectile_spawned(session_id_, serialize(proj));
         pending_projectiles_.pop();
-        std::cout << "[SHOOT] Sent projectile " << ByteOrder::net_to_host32(proj.projectile_id) << " to clients\n";
     }
 }
 
@@ -514,7 +518,6 @@ void ServerNetworkSystem::broadcast_pending_powerups()
         }
 
         pending_powerups_.pop();
-        std::cout << "[ServerNetworkSystem] Broadcast powerup collected to clients (5x for reliability)\n";
     }
 }
 
@@ -536,9 +539,6 @@ void ServerNetworkSystem::broadcast_pending_respawns()
 
         // Single send - respawn is also communicated via entity spawn packet
         listener_->on_player_respawn(session_id_, payload_bytes);
-
-        std::cout << "[ServerNetworkSystem] Broadcast player respawn: player=" << respawn.player_id
-                  << " pos=(" << respawn.x << "," << respawn.y << ") lives=" << static_cast<int>(respawn.lives_remaining) << "\n";
     }
     pending_respawns_.clear();
 }
@@ -560,7 +560,6 @@ void ServerNetworkSystem::broadcast_pending_level_ups()
         }
 
         pending_level_ups_.pop();
-        std::cout << "[ServerNetworkSystem] Broadcast player level-up to clients (3x for reliability)\n";
     }
 }
 
@@ -584,6 +583,26 @@ void ServerNetworkSystem::broadcast_pending_level_transitions()
     }
 }
 
+void ServerNetworkSystem::broadcast_pending_level_ready()
+{
+    if (!listener_)
+        return;
+    while (!pending_level_ready_.empty()) {
+        const auto& payload = pending_level_ready_.front();
+        std::vector<uint8_t> data;
+        const uint8_t* bytes = reinterpret_cast<const uint8_t*>(&payload);
+        data.insert(data.end(), bytes, bytes + sizeof(payload));
+
+        // Send multiple times to ensure delivery
+        for (int i = 0; i < 5; ++i) {
+            listener_->on_level_ready(session_id_, data);
+        }
+
+        pending_level_ready_.pop();
+        std::cout << "[ServerNetworkSystem] Broadcast level ready to clients\n";
+    }
+}
+
 void ServerNetworkSystem::spawn_projectile(Registry& registry, Entity owner, float x, float y)
 {
     Entity projectile = registry.spawn_entity();
@@ -604,8 +623,6 @@ void ServerNetworkSystem::spawn_projectile(Registry& registry, Entity owner, flo
     spawn.velocity_x = static_cast<int16_t>(config::PROJECTILE_SPEED);
     spawn.velocity_y = 0;
     pending_projectiles_.push(spawn);
-    std::cout << "[ServerNetworkSystem " << session_id_ << "] Spawned projectile " << projectile
-              << " from entity " << owner << " at (" << x << ", " << y << ")\n";
 }
 
 void ServerNetworkSystem::spawn_enemy_projectile(Registry& registry, Entity owner, float x, float y)
@@ -632,8 +649,6 @@ void ServerNetworkSystem::spawn_enemy_projectile(Registry& registry, Entity owne
     spawn.velocity_x = static_cast<int16_t>(-config::PROJECTILE_SPEED);
     spawn.velocity_y = 0;
     pending_projectiles_.push(spawn);
-    std::cout << "[ServerNetworkSystem " << session_id_ << "] Enemy " << owner
-              << " spawned projectile " << projectile << " at (" << x << ", " << y << ")\n";
 }
 
 void ServerNetworkSystem::update_enemy_shooting(Registry& registry, float dt)

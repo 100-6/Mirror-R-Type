@@ -152,10 +152,37 @@ void WaveSpawnerSystem::updateScrollTracking(Registry& registry, float dt)
 
 void WaveSpawnerSystem::checkWaveTriggers(Registry& registry, float dt)
 {
+    // Sync procedural settings from LevelController if present
+    if (registry.has_component_registered<LevelController>()) {
+        auto& lcs = registry.get_components<LevelController>();
+        auto& waveControllers = registry.get_components<WaveController>();
+        
+        if (lcs.size() > 0 && waveControllers.size() > 0) {
+            const auto& lc = lcs.get_data_at(0);
+            auto& wc = waveControllers.get_data_at(0);
+            
+            // Level 2 (Nebula) is infinite procedural
+            if (lc.current_level == 2 && !wc.proceduralMobs) {
+                wc.proceduralMobs = true;
+                std::cout << "[WaveSpawnerSystem] Enabled procedural mobs for Level 2 (Client)" << std::endl;
+            }
+        }
+    }
+
     if (currentWaveIndex_ >= config_.waves.size()) {
         if (config_.loopWaves) {
             // Reset and loop back to first wave
             reset();
+        } else {
+            // Check if procedural mobs are enabled
+            auto& waveControllers = registry.get_components<WaveController>();
+            if (waveControllers.size() > 0) {
+                auto& wc = waveControllers.get_data_at(0);
+                if (wc.proceduralMobs) {
+                    generateProceduralWave(registry);
+                    return; // Procedural wave added, logic will continue next frame
+                }
+            }
         }
         return; // All waves completed
     }
@@ -537,4 +564,75 @@ void WaveSpawnerSystem::loadTextures()
 
     std::cout << "WaveSpawnerSystem: Textures loaded" << std::endl;
     std::cout << "  Wall/Obstacle textures: lock.png" << std::endl;
+}
+
+void WaveSpawnerSystem::generateProceduralWave(Registry& registry)
+{
+    static bool seeded = false;
+    if (!seeded) {
+        std::srand(static_cast<unsigned int>(std::time(nullptr)));
+        seeded = true;
+    }
+
+    // Create a new wave
+    WaveLoader::Wave newWave;
+    newWave.waveNumber = config_.waves.size() + 1;
+    
+    // Set trigger at next chunk
+    // One chunk = 30 tiles * 16px = 480px
+    float chunkSizePx = 30.0f * 16.0f;
+    int currentChunk = static_cast<int>(totalScrollDistance_ / chunkSizePx);
+    
+    newWave.trigger.chunkId = currentChunk + 1; // Trigger at next chunk boundary
+    newWave.trigger.offset = 0.1f;              // Slightly inside the chunk (10%)
+    newWave.trigger.timeDelay = 0.0f;
+    newWave.trigger.triggered = false;
+    
+    // Randomize Content
+    // 3 to 6 enemies
+    int enemyCount = 3 + (std::rand() % 4);
+    
+    // Random type
+    EnemyType types[] = {EnemyType::Basic, EnemyType::Fast, EnemyType::Tank};
+    EnemyType selectedType = types[std::rand() % 3];
+    
+    // Random pattern
+    SpawnPattern patterns[] = {SpawnPattern::LINE, SpawnPattern::GRID, SpawnPattern::RANDOM, SpawnPattern::FORMATION};
+    SpawnPattern selectedPattern = patterns[std::rand() % 4];
+    
+    WaveSpawnData spawnData;
+    spawnData.entityType = EntitySpawnType::ENEMY;
+    spawnData.enemyType = selectedType;
+    spawnData.count = enemyCount;
+    spawnData.pattern = selectedPattern;
+    spawnData.positionX = 100.0f; // Offset from right edge
+    
+    // Randomized Y position
+    // Screen height ~1080, keep margins
+    spawnData.positionY = 100.0f + static_cast<float>(std::rand() % 800);
+    spawnData.spacing = 80.0f + static_cast<float>(std::rand() % 100);
+    
+    // 5% chance to drop bonus
+    if ((std::rand() % 100) < 5) {
+        spawnData.bonusDrop.enabled = true;
+        spawnData.bonusDrop.dropChance = 1.0f;
+        BonusType bonuses[] = {BonusType::HEALTH, BonusType::SHIELD, BonusType::SPEED, BonusType::BONUS_WEAPON};
+        spawnData.bonusDrop.bonusType = bonuses[std::rand() % 4];
+    }
+    
+    newWave.spawnData.push_back(spawnData);
+    
+    // Add to configuration
+    config_.waves.push_back(newWave);
+    
+    // Update total count in component so UI knows/debugging works
+    auto& waveControllers = registry.get_components<WaveController>();
+    if (waveControllers.size() > 0) {
+        waveControllers.get_data_at(0).totalWaveCount = config_.waves.size();
+    }
+    
+    std::cout << "[WaveSpawnerSystem] Generated procedural wave " << newWave.waveNumber 
+              << " for chunk " << newWave.trigger.chunkId 
+              << " (Type: " << static_cast<int>(selectedType) 
+              << ", Count: " << enemyCount << ")" << std::endl;
 }

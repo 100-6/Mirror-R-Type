@@ -103,6 +103,37 @@ void RoomLobbyScreen::initialize() {
         network_client_.send_set_player_skin(skin_id);
         std::cout << "[RoomLobbyScreen] Selected skin " << static_cast<int>(skin_id) << "\n";
     });
+
+    // Initialize chat overlay
+    chat_overlay_ = std::make_unique<ChatOverlay>(
+        static_cast<float>(screen_width_),
+        static_cast<float>(screen_height_)
+    );
+    chat_overlay_->set_send_callback([this](const std::string& message) {
+        network_client_.send_chat_message(message);
+    });
+
+    // Set up chat message callback
+    network_client_.set_on_chat_message([this](uint32_t sender_id, const std::string& sender_name, const std::string& message) {
+        if (chat_overlay_) {
+            chat_overlay_->add_message(sender_id, sender_name, message);
+        }
+    });
+}
+
+void RoomLobbyScreen::on_enter() {
+    // Re-register chat callback when entering this screen
+    // This ensures our ChatOverlay receives messages after navigating between screens
+    network_client_.set_on_chat_message([this](uint32_t sender_id, const std::string& sender_name, const std::string& message) {
+        std::cout << "[RoomLobbyScreen] Chat callback received: " << sender_name << ": " << message << "\n";
+        if (chat_overlay_) {
+            chat_overlay_->add_message(sender_id, sender_name, message);
+            std::cout << "[RoomLobbyScreen] Message added to chat overlay\n";
+        } else {
+            std::cout << "[RoomLobbyScreen] ERROR: chat_overlay_ is null!\n";
+        }
+    });
+    std::cout << "[RoomLobbyScreen] Chat callback registered on enter\n";
 }
 
 void RoomLobbyScreen::update(engine::IGraphicsPlugin* graphics, engine::IInputPlugin* input) {
@@ -184,6 +215,28 @@ void RoomLobbyScreen::update(engine::IGraphicsPlugin* graphics, engine::IInputPl
 
         // Don't update button interactions in edit mode
         return;
+    }
+
+    // Chat overlay - T to open, F1 to close
+    bool t_pressed = input->is_key_pressed(engine::Key::T);
+    bool f1_pressed = input->is_key_pressed(engine::Key::F1);
+
+    // Open chat with T (only when not already open and not editing name)
+    if (t_pressed && !t_was_pressed_ && !editing_name_ && chat_overlay_ && !chat_overlay_->is_visible()) {
+        chat_overlay_->set_visible(true);
+    }
+    t_was_pressed_ = t_pressed;
+
+    // Close chat with F1
+    if (f1_pressed && !f1_was_pressed_ && chat_overlay_ && chat_overlay_->is_visible()) {
+        chat_overlay_->set_visible(false);
+    }
+    f1_was_pressed_ = f1_pressed;
+
+    // Update chat if visible
+    if (chat_overlay_ && chat_overlay_->is_visible()) {
+        chat_overlay_->update(graphics, input);
+        return;  // Don't process other inputs when chat is open
     }
 
     // Normal mode: Update buttons and slider
@@ -647,6 +700,12 @@ void RoomLobbyScreen::draw(engine::IGraphicsPlugin* graphics) {
     // Draw skin selector dialog (on top of everything else)
     if (skin_selector_dialog_) {
         skin_selector_dialog_->draw(graphics);
+    }
+
+    // Draw chat overlay and notification badge
+    if (chat_overlay_) {
+        chat_overlay_->draw(graphics);
+        chat_overlay_->draw_notification_badge(graphics);
     }
 }
 

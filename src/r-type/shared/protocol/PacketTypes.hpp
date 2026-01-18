@@ -51,6 +51,9 @@ enum class PacketType : uint8_t {
     CLIENT_ADMIN_AUTH = 0x30,           // Admin authentication request
     CLIENT_ADMIN_COMMAND = 0x31,        // Admin command execution (kick, list, etc.)
 
+    // Chat (0x40-0x4F)
+    CLIENT_CHAT_MESSAGE = 0x40,         // Client sends a chat message
+
     // ========== Server → Client ==========
     // Connection & Lobby (0x81-0x8A)
     SERVER_ACCEPT = 0x81,
@@ -95,12 +98,16 @@ enum class PacketType : uint8_t {
     SERVER_LEADERBOARD = 0xC7,      // End-game leaderboard with all player scores
     SERVER_GLOBAL_LEADERBOARD = 0xC8,  // Global all-time top 10 leaderboard
     SERVER_LEVEL_TRANSITION = 0xC9,
+    SERVER_LEVEL_READY = 0xCA,  // Level fully loaded, client can stop fading
 
     // Admin Responses (0xD0-0xDF)
     SERVER_ADMIN_AUTH_RESULT = 0xD0,    // Admin authentication result
     SERVER_ADMIN_COMMAND_RESULT = 0xD1, // Admin command execution result
     SERVER_ADMIN_NOTIFICATION = 0xD2,   // Admin notifications (player events, etc.)
     SERVER_KICK_NOTIFICATION = 0xD3,    // Kick notification sent before disconnect
+
+    // Chat (0xF0-0xFF)
+    SERVER_CHAT_MESSAGE = 0xF0,         // Server broadcasts a chat message to all clients
 };
 
 /**
@@ -426,6 +433,8 @@ inline std::string packet_type_to_string(PacketType type) {
         return "CLIENT_REQUEST_GLOBAL_LEADERBOARD";
     case PacketType::SERVER_LEVEL_TRANSITION:
         return "SERVER_LEVEL_TRANSITION";
+    case PacketType::SERVER_LEVEL_READY:
+        return "SERVER_LEVEL_READY";
     case PacketType::CLIENT_SET_PLAYER_NAME:
         return "CLIENT_SET_PLAYER_NAME";
     case PacketType::CLIENT_SET_PLAYER_SKIN:
@@ -446,6 +455,10 @@ inline std::string packet_type_to_string(PacketType type) {
         return "SERVER_ADMIN_NOTIFICATION";
     case PacketType::SERVER_KICK_NOTIFICATION:
         return "SERVER_KICK_NOTIFICATION";
+    case PacketType::CLIENT_CHAT_MESSAGE:
+        return "CLIENT_CHAT_MESSAGE";
+    case PacketType::SERVER_CHAT_MESSAGE:
+        return "SERVER_CHAT_MESSAGE";
     default:
         return "UNKNOWN";
     }

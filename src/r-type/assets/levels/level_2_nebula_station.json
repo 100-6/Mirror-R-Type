@@ -4,7 +4,7 @@
   "level_description": "Infiltrate the heavily defended nebula station",
   "map_id": 2,
   "base_scroll_speed": 65.0,
-  "total_chunks": 6,
+  "total_chunks": -1,
   "phases": [
     {
       "phase_number": 1,

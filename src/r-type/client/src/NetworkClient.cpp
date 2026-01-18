@@ -330,6 +330,9 @@ void NetworkClient::handle_packet(const engine::NetworkPacket& packet) {
         case protocol::PacketType::SERVER_LEVEL_TRANSITION:
             handle_level_transition(payload);
             break;
+        case protocol::PacketType::SERVER_LEVEL_READY:
+            handle_level_ready(payload);
+            break;
         case protocol::PacketType::SERVER_GAME_OVER:
             handle_game_over(payload);
             break;
@@ -371,6 +374,9 @@ void NetworkClient::handle_packet(const engine::NetworkPacket& packet) {
             break;
         case protocol::PacketType::SERVER_KICK_NOTIFICATION:
             handle_kick_notification(payload);
+            break;
+        case protocol::PacketType::SERVER_CHAT_MESSAGE:
+            handle_chat_message(payload);
             break;
         case protocol::PacketType::SERVER_SNAPSHOT:
         case protocol::PacketType::SERVER_DELTA_SNAPSHOT:
@@ -786,6 +792,21 @@ void NetworkClient::handle_level_transition(const std::vector<uint8_t>& payload)
         on_level_transition_(transition);
 }
 
+void NetworkClient::handle_level_ready(const std::vector<uint8_t>& payload) {
+    if (payload.size() < sizeof(protocol::ServerLevelReadyPayload)) {
+        return;
+    }
+
+    protocol::ServerLevelReadyPayload level_ready;
+    std::memcpy(&level_ready, payload.data(), sizeof(level_ready));
+    level_ready.level_id = ntohs(level_ready.level_id);
+
+    std::cout << "[NetworkClient] Level " << level_ready.level_id << " ready\n";
+
+    if (on_level_ready_)
+        on_level_ready_(level_ready);
+}
+
 void NetworkClient::handle_room_created(const std::vector<uint8_t>& payload) {
     if (payload.size() < sizeof(protocol::ServerRoomCreatedPayload)) {
         return;
@@ -1083,6 +1104,10 @@ void NetworkClient::set_on_level_transition(std::function<void(const protocol::S
     on_level_transition_ = callback;
 }
 
+void NetworkClient::set_on_level_ready(std::function<void(const protocol::ServerLevelReadyPayload&)> callback) {
+    on_level_ready_ = callback;
+}
+
 void NetworkClient::set_on_leaderboard(std::function<void(const protocol::ServerLeaderboardPayload&, const std::vector<protocol::LeaderboardEntry>&)> callback) {
     on_leaderboard_ = callback;
 }
@@ -1208,6 +1233,39 @@ void NetworkClient::handle_kick_notification(const std::vector<uint8_t>& payload
 
     if (on_admin_command_result_)
         on_admin_command_result_(false, "KICKED: " + reason);
+}
+
+// ============== Chat ==============
+
+void NetworkClient::send_chat_message(const std::string& message) {
+    protocol::ClientChatMessagePayload payload;
+    payload.player_id = htonl(player_id_);
+    payload.set_message(message);
+    send_tcp_packet(protocol::PacketType::CLIENT_CHAT_MESSAGE,
+                   serialize_payload(&payload, sizeof(payload)));
+}
+
+void NetworkClient::set_on_chat_message(ChatMessageCallback callback) {
+    on_chat_message_ = callback;
+}
+
+void NetworkClient::handle_chat_message(const std::vector<uint8_t>& payload) {
+    if (payload.size() != sizeof(protocol::ServerChatMessagePayload)) {
+        std::cerr << "[NetworkClient] Invalid SERVER_CHAT_MESSAGE payload size: "
+                  << payload.size() << " (expected " << sizeof(protocol::ServerChatMessagePayload) << ")\n";
+        return;
+    }
+    protocol::ServerChatMessagePayload data;
+    std::memcpy(&data, payload.data(), sizeof(data));
+
+    uint32_t sender_id = ntohl(data.sender_id);
+    std::string sender_name(data.sender_name, strnlen(data.sender_name, sizeof(data.sender_name)));
+    std::string message(data.message, strnlen(data.message, sizeof(data.message)));
+
+    std::cout << "[NetworkClient] Chat received from " << sender_name << ": " << message << "\n";
+
+    if (on_chat_message_)
+        on_chat_message_(sender_id, sender_name, message);
 }
 
 }
