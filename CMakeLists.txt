@@ -32,6 +32,14 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# AddressSanitizer support for debugging memory issues
+option(ENABLE_ASAN "Enable AddressSanitizer for memory debugging" OFF)
+if(ENABLE_ASAN)
+    message(STATUS "AddressSanitizer ENABLED")
+    add_compile_options(-fsanitize=address -fno-omit-frame-pointer -g)
+    add_link_options(-fsanitize=address)
+endif()
+
 # Disable Windows min/max macros that conflict with std::min/std::max
 if(WIN32)
     add_compile_definitions(NOMINMAX)

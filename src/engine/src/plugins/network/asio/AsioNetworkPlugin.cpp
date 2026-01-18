@@ -132,8 +132,14 @@ void AsioNetworkPlugin::shutdown()
         io_work_.reset();
     if (io_context_)
         io_context_->stop();
-    if (io_thread_ && io_thread_->joinable())
-        io_thread_->join();
+    
+    if (io_thread_ && io_thread_->joinable()) {
+        if (std::this_thread::get_id() != io_thread_->get_id()) {
+            io_thread_->join();
+        } else {
+            io_thread_->detach();
+        }
+    }
 
     io_context_.reset();
     io_thread_.reset();
@@ -595,6 +601,15 @@ bool AsioNetworkPlugin::connect_tcp(const std::string& host, uint16_t port)
         server_host_ = host;
         tcp_port_ = port;
 
+        // Cleanup previous zombie thread/context if any (from IO-thread disconnect)
+        if (io_thread_ && io_thread_->joinable()) {
+            io_thread_->join();
+            io_thread_.reset();
+        }
+        if (!io_context_ || io_context_->stopped()) {
+            io_context_ = std::make_unique<boost::asio::io_context>();
+        }
+
         // Resolve host
         tcp::resolver resolver(*io_context_);
         auto endpoints = resolver.resolve(tcp::v4(), host, std::to_string(port));
@@ -686,6 +701,10 @@ bool AsioNetworkPlugin::connect_udp(const std::string& host, uint16_t port)
 
 void AsioNetworkPlugin::disconnect()
 {
+    // Prevent concurrent disconnect() calls (race between main thread and IO thread)
+    if (disconnecting_.exchange(true))
+        return;
+
     bool was_connected = tcp_connected_ || udp_connected_;
 
     tcp_connected_ = false;
@@ -720,19 +739,26 @@ void AsioNetworkPlugin::disconnect()
             io_context_->stop();
         
         // Wait for the thread to finish
-        if (io_thread_ && io_thread_->joinable())
-            io_thread_->join();
-        
-        io_thread_.reset();
-        
-        // Reset and recreate io_context for potential reconnection
-        io_context_.reset();
-        io_context_ = std::make_unique<boost::asio::io_context>();
+        if (io_thread_ && io_thread_->joinable()) {
+            if (std::this_thread::get_id() != io_thread_->get_id()) {
+                // If we are NOT in the IO thread, we can safely join and destroy everything
+                io_thread_->join();
+                io_thread_.reset();
+                
+                // Reset and recreate io_context for potential reconnection
+                io_context_.reset();
+                io_context_ = std::make_unique<boost::asio::io_context>();
+            } else {
+                // If we ARE in the IO thread (e.g. callback), we CANNOT join or destroy io_context
+                // We just let the thread finish naturally (since we called stop())
+                // Cleanup will be done on next connect() or shutdown()
+            }
+        }
     }
 
     if (was_connected) {
 //         std::cout << "[AsioNetworkPlugin] Disconnected" << std::endl;
-        
+
         // Call callback without holding any locks that could cause deadlock
         std::function<void()> callback;
         {
@@ -742,6 +768,9 @@ void AsioNetworkPlugin::disconnect()
         if (callback)
             callback();
     }
+
+    // Reset disconnecting flag to allow future reconnections
+    disconnecting_ = false;
 }
 
 bool AsioNetworkPlugin::is_tcp_connected() const

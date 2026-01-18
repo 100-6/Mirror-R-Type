@@ -43,25 +43,25 @@ void GlobalLeaderboardScreen::rebuild_ui() {
     float center_x = screen_width_ / 2.0f;
 
     // Font sizes
-    int title_size = 60;
+    int title_size = 70;
     int header_size = 28;
     int entry_size = 24;
 
     // Title label - centered
     auto title = std::make_unique<UILabel>(
-        center_x, 60.0f, "GLOBAL LEADERBOARD", title_size);
-    title->set_color(engine::Color{255, 215, 0, 255});  // Gold color
+        center_x, 80.0f, "GLOBAL LEADERBOARD", title_size);
+    title->set_color(engine::Color{150, 100, 255, 255});  // Purple color matching Settings
     title->set_alignment(UILabel::Alignment::CENTER);
     labels_.push_back(std::move(title));
 
     // Subtitle
     auto subtitle = std::make_unique<UILabel>(
-        center_x, 115.0f, "All-Time Top 10", 24);
+        center_x, 160.0f, "All-Time Top 10", 24);
     subtitle->set_color(engine::Color{200, 200, 200, 255});
     subtitle->set_alignment(UILabel::Alignment::CENTER);
     labels_.push_back(std::move(subtitle));
 
-    float content_start_y = 170.0f;
+    float content_start_y = 220.0f;
 
     if (loading_) {
         // Show loading message
@@ -146,13 +146,13 @@ void GlobalLeaderboardScreen::rebuild_ui() {
     }
 
     // Back button - centered at bottom
-    float button_width = 200.0f;
-    float button_height = 50.0f;
+    float button_width = 300.0f;
+    float button_height = 60.0f;
     float button_x = center_x - button_width / 2.0f;
-    float button_y = screen_height_ - 100.0f;
+    float button_y = screen_height_ - 120.0f;
 
     auto back_btn = std::make_unique<UIButton>(
-        button_x, button_y, button_width, button_height, "Back");
+        button_x, button_y, button_width, button_height, "Back to Menu");
     back_btn->set_on_click([this]() {
         if (on_screen_change_) {
             on_screen_change_(GameScreen::MAIN_MENU);
@@ -192,17 +192,7 @@ void GlobalLeaderboardScreen::draw(engine::IGraphicsPlugin* graphics) {
 
     graphics->draw_sprite(background_sprite, {0.0f, 0.0f});
 
-    // Draw semi-transparent panel behind leaderboard content
-    float panel_width = 750.0f;
-    float panel_height = 500.0f;
-    float panel_x = (screen_width_ - panel_width) / 2.0f;
-    float panel_y = 40.0f;
-
-    engine::Rectangle panel_rect{panel_x, panel_y, panel_width, panel_height};
-    graphics->draw_rectangle(panel_rect, engine::Color{0, 0, 0, 180});  // Dark semi-transparent
-
-    // Draw a subtle border around the panel
-    graphics->draw_rectangle_outline(panel_rect, engine::Color{100, 100, 150, 200}, 2.0f);
+    // Panel removed to match Settings screen aesthetic
 
     // Draw labels
     for (auto& label : labels_) {
