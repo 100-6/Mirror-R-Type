@@ -216,7 +216,7 @@ Sprite EntityManager::build_sprite(protocol::EntityType type, bool is_local_play
     if (type == protocol::EntityType::ENEMY_BASIC) {
         switch (subtype) {
             case 0:
-                sprite.texture = textures_.get_enemy_9();
+                sprite.texture = textures_.get_enemy_11();
                 sprite.tint = engine::Color::White;
                 break;
             case 10:
@@ -224,7 +224,7 @@ Sprite EntityManager::build_sprite(protocol::EntityType type, bool is_local_play
                 sprite.tint = engine::Color::White;
                 break;
             case 13:
-                sprite.texture = textures_.get_enemy_11();
+                sprite.texture = textures_.get_enemy_9();
                 sprite.tint = engine::Color::White;
                 break;
             case 14:
