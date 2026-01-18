@@ -84,14 +84,15 @@ jobs:
       # ==========================================
       # BUILD & PUSH R-TYPE SERVER
       # ==========================================
-      - name: Build and push R-Type Server
+      - name: Build R-Type Server image
         uses: docker/build-push-action@v5
         timeout-minutes: 20
         with:
           context: .
           file: ./Dockerfile.rtype-server
           platforms: linux/arm64
-          push: true
+          push: false
+          load: true
           tags: ${{ steps.meta.outputs.rtype_tags }}
           labels: |
             org.opencontainers.image.source=${{ github.repositoryUrl }}
@@ -101,21 +102,48 @@ jobs:
           cache-to: type=gha,mode=max,scope=rtype-server
           provenance: false
           sbom: false
-          build-args: |
-            BUILDKIT_INLINE_CACHE=1
-          outputs: type=image,push=true,compression=gzip,compression-level=6
+          outputs: type=docker
+
+      - name: Push R-Type Server image with retry
+        timeout-minutes: 15
+        run: |
+          TAGS="${{ steps.meta.outputs.rtype_tags }}"
+          IFS=',' read -ra TAG_ARRAY <<< "$TAGS"
+
+          for tag in "${TAG_ARRAY[@]}"; do
+            echo "Pushing $tag..."
+            retry_count=0
+            max_retries=3
+
+            while [ $retry_count -lt $max_retries ]; do
+              if docker push "$tag"; then
+                echo "Successfully pushed $tag"
+                break
+              else
+                retry_count=$((retry_count + 1))
+                if [ $retry_count -lt $max_retries ]; then
+                  echo "Push failed, retrying ($retry_count/$max_retries)..."
+                  sleep 10
+                else
+                  echo "Failed to push $tag after $max_retries attempts"
+                  exit 1
+                fi
+              fi
+            done
+          done
 
       # ==========================================
       # BUILD & PUSH BAGARIO SERVER
       # ==========================================
-      - name: Build and push Bagario Server
+      - name: Build Bagario Server image
         uses: docker/build-push-action@v5
         timeout-minutes: 20
         with:
           context: .
           file: ./Dockerfile.bagario-server
           platforms: linux/arm64
-          push: true
+          push: false
+          load: true
           tags: ${{ steps.meta.outputs.bagario_tags }}
           labels: |
             org.opencontainers.image.source=${{ github.repositoryUrl }}
@@ -125,9 +153,35 @@ jobs:
           cache-to: type=gha,mode=max,scope=bagario-server
           provenance: false
           sbom: false
-          build-args: |
-            BUILDKIT_INLINE_CACHE=1
-          outputs: type=image,push=true,compression=gzip,compression-level=6
+          outputs: type=docker
+
+      - name: Push Bagario Server image with retry
+        timeout-minutes: 15
+        run: |
+          TAGS="${{ steps.meta.outputs.bagario_tags }}"
+          IFS=',' read -ra TAG_ARRAY <<< "$TAGS"
+
+          for tag in "${TAG_ARRAY[@]}"; do
+            echo "Pushing $tag..."
+            retry_count=0
+            max_retries=3
+
+            while [ $retry_count -lt $max_retries ]; do
+              if docker push "$tag"; then
+                echo "Successfully pushed $tag"
+                break
+              else
+                retry_count=$((retry_count + 1))
+                if [ $retry_count -lt $max_retries ]; then
+                  echo "Push failed, retrying ($retry_count/$max_retries)..."
+                  sleep 10
+                else
+                  echo "Failed to push $tag after $max_retries attempts"
+                  exit 1
+                fi
+              fi
+            done
+          done
 
       # ==========================================
       # SECURITY SCANS
