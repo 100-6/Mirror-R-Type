@@ -21,6 +21,7 @@ public:
     CreateRoomScreen(NetworkClient& network_client, int screen_width, int screen_height);
 
     void initialize() override;
+    void on_enter() override;
     void update(engine::IGraphicsPlugin* graphics, engine::IInputPlugin* input) override;
     void draw(engine::IGraphicsPlugin* graphics) override;
 

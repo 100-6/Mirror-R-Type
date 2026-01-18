@@ -61,7 +61,10 @@ void SettingsScreen::rebuild_ui() {
     float tab_width = 150.0f;
     float tab_height = 40.0f;
     float tab_spacing = 20.0f;
-    float tabs_start_x = center_x - (tab_width + tab_spacing / 2.0f);
+    
+    // Calculate total width for 3 tabs
+    float total_width = (tab_width * 3) + (tab_spacing * 2);
+    float tabs_start_x = center_x - (total_width / 2.0f);
 
     auto audio_tab = std::make_unique<UIButton>(
         tabs_start_x, tab_y, tab_width, tab_height, "AUDIO");
@@ -78,6 +81,14 @@ void SettingsScreen::rebuild_ui() {
     });
     controls_tab->set_selected(current_tab_ == SettingsTab::CONTROLS);
     buttons_.push_back(std::move(controls_tab));
+    
+    auto display_tab = std::make_unique<UIButton>(
+        tabs_start_x + (tab_width + tab_spacing) * 2, tab_y, tab_width, tab_height, "DISPLAY");
+    display_tab->set_on_click([this]() {
+        switch_tab(SettingsTab::DISPLAY);
+    });
+    display_tab->set_selected(current_tab_ == SettingsTab::DISPLAY);
+    buttons_.push_back(std::move(display_tab));
 
     float content_start_y = 220.0f;
 
@@ -347,6 +358,59 @@ void SettingsScreen::rebuild_ui() {
         buttons_.push_back(std::move(reset_btn));
 
         std::cout << "[SettingsScreen] CONTROLS tab UI complete" << std::endl;
+    } else if (current_tab_ == SettingsTab::DISPLAY) {
+        // Display settings section
+        auto display_title = std::make_unique<UILabel>(
+            center_x, content_start_y, "DISPLAY", 40);
+        display_title->set_color(engine::Color{200, 200, 200, 255});
+        display_title->set_alignment(UILabel::Alignment::CENTER);
+        labels_.push_back(std::move(display_title));
+
+        float label_size = 32;
+        float label_x = center_x - 200.0f;
+        float minus_x = center_x + 50.0f;
+        float value_x = center_x + 150.0f;
+        float plus_x = center_x + 250.0f;
+
+        // Colorblind Mode
+        float cb_y = content_start_y + 80.0f;
+
+        auto cb_label = std::make_unique<UILabel>(
+            label_x, cb_y, "Colorblind Mode", label_size);
+        cb_label->set_color(engine::Color{255, 255, 255, 255});
+        labels_.push_back(std::move(cb_label));
+
+        auto cb_minus = std::make_unique<UIButton>(
+            minus_x, cb_y - 10.0f, 60.0f, 50.0f, "<");
+        cb_minus->set_on_click([this]() {
+            int mode = static_cast<int>(colorblind_mode_);
+            mode = (mode - 1 + 4) % 4; // Cycle backwards
+            colorblind_mode_ = static_cast<engine::ColorBlindMode>(mode);
+            update_colorblind_label();
+            colorblind_needs_update_ = true;
+        });
+        buttons_.push_back(std::move(cb_minus));
+
+        auto cb_value = std::make_unique<UILabel>(
+            value_x, cb_y, "", label_size); 
+        cb_value->set_color(engine::Color{100, 255, 255, 255});
+        cb_value->set_alignment(UILabel::Alignment::CENTER);
+        colorblind_value_label_ = cb_value.get();
+        labels_.push_back(std::move(cb_value));
+        
+        // Initial update
+        update_colorblind_label();
+
+        auto cb_plus = std::make_unique<UIButton>(
+            plus_x, cb_y - 10.0f, 60.0f, 50.0f, ">");
+        cb_plus->set_on_click([this]() {
+            int mode = static_cast<int>(colorblind_mode_);
+            mode = (mode + 1) % 4; // Cycle forwards
+            colorblind_mode_ = static_cast<engine::ColorBlindMode>(mode);
+            update_colorblind_label();
+            colorblind_needs_update_ = true;
+        });
+        buttons_.push_back(std::move(cb_plus));
     }
 
     // Back button - centered at bottom
@@ -375,6 +439,19 @@ void SettingsScreen::switch_tab(SettingsTab tab) {
     }
 }
 
+void SettingsScreen::update_colorblind_label() {
+    if (!colorblind_value_label_) return;
+    
+    std::string text;
+    switch (colorblind_mode_) {
+        case engine::ColorBlindMode::None: text = "None"; break;
+        case engine::ColorBlindMode::Protanopia: text = "Protanopia"; break;
+        case engine::ColorBlindMode::Deuteranopia: text = "Deuteranopia"; break;
+        case engine::ColorBlindMode::Tritanopia: text = "Tritanopia"; break;
+    }
+    colorblind_value_label_->set_text(text);
+}
+
 void SettingsScreen::update_volume_labels() {
     if (master_value_label_) {
         master_value_label_->set_text(std::to_string(master_volume_) + "%");
@@ -391,6 +468,11 @@ void SettingsScreen::update_volume_labels() {
 }
 
 void SettingsScreen::update(engine::IGraphicsPlugin* graphics, engine::IInputPlugin* input) {
+    if (colorblind_needs_update_) {
+        graphics->set_colorblind_mode(colorblind_mode_);
+        colorblind_needs_update_ = false;
+    }
+
     if (!input) {
         return;
     }
