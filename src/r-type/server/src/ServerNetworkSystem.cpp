@@ -13,6 +13,7 @@
 #include "ecs/events/InputEvents.hpp"
 #include "components/CombatHelpers.hpp"
 #include "systems/ShootingSystem.hpp"
+#include "GameConfig.hpp"
 
 #include <iostream>
 #include <cmath>
@@ -611,10 +612,14 @@ void ServerNetworkSystem::spawn_enemy_projectile(Registry& registry, Entity owne
 {
     Entity projectile = registry.spawn_entity();
 
+    // Apply difficulty multiplier to enemy projectile damage
+    float damage_mult = rtype::shared::config::get_damage_multiplier(difficulty_);
+    int scaled_damage = static_cast<int>(static_cast<float>(config::ENEMY_PROJECTILE_DAMAGE) * damage_mult);
+
     registry.add_component(projectile, Position{x, y});
     registry.add_component(projectile, Velocity{-config::PROJECTILE_SPEED, 0.0f});
     registry.add_component(projectile, Collider{config::PROJECTILE_WIDTH, config::PROJECTILE_HEIGHT});
-    registry.add_component(projectile, Damage{config::ENEMY_PROJECTILE_DAMAGE});
+    registry.add_component(projectile, Damage{scaled_damage});
     registry.add_component(projectile, Projectile{0.0f, config::PROJECTILE_LIFETIME, 0.0f, ProjectileFaction::Enemy});
     registry.add_component(projectile, ProjectileOwner{owner});  // Track which enemy fired this
     registry.add_component(projectile, NoFriction{});
