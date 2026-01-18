@@ -48,6 +48,10 @@ inline constexpr const char* BONUS_WEAPON_SPRITE = "assets/sprite/vaisseau_bonus
 
 // ========== ENEMIES ==========
 inline constexpr const char* ENEMY_BASIC = "assets/sprite/enemies/enemy.png";
+inline constexpr const char* BOSS_MARS = "assets/sprite/enemies/boss_mars.png";
+inline constexpr const char* BOSS_URANUS = "assets/sprite/enemies/boss_uranus.png";
+inline constexpr const char* BOSS_JUPITER = "assets/sprite/enemies/boss_jupiter.png";
+inline constexpr const char* ENEMY_KAMIKAZE = "assets/sprite/enemies/kamikaz.png";
 
 // ========== ENVIRONMENT ==========
 inline constexpr const char* WALL = "assets/sprite/environment/lock.png";

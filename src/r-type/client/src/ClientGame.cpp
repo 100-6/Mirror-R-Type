@@ -436,6 +436,7 @@ void ClientGame::apply_map_theme(uint16_t map_id) {
     }
 
 //     std::cout << "[ClientGame] Applied theme for map " << map_id << "\n";
+    entity_manager_->set_current_map_id(map_id);
 }
 
 void ClientGame::load_level_checkpoints(uint16_t map_id) {

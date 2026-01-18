@@ -116,7 +116,26 @@ Sprite EntityManager::build_sprite(protocol::EntityType type, bool is_local_play
             switch (subtype) {
                 case 1:  sprite.tint = engine::Color{255, 180, 0, 255}; break;   // Orange (default fast)
                 case 11: sprite.tint = engine::Color{180, 255, 0, 255}; break;   // Lime green (zigzag)
-                case 12: sprite.tint = engine::Color{255, 50, 50, 255}; break;   // Bright red (kamikaze)
+                case 12: 
+                    // Kamikaze - Special texture
+                    sprite.texture = textures_.get_kamikaze();
+                    sprite.tint = engine::Color::White; // No tint
+                    // Override scale for this specific sprite because it's large
+                    {
+                        engine::Vector2f tex_size = textures_.get_texture_size(sprite.texture);
+                        if (tex_size.x > 0 && tex_size.y > 0) {
+                            // Calculate scale to fit collider (approx 40x40) or based on visual need
+                            // Default fast enemy is around 40x40
+                            // Let's ensure it's not too huge. 
+                            // Let's ensure it's not too huge. 
+                            float target_width = 200.0f; // Adjusted to be larger per user feedback
+                            float scale = target_width / tex_size.x;
+                            sprite.width = tex_size.x * scale;
+                            sprite.height = tex_size.y * scale;
+                            use_fixed_dimensions = true; // Use these custom dimensions
+                        }
+                    }
+                    break;
                 case 17: sprite.tint = engine::Color{100, 200, 255, 255}; break; // Light blue (coward)
                 case 20: sprite.tint = engine::Color{255, 215, 0, 255}; break;   // Gold (chaser)
                 default: sprite.tint = engine::Color{255, 180, 0, 255}; break;   // Default orange
@@ -132,8 +151,18 @@ Sprite EntityManager::build_sprite(protocol::EntityType type, bool is_local_play
             }
             break;
         case protocol::EntityType::ENEMY_BOSS:
+            // Select boss sprite based on current map
+            if (current_map_id_ == 3) {
+                sprite.texture = textures_.get_boss_uranus();
+            } else if (current_map_id_ == 4) {
+                sprite.texture = textures_.get_boss_jupiter();
+            } else {
+                // Default to Mars boss (Map 1) or generic
+                sprite.texture = textures_.get_boss_mars();
+            }
+            
             sprite.layer = 6;
-            sprite.tint = engine::Color{180, 0, 255, 255};
+            sprite.tint = engine::Color::White; // No tint, use original sprite colors
             break;
         case protocol::EntityType::WALL:
             sprite.texture = textures_.get_wall();
