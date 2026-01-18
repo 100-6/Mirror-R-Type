@@ -20,6 +20,7 @@
 
 #include "GameSession.hpp"
 #include "ServerConfig.hpp"
+#include "GameConfig.hpp"
 #include "systems/ShootingSystem.hpp"
 #include "systems/BonusSystem.hpp"
 #include "systems/BonusWeaponSystem.hpp"
@@ -155,6 +156,7 @@ GameSession::GameSession(uint32_t session_id, protocol::GameMode game_mode,
     network_system_->init(registry_);
     network_system_->set_player_entities(&player_entities_);
     network_system_->set_listener(this);
+    network_system_->set_difficulty(difficulty_);  // Set difficulty for damage scaling
 
     // Set up level-up callback for network broadcasting (after network_system_ is initialized)
     registry_.get_system<game::LevelUpSystem>().set_level_up_callback(
@@ -434,15 +436,19 @@ void GameSession::add_player(uint32_t player_id, const std::string& player_name,
     players_[player_id] = player;
     player_entities_[player_id] = player.entity;
 
-    // Initialize PlayerLives for level system
+    // Initialize PlayerLives for level system - use difficulty-based lives
     Entity player_lives_entity = registry_.spawn_entity();
     game::PlayerLives pl;
     pl.player_id = player_id;
-    pl.lives_remaining = config::PLAYER_LIVES;  // Lives from config
+    pl.lives_remaining = rtype::shared::config::get_lives_for_difficulty(difficulty_);  // Lives based on difficulty
     pl.respawn_pending = false;
     pl.respawn_timer = 0.0f;
     // pl.checkpoint_index removed
     registry_.add_component(player_lives_entity, pl);
+
+    std::cout << "[GameSession " << session_id_ << "] Player " << player_id
+              << " initialized with " << static_cast<int>(pl.lives_remaining)
+              << " lives (difficulty: " << protocol::difficulty_to_string(difficulty_) << ")\n";
 
     // std::cout << "[GameSession " << session_id_ << "] Player " << player_id << " (" << player_name
     //           << ") added with skin " << static_cast<int>(skin_id) << " (entity ID: " << player.entity << ", lives: 3)\n";
@@ -760,7 +766,7 @@ void GameSession::update(float delta_time)
 
                 for (size_t i = 0; i < player_lives.size(); ++i) {
                     auto& pl = player_lives.get_data_at(i);
-                    pl.lives_remaining = config::PLAYER_LIVES;
+                    pl.lives_remaining = rtype::shared::config::get_lives_for_difficulty(difficulty_);  // Reset with difficulty-based lives
                     pl.respawn_pending = false;
                     pl.respawn_timer = 0.0f;
 
@@ -1044,18 +1050,25 @@ void GameSession::on_spawn_enemy(const std::string& enemy_type, float x, float y
         stats = it->second;
     }
 
+    // Apply difficulty multipliers to enemy stats
+    float health_mult = rtype::shared::config::get_health_multiplier(difficulty_);
+    float speed_mult = rtype::shared::config::get_speed_multiplier(difficulty_);
+
+    int scaled_health = static_cast<int>(static_cast<float>(stats.health) * health_mult);
+    float scaled_velocity = stats.velocity_x * speed_mult;
+
     Entity enemy = registry_.spawn_entity();
     float center_x = x + stats.width / 2.0f;
     float center_y = y + stats.height / 2.0f;
-    
+
     registry_.add_component(enemy, Position{center_x, center_y});
-    registry_.add_component(enemy, Velocity{stats.velocity_x, 0.0f});
-    registry_.add_component(enemy, Health{static_cast<int>(stats.health), static_cast<int>(stats.health)});
+    registry_.add_component(enemy, Velocity{scaled_velocity, 0.0f});
+    registry_.add_component(enemy, Health{scaled_health, scaled_health});
 
     // Add AI component for enemy type detection in snapshots
     AI ai;
     ai.type = stats.ai_type;
-    ai.moveSpeed = std::abs(stats.velocity_x);
+    ai.moveSpeed = std::abs(scaled_velocity);  // Use scaled speed
     registry_.add_component(enemy, ai);
 
     // Initialize Level Manager with index

@@ -55,6 +55,13 @@ public:
         player_entities_ = player_entities;
     }
 
+    /**
+     * @brief Set the difficulty level for damage scaling
+     */
+    void set_difficulty(protocol::Difficulty difficulty) {
+        difficulty_ = difficulty;
+    }
+
     void init(Registry& registry) override;
     void update(Registry& registry, float dt) override;
     void shutdown() override;
@@ -214,6 +221,9 @@ private:
 
     // Current scroll position for synchronization with clients (double for precision)
     double current_scroll_x_ = 0.0;
+
+    // Difficulty level for damage scaling
+    protocol::Difficulty difficulty_ = protocol::Difficulty::NORMAL;
 };
 
 }
