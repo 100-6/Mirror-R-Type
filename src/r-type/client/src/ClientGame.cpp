@@ -1773,6 +1773,13 @@ void ClientGame::run() {
         } else if (in_result) {
             // Result screen (victory/defeat) - update button and render
             screen_manager_->update_result_screen(graphics_plugin_, input_plugin_);
+
+            // Clear screen and reset skip_clear for RenderSystem
+            graphics_plugin_->clear(engine::Color{20, 20, 30, 255});
+            if (registry_->has_system<RenderSystem>()) {
+                registry_->get_system<RenderSystem>().set_skip_clear(true);
+            }
+
             registry_->run_systems(dt);
         } else {
             // Game screen - run game systems

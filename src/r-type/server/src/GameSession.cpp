@@ -698,7 +698,6 @@ void GameSession::update(float delta_time)
             
             if (lc.current_level >= max_level) {
                 // Final victory
-                // std::cout << "[GameSession " << session_id_ << "] FINAL VICTORY - All levels complete!\n";
                 is_active_.store(false, std::memory_order_release);
                 send_leaderboard();  // Send leaderboard before game over
                 if (listener_)
@@ -879,7 +878,6 @@ void GameSession::update(float delta_time)
 
         // Defeat: All players out of lives
         if (lc.state == game::LevelState::GAME_OVER) {
-            // std::cout << "[GameSession " << session_id_ << "] GAME OVER - All players dead!\n";
             is_active_.store(false, std::memory_order_release);
             send_leaderboard();  // Send leaderboard before game over
             if (listener_)
