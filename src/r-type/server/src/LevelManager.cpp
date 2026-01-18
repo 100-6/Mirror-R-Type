@@ -32,15 +32,15 @@ bool LevelManager::load_from_file(const std::string& filepath)
     if (!parse_phases(j)) return false;
         if (!parse_boss_config(j)) return false;
 
-        // std::cout << "[LevelManager] Loaded level " << static_cast<int>(config_.level_id)
-        //           << ": " << config_.level_name << "\n";
-        // std::cout << "[LevelManager]   - " << config_.phases.size() << " phases\n";
-        // std::cout << "[LevelManager]   - " << config_.checkpoints.size() << " checkpoints\n";
-        // std::cout << "[LevelManager]   - Boss: " << config_.boss.boss_name << "\n";
+        std::cout << "[LevelManager] Loaded level " << static_cast<int>(config_.level_id)
+                  << ": " << config_.level_name << "\n";
+        std::cout << "[LevelManager]   - " << config_.phases.size() << " phases\n";
+        std::cout << "[LevelManager]   - Boss: " << config_.boss.boss_name
+                  << " with " << config_.boss.phases.size() << " phases\n";
 
         return true;
     } catch (const std::exception& e) {
-        // std::cerr << "[LevelManager] JSON parse error: " << e.what() << "\n";
+        std::cerr << "[LevelManager] JSON parse error: " << e.what() << "\n";
         return false;
     }
 }
@@ -66,7 +66,7 @@ bool LevelManager::load_level(uint8_t level_id)
         std::string full_path = prefix + base_filepath;
         if (std::filesystem::exists(full_path)) {
             // Found existing file, try to load it
-            // std::cout << "[LevelManager] Found level configuration at: " << full_path << "\n";
+            std::cout << "[LevelManager] Found level configuration at: " << full_path << "\n";
             return load_from_file(full_path);
         }
     }
@@ -193,9 +193,9 @@ bool LevelManager::parse_boss_config(const nlohmann::json& j)
             game::BossPhaseConfig phase = parse_boss_phase(phase_json);
             config_.boss.phases.push_back(phase);
         }
-        // std::cout << "[LevelManager] Parsed " << config_.boss.phases.size() << " boss phases\n";
+        std::cout << "[LevelManager] Parsed " << config_.boss.phases.size() << " boss phases\n";
     } else {
-        // std::cerr << "[LevelManager] WARNING: No boss phases found in JSON!\n";
+        std::cerr << "[LevelManager] WARNING: No boss phases found in JSON!\n";
     }
 
     return true;
