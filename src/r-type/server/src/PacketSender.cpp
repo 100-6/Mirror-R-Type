@@ -78,12 +78,29 @@ void PacketSender::broadcast_udp_to_session(uint32_t session_id, protocol::Packe
     engine::NetworkPacket packet;
     packet.data = packet_data;
 
+    // Debug log for shield broken specifically
+    if (type == protocol::PacketType::SERVER_SHIELD_BROKEN) {
+        std::cout << "[PacketSender] Broadcasting SERVER_SHIELD_BROKEN to " << player_ids.size() << " players\n";
+    }
+
     for (uint32_t player_id : player_ids) {
+        bool found = false;
         for (const auto& [client_id, player_info] : connected_clients) {
-            if (player_info.player_id == player_id && player_info.has_udp_connection()) {
-                network_plugin_->send_udp_to(packet, client_id);
+            if (player_info.player_id == player_id) {
+                if (player_info.has_udp_connection()) {
+                    network_plugin_->send_udp_to(packet, client_id);
+                    if (type == protocol::PacketType::SERVER_SHIELD_BROKEN) {
+                        std::cout << "[PacketSender] Sent SHIELD_BROKEN to client " << client_id << " (player " << player_id << ")\n";
+                    }
+                } else if (type == protocol::PacketType::SERVER_SHIELD_BROKEN) {
+                    std::cout << "[PacketSender] Player " << player_id << " has no UDP connection!\n";
+                }
+                found = true;
                 break;
             }
+        }
+        if (!found && type == protocol::PacketType::SERVER_SHIELD_BROKEN) {
+            std::cout << "[PacketSender] Player " << player_id << " not found in connected_clients!\n";
         }
     }
 }
