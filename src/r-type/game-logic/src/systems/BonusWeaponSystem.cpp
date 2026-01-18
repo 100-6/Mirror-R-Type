@@ -7,6 +7,7 @@
 
 #include "systems/BonusWeaponSystem.hpp"
 #include "components/CombatConfig.hpp"
+#include "components/GameComponents.hpp"
 #include "ecs/CoreComponents.hpp"
 #include "ecs/events/GameEvents.hpp"
 #include <iostream>
@@ -74,11 +75,6 @@ void BonusWeaponSystem::fireBonusWeapon(Registry& registry, Entity bonusWeaponEn
     if (sprites.has_entity(bonusWeaponEntity)) {
         weaponWidth = sprites[bonusWeaponEntity].width;
         weaponHeight = sprites[bonusWeaponEntity].height;
-        std::cout << "[BONUS WEAPON] Found sprite for bonus weapon entity " << bonusWeaponEntity
-                  << " with dimensions " << weaponWidth << "x" << weaponHeight << "\n";
-    } else {
-        std::cout << "[BONUS WEAPON] WARNING: No sprite found for bonus weapon entity " << bonusWeaponEntity
-                  << ", using default dimensions\n";
     }
 
     // Créer le projectile
@@ -89,11 +85,6 @@ void BonusWeaponSystem::fireBonusWeapon(Registry& registry, Entity bonusWeaponEn
     // Ajuster manuellement pour être au milieu à droite
     float bulletOffsetX = weaponWidth / 2.0f + 90.0f;  // Plus vers la droite
     float bulletOffsetY = 13.0f;  // Légèrement vers le haut
-
-    std::cout << "[BONUS WEAPON] weaponPos=(" << weaponPos.x << "," << weaponPos.y
-              << ") weaponWidth=" << weaponWidth << " weaponHeight=" << weaponHeight
-              << " bulletOffsetX=" << bulletOffsetX << " final projectile pos=("
-              << (weaponPos.x + bulletOffsetX) << "," << (weaponPos.y + bulletOffsetY) << ")\n";
 
     registry.add_component(projectile, Position{
         weaponPos.x + bulletOffsetX,
@@ -130,8 +121,9 @@ void BonusWeaponSystem::fireBonusWeapon(Registry& registry, Entity bonusWeaponEn
     // Pas de friction
     registry.add_component(projectile, NoFriction{});
 
+    // Détruire le projectile quand il sort de l'écran
+    registry.add_component(projectile, Scrollable{0.0f, false, true});
+
     // Publier l'événement pour synchroniser via le réseau
     registry.get_event_bus().publish(ecs::ShotFiredEvent{bonusWeaponEntity, projectile});
-
-    std::cout << "[BONUS WEAPON] Fired projectile " << projectile << " from bonus weapon entity " << bonusWeaponEntity << std::endl;
 }

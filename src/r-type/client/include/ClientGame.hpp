@@ -22,6 +22,7 @@
 #include "systems/InterpolationSystem.hpp"
 #include "DebugNetworkOverlay.hpp"
 #include "ui/ConsoleOverlay.hpp"
+#include "ui/ChatOverlay.hpp"
 
 namespace rtype::client {
 
@@ -99,6 +100,9 @@ private:
     std::unique_ptr<ConsoleOverlay> console_overlay_;
     bool admin_authenticated_ = false;
     std::string admin_password_;
+
+    // Chat overlay
+    std::unique_ptr<ChatOverlay> chat_overlay_;
 
     // Game state
     std::atomic<bool> running_;
