@@ -615,6 +615,12 @@ void SFMLGraphicsPlugin::end_blend_mode() {
     // SFML blend modes are handled per-draw call, no state to reset
 }
 
+void SFMLGraphicsPlugin::set_colorblind_mode(ColorBlindMode mode) {
+    // SFML colorblind mode support would require shader implementation
+    // For now, this is a stub for API compatibility
+    (void)mode; // Suppress unused parameter warning
+}
+
 }
 
 // Plugin factory functions
