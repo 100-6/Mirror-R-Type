@@ -73,7 +73,7 @@ void GlobalLeaderboardScreen::rebuild_ui() {
     } else if (entries_.empty()) {
         // Show empty message
         auto empty_label = std::make_unique<UILabel>(
-            center_x, content_start_y + 100.0f, "No scores yet. Be the first!", 30);
+            center_x, content_start_y + 100.0f, "No scores yet. Be the first!", 24);
         empty_label->set_color(engine::Color{180, 180, 180, 255});
         empty_label->set_alignment(UILabel::Alignment::CENTER);
         labels_.push_back(std::move(empty_label));
@@ -193,7 +193,7 @@ void GlobalLeaderboardScreen::draw(engine::IGraphicsPlugin* graphics) {
     graphics->draw_sprite(background_sprite, {0.0f, 0.0f});
 
     // Draw semi-transparent panel behind leaderboard content
-    float panel_width = 600.0f;
+    float panel_width = 750.0f;
     float panel_height = 500.0f;
     float panel_x = (screen_width_ - panel_width) / 2.0f;
     float panel_y = 40.0f;
