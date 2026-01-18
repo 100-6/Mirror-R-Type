@@ -1311,7 +1311,7 @@ void ClientGame::setup_network_callbacks() {
                     // Activer/créer le LaserBeam pour ce joueur
                     if (!lasers.has_entity(entity)) {
                         registry_->add_component(entity, LaserBeam{
-                            true, 1000.0f, 0.0f, 3.0f, 0.05f, 0.0f, 8.0f,
+                            true, 2000.0f, 0.0f, 3.0f, 0.05f, 0.0f, 8.0f,
                             engine::Color{255, 50, 50, 255},
                             engine::Color{255, 255, 200, 255},
                             0.0f, 0.0f
@@ -1599,7 +1599,7 @@ void ClientGame::run() {
                             if (!lasers.has_entity(player)) {
                                 registry_->add_component(player, LaserBeam{
                                     false, // active par défaut false
-                                    1000.0f, // range
+                                    2000.0f, // range (traverse l'écran)
                                     0.0f,    // current_length
                                     3.0f,    // damage (visual only here)
                                     0.05f,   // tick rate

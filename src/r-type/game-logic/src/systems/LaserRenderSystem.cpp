@@ -7,6 +7,7 @@
 
 #include "systems/LaserRenderSystem.hpp"
 #include "components/CombatConfig.hpp"
+#include "components/GameComponents.hpp"  // For GameState
 #include <iostream>
 #include <cmath>
 #include "components/LevelComponents.hpp" // For Wall
@@ -109,6 +110,25 @@ void LaserRenderSystem::update(Registry& registry, float dt)
     if (!registry.has_component_registered<LaserBeam>())
         return;
 
+    // Vérifier si la partie est finie - ne pas afficher le laser
+    if (registry.has_component_registered<GameState>()) {
+        auto& gameStates = registry.get_components<GameState>();
+        for (size_t i = 0; i < gameStates.size(); i++) {
+            Entity stateEntity = gameStates.get_entity_at(i);
+            const GameState& state = gameStates[stateEntity];
+            if (state.currentState == GameStateType::GAME_OVER ||
+                state.currentState == GameStateType::VICTORY) {
+                // Partie terminée, désactiver tous les lasers
+                auto& lasers = registry.get_components<LaserBeam>();
+                for (size_t j = 0; j < lasers.size(); j++) {
+                    Entity laserEntity = lasers.get_entity_at(j);
+                    lasers[laserEntity].active = false;
+                }
+                return;
+            }
+        }
+    }
+
     auto& lasers = registry.get_components<LaserBeam>();
     auto& positions = registry.get_components<Position>();
     auto& sprites = registry.get_components<Sprite>();
@@ -126,10 +146,9 @@ void LaserRenderSystem::update(Registry& registry, float dt)
 
         // Calculer les dimensions du joueur pour le point de départ
         float playerWidth = sprites.has_entity(entity) ? sprites[entity].width : 0.0f;
-        float playerHeight = sprites.has_entity(entity) ? sprites[entity].height : 32.0f;
 
-        // Point de départ du laser (au bout du vaisseau, centré verticalement)
-        float startX = pos.x + playerWidth / 2.0f;  // Plus proche du vaisseau
+        // Point de départ du laser (collé au vaisseau)
+        float startX = pos.x + playerWidth / 3 - 15;  // Collé au vaisseau (pas d'offset)
         float startY = pos.y;  // Centré sur le vaisseau
         
         // Raycast visuel côté client pour déterminer la longueur

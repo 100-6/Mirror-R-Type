@@ -69,7 +69,7 @@
 // LASER - Vrai rayon continu (anciennement CHARGE)
 #define WEAPON_LASER_DAMAGE_PER_TICK    3       // 60 DPS (3 dmg x 20 ticks/sec)
 #define WEAPON_LASER_TICK_RATE          0.05f   // 20 ticks par seconde
-#define WEAPON_LASER_RANGE              1000.0f // Portée max
+#define WEAPON_LASER_RANGE              1500.0f // Portée max (traverse l'écran)
 #define WEAPON_LASER_WIDTH              8.0f    // Épaisseur visuelle
 #define WEAPON_LASER_COLOR_R            255
 #define WEAPON_LASER_COLOR_G            50
