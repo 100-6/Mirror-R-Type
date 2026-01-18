@@ -94,6 +94,11 @@ void ScreenManager::set_screen(GameScreen screen) {
     current_screen_ = screen;
 
     switch (screen) {
+        case GameScreen::CONNECTION:
+            // Connection screen - hide game screens
+            hide_waiting_screen();
+            hide_result_screen();
+            break;
         case GameScreen::WAITING:
             show_waiting_screen();
             break;
@@ -109,6 +114,8 @@ void ScreenManager::set_screen(GameScreen screen) {
         case GameScreen::CREATE_ROOM:
         case GameScreen::BROWSE_ROOMS:
         case GameScreen::ROOM_LOBBY:
+        case GameScreen::SETTINGS:
+        case GameScreen::GLOBAL_LEADERBOARD:
             // Hide game screens when returning to menu
             hide_waiting_screen();
             hide_result_screen();

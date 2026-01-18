@@ -11,7 +11,7 @@ MenuManager::MenuManager(NetworkClient& network_client, int screen_width, int sc
     : network_client_(network_client)
     , screen_width_(screen_width)
     , screen_height_(screen_height)
-    , current_screen_(GameScreen::MAIN_MENU) {
+    , current_screen_(GameScreen::CONNECTION) {
 }
 
 void MenuManager::initialize() {
@@ -46,6 +46,7 @@ void MenuManager::initialize() {
     });
 
     // Create all screen instances
+    connection_screen_ = std::make_unique<ConnectionScreen>(network_client_, screen_width_, screen_height_);
     main_menu_screen_ = std::make_unique<MainMenuScreen>(network_client_, screen_width_, screen_height_);
     create_room_screen_ = std::make_unique<CreateRoomScreen>(network_client_, screen_width_, screen_height_);
     browse_rooms_screen_ = std::make_unique<BrowseRoomsScreen>(network_client_, screen_width_, screen_height_);
@@ -55,6 +56,10 @@ void MenuManager::initialize() {
     global_leaderboard_screen_ = std::make_unique<GlobalLeaderboardScreen>(network_client_, screen_width_, screen_height_);
 
     // Set screen change callbacks
+    connection_screen_->set_screen_change_callback([this](GameScreen screen) {
+        set_screen(screen);
+    });
+
     main_menu_screen_->set_screen_change_callback([this](GameScreen screen) {
         set_screen(screen);
     });
@@ -93,6 +98,7 @@ void MenuManager::initialize() {
     });
 
     // Initialize all screens
+    connection_screen_->initialize();
     main_menu_screen_->initialize();
     create_room_screen_->initialize();
     browse_rooms_screen_->initialize();
@@ -109,6 +115,9 @@ void MenuManager::initialize() {
 void MenuManager::set_screen(GameScreen screen) {
     // Call on_exit for previous screen
     switch (current_screen_) {
+        case GameScreen::CONNECTION:
+            if (connection_screen_) connection_screen_->on_exit();
+            break;
         case GameScreen::MAIN_MENU:
             if (main_menu_screen_) main_menu_screen_->on_exit();
             break;
@@ -141,6 +150,9 @@ void MenuManager::set_screen(GameScreen screen) {
 
     // Call on_enter for new screen
     switch (current_screen_) {
+        case GameScreen::CONNECTION:
+            if (connection_screen_) connection_screen_->on_enter();
+            break;
         case GameScreen::MAIN_MENU:
             if (main_menu_screen_) main_menu_screen_->on_enter();
             break;
@@ -177,6 +189,9 @@ void MenuManager::update(engine::IGraphicsPlugin* graphics, engine::IInputPlugin
 
     // Update current screen
     switch (current_screen_) {
+        case GameScreen::CONNECTION:
+            if (connection_screen_) connection_screen_->update(graphics, input);
+            break;
         case GameScreen::MAIN_MENU:
             if (main_menu_screen_) main_menu_screen_->update(graphics, input);
             break;
@@ -214,6 +229,9 @@ void MenuManager::update(engine::IGraphicsPlugin* graphics, engine::IInputPlugin
 void MenuManager::draw(engine::IGraphicsPlugin* graphics) {
     // Draw current screen
     switch (current_screen_) {
+        case GameScreen::CONNECTION:
+            if (connection_screen_) connection_screen_->draw(graphics);
+            break;
         case GameScreen::MAIN_MENU:
             if (main_menu_screen_) main_menu_screen_->draw(graphics);
             break;

@@ -192,18 +192,39 @@ bool ClientGame::initialize(const std::string& host, uint16_t tcp_port, const st
         menu_manager_->get_settings_screen() ? &menu_manager_->get_settings_screen()->get_key_bindings() : nullptr
     );
 
-    status_overlay_->set_connection("Connecting to " + host_ + ":" + std::to_string(tcp_port_));
-    status_overlay_->refresh();
+    // Setup connection screen callback
+    if (menu_manager_->get_connection_screen()) {
+        menu_manager_->get_connection_screen()->set_defaults(host_, tcp_port_, player_name_);
+        menu_manager_->get_connection_screen()->set_connect_callback(
+            [this](const std::string& host, uint16_t port, const std::string& player_name) {
+                // Store connection parameters
+                host_ = host;
+                tcp_port_ = port;
+                player_name_ = player_name;
 
-    if (!network_client_->connect(host_, tcp_port_)) {
-        std::cerr << "[ClientGame] Failed to connect to server\n";
-        return false;
+                status_overlay_->set_connection("Connecting to " + host_ + ":" + std::to_string(tcp_port_));
+                status_overlay_->refresh();
+
+                if (!network_client_->connect(host_, tcp_port_)) {
+                    std::cerr << "[ClientGame] Failed to connect to server\n";
+                    if (menu_manager_->get_connection_screen()) {
+                        menu_manager_->get_connection_screen()->set_error_message("Connection failed");
+                    }
+                    return;
+                }
+
+                network_client_->send_connect(player_name_);
+
+                // Connection successful, switch to main menu
+                menu_manager_->set_screen(GameScreen::MAIN_MENU);
+                screen_manager_->set_screen(GameScreen::MAIN_MENU);
+            }
+        );
     }
 
-    network_client_->send_connect(player_name_);
-
-    // Start at main menu instead of auto-joining
-    screen_manager_->set_screen(GameScreen::MAIN_MENU);
+    // Start at connection screen
+    menu_manager_->set_screen(GameScreen::CONNECTION);
+    screen_manager_->set_screen(GameScreen::CONNECTION);
 
     // Emit scene change event for menu music at startup
     registry_->get_event_bus().publish(ecs::SceneChangeEvent{
@@ -1394,7 +1415,8 @@ void ClientGame::run() {
 
         // Check current screen
         GameScreen current_screen = screen_manager_->get_current_screen();
-        bool in_menu = (current_screen == GameScreen::MAIN_MENU ||
+        bool in_menu = (current_screen == GameScreen::CONNECTION ||
+                       current_screen == GameScreen::MAIN_MENU ||
                        current_screen == GameScreen::CREATE_ROOM ||
                        current_screen == GameScreen::BROWSE_ROOMS ||
                        current_screen == GameScreen::ROOM_LOBBY ||
@@ -1674,7 +1696,8 @@ void ClientGame::apply_input_to_local_player(uint16_t input_flags) {
 
 void ClientGame::handle_console_command(const std::string& command) {
     if (command == "clear") {
-        console_overlay_->add_info("Console cleared");
+        console_overlay_->clear();
+        console_overlay_->add_success("Console cleared");
         return;
     }
 

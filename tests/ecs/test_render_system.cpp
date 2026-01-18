@@ -71,6 +71,7 @@ public:
     void draw_rectangle_outline(const engine::Rectangle&, engine::Color, float) override {}
     void draw_circle(engine::Vector2f, float, engine::Color) override {}
     void draw_line(engine::Vector2f, engine::Vector2f, engine::Color, float) override {}
+    float measure_text(const std::string&, int, engine::FontHandle) const override { return 0.0f; }
 
     // Resource loading (not used in tests)
     engine::TextureHandle load_texture(const std::string&) override { return 1; }
