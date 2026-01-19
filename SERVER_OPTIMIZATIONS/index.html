@@ -1,0 +1,3327 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for the Mirror R-Type game project">
+      
+      
+        <meta name="author" content="Team 100-6">
+      
+      
+      
+        <link rel="prev" href="../SERVER_ARCHITECTURE/">
+      
+      
+        <link rel="next" href="../PROTOCOL/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+    
+    
+      
+        <title>Server Optimizations - Mirror R-Type Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#server-performance-optimizations" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Mirror R-Type Documentation" class="md-header__button md-logo" aria-label="Mirror R-Type Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Mirror R-Type Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Server Optimizations
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../SETUP/" class="md-tabs__link">
+          
+  
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../CLIENT_ARCHITECTURE/" class="md-tabs__link">
+          
+  
+  
+  Architecture
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../LEVEL_SYSTEM/" class="md-tabs__link">
+          
+  
+  
+  Game Systems
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../DEVELOPER/" class="md-tabs__link">
+          
+  
+  
+  Development
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../RELEASE/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Release
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Mirror R-Type Documentation" class="md-nav__button md-logo" aria-label="Mirror R-Type Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Mirror R-Type Documentation
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../SETUP/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../CLIENT_ARCHITECTURE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Client Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../SERVER_ARCHITECTURE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Server Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Server Optimizations
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Server Optimizations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#performance-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Performance Summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-network-optimizations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Network Optimizations
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Network Optimizations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#11-hybrid-tcpudp-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.1 Hybrid TCP/UDP Architecture
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#12-lz4-packet-compression" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.2 LZ4 Packet Compression
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.2 LZ4 Packet Compression">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#compression-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compression Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#compressible-packet-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compressible Packet Types
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bandwidth-savings-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bandwidth Savings Analysis
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#compression-cpu-cost" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compression CPU Cost
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#13-packet-header-optimization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.3 Packet Header Optimization
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-ecs-entity-component-system-optimizations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. ECS (Entity Component System) Optimizations
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. ECS (Entity Component System) Optimizations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-sparseset-data-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 SparseSet Data Structure
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.1 SparseSet Data Structure">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#memory-efficiency-comparison" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Memory Efficiency Comparison
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#operation-complexity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Operation Complexity
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cache-performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cache Performance
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-component-size-optimization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 Component Size Optimization
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-snapshot-state-synchronization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Snapshot &amp; State Synchronization
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Snapshot &amp; State Synchronization">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-snapshot-rate-optimization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 Snapshot Rate Optimization
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-entity-prioritization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2 Entity Prioritization
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-velocity-quantization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.3 Velocity Quantization
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#34-entitystate-network-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.4 EntityState Network Structure
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-threading-concurrency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Threading &amp; Concurrency
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Threading &amp; Concurrency">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-session-thread-pool-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.1 Session Thread Pool Architecture
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4.1 Session Thread Pool Architecture">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#barrier-synchronization-pattern" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Barrier Synchronization Pattern
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-lock-free-atomic-operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.2 Lock-Free Atomic Operations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#43-read-heavy-optimization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.3 Read-Heavy Optimization
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-game-loop-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Game Loop Architecture
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. Game Loop Architecture">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#51-fixed-tick-rate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.1 Fixed Tick Rate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#52-tick-budget-breakdown" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.2 Tick Budget Breakdown
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-memory-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Memory Management
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. Memory Management">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#61-fixed-size-buffers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.1 Fixed-Size Buffers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#62-queue-based-event-batching" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.2 Queue-Based Event Batching
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#63-pod-serialization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.3 POD Serialization
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-compression-statistics-monitoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Compression Statistics &amp; Monitoring
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="7. Compression Statistics &amp; Monitoring">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#71-built-in-metrics-system" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.1 Built-in Metrics System
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#72-available-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.2 Available Metrics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#73-runtime-report-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.3 Runtime Report Format
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-configuration-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Configuration Reference
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="8. Configuration Reference">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#81-network-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.1 Network Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#82-game-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.2 Game Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#83-threading-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.3 Threading Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-performance-benchmarks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Performance Benchmarks
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="9. Performance Benchmarks">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#91-bandwidth-comparison" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.1 Bandwidth Comparison
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#92-latency-comparison" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.2 Latency Comparison
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#93-memory-usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.3 Memory Usage
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-key-files-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. Key Files Reference
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conclusion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conclusion
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../PROTOCOL/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Protocol
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../UDP_ACK_SYSTEM/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    UDP ACK System
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../create-room-archi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Create Room Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Game Systems
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Game Systems
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../LEVEL_SYSTEM/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Level System
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../WAVE_SYSTEM/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Wave System
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../WAVE_CONFIGURATION_GUIDE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Wave Configuration Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../PROCEDURAL_GENERATION/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Procedural Generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ENEMIES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Enemy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ACCESSIBILITY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Accessibility (Colorblind Support)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Development
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../DEVELOPER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developer Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../SERVER_DEVELOPMENT_GUIDE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Server Development Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../LUA_SCRIPTING/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lua Scripting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../RELEASE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#performance-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Performance Summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-network-optimizations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Network Optimizations
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Network Optimizations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#11-hybrid-tcpudp-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.1 Hybrid TCP/UDP Architecture
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#12-lz4-packet-compression" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.2 LZ4 Packet Compression
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.2 LZ4 Packet Compression">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#compression-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compression Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#compressible-packet-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compressible Packet Types
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bandwidth-savings-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bandwidth Savings Analysis
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#compression-cpu-cost" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compression CPU Cost
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#13-packet-header-optimization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.3 Packet Header Optimization
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-ecs-entity-component-system-optimizations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. ECS (Entity Component System) Optimizations
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. ECS (Entity Component System) Optimizations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-sparseset-data-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 SparseSet Data Structure
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.1 SparseSet Data Structure">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#memory-efficiency-comparison" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Memory Efficiency Comparison
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#operation-complexity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Operation Complexity
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cache-performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cache Performance
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-component-size-optimization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 Component Size Optimization
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-snapshot-state-synchronization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Snapshot &amp; State Synchronization
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Snapshot &amp; State Synchronization">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-snapshot-rate-optimization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 Snapshot Rate Optimization
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-entity-prioritization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2 Entity Prioritization
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-velocity-quantization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.3 Velocity Quantization
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#34-entitystate-network-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.4 EntityState Network Structure
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-threading-concurrency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Threading &amp; Concurrency
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Threading &amp; Concurrency">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-session-thread-pool-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.1 Session Thread Pool Architecture
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4.1 Session Thread Pool Architecture">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#barrier-synchronization-pattern" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Barrier Synchronization Pattern
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-lock-free-atomic-operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.2 Lock-Free Atomic Operations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#43-read-heavy-optimization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.3 Read-Heavy Optimization
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-game-loop-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Game Loop Architecture
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. Game Loop Architecture">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#51-fixed-tick-rate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.1 Fixed Tick Rate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#52-tick-budget-breakdown" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.2 Tick Budget Breakdown
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-memory-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Memory Management
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. Memory Management">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#61-fixed-size-buffers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.1 Fixed-Size Buffers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#62-queue-based-event-batching" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.2 Queue-Based Event Batching
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#63-pod-serialization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.3 POD Serialization
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-compression-statistics-monitoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Compression Statistics &amp; Monitoring
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="7. Compression Statistics &amp; Monitoring">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#71-built-in-metrics-system" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.1 Built-in Metrics System
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#72-available-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.2 Available Metrics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#73-runtime-report-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.3 Runtime Report Format
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-configuration-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Configuration Reference
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="8. Configuration Reference">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#81-network-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.1 Network Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#82-game-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.2 Game Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#83-threading-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.3 Threading Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-performance-benchmarks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Performance Benchmarks
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="9. Performance Benchmarks">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#91-bandwidth-comparison" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.1 Bandwidth Comparison
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#92-latency-comparison" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.2 Latency Comparison
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#93-memory-usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.3 Memory Usage
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-key-files-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. Key Files Reference
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conclusion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conclusion
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="server-performance-optimizations">Server Performance Optimizations</h1>
+<p>This document details the performance optimizations implemented in the R-Type server to ensure low latency, efficient bandwidth usage, and scalable multiplayer gameplay.</p>
+<h2 id="performance-summary">Performance Summary</h2>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Optimization</th>
+<th>Measured Gain</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Network</strong></td>
+<td>LZ4 Compression</td>
+<td><strong>30-40% bandwidth reduction</strong></td>
+</tr>
+<tr>
+<td><strong>Network</strong></td>
+<td>Selective compression</td>
+<td><strong>&lt; 1% CPU overhead</strong></td>
+</tr>
+<tr>
+<td><strong>Memory</strong></td>
+<td>SparseSet ECS</td>
+<td><strong>86.5% memory savings</strong></td>
+</tr>
+<tr>
+<td><strong>Threading</strong></td>
+<td>Thread pool with barriers</td>
+<td><strong>6x parallel session updates</strong></td>
+</tr>
+<tr>
+<td><strong>Serialization</strong></td>
+<td>Velocity quantization</td>
+<td><strong>4 bytes saved per entity</strong></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="1-network-optimizations">1. Network Optimizations</h2>
+<h3 id="11-hybrid-tcpudp-architecture">1.1 Hybrid TCP/UDP Architecture</h3>
+<p>The server uses a dual-protocol strategy to balance reliability and latency:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>┌─────────────────────────────────────────────────────────────┐
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>│                    Network Architecture                      │
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>├─────────────────────────────────────────────────────────────┤
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>│                                                             │
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>│   TCP (Port 4242)              UDP (Port 4243)              │
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>│   ├─ Connection/Auth           ├─ Player inputs             │
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>│   ├─ Lobby management          ├─ State snapshots           │
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>│   ├─ Chat messages             ├─ Entity spawn/destroy      │
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>│   └─ Reliable events           └─ Real-time gameplay        │
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>│                                                             │
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>│   Latency: ~50-100ms           Latency: ~5-20ms             │
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>│   Reliability: Guaranteed      Reliability: Best-effort     │
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>│                                                             │
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>└─────────────────────────────────────────────────────────────┘
+</code></pre></div>
+<p><strong>Performance Impact:</strong>
+- <strong>UDP for gameplay</strong>: Reduces input-to-display latency by <strong>30-80ms</strong> compared to TCP-only
+- <strong>TCP for critical data</strong>: Zero packet loss for connection and lobby state</p>
+<h3 id="12-lz4-packet-compression">1.2 LZ4 Packet Compression</h3>
+<p>The server implements selective LZ4 compression for bandwidth optimization.</p>
+<h4 id="compression-configuration">Compression Configuration</h4>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>MIN_COMPRESSION_SIZE</code></td>
+<td>128 bytes</td>
+<td>Skip small packets</td>
+</tr>
+<tr>
+<td><code>MIN_COMPRESSION_GAIN</code></td>
+<td>10%</td>
+<td>Only compress if beneficial</td>
+</tr>
+<tr>
+<td><code>MAX_COMPRESSION_TIME</code></td>
+<td>500 µs</td>
+<td>Prevent blocking</td>
+</tr>
+</tbody>
+</table>
+<h4 id="compressible-packet-types">Compressible Packet Types</h4>
+<table>
+<thead>
+<tr>
+<th>Packet Type</th>
+<th>Typical Size</th>
+<th>Compressed?</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SERVER_SNAPSHOT</code></td>
+<td>300-1400 bytes</td>
+<td>Yes</td>
+<td>Large, repetitive data</td>
+</tr>
+<tr>
+<td><code>SERVER_DELTA_SNAPSHOT</code></td>
+<td>200-800 bytes</td>
+<td>Yes</td>
+<td>Entity state arrays</td>
+</tr>
+<tr>
+<td><code>SERVER_ROOM_LIST</code></td>
+<td>200-500 bytes</td>
+<td>Yes</td>
+<td>Room metadata</td>
+</tr>
+<tr>
+<td><code>SERVER_LOBBY_STATE</code></td>
+<td>150-400 bytes</td>
+<td>Yes</td>
+<td>Player lists</td>
+</tr>
+<tr>
+<td><code>CLIENT_INPUT</code></td>
+<td>14 bytes</td>
+<td>No</td>
+<td>Too small</td>
+</tr>
+<tr>
+<td><code>CLIENT_CONNECT</code></td>
+<td>20-50 bytes</td>
+<td>No</td>
+<td>Below threshold</td>
+</tr>
+</tbody>
+</table>
+<h4 id="bandwidth-savings-analysis">Bandwidth Savings Analysis</h4>
+<p><strong>Scenario: 4-player active game (39 entities average)</strong></p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Without Compression</th>
+<th>With LZ4</th>
+<th>Savings</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Snapshot size</td>
+<td>985 bytes</td>
+<td>~670 bytes</td>
+<td><strong>32%</strong></td>
+</tr>
+<tr>
+<td>Bandwidth (60 Hz)</td>
+<td>59.1 KB/s</td>
+<td>40.2 KB/s</td>
+<td><strong>18.9 KB/s</strong></td>
+</tr>
+<tr>
+<td>Per minute</td>
+<td>3.5 MB</td>
+<td>2.4 MB</td>
+<td><strong>1.1 MB</strong></td>
+</tr>
+<tr>
+<td>30-min session</td>
+<td>106 MB</td>
+<td>72 MB</td>
+<td><strong>34 MB</strong></td>
+</tr>
+<tr>
+<td>Per player (30 min)</td>
+<td>26.5 MB</td>
+<td>18 MB</td>
+<td><strong>8.5 MB</strong></td>
+</tr>
+</tbody>
+</table>
+<h4 id="compression-cpu-cost">Compression CPU Cost</h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>LZ4 compression speed: ~500-700 MB/sec
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>Per 985-byte snapshot:
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>  Compression time: ~1.6 µs
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>  Budget available: 500 µs
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>  Usage: 0.32% of budget
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>Per tick (60 snapshots):
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>  Total compression: ~98 µs
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>  Tick budget: 15,625 µs (64 TPS)
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>  CPU overhead: 0.63%
+</code></pre></div>
+<p><strong>Result</strong>: Compression adds <strong>&lt; 1% CPU overhead</strong> while saving <strong>30-40% bandwidth</strong>.</p>
+<h3 id="13-packet-header-optimization">1.3 Packet Header Optimization</h3>
+<p>Minimal 9-13 byte header design:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>┌──────────────────────────────────────────────────────────────┐
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>│                     Packet Header (9-13 bytes)               │
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>├──────────┬──────────┬──────────┬─────────────┬───────────────┤
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>│ Version  │   Type   │  Flags   │  Payload    │   Sequence    │
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>│ (1 byte) │ (1 byte) │ (1 byte) │  Length     │   Number      │
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>│          │          │          │  (2 bytes)  │   (4 bytes)   │
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>├──────────┴──────────┴──────────┴─────────────┴───────────────┤
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>│ [If compressed] Uncompressed Size (4 bytes)                  │
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>└──────────────────────────────────────────────────────────────┘
+</code></pre></div>
+<p><strong>Overhead comparison:</strong>
+- R-Type header: <strong>9-13 bytes</strong> (0.6-0.9% of max packet)
+- Typical game protocols: 20-40 bytes (1.4-2.8%)
+- <strong>Savings: 50-70% header overhead reduction</strong></p>
+<hr />
+<h2 id="2-ecs-entity-component-system-optimizations">2. ECS (Entity Component System) Optimizations</h2>
+<h3 id="21-sparseset-data-structure">2.1 SparseSet Data Structure</h3>
+<p>The ECS uses SparseSet for cache-efficient component storage:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1">// Traditional approach: O(n) iteration, poor cache locality</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">std</span><span class="o">::</span><span class="n">unordered_map</span><span class="o">&lt;</span><span class="n">EntityId</span><span class="p">,</span><span class="w"> </span><span class="n">Component</span><span class="o">&gt;</span><span class="w"> </span><span class="n">components</span><span class="p">;</span><span class="w">  </span><span class="c1">// Scattered memory</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1">// SparseSet approach: O(1) access, contiguous memory</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="k">struct</span><span class="w"> </span><span class="nc">SparseSet</span><span class="o">&lt;</span><span class="n">Component</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">    </span><span class="n">vector</span><span class="o">&lt;</span><span class="n">optional</span><span class="o">&lt;</span><span class="kt">size_t</span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">sparse</span><span class="p">;</span><span class="w">  </span><span class="c1">// EntityID → dense index</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span><span class="n">vector</span><span class="o">&lt;</span><span class="n">Entity</span><span class="o">&gt;</span><span class="w"> </span><span class="n">dense</span><span class="p">;</span><span class="w">              </span><span class="c1">// Active entity IDs (packed)</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">    </span><span class="n">vector</span><span class="o">&lt;</span><span class="n">Component</span><span class="o">&gt;</span><span class="w"> </span><span class="n">data</span><span class="p">;</span><span class="w">            </span><span class="c1">// Component data (packed)</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="p">};</span>
+</code></pre></div>
+<h4 id="memory-efficiency-comparison">Memory Efficiency Comparison</h4>
+<p><strong>Scenario: 100 active entities / 10,000 possible IDs</strong></p>
+<table>
+<thead>
+<tr>
+<th>Approach</th>
+<th>Memory Usage</th>
+<th>Cache Efficiency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Naive Array</td>
+<td>640 KB</td>
+<td>Poor (1% utilization)</td>
+</tr>
+<tr>
+<td>Hash Map</td>
+<td>~200 KB</td>
+<td>Moderate (pointer chasing)</td>
+</tr>
+<tr>
+<td><strong>SparseSet</strong></td>
+<td><strong>86.4 KB</strong></td>
+<td><strong>Excellent (contiguous)</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Memory savings: 86.5%</strong> compared to naive array approach.</p>
+<h4 id="operation-complexity">Operation Complexity</h4>
+<table>
+<thead>
+<tr>
+<th>Operation</th>
+<th>SparseSet</th>
+<th>Hash Map</th>
+<th>Array</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Lookup</td>
+<td>O(1)</td>
+<td>O(1) avg</td>
+<td>O(1)</td>
+</tr>
+<tr>
+<td>Insert</td>
+<td>O(1)</td>
+<td>O(1) avg</td>
+<td>O(1)</td>
+</tr>
+<tr>
+<td>Remove</td>
+<td>O(1)*</td>
+<td>O(1) avg</td>
+<td>O(n)</td>
+</tr>
+<tr>
+<td>Iterate</td>
+<td>O(n) dense</td>
+<td>O(n) sparse</td>
+<td>O(n) sparse</td>
+</tr>
+</tbody>
+</table>
+<p>*SparseSet uses swap-and-pop for O(1) removal</p>
+<h4 id="cache-performance">Cache Performance</h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>Iteration over 1000 components:
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>Hash Map: ~15,000 cache misses (pointer chasing)
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>Array:    ~10,000 cache misses (sparse data)
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>SparseSet: ~1,500 cache misses (dense packing)
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>Cache hit improvement: ~60-85%
+</code></pre></div>
+<h3 id="22-component-size-optimization">2.2 Component Size Optimization</h3>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Size</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Position</td>
+<td>8 bytes</td>
+<td>2 floats</td>
+</tr>
+<tr>
+<td>Velocity</td>
+<td>8 bytes</td>
+<td>2 floats</td>
+</tr>
+<tr>
+<td>Collider</td>
+<td>8 bytes</td>
+<td>2 floats (width, height)</td>
+</tr>
+<tr>
+<td>Health</td>
+<td>8 bytes</td>
+<td>current + max (2 ints)</td>
+</tr>
+<tr>
+<td>Input</td>
+<td>4 bytes</td>
+<td>Bitfield flags</td>
+</tr>
+<tr>
+<td><strong>EntityState</strong></td>
+<td><strong>25 bytes</strong></td>
+<td>Network serialization</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="3-snapshot-state-synchronization">3. Snapshot &amp; State Synchronization</h2>
+<h3 id="31-snapshot-rate-optimization">3.1 Snapshot Rate Optimization</h3>
+<table>
+<thead>
+<tr>
+<th>Configuration</th>
+<th>Value</th>
+<th>Rationale</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Server tick rate</td>
+<td>64 TPS</td>
+<td>Physics precision</td>
+</tr>
+<tr>
+<td>Snapshot rate</td>
+<td>60 Hz</td>
+<td>Visual smoothness</td>
+</tr>
+<tr>
+<td>Client input rate</td>
+<td>60-64 Hz</td>
+<td>Responsive controls</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Why 60 Hz snapshots?</strong>
+- Matches typical display refresh rates
+- Provides smooth interpolation
+- Balances bandwidth vs visual quality</p>
+<h3 id="32-entity-prioritization">3.2 Entity Prioritization</h3>
+<p>Snapshots include entities by priority to fit within MTU:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>Priority Order:
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>┌─────────────────────────────────────────┐
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>│ 1. PLAYERS      (Always included)       │  ← Critical for gameplay
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>│ 2. PROJECTILES  (High priority)         │  ← Affects hit detection
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>│ 3. ENEMIES      (Medium priority)       │  ← Important for dodging
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>│ 4. WALLS        (Excluded)              │  ← Predictable scrolling
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>└─────────────────────────────────────────┘
+</code></pre></div>
+<p><strong>Impact:</strong>
+- Maximum entities per snapshot: <strong>55</strong>
+- Walls excluded: Saves <strong>~200-400 bytes</strong> per snapshot
+- Client predicts wall positions locally</p>
+<h3 id="33-velocity-quantization">3.3 Velocity Quantization</h3>
+<p>Float velocities are quantized to int16 for network transmission:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1">// Before: 4 bytes per velocity component (float)</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="kt">float</span><span class="w"> </span><span class="n">velocity_x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">123.456f</span><span class="p">;</span><span class="w">  </span><span class="c1">// 4 bytes</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1">// After: 2 bytes per velocity component (int16)</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="kt">int16_t</span><span class="w"> </span><span class="n">velocity_x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">static_cast</span><span class="o">&lt;</span><span class="kt">int16_t</span><span class="o">&gt;</span><span class="p">(</span><span class="n">vel</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mf">10.0f</span><span class="p">);</span><span class="w">  </span><span class="c1">// 2 bytes</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="c1">// Precision: 0.1 units (sufficient for gameplay)</span>
+</code></pre></div>
+<p><strong>Savings per entity:</strong>
+- Before: 8 bytes (2 floats)
+- After: 4 bytes (2 int16)
+- <strong>Savings: 4 bytes/entity = 220 bytes/snapshot (55 entities)</strong></p>
+<h3 id="34-entitystate-network-structure">3.4 EntityState Network Structure</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>┌─────────────────────────────────────────────────────────────┐
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>│                 EntityState (25 bytes)                       │
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>├─────────────────┬───────────────────────────────────────────┤
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>│ entity_id       │ 4 bytes  (uint32_t)                       │
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>│ entity_type     │ 1 byte   (uint8_t)                        │
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>│ position_x      │ 4 bytes  (float)                          │
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>│ position_y      │ 4 bytes  (float)                          │
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>│ velocity_x      │ 2 bytes  (int16_t, quantized)             │
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>│ velocity_y      │ 2 bytes  (int16_t, quantized)             │
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>│ health          │ 2 bytes  (uint16_t)                       │
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>│ flags           │ 2 bytes  (bitfield: invuln, charging...)  │
+<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>│ last_ack_seq    │ 4 bytes  (uint32_t, lag compensation)     │
+<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>└─────────────────┴───────────────────────────────────────────┘
+</code></pre></div>
+<hr />
+<h2 id="4-threading-concurrency">4. Threading &amp; Concurrency</h2>
+<h3 id="41-session-thread-pool-architecture">4.1 Session Thread Pool Architecture</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>┌────────────────────────────────────────────────────────────────┐
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>│                    Thread Pool Architecture                     │
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>├────────────────────────────────────────────────────────────────┤
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>│                                                                │
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>│   Main Thread                    Worker Threads (6)            │
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>│   ┌──────────────┐              ┌─────────────────────────┐   │
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>│   │ 1. Schedule  │──────────────►│ Worker 1: Session A    │   │
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>│   │    tasks     │              │ Worker 2: Session B    │   │
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>│   │              │              │ Worker 3: Session C    │   │
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>│   │ 2. Wait at   │◄─────────────│ Worker 4: Session D    │   │
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>│   │    barrier   │   (notify)   │ Worker 5: Session E    │   │
+<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>│   │              │              │ Worker 6: Session F    │   │
+<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a>│   │ 3. Broadcast │              └─────────────────────────┘   │
+<a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a>│   │    events    │                                            │
+<a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a>│   └──────────────┘                                            │
+<a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a>│                                                                │
+<a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a>└────────────────────────────────────────────────────────────────┘
+</code></pre></div>
+<h4 id="configuration">Configuration</h4>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+<th>Rationale</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Worker threads</td>
+<td>6</td>
+<td>Optimal for 4-10 concurrent sessions</td>
+</tr>
+<tr>
+<td>Synchronization</td>
+<td>Barrier pattern</td>
+<td>Prevents race conditions</td>
+</tr>
+<tr>
+<td>Atomics</td>
+<td>Lock-free counters</td>
+<td>Minimal contention</td>
+</tr>
+</tbody>
+</table>
+<h4 id="barrier-synchronization-pattern">Barrier Synchronization Pattern</h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1">// Main thread</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="kt">void</span><span class="w"> </span><span class="nf">update_all_sessions</span><span class="p">(</span><span class="kt">float</span><span class="w"> </span><span class="n">dt</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">    </span><span class="n">tasks_pending_</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">session_count</span><span class="p">;</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">    </span><span class="n">tasks_completed_</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">    </span><span class="c1">// Schedule all session updates</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="k">auto</span><span class="o">&amp;</span><span class="w"> </span><span class="n">session</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">sessions</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">        </span><span class="n">task_queue_</span><span class="p">.</span><span class="n">push</span><span class="p">([</span><span class="o">&amp;</span><span class="p">]{</span><span class="w"> </span><span class="n">session</span><span class="p">.</span><span class="n">update</span><span class="p">(</span><span class="n">dt</span><span class="p">);</span><span class="w"> </span><span class="p">});</span>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>
+<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="w">    </span><span class="c1">// Wait for all workers to complete</span>
+<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a><span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">unique_lock</span><span class="w"> </span><span class="n">lock</span><span class="p">(</span><span class="n">completion_mutex_</span><span class="p">);</span>
+<a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a><span class="w">    </span><span class="n">completion_cv_</span><span class="p">.</span><span class="n">wait</span><span class="p">(</span><span class="n">lock</span><span class="p">,</span><span class="w"> </span><span class="p">[]{</span>
+<a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">tasks_completed_</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">tasks_pending_</span><span class="p">;</span>
+<a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a><span class="w">    </span><span class="p">});</span>
+<a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a>
+<a id="__codelineno-9-17" name="__codelineno-9-17" href="#__codelineno-9-17"></a><span class="w">    </span><span class="c1">// Safe to broadcast events now</span>
+<a id="__codelineno-9-18" name="__codelineno-9-18" href="#__codelineno-9-18"></a><span class="w">    </span><span class="n">broadcast_all_session_events</span><span class="p">();</span>
+<a id="__codelineno-9-19" name="__codelineno-9-19" href="#__codelineno-9-19"></a><span class="p">}</span>
+</code></pre></div>
+<p><strong>Benefits:</strong>
+- <strong>No per-entity locks</strong>: Sessions update independently
+- <strong>Deterministic ordering</strong>: Events broadcast after all updates
+- <strong>Scalability</strong>: Handles 6 concurrent sessions with 0 contention</p>
+<h3 id="42-lock-free-atomic-operations">4.2 Lock-Free Atomic Operations</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1">// Task counting without mutex</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="n">std</span><span class="o">::</span><span class="n">atomic</span><span class="o">&lt;</span><span class="kt">size_t</span><span class="o">&gt;</span><span class="w"> </span><span class="n">tasks_pending_</span><span class="p">{</span><span class="mi">0</span><span class="p">};</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="n">std</span><span class="o">::</span><span class="n">atomic</span><span class="o">&lt;</span><span class="kt">size_t</span><span class="o">&gt;</span><span class="w"> </span><span class="n">tasks_completed_</span><span class="p">{</span><span class="mi">0</span><span class="p">};</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="c1">// Memory ordering for correctness</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="n">tasks_pending_</span><span class="p">.</span><span class="n">store</span><span class="p">(</span><span class="n">count</span><span class="p">,</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">memory_order_release</span><span class="p">);</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="k">auto</span><span class="w"> </span><span class="n">completed</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tasks_completed_</span><span class="p">.</span><span class="n">fetch_add</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">memory_order_acq_rel</span><span class="p">);</span>
+</code></pre></div>
+<h3 id="43-read-heavy-optimization">4.3 Read-Heavy Optimization</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1">// Session lookup uses shared_mutex</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="n">std</span><span class="o">::</span><span class="n">shared_mutex</span><span class="w"> </span><span class="n">sessions_mutex_</span><span class="p">;</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="c1">// Multiple readers (frequent)</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="n">std</span><span class="o">::</span><span class="n">shared_lock</span><span class="w"> </span><span class="nf">lock</span><span class="p">(</span><span class="n">sessions_mutex_</span><span class="p">);</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="k">auto</span><span class="w"> </span><span class="n">session</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">sessions_</span><span class="p">.</span><span class="n">find</span><span class="p">(</span><span class="n">id</span><span class="p">);</span>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="c1">// Single writer (rare)</span>
+<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="n">std</span><span class="o">::</span><span class="n">unique_lock</span><span class="w"> </span><span class="nf">lock</span><span class="p">(</span><span class="n">sessions_mutex_</span><span class="p">);</span>
+<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="n">sessions_</span><span class="p">.</span><span class="n">emplace</span><span class="p">(</span><span class="n">id</span><span class="p">,</span><span class="w"> </span><span class="n">session</span><span class="p">);</span>
+</code></pre></div>
+<hr />
+<h2 id="5-game-loop-architecture">5. Game Loop Architecture</h2>
+<h3 id="51-fixed-tick-rate">5.1 Fixed Tick Rate</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>┌─────────────────────────────────────────────────────────────┐
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>│                 Server Main Loop (64 TPS)                    │
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>├─────────────────────────────────────────────────────────────┤
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>│                                                             │
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>│   ┌─────────────────────────────────────────────────────┐   │
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>│   │ 1. Calculate delta time                             │   │
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>│   │    └─ steady_clock for microsecond precision        │   │
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>│   ├─────────────────────────────────────────────────────┤   │
+<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>│   │ 2. Process network packets                          │   │
+<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a>│   │    └─ Dequeue and route all pending packets         │   │
+<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a>│   ├─────────────────────────────────────────────────────┤   │
+<a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a>│   │ 3. Update lobbies                                   │   │
+<a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a>│   │    └─ Countdown timers, state transitions           │   │
+<a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a>│   ├─────────────────────────────────────────────────────┤   │
+<a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a>│   │ 4. Update rooms                                     │   │
+<a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a>│   │    └─ Room state management                         │   │
+<a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a>│   ├─────────────────────────────────────────────────────┤   │
+<a id="__codelineno-12-18" name="__codelineno-12-18" href="#__codelineno-12-18"></a>│   │ 5. Update all sessions (PARALLEL)                   │   │
+<a id="__codelineno-12-19" name="__codelineno-12-19" href="#__codelineno-12-19"></a>│   │    └─ Thread pool processes sessions concurrently   │   │
+<a id="__codelineno-12-20" name="__codelineno-12-20" href="#__codelineno-12-20"></a>│   ├─────────────────────────────────────────────────────┤   │
+<a id="__codelineno-12-21" name="__codelineno-12-21" href="#__codelineno-12-21"></a>│   │ 6. Broadcast queued events                          │   │
+<a id="__codelineno-12-22" name="__codelineno-12-22" href="#__codelineno-12-22"></a>│   │    └─ After barrier sync, send all session events   │   │
+<a id="__codelineno-12-23" name="__codelineno-12-23" href="#__codelineno-12-23"></a>│   ├─────────────────────────────────────────────────────┤   │
+<a id="__codelineno-12-24" name="__codelineno-12-24" href="#__codelineno-12-24"></a>│   │ 7. Cleanup inactive sessions                        │   │
+<a id="__codelineno-12-25" name="__codelineno-12-25" href="#__codelineno-12-25"></a>│   │    └─ Remove dead sessions                          │   │
+<a id="__codelineno-12-26" name="__codelineno-12-26" href="#__codelineno-12-26"></a>│   ├─────────────────────────────────────────────────────┤   │
+<a id="__codelineno-12-27" name="__codelineno-12-27" href="#__codelineno-12-27"></a>│   │ 8. Sleep remainder of tick                          │   │
+<a id="__codelineno-12-28" name="__codelineno-12-28" href="#__codelineno-12-28"></a>│   │    └─ Maintain precise 64 TPS                       │   │
+<a id="__codelineno-12-29" name="__codelineno-12-29" href="#__codelineno-12-29"></a>│   └─────────────────────────────────────────────────────┘   │
+<a id="__codelineno-12-30" name="__codelineno-12-30" href="#__codelineno-12-30"></a>│                                                             │
+<a id="__codelineno-12-31" name="__codelineno-12-31" href="#__codelineno-12-31"></a>│   Tick budget: 15,625 µs (15.625 ms)                        │
+<a id="__codelineno-12-32" name="__codelineno-12-32" href="#__codelineno-12-32"></a>│                                                             │
+<a id="__codelineno-12-33" name="__codelineno-12-33" href="#__codelineno-12-33"></a>└─────────────────────────────────────────────────────────────┘
+</code></pre></div>
+<h3 id="52-tick-budget-breakdown">5.2 Tick Budget Breakdown</h3>
+<table>
+<thead>
+<tr>
+<th>Phase</th>
+<th>Typical Time</th>
+<th>% of Budget</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Network processing</td>
+<td>~500 µs</td>
+<td>3.2%</td>
+</tr>
+<tr>
+<td>Lobby/Room update</td>
+<td>~100 µs</td>
+<td>0.6%</td>
+</tr>
+<tr>
+<td>Session updates (parallel)</td>
+<td>~2,000 µs</td>
+<td>12.8%</td>
+</tr>
+<tr>
+<td>Event broadcasting</td>
+<td>~300 µs</td>
+<td>1.9%</td>
+</tr>
+<tr>
+<td>Compression overhead</td>
+<td>~100 µs</td>
+<td>0.6%</td>
+</tr>
+<tr>
+<td><strong>Total used</strong></td>
+<td><strong>~3,000 µs</strong></td>
+<td><strong>19.2%</strong></td>
+</tr>
+<tr>
+<td><strong>Headroom</strong></td>
+<td><strong>~12,600 µs</strong></td>
+<td><strong>80.8%</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Result</strong>: Server maintains <strong>80%+ headroom</strong> for spikes and scaling.</p>
+<hr />
+<h2 id="6-memory-management">6. Memory Management</h2>
+<h3 id="61-fixed-size-buffers">6.1 Fixed-Size Buffers</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1">// Pre-allocated network buffers (no heap allocation per packet)</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="n">std</span><span class="o">::</span><span class="n">array</span><span class="o">&lt;</span><span class="kt">uint8_t</span><span class="p">,</span><span class="w"> </span><span class="mi">65536</span><span class="o">&gt;</span><span class="w"> </span><span class="n">udp_recv_buffer_</span><span class="p">;</span><span class="w">    </span><span class="c1">// 64 KB</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="n">std</span><span class="o">::</span><span class="n">array</span><span class="o">&lt;</span><span class="kt">uint8_t</span><span class="p">,</span><span class="w"> </span><span class="mi">65536</span><span class="o">&gt;</span><span class="w"> </span><span class="n">tcp_recv_buffer_</span><span class="p">;</span><span class="w">    </span><span class="c1">// 64 KB</span>
+</code></pre></div>
+<p><strong>Impact:</strong>
+- Zero heap allocations during packet processing
+- Predictable memory usage
+- No GC pauses or fragmentation</p>
+<h3 id="62-queue-based-event-batching">6.2 Queue-Based Event Batching</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="c1">// ServerNetworkSystem event queues</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="n">std</span><span class="o">::</span><span class="n">queue</span><span class="o">&lt;</span><span class="n">SpawnEvent</span><span class="o">&gt;</span><span class="w"> </span><span class="n">pending_spawns_</span><span class="p">;</span>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="n">std</span><span class="o">::</span><span class="n">queue</span><span class="o">&lt;</span><span class="n">DestroyEvent</span><span class="o">&gt;</span><span class="w"> </span><span class="n">pending_destroys_</span><span class="p">;</span>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="n">std</span><span class="o">::</span><span class="n">queue</span><span class="o">&lt;</span><span class="n">ProjectileEvent</span><span class="o">&gt;</span><span class="w"> </span><span class="n">pending_projectiles_</span><span class="p">;</span>
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="n">std</span><span class="o">::</span><span class="n">queue</span><span class="o">&lt;</span><span class="n">ScoreEvent</span><span class="o">&gt;</span><span class="w"> </span><span class="n">pending_scores_</span><span class="p">;</span>
+<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="c1">// ... etc</span>
+</code></pre></div>
+<p><strong>Benefits:</strong>
+- Events batched per tick (not per-entity)
+- Single mutex lock per queue drain
+- Reduced network syscalls</p>
+<h3 id="63-pod-serialization">6.3 POD Serialization</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="c1">// Zero-copy serialization for Plain Old Data</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="k">template</span><span class="o">&lt;</span><span class="k">typename</span><span class="w"> </span><span class="nc">T</span><span class="o">&gt;</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">uint8_t</span><span class="o">&gt;</span><span class="w"> </span><span class="n">serialize</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">T</span><span class="o">&amp;</span><span class="w"> </span><span class="n">data</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="kt">uint8_t</span><span class="o">*</span><span class="w"> </span><span class="n">bytes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">reinterpret_cast</span><span class="o">&lt;</span><span class="k">const</span><span class="w"> </span><span class="kt">uint8_t</span><span class="o">*&gt;</span><span class="p">(</span><span class="o">&amp;</span><span class="n">data</span><span class="p">);</span>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">uint8_t</span><span class="o">&gt;</span><span class="p">(</span><span class="n">bytes</span><span class="p">,</span><span class="w"> </span><span class="n">bytes</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="k">sizeof</span><span class="p">(</span><span class="n">T</span><span class="p">));</span>
+<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="p">}</span>
+</code></pre></div>
+<p><strong>Performance:</strong>
+- No reflection or parsing overhead
+- Direct memory copy
+- Compile-time size validation</p>
+<hr />
+<h2 id="7-compression-statistics-monitoring">7. Compression Statistics &amp; Monitoring</h2>
+<h3 id="71-built-in-metrics-system">7.1 Built-in Metrics System</h3>
+<p>The server tracks compression performance in real-time:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="k">struct</span><span class="w"> </span><span class="nc">CompressionMetrics</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="w">    </span><span class="kt">size_t</span><span class="w"> </span><span class="n">total_packets_sent</span><span class="p">;</span><span class="w">           </span><span class="c1">// All packets</span>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="w">    </span><span class="kt">size_t</span><span class="w"> </span><span class="n">compressed_packets</span><span class="p">;</span><span class="w">           </span><span class="c1">// Successfully compressed</span>
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="w">    </span><span class="kt">size_t</span><span class="w"> </span><span class="n">bytes_before_compression</span><span class="p">;</span><span class="w">     </span><span class="c1">// Original data</span>
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="w">    </span><span class="kt">size_t</span><span class="w"> </span><span class="n">bytes_after_compression</span><span class="p">;</span><span class="w">      </span><span class="c1">// Final data</span>
+<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="w">    </span><span class="n">chrono</span><span class="o">::</span><span class="n">microseconds</span><span class="w"> </span><span class="n">total_compression_time</span><span class="p">;</span>
+<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="p">};</span>
+</code></pre></div>
+<h3 id="72-available-metrics">7.2 Available Metrics</h3>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Calculation</th>
+<th>Example Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Compression ratio</td>
+<td>compressed / original</td>
+<td>0.65 (65%)</td>
+</tr>
+<tr>
+<td>Bytes saved</td>
+<td>original - compressed</td>
+<td>34 MB / 30 min</td>
+</tr>
+<tr>
+<td>Compression rate</td>
+<td>compressed / total × 100</td>
+<td>45% of packets</td>
+</tr>
+<tr>
+<td>Avg compression time</td>
+<td>total_time / count</td>
+<td>1.6 µs</td>
+</tr>
+</tbody>
+</table>
+<h3 id="73-runtime-report-format">7.3 Runtime Report Format</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>[Compression Stats]
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>  Total packets sent: 108,000
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>  Compressed packets: 48,600 (45.00%)
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>  Bytes before: 106,272,000 (101.36 MB)
+<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>  Bytes after:  72,288,000 (68.93 MB)
+<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>  Bytes saved:  33,984,000 (32.41 MB)
+<a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>  Compression ratio: 68.02%
+<a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>  Avg compression time: 1.64 µs
+</code></pre></div>
+<hr />
+<h2 id="8-configuration-reference">8. Configuration Reference</h2>
+<h3 id="81-network-configuration">8.1 Network Configuration</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="c1">// NetworkConfig.hpp</span>
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="k">constexpr</span><span class="w"> </span><span class="kt">uint16_t</span><span class="w"> </span><span class="n">DEFAULT_TCP_PORT</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">4242</span><span class="p">;</span>
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="k">constexpr</span><span class="w"> </span><span class="kt">uint16_t</span><span class="w"> </span><span class="n">DEFAULT_UDP_PORT</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">4243</span><span class="p">;</span>
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="k">constexpr</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="n">ENABLE_COMPRESSION</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">true</span><span class="p">;</span>
+<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="k">constexpr</span><span class="w"> </span><span class="kt">size_t</span><span class="w"> </span><span class="n">MIN_COMPRESSION_SIZE</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">128</span><span class="p">;</span><span class="w">      </span><span class="c1">// bytes</span>
+<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a><span class="k">constexpr</span><span class="w"> </span><span class="kt">float</span><span class="w"> </span><span class="n">MIN_COMPRESSION_GAIN</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.10f</span><span class="p">;</span><span class="w">     </span><span class="c1">// 10%</span>
+<a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a><span class="k">constexpr</span><span class="w"> </span><span class="kt">uint32_t</span><span class="w"> </span><span class="n">MAX_COMPRESSION_TIME_US</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">500</span><span class="p">;</span><span class="w"> </span><span class="c1">// microseconds</span>
+</code></pre></div>
+<h3 id="82-game-configuration">8.2 Game Configuration</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="c1">// GameConfig.hpp</span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="k">constexpr</span><span class="w"> </span><span class="kt">uint32_t</span><span class="w"> </span><span class="n">SERVER_TICK_RATE</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">64</span><span class="p">;</span><span class="w">         </span><span class="c1">// TPS</span>
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="k">constexpr</span><span class="w"> </span><span class="kt">uint32_t</span><span class="w"> </span><span class="n">TICK_INTERVAL_MS</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">15</span><span class="p">;</span><span class="w">         </span><span class="c1">// ~15.625ms</span>
+<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="k">constexpr</span><span class="w"> </span><span class="kt">uint32_t</span><span class="w"> </span><span class="n">SNAPSHOT_RATE</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">60</span><span class="p">;</span><span class="w">            </span><span class="c1">// Hz</span>
+<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a><span class="k">constexpr</span><span class="w"> </span><span class="kt">size_t</span><span class="w"> </span><span class="n">MAX_PACKET_SIZE</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1400</span><span class="p">;</span><span class="w">          </span><span class="c1">// bytes (MTU-safe)</span>
+<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a><span class="k">constexpr</span><span class="w"> </span><span class="kt">size_t</span><span class="w"> </span><span class="n">MAX_ENTITIES_PER_SNAPSHOT</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">55</span><span class="p">;</span>
+</code></pre></div>
+<h3 id="83-threading-configuration">8.3 Threading Configuration</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="c1">// ThreadingConfig.hpp</span>
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="k">constexpr</span><span class="w"> </span><span class="kt">size_t</span><span class="w"> </span><span class="n">THREAD_POOL_SIZE</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">6</span><span class="p">;</span>
+<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="k">constexpr</span><span class="w"> </span><span class="kt">size_t</span><span class="w"> </span><span class="n">METRICS_PRINT_INTERVAL_SECONDS</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span><span class="p">;</span>
+</code></pre></div>
+<hr />
+<h2 id="9-performance-benchmarks">9. Performance Benchmarks</h2>
+<h3 id="91-bandwidth-comparison">9.1 Bandwidth Comparison</h3>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Uncompressed</th>
+<th>Compressed</th>
+<th>Savings</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Minimal (4 players)</td>
+<td>6.6 KB/s</td>
+<td>4.5 KB/s</td>
+<td>32%</td>
+</tr>
+<tr>
+<td>Active (4p + 20e + 30p)</td>
+<td>81.6 KB/s</td>
+<td>53.0 KB/s</td>
+<td>35%</td>
+</tr>
+<tr>
+<td>Maximum (55 entities)</td>
+<td>88.5 KB/s</td>
+<td>57.5 KB/s</td>
+<td>35%</td>
+</tr>
+</tbody>
+</table>
+<h3 id="92-latency-comparison">9.2 Latency Comparison</h3>
+<table>
+<thead>
+<tr>
+<th>Protocol</th>
+<th>Average Latency</th>
+<th>Jitter</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>TCP-only (baseline)</td>
+<td>80-150 ms</td>
+<td>±30 ms</td>
+</tr>
+<tr>
+<td><strong>Hybrid TCP/UDP</strong></td>
+<td><strong>15-40 ms</strong></td>
+<td><strong>±10 ms</strong></td>
+</tr>
+<tr>
+<td>Improvement</td>
+<td><strong>60-75%</strong></td>
+<td><strong>66%</strong></td>
+</tr>
+</tbody>
+</table>
+<h3 id="93-memory-usage">9.3 Memory Usage</h3>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Usage</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Network buffers</td>
+<td>128 KB</td>
+<td>Fixed allocation</td>
+</tr>
+<tr>
+<td>ECS (100 entities)</td>
+<td>~90 KB</td>
+<td>SparseSet overhead</td>
+</tr>
+<tr>
+<td>Event queues</td>
+<td>~10 KB</td>
+<td>Variable</td>
+</tr>
+<tr>
+<td>Thread pool</td>
+<td>~50 KB</td>
+<td>Stack per worker</td>
+</tr>
+<tr>
+<td><strong>Total per session</strong></td>
+<td><strong>~300 KB</strong></td>
+<td>Predictable</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="10-key-files-reference">10. Key Files Reference</h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>src/r-type/shared/protocol/compression/PacketCompressor.hpp</code></td>
+<td>LZ4 compression</td>
+</tr>
+<tr>
+<td><code>src/r-type/shared/protocol/compression/CompressionStats.hpp</code></td>
+<td>Metrics tracking</td>
+</tr>
+<tr>
+<td><code>src/r-type/shared/protocol/NetworkConfig.hpp</code></td>
+<td>Network constants</td>
+</tr>
+<tr>
+<td><code>src/r-type/shared/GameConfig.hpp</code></td>
+<td>Game constants</td>
+</tr>
+<tr>
+<td><code>src/engine/include/ecs/SparseSet.hpp</code></td>
+<td>ECS data structure</td>
+</tr>
+<tr>
+<td><code>src/r-type/server/include/SessionThreadPool.hpp</code></td>
+<td>Thread pool</td>
+</tr>
+<tr>
+<td><code>src/r-type/server/include/ServerNetworkSystem.hpp</code></td>
+<td>Snapshot generation</td>
+</tr>
+<tr>
+<td><code>src/r-type/server/src/Server.cpp</code></td>
+<td>Main loop</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="conclusion">Conclusion</h2>
+<p>The R-Type server achieves high performance through layered optimizations:</p>
+<ol>
+<li><strong>Network</strong>: 30-40% bandwidth reduction with &lt; 1% CPU overhead</li>
+<li><strong>ECS</strong>: 86.5% memory savings with improved cache efficiency</li>
+<li><strong>Threading</strong>: Linear scaling with barrier-synchronized parallelism</li>
+<li><strong>Serialization</strong>: Zero-copy POD handling with velocity quantization</li>
+<li><strong>Architecture</strong>: 80%+ tick budget headroom for reliability</li>
+</ol>
+<p>These optimizations enable smooth 4-player gameplay at 64 TPS with minimal latency and bandwidth requirements.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "search.highlight", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
