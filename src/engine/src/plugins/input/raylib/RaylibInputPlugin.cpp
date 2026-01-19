@@ -86,6 +86,13 @@ void RaylibInputPlugin::init_key_mapping() {
     key_mapping[engine::Key::LAlt] = KEY_LEFT_ALT;
     key_mapping[engine::Key::RAlt] = KEY_RIGHT_ALT;
 
+    // Special characters
+    key_mapping[engine::Key::Period] = KEY_PERIOD;
+    key_mapping[engine::Key::Comma] = KEY_COMMA;
+    key_mapping[engine::Key::Slash] = KEY_SLASH;
+    key_mapping[engine::Key::Hyphen] = KEY_MINUS;
+    key_mapping[engine::Key::Semicolon] = KEY_SEMICOLON;
+
     // Function keys
     key_mapping[engine::Key::F1] = KEY_F1;
     key_mapping[engine::Key::F2] = KEY_F2;
