@@ -32,6 +32,7 @@ nav:
   - Architecture:
       - Client Architecture: 'CLIENT_ARCHITECTURE.md'
       - Server Architecture: 'SERVER_ARCHITECTURE.md'
+      - Server Optimizations: 'SERVER_OPTIMIZATIONS.md'
       - Protocol: 'PROTOCOL.md'
       - UDP ACK System: 'UDP_ACK_SYSTEM.md'
       - Create Room Architecture: 'create-room-archi.md'
