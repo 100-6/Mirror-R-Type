@@ -299,6 +299,9 @@ void Server::on_lobby_state_changed(uint32_t lobby_id, const std::vector<uint8_t
     if (actual_payload.empty()) {
         const auto* room = room_manager_.get_room(lobby_id);
         if (room) {
+            std::cout << "[Server] Building lobby state for room " << lobby_id
+                      << " with " << room->player_ids.size() << " players\n";
+
             // Build room state with player info
             protocol::ServerLobbyStatePayload header;
             header.lobby_id = ByteOrder::host_to_net32(lobby_id);
