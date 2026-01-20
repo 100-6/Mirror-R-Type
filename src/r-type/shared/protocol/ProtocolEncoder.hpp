@@ -451,6 +451,7 @@ public:
             std::memcpy(payload_buffer.data() + offset, &player_id_be, sizeof(uint32_t));
             std::memcpy(payload_buffer.data() + offset + 4, players[i].player_name, 32);
             std::memcpy(payload_buffer.data() + offset + 36, &player_level_be, sizeof(uint16_t));
+            payload_buffer[offset + 38] = players[i].skin_id;
         }
         return encode_packet(PacketType::SERVER_LOBBY_STATE, payload_buffer.data(), payload_size, sequence_number);
     }

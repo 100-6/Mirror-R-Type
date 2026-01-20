@@ -252,8 +252,14 @@ void NetworkClient::handle_packet(const engine::NetworkPacket& packet) {
         return;
     }
 
-    protocol::PacketHeader header = protocol::ProtocolEncoder::decode_header(
-        packet.data.data(), packet.data.size());
+    protocol::PacketHeader header;
+    try {
+        header = protocol::ProtocolEncoder::decode_header(
+            packet.data.data(), packet.data.size());
+    } catch (const std::exception& e) {
+        std::cerr << "[NetworkClient] Failed to decode packet header: " << e.what() << "\n";
+        return;
+    }
 
     if (header.version != 0x01) {
         std::cerr << "[NetworkClient] Invalid protocol version: " << static_cast<int>(header.version) << "\n";
