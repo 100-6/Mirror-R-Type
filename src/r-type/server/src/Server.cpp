@@ -307,14 +307,26 @@ void Server::on_lobby_state_changed(uint32_t lobby_id, const std::vector<uint8_t
             header.current_player_count = static_cast<uint8_t>(room->player_ids.size());
             header.required_player_count = room->max_players;
 
-            // Start with header
-            const uint8_t* header_bytes = reinterpret_cast<const uint8_t*>(&header);
-            actual_payload.assign(header_bytes, header_bytes + sizeof(header));
+            // Calculate total payload size
+            size_t payload_size = sizeof(protocol::ServerLobbyStatePayload) +
+                                  room->player_ids.size() * sizeof(protocol::PlayerLobbyEntry);
+            actual_payload.resize(payload_size);
 
-            // Add each player entry
+            // Copy header
+            std::memcpy(actual_payload.data(), &header.lobby_id, sizeof(uint32_t));
+            actual_payload[4] = static_cast<uint8_t>(header.game_mode);
+            actual_payload[5] = static_cast<uint8_t>(header.difficulty);
+            actual_payload[6] = header.current_player_count;
+            actual_payload[7] = header.required_player_count;
+
+            // Add each player entry with proper encoding
+            size_t player_index = 0;
             for (uint32_t player_id : room->player_ids) {
+                size_t offset = 8 + player_index * sizeof(protocol::PlayerLobbyEntry);
+
                 protocol::PlayerLobbyEntry entry;
-                entry.player_id = ByteOrder::host_to_net32(player_id);
+                entry.player_id = player_id;
+                entry.player_level = 0;
 
                 // Get player info from connected_clients_
                 auto client_it = player_to_client_.find(player_id);
@@ -335,10 +347,17 @@ void Server::on_lobby_state_changed(uint32_t lobby_id, const std::vector<uint8_t
                     entry.skin_id = 0;
                     std::cout << "[Server] Adding player " << player_id << " to lobby state: (not found in player_to_client)\n";
                 }
-                entry.player_level = 0;
 
-                const uint8_t* entry_bytes = reinterpret_cast<const uint8_t*>(&entry);
-                actual_payload.insert(actual_payload.end(), entry_bytes, entry_bytes + sizeof(entry));
+                // Manually encode each field with proper byte order
+                uint32_t player_id_be = ByteOrder::host_to_net32(entry.player_id);
+                uint16_t player_level_be = ByteOrder::host_to_net16(entry.player_level);
+
+                std::memcpy(actual_payload.data() + offset, &player_id_be, sizeof(uint32_t));
+                std::memcpy(actual_payload.data() + offset + 4, entry.player_name, 32);
+                std::memcpy(actual_payload.data() + offset + 36, &player_level_be, sizeof(uint16_t));
+                actual_payload[offset + 38] = entry.skin_id;  // This is the critical fix!
+
+                player_index++;
             }
         }
     }
